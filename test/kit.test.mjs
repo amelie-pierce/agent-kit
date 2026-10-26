@@ -620,7 +620,7 @@ function firstmateFixture(t) {
 test('verified source archives create a fresh home and stage a tower build', async t => {
   const f = firstmateFixture(t);
   f.fixtureManifest.tools.push(f.tool('zoe-fleet'));
-  // POSIX rename replaces an empty directory; Windows refuses, and the installer targets macOS only.
+  // POSIX rename replaces an empty directory; Windows refuses, and the installer targets macOS and Linux only.
   if (process.platform !== 'win32') mkdirSync(f.firstmateHome);
   f.options.runCargo = async (_stage, target) => {
     mkdirSync(join(target, 'release'), { recursive: true });

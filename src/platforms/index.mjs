@@ -7,7 +7,7 @@ export function inspectPlatform(context, manifest, selectedTools) {
   const platform = context.platform === 'win32' ? 'windows' : context.platform;
   const message = platform === 'windows'
     ? 'Windows personal-device flow is planned: run native PowerShell/Node preflight, check or guide WSL2 and a Linux distro, then hand off installation to Linux inside WSL. This skeleton does not perform that handoff.'
-    : `${platform} adapter is not yet supported; this release only checks macOS.`;
+    : `${platform} adapter is not yet supported; this release checks macOS and Linux (WSL2 uses the Linux path).`;
   return {
     platform, arch: context.arch, supported: false,
     message,
