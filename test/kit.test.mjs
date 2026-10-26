@@ -148,13 +148,14 @@ test('Linux and WSL2 inspect distro, libc, tools, paths and select Linux artifac
 
 test('Linux preflight reports browser and terminal without failing; WSL2 marks them Windows side', { skip: process.platform === 'win32' }, t => {
   const { home, bin, root } = tempFixture(t);
-  for (const name of ['git', 'curl', 'tar', 'unzip', 'bash', 'sh', 'sha256sum']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
+  for (const name of ['git', 'curl', 'tar', 'unzip', 'bash', 'sh', 'sha256sum', 'herdr']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
   const fixtureManifest = { ...manifest, tools: [structuredClone(manifest.tools.find(x => x.id === 'herdr'))] };
   const base = { platform: 'linux', arch: 'x64', libc: 'glibc', osRelease: 'ID=ubuntu\n', procVersion: 'Linux version 6.8', nodeVersion: '24.21.0', runCommand: () => 'herdr 0.9.3' };
   const check = env => {
     const result = run(['check', '--json', '--install-root', join(root, 'kit')], fixtureManifest, { ...base, env: { HOME: home, PATH: bin, SHELL: join(bin, 'bash'), ...env } });
     const prereq = id => result.result.platform.prerequisites.find(x => x.id === id);
-    return { browser: prereq('browser'), terminal: prereq('terminal'), issues: result.result.issues };
+    return { browser: prereq('browser'), terminal: prereq('terminal'), issues: result.result.issues, advisories: result.result.advisories,
+      summary: result.result.summary, exitCode: result.exitCode, output: run(['check', '--install-root', join(root, 'kit')], fixtureManifest, { ...base, env: { HOME: home, PATH: bin, SHELL: join(bin, 'bash'), ...env } }).output };
   };
   const headless = check({});
   assert.equal(headless.browser.status, 'warn');
@@ -162,16 +163,25 @@ test('Linux preflight reports browser and terminal without failing; WSL2 marks t
   assert.equal(headless.terminal.status, 'unknown');
   assert.match(headless.terminal.detail, /TTY or SSH/);
   assert.match(check({ SSH_CONNECTION: '10.0.0.1 1 10.0.0.2 22' }).terminal.detail, /SSH session/);
-  assert.ok(!headless.issues.some(x => ['browser', 'terminal'].includes(x.id) && x.status === 'fail'));
+  assert.deepEqual(headless.issues, []);
+  assert.deepEqual(headless.advisories.map(x => [x.id, x.status]), [['terminal', 'unknown'], ['browser', 'warn']]);
+  assert.deepEqual([headless.summary, headless.exitCode], ['ready', 0]);
+  assert.match(headless.output, /Advisories \(do not block readiness\):\n- UNKNOWN terminal: .*\n- WARN browser: /);
   for (const name of ['chromium', 'x-terminal-emulator']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
   const desktop = check({});
   assert.deepEqual([desktop.browser.status, desktop.browser.detail], ['pass', join(bin, 'chromium')]);
   assert.deepEqual([desktop.terminal.status, desktop.terminal.detail], ['pass', join(bin, 'x-terminal-emulator')]);
+  assert.deepEqual([desktop.advisories, desktop.exitCode], [[], 0]);
   const wsl2 = check({ WSL_DISTRO_NAME: 'Ubuntu', WSL_INTEROP: '/run/WSL/1_interop' });
   for (const prereq of [wsl2.browser, wsl2.terminal]) {
     assert.equal(prereq.status, 'unknown');
     assert.match(prereq.detail, /Windows side, not checked from Linux/);
   }
+  assert.deepEqual(wsl2.advisories.map(x => [x.id, x.status]), [['terminal', 'unknown'], ['browser', 'unknown']]);
+  assert.deepEqual([wsl2.issues, wsl2.summary, wsl2.exitCode], [[], 'ready', 0]);
+  rmSync(join(bin, 'sha256sum'));
+  const missingTool = check({ WSL_DISTRO_NAME: 'Ubuntu', WSL_INTEROP: '/run/WSL/1_interop' });
+  assert.deepEqual([missingTool.issues.map(x => [x.id, x.status]), missingTool.exitCode], [[['sha256sum', 'fail']], 1]);
   assert.deepEqual(readdirSync(home), []);
 });
 
@@ -211,6 +221,10 @@ test('macOS preflight reports shell, install root, unzip, terminal and browser r
   assert.equal(status(bare, 'zsh').status, 'pass');
   assert.equal(status(bare, 'terminal').status, 'unknown');
   assert.equal(status(bare, 'browser').status, 'fail');
+  assert.ok(bare.result.issues.some(x => x.id === 'unzip' && x.status === 'fail'));
+  assert.ok(!bare.result.issues.some(x => ['terminal', 'browser'].includes(x.id)));
+  assert.deepEqual(bare.result.advisories.map(x => [x.id, x.status]), [['terminal', 'unknown'], ['browser', 'fail']]);
+  assert.equal(bare.exitCode, 1);
   assert.equal(status(bare, 'install-root').status, 'pass');
   assert.match(status(bare, 'install-root').detail, new RegExp(`nearest existing ancestor ${home}`));
 

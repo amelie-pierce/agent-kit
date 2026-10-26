@@ -69,13 +69,16 @@ const loginSteps = {
   'figma-cli': 'Sign in directly with Figma and grant OS permissions yourself.',
 };
 
+const advisoryPrerequisites = ['terminal', 'browser'];
+
 function evaluate(manifest, context, options) {
   const selected = manifest.tools.filter(tool => tool.classification !== 'never-ship' && (tool.profile === 'core' || tool.profile === options.harness || (options.withFigma && tool.profile === 'figma')));
   const platform = inspectPlatform(context, manifest, selected);
   const issues = [];
+  const advisories = [];
   if (compareVersions(context.nodeVersion, manifest.nodeMinimum) < 0) issues.push({ status: 'fail', id: 'node-runtime', reason: `Node ${manifest.nodeMinimum} or newer required` });
   if (!platform.supported) issues.push({ status: 'fail', id: 'platform', reason: platform.message });
-  for (const prereq of platform.prerequisites) if (prereq.status !== 'pass') issues.push({ status: prereq.status, id: prereq.id, reason: prereq.detail });
+  for (const prereq of platform.prerequisites) if (prereq.status !== 'pass') (advisoryPrerequisites.includes(prereq.id) ? advisories : issues).push({ status: prereq.status, id: prereq.id, reason: prereq.detail });
   for (const result of platform.tools) if (result.status !== 'pass') issues.push({ status: result.status, id: result.id, reason: result.reason });
   for (const conflict of platform.pathConflicts) issues.push({ status: 'fail', id: conflict.id, reason: 'multiple executable paths; PATH precedence needs review' });
   const target = `${platform.platform === 'wsl2' ? 'linux' : platform.platform}-${context.arch}`;
@@ -85,7 +88,7 @@ function evaluate(manifest, context, options) {
     if (!artifact || artifact.status !== 'verified') issues.push({ status: 'unknown', id: tool.id, reason: artifact?.reason || `artifact for ${target} is not reviewed` });
   }
   const optional = manifest.tools.filter(tool => tool.classification !== 'never-ship' && !selected.includes(tool));
-  return { selected, optional, platform, issues, target };
+  return { selected, optional, platform, issues, advisories, target };
 }
 
 function human(result) {
@@ -109,6 +112,8 @@ function human(result) {
     for (const tool of result.platform.tools) lines.push(`${tool.status.toUpperCase()} ${tool.id}: ${tool.reason}${tool.detected ? ` (${tool.detected})` : ''}`);
   }
   for (const issue of result.issues) lines.push(`${issue.status.toUpperCase()} ${issue.id}: ${issue.reason}`);
+  if (result.advisories.length) lines.push('Advisories (do not block readiness):');
+  for (const advisory of result.advisories) lines.push(`- ${advisory.status.toUpperCase()} ${advisory.id}: ${advisory.reason}`);
   return lines.join('\n') + '\n';
 }
 
@@ -156,7 +161,7 @@ export function run(argv, manifest, context) {
     loginSteps: evaluation.selected.filter(tool => tool.classification === 'per-user-login').map(tool => loginSteps[tool.id]).filter(Boolean),
   } : undefined;
   const result = { command: options.command, release: manifest.release, harness: options.harness, withFigma: options.withFigma,
-    platform: evaluation.platform, plan, issues: evaluation.issues,
+    platform: evaluation.platform, plan, issues: evaluation.issues, advisories: evaluation.advisories,
     summary: evaluation.issues.length ? `${evaluation.issues.length} gaps or unknowns` : 'ready', readOnly: true };
   return { output: options.json ? JSON.stringify(result, null, 2) + '\n' : human(result), exitCode: evaluation.issues.length ? 1 : 0, result };
 }
