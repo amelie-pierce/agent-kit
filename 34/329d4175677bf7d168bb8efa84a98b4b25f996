@@ -1,0 +1,21 @@
+README.md
+  s_81e6dd77056ac4::t_99d34dcaac6798 39-60
+manifests/pilot-skeleton.json
+  s_81e6dd77056ac4::t_79cbd6f4f043c2 563,641,719,797,875,1265
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "34329d4175677bf7d168bb8efa84a98b4b25f996",
+  "prompts": {},
+  "sessions": {
+    "s_81e6dd77056ac4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9714d2fc-80cf-4872-a111-785118d08c92",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
