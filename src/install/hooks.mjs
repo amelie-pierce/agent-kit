@@ -122,39 +122,62 @@ function mergeHooks(source, desired, root, path) {
   // Do not reserialize an unchanged file, including whitespace and key order.
   return { value, changes };
 }
+const tomlKey = String.raw`(?:[A-Za-z0-9_-]+|"(?:[^"\\]|\\.)*"|'[^']*')`;
+const tomlDottedKey = `${tomlKey}(?:\\s*\\.\\s*${tomlKey})*`;
+const tomlHeader = new RegExp(`^(?:\\[\\s*(${tomlDottedKey})\\s*\\]|\\[\\[\\s*${tomlDottedKey}\\s*\\]\\])\\s*(?:#.*)?$`);
+const tomlAssignment = new RegExp(`^(${tomlDottedKey})\\s*=\\s*(.+)$`);
+const tomlName = key => key.split(/\s*\.\s*/).map(part => part.replace(/^(["'])(.*)\1$/, '$2')).join('.');
+// Tracks strings and bracket depth so lines inside multi-line values are never read as headers or keys.
+function tomlScan(text, state, path, line) {
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (state.string) {
+      if (text.startsWith(state.string, i)) { i += state.string.length - 1; state.string = null; }
+      else if (ch === '\\' && state.string.startsWith('"')) i++;
+      continue;
+    }
+    if (ch === '#') break;
+    const triple = ['"""', "'''"].find(delimiter => text.startsWith(delimiter, i));
+    if (triple) { state.string = triple; i += 2; }
+    else if (ch === '"' || ch === "'") state.string = ch;
+    else if (ch === '[' || ch === '{') state.depth++;
+    else if (ch === ']' || ch === '}') state.depth--;
+  }
+  if (state.string?.length === 1 || state.depth < 0) throw new Error(`${path}: malformed TOML at line ${line}; refusing hooks phase`);
+}
 function tomlFeature(source, desired, path) {
   if (source === null && !desired) return { after: null, changes: [] };
   const input = source || '';
   const newline = input.includes('\r\n') ? '\r\n' : '\n';
   const lines = input.split(/\r?\n/);
   // Only table headers and the features.hooks key are interpreted; every other line passes through untouched.
-  let section = '', featureAt = -1, featureEnd = -1, hookAt = -1, hookValue = null, multiline = null;
+  let section = '', featureAt = -1, featureEnd = -1, hookAt = -1, hookValue = null;
+  const state = { string: null, depth: 0 };
   for (let i = 0; i < lines.length; i++) {
+    if (state.string || state.depth) { tomlScan(lines[i], state, path, i + 1); continue; }
     const line = lines[i].trim();
-    if (multiline) {
-      if (line.includes(multiline)) multiline = null;
-      continue;
-    }
-    multiline = ['"""', "'''"].find(delimiter => line.split(delimiter).length % 2 === 0) || null;
     if (!line || line.startsWith('#')) continue;
-    const header = line.match(/^\[\s*([^[\]]+?)\s*\](?:\s*#.*)?$/);
-    if (header || /^\[\[.*\]\](?:\s*#.*)?$/.test(line)) {
+    const header = line.match(tomlHeader);
+    if (header) {
       if (section === 'features') featureEnd = i;
-      section = header ? header[1] : 'array';
+      section = header[1] === undefined ? 'array' : tomlName(header[1]);
       if (section === 'features') {
         if (featureAt !== -1) throw new Error(`${path}: duplicate [features] table; refusing hooks phase`);
         featureAt = i;
       }
       continue;
     }
-    const assignment = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/);
-    if (!assignment) continue;
-    if (section === '' && assignment[1] === 'features.hooks') throw new Error(`${path}: dotted features.hooks needs manual review; refusing hooks phase`);
-    if (section === 'features' && assignment[1] === 'hooks') {
+    const assignment = line.match(tomlAssignment);
+    if (!assignment) throw new Error(`${path}: malformed TOML at line ${i + 1}; refusing hooks phase`);
+    tomlScan(assignment[2], state, path, i + 1);
+    const key = tomlName(assignment[1]);
+    if (section === '' && (key === 'features' || key.startsWith('features.'))) throw new Error(`${path}: dotted or inline features needs manual review; refusing hooks phase`);
+    if (section === 'features' && key === 'hooks') {
       if (hookAt !== -1 || !/^(true|false)(?:\s*#.*)?$/.test(assignment[2])) throw new Error(`${path}: invalid features.hooks value; refusing hooks phase`);
       hookAt = i; hookValue = assignment[2].startsWith('true');
     }
   }
+  if (state.string || state.depth) throw new Error(`${path}: unterminated TOML value; refusing hooks phase`);
   if (!desired || hookValue === true) return { after: source, changes: [] };
   const out = [...lines];
   if (hookAt !== -1) out[hookAt] = out[hookAt].replace(/\bfalse\b/, 'true');

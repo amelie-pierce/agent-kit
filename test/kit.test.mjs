@@ -407,6 +407,17 @@ test('malformed global files and unowned skill conflicts refuse the hooks phase'
   assert.ok(refused.result.plan.tools.length > 0);
   writeFileSync(claude, '{}\n'); writeFileSync(toml, '[features]\nhooks = "yes"\n');
   assert.throws(() => previewHooks(f.fixtureManifest, f), /invalid features.hooks/);
+  writeFileSync(toml, 'not toml\n');
+  assert.throws(() => previewHooks(f.fixtureManifest, f), /malformed TOML/);
+  writeFileSync(toml, 'x = [\n  [1, 2]\n]\nfeatures.hooks = false\n');
+  assert.throws(() => previewHooks(f.fixtureManifest, f), /dotted or inline features/);
+  writeFileSync(toml, 'note = "a\n');
+  assert.throws(() => previewHooks(f.fixtureManifest, f), /malformed TOML/);
+  writeFileSync(toml, 'args = [\n  "a",\n');
+  assert.throws(() => previewHooks(f.fixtureManifest, f), /unterminated TOML value/);
+  const commented = '# say """\n[features]\nlist = [\n  [1, 2]\n]\nhooks = false # off\n';
+  writeFileSync(toml, commented);
+  assert.equal(previewHooks(f.fixtureManifest, f).files[2].after, commented.replace('hooks = false', 'hooks = true'));
   writeFileSync(toml, '[features]\nhooks = false\n');
   const skill = join(f.home, '.agents', 'skills', 'gh-axi');
   mkdirSync(dirname(skill), { recursive: true }); mkdirSync(skill);
