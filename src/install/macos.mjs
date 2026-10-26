@@ -6,6 +6,7 @@ import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep 
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { applyHooks, previewHooks, publicHookChanges } from './hooks.mjs';
+import { linuxIdentity } from '../platforms/linux.mjs';
 
 const exec = promisify(execFile);
 const npmIds = new Set(['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi', 'codex']);
@@ -229,9 +230,10 @@ async function npmPhase(root, release, group, manifest, receipt, save, options) 
   return { id, status: 'installed', reason: 'npm ci from committed integrity lock; scripts disabled', packages };
 }
 
-export async function installMacOS(manifest, options = {}) {
+export async function installPlatform(manifest, options = {}) {
   const platform = options.platform || process.platform, arch = options.arch || process.arch;
-  if (platform !== 'darwin' || !['arm64', 'x64'].includes(arch)) return { status: 'unsupported', exitCode: 2, components: [], message: `unsupported install target ${platform}/${arch}`,
+  const linux = platform === 'linux' ? linuxIdentity({ env: options.env || process.env, procVersion: options.procVersion, osRelease: options.osRelease, libc: options.libc }) : null;
+  if (!['darwin', 'linux'].includes(platform) || !['arm64', 'x64'].includes(arch) || (linux && (linux.libc !== 'glibc' || (linux.wsl && !linux.wsl2)))) return { status: 'unsupported', exitCode: 2, components: [], message: `unsupported install target ${platform}/${arch}${linux ? ` (${linux.libc}${linux.wsl && !linux.wsl2 ? ', WSL1' : ''})` : ''}`,
     bin: null, npmBin: null, codexBin: null, firstmateHome: null, towerParity: 'unavailable', loginSteps: [] };
   const nodeVersion = options.nodeVersion || process.versions.node;
   const actual = nodeVersion.split('.').map(Number), minimum = manifest.nodeMinimum.split('.').map(Number);
@@ -253,13 +255,13 @@ export async function installMacOS(manifest, options = {}) {
     if (recordedHome && recordedHome !== firstmateHome) throw new Error(`--firstmate-home differs from the Firstmate home recorded in the receipt (${recordedHome}); refusing to move it`);
     if (!recordedHome && !(await newDirectory(firstmateHome))) throw new Error('--firstmate-home must be a new or empty directory; refusing to inherit it');
     const save = () => atomicJson(receiptPath, receipt);
-    const components = [], targetKey = `darwin-${arch}`;
+    const components = [], targetKey = `${platform}-${arch}`;
     await mkdir(join(root, 'releases', release, 'staging'), { recursive: true, mode: 0o700 });
     for (const tool of selected(manifest, options.harness || 'claude', !!options.withFigma)) {
       if (npmIds.has(tool.id)) continue;
       const a = tool.artifacts[targetKey];
       if (tool.version.status !== 'verified' || a?.status !== 'verified') {
-        components.push({ id: tool.id, status: 'unverified', reason: a?.reason || tool.version.reason || 'no verified macOS artifact' });
+        components.push({ id: tool.id, status: 'unverified', reason: a?.reason || tool.version.reason || `no verified ${platform} artifact` });
         continue;
       }
       if (!binaryIds.has(tool.id) && !sourceIds.has(tool.id)) {
@@ -380,9 +382,13 @@ export async function installMacOS(manifest, options = {}) {
       loginSteps: selected(manifest, options.harness || 'claude', !!options.withFigma).map(t => login[t.id]).filter(Boolean),
       nextSteps: [
         'Codex reviews new or changed hooks interactively; review and approve them yourself when prompted.',
-        'no-mistakes init installs its user-level skill when you initialize your own repository.'] };
+        'no-mistakes init installs its user-level skill when you initialize your own repository.',
+        ...(linux?.wsl2 ? ['Use Windows Terminal and a browser on the Windows side; run agent tools inside your WSL2 Linux distro.'] : [])] };
   } finally { await unlock(); }
 }
+
+export const installMacOS = installPlatform;
+export const installLinux = installPlatform;
 
 export function formatInstall(result) {
   return [

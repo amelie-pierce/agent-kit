@@ -26,14 +26,14 @@ function exists(path) {
   try { statSync(path); return true; } catch { return false; }
 }
 
-function inspectShell(shell) {
+export function inspectShell(shell) {
   if (!shell) return { id: 'shell', status: 'unknown', detail: 'SHELL is not set' };
   if (!isExecutable(shell)) return { id: 'shell', status: 'fail', detail: `${shell} is not executable` };
   const supported = ['bash', 'zsh'].includes(basename(shell));
   return { id: 'shell', status: supported ? 'pass' : 'unknown', detail: supported ? shell : `${shell} is not bash or zsh` };
 }
 
-function inspectInstallRoot(home, requestedRoot) {
+export function inspectInstallRoot(home, requestedRoot) {
   const root = requestedRoot || join(home, '.agent-kit');
   let existing = root;
   while (!exists(existing) && dirname(existing) !== existing) existing = dirname(existing);
@@ -59,7 +59,7 @@ function inspectBrowser(dirs) {
   return { id: 'browser', status: other.length ? 'unknown' : 'fail', detail: other.length ? `Google Chrome absent; found ${other[0]}` : 'no browser found' };
 }
 
-function inspectCommand(tool, context) {
+export function inspectCommand(tool, context) {
   const { command, args } = tool.detection;
   const paths = findOnPath(command, context.env.PATH);
   if (!paths.length) return { id: tool.id, status: 'fail', reason: `${command} absent from PATH`, paths: [] };
@@ -74,7 +74,7 @@ function inspectCommand(tool, context) {
   return { id: tool.id, status: matches ? 'pass' : 'fail', reason: matches ? 'version matches' : `expected ${version}`, paths, detected };
 }
 
-function inspectSource(tool, context) {
+export function inspectSource(tool, context) {
   const directory = join(context.env.HOME || '', tool.installLocation.relativePath);
   const git = findOnPath('git', context.env.PATH)[0];
   if (!git) return { id: tool.id, status: 'unknown', reason: 'git absent from PATH', paths: [] };

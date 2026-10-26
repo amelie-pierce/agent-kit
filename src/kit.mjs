@@ -78,7 +78,7 @@ function evaluate(manifest, context, options) {
   for (const prereq of platform.prerequisites) if (prereq.status !== 'pass') issues.push({ status: prereq.status, id: prereq.id, reason: prereq.detail });
   for (const result of platform.tools) if (result.status !== 'pass') issues.push({ status: result.status, id: result.id, reason: result.reason });
   for (const conflict of platform.pathConflicts) issues.push({ status: 'fail', id: conflict.id, reason: 'multiple executable paths; PATH precedence needs review' });
-  const target = `${platform.platform}-${context.arch}`;
+  const target = `${platform.platform === 'wsl2' ? 'linux' : platform.platform}-${context.arch}`;
   for (const tool of selected) {
     if (tool.version.status !== 'verified' && !issues.some(x => x.id === tool.id && x.reason === tool.version.reason)) issues.push({ status: 'unknown', id: tool.id, reason: tool.version.reason });
     const artifact = tool.artifacts[target];
@@ -132,7 +132,7 @@ export function run(argv, manifest, context) {
   if (!context.env.HOME) throw new Error('HOME must be set');
   const evaluation = evaluate(manifest, { ...context, installRoot: options.installRoot }, options);
   let globalHookChanges = [];
-  if (options.command === 'plan' && evaluation.platform.platform === 'darwin') {
+  if (options.command === 'plan' && ['darwin', 'linux', 'wsl2'].includes(evaluation.platform.platform)) {
     try {
       globalHookChanges = publicHookChanges(previewHooks(manifest, { home: context.env.HOME, installRoot: options.installRoot || join(context.env.HOME, '.agent-kit') }));
     } catch (error) {

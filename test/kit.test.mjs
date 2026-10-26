@@ -6,7 +6,7 @@ import { basename, dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { run, validateManifest } from '../src/kit.mjs';
-import { formatInstall, installMacOS } from '../src/install/macos.mjs';
+import { formatInstall, installMacOS, installLinux } from '../src/install/macos.mjs';
 import { applyHooks, previewHooks, publicHookChanges } from '../src/install/hooks.mjs';
 import { createHash } from 'node:crypto';
 
@@ -31,12 +31,12 @@ function tempFixture(t) {
   return { root, home, bin };
 }
 
-test('bundled manifest keeps verified source commits and macOS digests', () => {
+test('bundled manifest keeps verified source commits and macOS/Linux digests', () => {
   validateManifest(manifest);
   assert.match(manifest.tools.find(x => x.id === 'firstmate').version.value, /^[a-f0-9]{40}$/);
   assert.match(manifest.tools.find(x => x.id === 'zoe-fleet').version.value, /^[a-f0-9]{40}$/);
   assert.ok(['firstmate', 'zoe-fleet', 'herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint'].every(id =>
-    ['darwin-arm64', 'darwin-x64'].every(target => manifest.tools.find(x => x.id === id).artifacts[target].status === 'verified')));
+    ['darwin-arm64', 'darwin-x64', 'linux-arm64', 'linux-x64'].every(target => manifest.tools.find(x => x.id === id).artifacts[target].status === 'verified')));
 });
 
 test('macOS check uses fake HOME and PATH, detects versions and path precedence', { skip: process.platform === 'win32' }, t => {
@@ -109,12 +109,9 @@ test('source commit detection does not walk up into an enclosing HOME repository
   assert.equal(result.detected, undefined);
 });
 
-test('Windows and WSL2 stubs state the handoff and do not inspect tools', t => {
+test('Windows stub remains read only and unsupported', t => {
   const { home, bin } = tempFixture(t);
-  for (const [platform, env, expected] of [
-    ['win32', { HOME: home, PATH: bin }, 'PowerShell/Node preflight'],
-    ['linux', { HOME: home, PATH: bin, WSL_DISTRO_NAME: 'Ubuntu' }, 'wsl2 adapter is not yet supported'],
-  ]) {
+  for (const [platform, env, expected] of [['win32', { HOME: home, PATH: bin }, 'PowerShell/Node preflight']]) {
     const result = run(['plan', '--json', '--harness', 'codex'], manifest, { platform, arch: 'x64', env, nodeVersion: '24.15.0' });
     assert.equal(result.exitCode, 1);
     assert.match(result.output, new RegExp(expected));
@@ -125,6 +122,41 @@ test('Windows and WSL2 stubs state the handoff and do not inspect tools', t => {
     assert.equal(result.result.plan.globalHookChanges.length, 0);
   }
   assert.deepEqual(readdirSync(home), []);
+});
+
+test('Linux and WSL2 inspect distro, libc, tools, paths and select Linux artifacts', { skip: process.platform === 'win32' }, t => {
+  const { home, bin, root } = tempFixture(t);
+  for (const name of ['git', 'curl', 'tar', 'unzip', 'bash', 'sh', 'sha256sum', 'herdr']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
+  const tool = structuredClone(manifest.tools.find(x => x.id === 'herdr'));
+  const fixtureManifest = { ...manifest, tools: [tool] };
+  const base = { platform: 'linux', arch: 'x64', libc: 'glibc', osRelease: 'ID=ubuntu\nPRETTY_NAME="Ubuntu 24.04 LTS"\n', procVersion: 'Linux version 6.8', nodeVersion: '24.21.0',
+    runCommand: () => 'herdr 0.9.3' };
+  for (const env of [{ HOME: home, PATH: bin, SHELL: join(bin, 'bash') }, { HOME: home, PATH: bin, SHELL: join(bin, 'bash'), WSL_DISTRO_NAME: 'Ubuntu', WSL_INTEROP: '/run/WSL/1_interop' }]) {
+    const result = run(['plan', '--json', '--install-root', join(root, 'kit')], fixtureManifest, { ...base, env });
+    assert.equal(result.result.platform.supported, true);
+    assert.equal(result.result.platform.distro, 'Ubuntu 24.04 LTS');
+    assert.equal(result.result.platform.libc, 'glibc');
+    assert.equal(result.result.platform.wsl2, Boolean(env.WSL_INTEROP));
+    assert.equal(result.result.platform.tools[0].status, 'pass');
+    assert.equal(result.result.plan.tools[0].artifactUrl, tool.artifacts['linux-x64'].url);
+    assert.ok(result.result.plan.globalHookChanges.length > 0);
+    assert.equal(result.result.platform.prerequisites.find(x => x.id === 'sha256sum').status, 'pass');
+    if (env.WSL_INTEROP) assert.match(result.result.platform.message, /Windows/);
+  }
+  assert.deepEqual(readdirSync(home), []);
+});
+
+test('Linux unsupported architecture, libc and WSL1 refuse before inspection or writes', async t => {
+  const f = installFixture(t);
+  for (const override of [{ arch: 'mips', libc: 'glibc' }, { arch: 'x64', libc: 'musl' }, { arch: 'x64', libc: 'glibc', env: { WSL_DISTRO_NAME: 'Ubuntu' }, procVersion: 'Microsoft WSL1' }]) {
+    const options = { ...f.options, platform: 'linux', ...override };
+    const result = await installLinux(f.fixtureManifest, options);
+    assert.equal(result.status, 'unsupported');
+    assert.equal(existsSync(f.installRoot), false);
+    const planned = run(['check', '--json'], f.fixtureManifest, { ...options, env: { HOME: f.home, PATH: f.bin, ...override.env } });
+    assert.equal(planned.result.platform.supported, false);
+    assert.deepEqual(planned.result.platform.tools, []);
+  }
 });
 
 test('macOS preflight reports shell, install root, unzip, terminal and browser read-only', { skip: process.platform === 'win32' }, t => {
@@ -280,12 +312,64 @@ test('checksum mismatch refuses activation', async t => {
 
 test('unsupported targets stop before any write', async t => {
   const f = installFixture(t);
-  for (const [platform, arch] of [['linux', 'arm64'], ['darwin', 'mips']]) {
+  for (const [platform, arch] of [['win32', 'arm64'], ['darwin', 'mips']]) {
     const result = await installMacOS(f.fixtureManifest, { ...f.options, platform, arch });
     assert.equal(result.status, 'unsupported');
     assert.match(formatInstall(result), new RegExp(`^Agent Kit install: unsupported\nunsupported install target ${platform}/${arch}\n`));
   }
   assert.deepEqual(readdirSync(f.home), []);
+});
+
+test('Linux fixture install reuses receipts, checksum verification and global hooks', { skip: process.platform === 'win32' }, async t => {
+  const f = installFixture(t);
+  const artifact = f.fixtureManifest.tools[0].artifacts['darwin-arm64'];
+  f.fixtureManifest.tools[0].artifacts['linux-arm64'] = { ...artifact };
+  f.options = { ...f.options, platform: 'linux', libc: 'glibc' };
+  const first = await installLinux(f.fixtureManifest, f.options);
+  assert.equal(first.status, 'installed');
+  assert.equal(first.components[0].status, 'installed');
+  const second = await installLinux(f.fixtureManifest, f.options);
+  assert.equal(second.components[0].status, 'skipped');
+  assert.equal(f.downloads.length, 1);
+  assert.equal(JSON.parse(readFileSync(first.receipt)).phases.herdr.artifactSha256, artifact.sha256);
+
+  const hooks = hookFixture(t);
+  const preview = previewHooks(hooks.fixtureManifest, hooks);
+  assert.ok(preview.files.some(x => x.changes.length));
+  await applyHooks(preview, hooks);
+  assert.equal(previewHooks(hooks.fixtureManifest, hooks).files.flatMap(x => x.changes).length, 0);
+  assert.ok(existsSync(join(hooks.home, '.claude', 'settings.json')));
+});
+
+test('WSL2 install selects Linux artifact and prints Windows-side notes', async t => {
+  const f = installFixture(t);
+  f.fixtureManifest.tools[0].artifacts['linux-arm64'] = { ...f.fixtureManifest.tools[0].artifacts['darwin-arm64'] };
+  const result = await installLinux(f.fixtureManifest, { ...f.options, platform: 'linux', libc: 'glibc', env: { WSL_INTEROP: '/run/WSL/1_interop' } });
+  assert.equal(result.components[0].status, 'installed');
+  assert.match(formatInstall(result), /Windows Terminal and a browser on the Windows side/);
+});
+
+test('Linux npm locks include Codex platform packages and run the hooks phase', { skip: process.platform === 'win32' }, async t => {
+  const lock = JSON.parse(readFileSync(join(root, 'manifests/npm-codex/package-lock.json')));
+  for (const arch of ['x64', 'arm64']) assert.ok(lock.packages[`node_modules/@openai/codex-linux-${arch}`]?.integrity);
+  const f = installFixture(t);
+  f.fixtureManifest.tools = ['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi'].map(id => structuredClone(manifest.tools.find(x => x.id === id)));
+  f.options = { ...f.options, platform: 'linux', libc: 'glibc', runNpm: async stage => {
+    const bins = join(stage, 'node_modules', '.bin');
+    mkdirSync(bins, { recursive: true });
+    for (const id of ['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi']) {
+      const skill = id === 'lavish-axi' ? 'lavish' : id;
+      const path = join(stage, 'node_modules', id, 'skills', skill);
+      mkdirSync(path, { recursive: true });
+      writeFileSync(join(path, 'SKILL.md'), `---\nname: ${skill}\ndescription: fixture\n---\n`);
+      writeFileSync(join(bins, id), 'fixture', { mode: 0o755 });
+    }
+  } };
+  const result = await installLinux(f.fixtureManifest, f.options);
+  assert.deepEqual(result.components.map(x => x.id), ['npm', 'hooks']);
+  assert.deepEqual(result.components.map(x => x.status), ['installed', 'installed']);
+  const second = await installLinux(f.fixtureManifest, f.options);
+  assert.deepEqual(second.components.map(x => x.status), ['skipped', 'skipped']);
 });
 
 function hookFixture(t) {

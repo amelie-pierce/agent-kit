@@ -268,16 +268,16 @@
           "reason": "SHA-256 computed from the pinned GitHub source archive."
         },
         "linux-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/3cebfb5e809f7e87cea296a59fe14e2f1e47b7b6",
+          "sha256": "845d2faeee9b8248f4924023226f4f3c7a273e1c637b814f83c0d14ce2d323ac",
+          "status": "verified",
+          "reason": "SHA-256 of pinned source archive, shared across supported hosts."
         },
         "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/3cebfb5e809f7e87cea296a59fe14e2f1e47b7b6",
+          "sha256": "845d2faeee9b8248f4924023226f4f3c7a273e1c637b814f83c0d14ce2d323ac",
+          "status": "verified",
+          "reason": "SHA-256 of pinned source archive, shared across supported hosts."
         },
         "wsl2-arm64": {
           "url": null,
@@ -347,16 +347,16 @@
           "reason": "GitHub release asset SHA-256 digest."
         },
         "linux-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-linux-aarch64",
+          "sha256": "4de7aa3e25678812e92960de64f7c2aaa1bca1f0f80a3c5e559837e231e1f5c0",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-linux-x86_64",
+          "sha256": "18a8dc65f1c2fa485884344356dea1cfd911c6f06cf46fa78e193f4087f4dba7",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "wsl2-arm64": {
           "url": null,
@@ -425,16 +425,16 @@
           "reason": "SHA-256 computed from the pinned GitHub source archive."
         },
         "linux-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/a8c495a887ed78308f7c682c5d194835e7094b05",
+          "sha256": "fca7c36b0b1682d0611bf3e9add9407c269af79163d85d046bd34ae927ececfe",
+          "status": "verified",
+          "reason": "SHA-256 of pinned source archive, shared across supported hosts."
         },
         "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/a8c495a887ed78308f7c682c5d194835e7094b05",
+          "sha256": "fca7c36b0b1682d0611bf3e9add9407c269af79163d85d046bd34ae927ececfe",
+          "status": "verified",
+          "reason": "SHA-256 of pinned source archive, shared across supported hosts."
         },
         "wsl2-arm64": {
           "url": null,
@@ -504,16 +504,16 @@
           "reason": "GitHub release asset SHA-256 digest."
         },
         "linux-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/kunchenguid/treehouse/releases/download/v2.3.0/treehouse-v2.3.0-linux-arm64.tar.gz",
+          "sha256": "408589ba72b58d5e942071ed863a83fd96566cfd1e514945daa59defde528bbb",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/kunchenguid/treehouse/releases/download/v2.3.0/treehouse-v2.3.0-linux-amd64.tar.gz",
+          "sha256": "94fd2b2c20c35aac1ddc2941317890ad82c9916f5ccecbac4a50cda783eed10f",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "wsl2-arm64": {
           "url": null,
@@ -972,16 +972,16 @@
           "reason": "GitHub release asset SHA-256 digest."
         },
         "linux-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/kunchenguid/no-mistakes/releases/download/v1.79.0/no-mistakes-v1.79.0-linux-arm64.tar.gz",
+          "sha256": "eac3f8e494c7d2487594b7eb513e605e59588be4ce147390b8fd184a7e6a8b05",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/kunchenguid/no-mistakes/releases/download/v1.79.0/no-mistakes-v1.79.0-linux-amd64.tar.gz",
+          "sha256": "d178c8a5134763b8e5f6d82545a3a76285fbbcdc13d09020d1091ec80a3f8da6",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "wsl2-arm64": {
           "url": null,
@@ -1050,16 +1050,16 @@
           "reason": "GitHub release asset SHA-256 digest."
         },
         "linux-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.aarch64.tar.gz",
+          "sha256": "68a8133197a50beb8803f8d42f9908d1af1c5540d4bb05fdfca8c1fa47decefc",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.gz",
+          "sha256": "b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "wsl2-arm64": {
           "url": null,
@@ -1128,16 +1128,16 @@
           "reason": "GitHub release asset SHA-256 digest."
         },
         "linux-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_arm64.tar.gz",
+          "sha256": "325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz",
+          "sha256": "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "wsl2-arm64": {
           "url": null,
