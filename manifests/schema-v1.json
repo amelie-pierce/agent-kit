@@ -75,13 +75,14 @@
       "type": "object", "additionalProperties": false,
       "required": ["kind", "command", "args"],
       "properties": {
-        "kind": { "enum": ["command", "git-head"] },
+        "kind": { "enum": ["command", "git-head", "presence"] },
         "command": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
         "args": { "type": "array", "items": { "type": "string" } }
       },
       "oneOf": [
         { "properties": { "kind": { "const": "git-head" }, "command": { "const": "git" }, "args": { "const": ["rev-parse", "HEAD"] } } },
-        { "properties": { "kind": { "const": "command" }, "args": { "enum": [["--version"], ["-version"]] } } }
+        { "properties": { "kind": { "const": "command" }, "args": { "enum": [["--version"], ["-version"]] } } },
+        { "properties": { "kind": { "const": "presence" }, "args": { "const": [] } } }
       ]
     }
   }

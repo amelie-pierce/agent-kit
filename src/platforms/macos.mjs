@@ -63,6 +63,7 @@ function inspectCommand(tool, context) {
   const { command, args } = tool.detection;
   const paths = findOnPath(command, context.env.PATH);
   if (!paths.length) return { id: tool.id, status: 'fail', reason: `${command} absent from PATH`, paths: [] };
+  if (tool.detection.kind === 'presence') return { id: tool.id, status: 'unknown', reason: 'present; version not read because its command writes into HOME', paths };
   const output = safeRun(paths[0], args, context);
   if (output === null) return { id: tool.id, status: 'unknown', reason: 'version command failed or timed out', paths };
   const version = tool.version.value;

@@ -29,7 +29,8 @@ export function validateManifest(manifest) {
       if (artifact.status === 'verified' && (!artifact.url || !artifact.sha256)) throw new Error(`verified artifact incomplete for ${tool.id}`);
     }
     const d = tool.detection;
-    const validDetection = d?.kind === 'git-head' ? d.command === 'git' && JSON.stringify(d.args) === '["rev-parse","HEAD"]' : d?.kind === 'command' && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(d.command || '') && (JSON.stringify(d.args) === '["--version"]' || JSON.stringify(d.args) === '["-version"]');
+    const validDetection = d?.kind === 'git-head' ? d.command === 'git' && JSON.stringify(d.args) === '["rev-parse","HEAD"]' : d?.kind === 'command' && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(d.command || '') && (JSON.stringify(d.args) === '["--version"]' || JSON.stringify(d.args) === '["-version"]')
+      || d?.kind === 'presence' && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(d.command || '') && JSON.stringify(d.args) === '[]';
     if (!validDetection) throw new Error(`unsafe detection command for ${tool.id}`);
   }
   return manifest;

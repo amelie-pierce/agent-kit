@@ -20,7 +20,7 @@ function fakeApps(root, names) {
 
 function tempFixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'agent-kit-test-'));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  t.after(() => rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }));
   const home = join(root, 'home');
   const bin = join(root, 'bin');
   mkdirSync(home);
@@ -201,5 +201,21 @@ test('CLI writes no files under a temporary HOME in check or plan', t => {
     assert.equal(result.status, 1, result.stderr);
     assert.equal(JSON.parse(result.stdout).readOnly, true);
     assert.deepEqual(readdirSync(home), []);
+  }
+});
+
+test('--with-figma does not run figma-cli, which writes into HOME', { skip: process.platform === 'win32' }, t => {
+  const { home, bin } = tempFixture(t);
+  writeFileSync(join(bin, 'figma-cli'), '#!/bin/sh\nmkdir -p "$HOME/.figma-cli/plugins"\necho 2.2.5-make.2\n', { mode: 0o755 });
+  const cli = join(root, 'bin', 'agent-kit.mjs');
+  for (const command of ['check', 'plan']) {
+    const result = spawnSync(process.execPath, [cli, command, '--json', '--with-figma'], {
+      env: { HOME: home, PATH: `${bin}:/bin:/usr/bin` }, encoding: 'utf8', timeout: 5000,
+    });
+    assert.equal(result.status, 1, result.stderr);
+    assert.deepEqual(readdirSync(home), []);
+    const figma = JSON.parse(result.stdout).platform.tools.find(x => x.id === 'figma-cli');
+    assert.equal(figma.status, 'unknown');
+    assert.deepEqual(figma.paths, [join(bin, 'figma-cli')]);
   }
 });

@@ -1402,11 +1402,9 @@
         "relativePath": ".agent-kit/bin"
       },
       "detection": {
-        "kind": "command",
+        "kind": "presence",
         "command": "figma-cli",
-        "args": [
-          "--version"
-        ]
+        "args": []
       }
     }
   ],
