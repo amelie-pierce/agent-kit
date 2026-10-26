@@ -6,7 +6,7 @@ import { basename, dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { run, validateManifest } from '../src/kit.mjs';
-import { installMacOS } from '../src/install/macos.mjs';
+import { formatInstall, installMacOS } from '../src/install/macos.mjs';
 import { createHash } from 'node:crypto';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -282,6 +282,7 @@ test('unsupported targets stop before any write', async t => {
   for (const [platform, arch] of [['linux', 'arm64'], ['darwin', 'mips']]) {
     const result = await installMacOS(f.fixtureManifest, { ...f.options, platform, arch });
     assert.equal(result.status, 'unsupported');
+    assert.match(formatInstall(result), new RegExp(`^Agent Kit install: unsupported\nunsupported install target ${platform}/${arch}\n`));
   }
   assert.deepEqual(readdirSync(f.home), []);
 });
@@ -362,6 +363,27 @@ test('Firstmate rerun skips after untracked local settings appear', async t => {
   assert.equal(second.components[0].status, 'skipped');
 });
 
+test('interrupted Firstmate staging is replaced on resume', async t => {
+  const f = firstmateFixture(t);
+  const stale = join(f.root, '.fresh-firstmate.agent-kit-staging');
+  mkdirSync(join(stale, '.git'), { recursive: true });
+  writeFileSync(join(stale, 'README.md'), 'partial checkout\n');
+  const result = await installMacOS(f.fixtureManifest, f.options);
+  assert.equal(result.components[0].status, 'installed');
+  assert.equal(existsSync(stale), false);
+  assert.equal(readFileSync(join(f.firstmateHome, 'README.md'), 'utf8'), 'tracked fixture\n');
+  assert.deepEqual(readdirSync(f.root).filter(name => name.includes('agent-kit')), []);
+});
+
+test('rerun with a different Firstmate home is refused', async t => {
+  const f = firstmateFixture(t);
+  await installMacOS(f.fixtureManifest, f.options);
+  const other = join(f.root, 'other-firstmate');
+  await assert.rejects(installMacOS(f.fixtureManifest, { ...f.options, firstmateHome: other }), /differs from the Firstmate home recorded/);
+  assert.equal(existsSync(other), false);
+  assert.equal((await installMacOS(f.fixtureManifest, f.options)).firstmateHome, f.firstmateHome);
+});
+
 test('changed tracked Firstmate file is a phase conflict and other phases continue', async t => {
   const f = firstmateFixture(t);
   await installMacOS(f.fixtureManifest, f.options);
@@ -434,4 +456,16 @@ test('npm phase uses committed integrity lock and records exact tool versions', 
   const second = await installMacOS(f.fixtureManifest, f.options);
   assert.equal(second.components[0].status, 'skipped');
   assert.equal(invocations, 1);
+});
+
+test('npm phase is not installed while a locked tool version is unverified', async t => {
+  const f = installFixture(t);
+  const tools = ['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi'].map(id => structuredClone(manifest.tools.find(x => x.id === id)));
+  tools[2].version = { ...tools[2].version, status: 'unverified', reason: 'approval pending' };
+  f.fixtureManifest = { ...f.fixtureManifest, tools };
+  f.options.runNpm = async () => assert.fail('npm must not run');
+  const result = await installMacOS(f.fixtureManifest, f.options);
+  assert.equal(result.status, 'partial');
+  assert.deepEqual(result.components, [{ id: 'npm', status: 'unverified', reason: 'lavish-axi: approval pending' }]);
+  assert.equal(existsSync(join(f.installRoot, 'releases', 'fixture-1', 'npm')), false);
 });

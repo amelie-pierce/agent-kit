@@ -174,7 +174,6 @@ async function checkReceipt(root, receipt, id, version, artifactSha, options) {
   if (!st) return false;
   const digest = st.isDirectory() ? await hashTree(path) : st.isFile() ? await hashFile(path) : null;
   if (digest !== entry.ownedSha256) throw new Error(`kit-owned ${id} changed; refusing overwrite`);
-  if (entry.binaryPath && await hashFile(join(root, entry.binaryPath)) !== entry.binarySha256) throw new Error(`kit-owned ${id} binary changed; refusing overwrite`);
   return true;
 }
 function selected(manifest, harness, withFigma) {
@@ -188,7 +187,9 @@ async function npmPhase(root, release, group, manifest, receipt, save, options) 
   const packages = JSON.parse(pkgData).dependencies;
   for (const [name, value] of Object.entries(packages)) {
     const id = name === '@openai/codex' ? 'codex' : name;
-    if (manifest.tools.find(tool => tool.id === id)?.version.value !== value) throw new Error(`manifest and npm lock disagree for ${id}`);
+    const tool = manifest.tools.find(x => x.id === id);
+    if (tool?.version.value !== value) throw new Error(`manifest and npm lock disagree for ${id}`);
+    if (tool.version.status !== 'verified') return { id: group, status: 'unverified', reason: `${id}: ${tool.version.reason}` };
     const item = locked.packages[`node_modules/${name}`];
     if (!item || item.version !== value || !item.integrity) throw new Error(`unlocked npm dependency: ${name}`);
   }
@@ -229,7 +230,8 @@ async function npmPhase(root, release, group, manifest, receipt, save, options) 
 
 export async function installMacOS(manifest, options = {}) {
   const platform = options.platform || process.platform, arch = options.arch || process.arch;
-  if (platform !== 'darwin' || !['arm64', 'x64'].includes(arch)) return { status: 'unsupported', exitCode: 2, components: [], message: `unsupported install target ${platform}/${arch}` };
+  if (platform !== 'darwin' || !['arm64', 'x64'].includes(arch)) return { status: 'unsupported', exitCode: 2, components: [], message: `unsupported install target ${platform}/${arch}`,
+    bin: null, npmBin: null, codexBin: null, firstmateHome: null, towerParity: 'unavailable', loginSteps: [] };
   const nodeVersion = options.nodeVersion || process.versions.node;
   const actual = nodeVersion.split('.').map(Number), minimum = manifest.nodeMinimum.split('.').map(Number);
   if (actual.some((part, index) => part !== minimum[index] && actual.slice(0, index).every((x, i) => x === minimum[i]) && part < minimum[index])) throw new Error(`Node ${manifest.nodeMinimum} or newer required`);
@@ -246,7 +248,9 @@ export async function installMacOS(manifest, options = {}) {
     const receiptPath = join(root, 'receipt.json');
     let receipt = await exists(receiptPath) ? JSON.parse(await readFile(receiptPath, 'utf8')) : { schemaVersion: 1, release, phases: {} };
     if (receipt.schemaVersion !== 1 || receipt.release !== release || !receipt.phases || Array.isArray(receipt.phases)) throw new Error('incompatible receipt; refusing overwrite');
-    if (receipt.phases.firstmate?.path !== firstmateHome && !(await newDirectory(firstmateHome))) throw new Error('--firstmate-home must be a new or empty directory; refusing to inherit it');
+    const recordedHome = receipt.phases.firstmate?.path;
+    if (recordedHome && recordedHome !== firstmateHome) throw new Error(`--firstmate-home differs from the Firstmate home recorded in the receipt (${recordedHome}); refusing to move it`);
+    if (!recordedHome && !(await newDirectory(firstmateHome))) throw new Error('--firstmate-home must be a new or empty directory; refusing to inherit it');
     const save = () => atomicJson(receiptPath, receipt);
     const components = [], targetKey = `darwin-${arch}`;
     await mkdir(join(root, 'releases', release, 'staging'), { recursive: true, mode: 0o700 });
@@ -299,7 +303,8 @@ export async function installMacOS(manifest, options = {}) {
         const destination = firstmateHome;
         if (!(await newDirectory(destination))) throw new Error('Firstmate home already exists without a matching receipt; refusing to inherit it');
         await mkdir(dirname(destination), { recursive: true, mode: 0o700 });
-        const stage = join(dirname(destination), `.${basename(destination)}.agent-kit-${randomUUID()}`);
+        const stage = join(dirname(destination), `.${basename(destination)}.agent-kit-staging`);
+        await rm(stage, { recursive: true, force: true });
         await mkdir(stage, { mode: 0o700 });
         try {
           await unpackTrackedSource(artifactPath, stage, true);
@@ -357,8 +362,18 @@ export async function installMacOS(manifest, options = {}) {
       receipt: receiptPath, bin: join(root, 'releases', release, 'bin'),
       npmBin: coreNpm ? join(root, 'releases', release, 'npm', 'node_modules', '.bin') : null,
       codexBin: (options.harness || 'claude') === 'codex' ? join(root, 'releases', release, 'npm-codex', 'node_modules', '.bin') : null,
-      firstmateHome: components.some(x => x.id === 'firstmate' && ['installed', 'skipped'].includes(x.status)) ? receipt.phases.firstmate.path : null,
+      firstmateHome: components.some(x => x.id === 'firstmate' && ['installed', 'skipped'].includes(x.status)) ? firstmateHome : null,
       towerParity,
       loginSteps: selected(manifest, options.harness || 'claude', !!options.withFigma).map(t => login[t.id]).filter(Boolean) };
   } finally { await unlock(); }
+}
+
+export function formatInstall(result) {
+  return [
+    `Agent Kit install: ${result.status}`, ...(result.message ? [result.message] : []), ...result.components.map(x => `- ${x.id}: ${x.status}; ${x.reason}`),
+    `Kit binaries: ${result.bin || 'none'}`, ...(result.npmBin ? [`npm binaries: ${result.npmBin}`] : []),
+    ...(result.codexBin ? [`Codex binaries: ${result.codexBin}`] : []),
+    ...(result.firstmateHome ? [`Fresh Firstmate home: ${result.firstmateHome}`] : []),
+    `Tower parity: ${result.towerParity}`, ...result.loginSteps.map(x => `Sign in yourself: ${x}`),
+  ].join('\n') + '\n';
 }

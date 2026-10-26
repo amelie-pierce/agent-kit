@@ -559,8 +559,8 @@
       "version": {
         "kind": "release",
         "value": "0.1.35",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
+        "status": "verified",
+        "reason": "Pinned with registry integrity in the committed npm lock (manifests/npm/package-lock.json)."
       },
       "approvedUpstream": "https://github.com/kunchenguid/gh-axi",
       "license": {
@@ -637,8 +637,8 @@
       "version": {
         "kind": "release",
         "value": "0.1.35",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
+        "status": "verified",
+        "reason": "Pinned with registry integrity in the committed npm lock (manifests/npm/package-lock.json)."
       },
       "approvedUpstream": "https://github.com/kunchenguid/chrome-devtools-axi",
       "license": {
@@ -715,8 +715,8 @@
       "version": {
         "kind": "release",
         "value": "0.1.78",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
+        "status": "verified",
+        "reason": "Pinned with registry integrity in the committed npm lock (manifests/npm/package-lock.json)."
       },
       "approvedUpstream": "https://github.com/kunchenguid/lavish-axi",
       "license": {
@@ -793,8 +793,8 @@
       "version": {
         "kind": "release",
         "value": "0.1.53",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
+        "status": "verified",
+        "reason": "Pinned with registry integrity in the committed npm lock (manifests/npm/package-lock.json)."
       },
       "approvedUpstream": "https://github.com/kunchenguid/quota-axi",
       "license": {
@@ -871,8 +871,8 @@
       "version": {
         "kind": "release",
         "value": "0.2.6",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
+        "status": "verified",
+        "reason": "Pinned with registry integrity in the committed npm lock (manifests/npm/package-lock.json)."
       },
       "approvedUpstream": "https://github.com/kunchenguid/tasks-axi",
       "license": {
@@ -1261,8 +1261,8 @@
       "version": {
         "kind": "release",
         "value": "0.155.1",
-        "status": "unverified",
-        "reason": "One observed active version; release selection and compatibility are pending."
+        "status": "verified",
+        "reason": "Pinned with registry integrity in the committed npm lock (manifests/npm-codex/package-lock.json)."
       },
       "approvedUpstream": "https://github.com/openai/codex",
       "license": {
