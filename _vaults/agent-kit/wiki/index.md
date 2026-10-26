@@ -10,7 +10,7 @@ Agent Kit is a Node CLI for a proposed per-person Firstmate and tool setup. The 
 
 ## Operating mode and authority
 
-Read this index before scanning the repository. Compile focused notes only when task work establishes new facts. Live code wins, then the manifest and schema, then this wiki. Start at `bin/agent-kit.mjs` for CLI loading, `src/kit.mjs` for validation and result assembly, `src/platforms/` for platform checks, and `manifests/` for proposed pins (bin/agent-kit.mjs:1-19; src/kit.mjs:11-35; src/platforms/index.mjs:1-15; manifests/schema-v1.json:1-21).
+Read this index before scanning the repository. Compile focused notes only when task work establishes new facts. Live code wins, then the manifest and schema, then this wiki. Start at `bin/agent-kit.mjs` for CLI loading, `src/kit.mjs` for validation and result assembly, `src/platforms/` for platform checks, and `manifests/` for proposed pins (bin/agent-kit.mjs:1-19; src/kit.mjs:11-37; src/platforms/index.mjs:1-15; manifests/schema-v1.json:1-21).
 
 | Area | Index |
 | --- | --- |
