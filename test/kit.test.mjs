@@ -206,8 +206,8 @@ test('CLI writes no files under a temporary HOME in check or plan', t => {
 
 test('--with-figma does not run figma-cli, which writes into HOME', { skip: process.platform === 'win32' }, t => {
   const { home, bin, root } = tempFixture(t);
-  writeFileSync(join(bin, 'figma-cli'), '#!/bin/sh\nmkdir -p "$HOME/.figma-cli/plugins"\necho 2.2.5-make.2\n', { mode: 0o755 });
-  const context = { env: { HOME: home, PATH: `${bin}:/bin:/usr/bin` }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
+  writeFileSync(join(bin, 'figma-cli'), '#!/bin/sh\n/bin/mkdir -p "$HOME/.figma-cli/plugins"\necho 2.2.5-make.2\n', { mode: 0o755 });
+  const context = { env: { HOME: home, PATH: bin }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
     applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']) };
   for (const command of ['check', 'plan']) {
     const result = run([command, '--json', '--with-figma'], manifest, context);
