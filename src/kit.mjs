@@ -25,7 +25,7 @@ export function validateManifest(manifest) {
     if (!relativePath || !/^[A-Za-z0-9._/-]+$/.test(relativePath) || isAbsolute(relativePath) || relativePath.split('/').some(part => !part || part === '..' || part === '.')) throw new Error(`unsafe install location for ${tool.id}`);
     if (!tool.artifacts || !Object.keys(tool.artifacts).length) throw new Error(`missing artifacts for ${tool.id}`);
     for (const [target, artifact] of Object.entries(tool.artifacts)) {
-      if (!/^(darwin|linux|wsl2|windows)-(arm64|x64)$/.test(target)) throw new Error(`invalid target for ${tool.id}`);
+      if (!/^(darwin|linux|windows)-(arm64|x64)$/.test(target)) throw new Error(`invalid target for ${tool.id}`);
       if (!['verified', 'unverified'].includes(artifact.status) || (artifact.url !== null && !artifact.url?.startsWith('https://')) || (artifact.sha256 !== null && !/^[a-f0-9]{64}$/i.test(artifact.sha256 || ''))) throw new Error(`invalid artifact for ${tool.id}`);
       if (artifact.status === 'verified' && (!artifact.url || !artifact.sha256)) throw new Error(`verified artifact incomplete for ${tool.id}`);
     }

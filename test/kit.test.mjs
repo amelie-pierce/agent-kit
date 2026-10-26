@@ -146,6 +146,41 @@ test('Linux and WSL2 inspect distro, libc, tools, paths and select Linux artifac
   assert.deepEqual(readdirSync(home), []);
 });
 
+test('Linux preflight reports browser and terminal without failing; WSL2 marks them Windows side', { skip: process.platform === 'win32' }, t => {
+  const { home, bin, root } = tempFixture(t);
+  for (const name of ['git', 'curl', 'tar', 'unzip', 'bash', 'sh', 'sha256sum']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
+  const fixtureManifest = { ...manifest, tools: [structuredClone(manifest.tools.find(x => x.id === 'herdr'))] };
+  const base = { platform: 'linux', arch: 'x64', libc: 'glibc', osRelease: 'ID=ubuntu\n', procVersion: 'Linux version 6.8', nodeVersion: '24.21.0', runCommand: () => 'herdr 0.9.3' };
+  const check = env => {
+    const result = run(['check', '--json', '--install-root', join(root, 'kit')], fixtureManifest, { ...base, env: { HOME: home, PATH: bin, SHELL: join(bin, 'bash'), ...env } });
+    const prereq = id => result.result.platform.prerequisites.find(x => x.id === id);
+    return { browser: prereq('browser'), terminal: prereq('terminal'), issues: result.result.issues };
+  };
+  const headless = check({});
+  assert.equal(headless.browser.status, 'warn');
+  assert.match(headless.browser.detail, /chrome-devtools-axi and Lavish need a browser/);
+  assert.equal(headless.terminal.status, 'unknown');
+  assert.match(headless.terminal.detail, /TTY or SSH/);
+  assert.match(check({ SSH_CONNECTION: '10.0.0.1 1 10.0.0.2 22' }).terminal.detail, /SSH session/);
+  assert.ok(!headless.issues.some(x => ['browser', 'terminal'].includes(x.id) && x.status === 'fail'));
+  for (const name of ['chromium', 'x-terminal-emulator']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
+  const desktop = check({});
+  assert.deepEqual([desktop.browser.status, desktop.browser.detail], ['pass', join(bin, 'chromium')]);
+  assert.deepEqual([desktop.terminal.status, desktop.terminal.detail], ['pass', join(bin, 'x-terminal-emulator')]);
+  const wsl2 = check({ WSL_DISTRO_NAME: 'Ubuntu', WSL_INTEROP: '/run/WSL/1_interop' });
+  for (const prereq of [wsl2.browser, wsl2.terminal]) {
+    assert.equal(prereq.status, 'unknown');
+    assert.match(prereq.detail, /Windows side, not checked from Linux/);
+  }
+  assert.deepEqual(readdirSync(home), []);
+});
+
+test('manifest lock has no separate WSL2 artifact targets', () => {
+  const tool = structuredClone(manifest.tools.find(x => x.id === 'herdr'));
+  tool.artifacts['wsl2-x64'] = { ...tool.artifacts['linux-x64'] };
+  assert.throws(() => validateManifest({ ...manifest, tools: [tool] }), /invalid target for herdr/);
+});
+
 test('Linux unsupported architecture, libc and WSL1 refuse before inspection or writes', async t => {
   const f = installFixture(t);
   for (const override of [{ arch: 'mips', libc: 'glibc' }, { arch: 'x64', libc: 'musl' }, { arch: 'x64', libc: 'glibc', env: { WSL_DISTRO_NAME: 'Ubuntu' }, procVersion: 'Microsoft WSL1' }]) {

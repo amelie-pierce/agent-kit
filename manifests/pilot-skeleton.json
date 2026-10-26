@@ -45,18 +45,6 @@
           "status": "unverified",
           "reason": "Artifact URL and SHA-256 have not been approved or verified."
         },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
         "windows-arm64": {
           "url": null,
           "sha256": null,
@@ -118,18 +106,6 @@
           "reason": "Artifact URL and SHA-256 have not been approved or verified."
         },
         "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
           "url": null,
           "sha256": null,
           "status": "unverified",
@@ -201,18 +177,6 @@
           "status": "unverified",
           "reason": "Artifact URL and SHA-256 have not been approved or verified."
         },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
         "windows-arm64": {
           "url": null,
           "sha256": null,
@@ -278,18 +242,6 @@
           "sha256": "845d2faeee9b8248f4924023226f4f3c7a273e1c637b814f83c0d14ce2d323ac",
           "status": "verified",
           "reason": "SHA-256 of pinned source archive, shared across supported hosts."
-        },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
         },
         "windows-arm64": {
           "url": null,
@@ -358,18 +310,6 @@
           "status": "verified",
           "reason": "GitHub release asset SHA-256 digest."
         },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
         "windows-arm64": {
           "url": null,
           "sha256": null,
@@ -435,18 +375,6 @@
           "sha256": "fca7c36b0b1682d0611bf3e9add9407c269af79163d85d046bd34ae927ececfe",
           "status": "verified",
           "reason": "SHA-256 of pinned source archive, shared across supported hosts."
-        },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
         },
         "windows-arm64": {
           "url": null,
@@ -515,18 +443,6 @@
           "status": "verified",
           "reason": "GitHub release asset SHA-256 digest."
         },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
         "windows-arm64": {
           "url": null,
           "sha256": null,
@@ -588,18 +504,6 @@
           "reason": "Artifact URL and SHA-256 have not been approved or verified."
         },
         "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
           "url": null,
           "sha256": null,
           "status": "unverified",
@@ -671,18 +575,6 @@
           "status": "unverified",
           "reason": "Artifact URL and SHA-256 have not been approved or verified."
         },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
         "windows-arm64": {
           "url": null,
           "sha256": null,
@@ -744,18 +636,6 @@
           "reason": "Artifact URL and SHA-256 have not been approved or verified."
         },
         "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
           "url": null,
           "sha256": null,
           "status": "unverified",
@@ -827,18 +707,6 @@
           "status": "unverified",
           "reason": "Artifact URL and SHA-256 have not been approved or verified."
         },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
         "windows-arm64": {
           "url": null,
           "sha256": null,
@@ -900,18 +768,6 @@
           "reason": "Artifact URL and SHA-256 have not been approved or verified."
         },
         "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
           "url": null,
           "sha256": null,
           "status": "unverified",
@@ -983,18 +839,6 @@
           "status": "verified",
           "reason": "GitHub release asset SHA-256 digest."
         },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
         "windows-arm64": {
           "url": null,
           "sha256": null,
@@ -1060,18 +904,6 @@
           "sha256": "b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6",
           "status": "verified",
           "reason": "GitHub release asset SHA-256 digest."
-        },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
         },
         "windows-arm64": {
           "url": null,
@@ -1139,18 +971,6 @@
           "status": "verified",
           "reason": "GitHub release asset SHA-256 digest."
         },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
         "windows-arm64": {
           "url": null,
           "sha256": null,
@@ -1212,18 +1032,6 @@
           "reason": "Artifact URL and SHA-256 have not been approved or verified."
         },
         "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
           "url": null,
           "sha256": null,
           "status": "unverified",
@@ -1295,18 +1103,6 @@
           "status": "unverified",
           "reason": "Artifact URL and SHA-256 have not been approved or verified."
         },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
         "windows-arm64": {
           "url": null,
           "sha256": null,
@@ -1368,18 +1164,6 @@
           "reason": "Artifact URL and SHA-256 have not been approved or verified."
         },
         "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "wsl2-x64": {
           "url": null,
           "sha256": null,
           "status": "unverified",
