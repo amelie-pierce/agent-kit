@@ -335,7 +335,8 @@ function firstmateFixture(t) {
 test('verified source archives create a fresh home and stage a tower build', async t => {
   const f = firstmateFixture(t);
   f.fixtureManifest.tools.push(f.tool('zoe-fleet'));
-  mkdirSync(f.firstmateHome);
+  // POSIX rename replaces an empty directory; Windows refuses, and the installer targets macOS only.
+  if (process.platform !== 'win32') mkdirSync(f.firstmateHome);
   f.options.runCargo = async (_stage, target) => {
     mkdirSync(join(target, 'release'), { recursive: true });
     writeFileSync(join(target, 'release', 'zoe'), 'fixture tower', { mode: 0o755 });
@@ -409,7 +410,8 @@ test('Firstmate home outside the install root is refused when unsafe', async t =
     assert.equal(existsSync(f.installRoot), false);
   };
   await refuse(f.home, /home directory/);
-  for (const path of ['/usr/local/agent-kit-firstmate', '/Library/agent-kit-firstmate', join(f.home, 'Library', 'firstmate')]) await refuse(path, /system location/);
+  // System locations are POSIX paths; on Windows they resolve under the current drive.
+  if (process.platform !== 'win32') for (const path of ['/usr/local/agent-kit-firstmate', '/Library/agent-kit-firstmate', join(f.home, 'Library', 'firstmate')]) await refuse(path, /system location/);
   await refuse(join(f.installRoot, 'firstmate'), /outside --install-root/);
   await refuse(dirname(f.installRoot), /outside --install-root/);
   mkdirSync(join(f.root, 'checkout', '.git'), { recursive: true });
