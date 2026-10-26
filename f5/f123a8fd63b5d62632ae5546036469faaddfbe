@@ -1,0 +1,63 @@
+scripts/linux-install-smoke.mjs
+  s_0a786640ca5775::t_04e1c79a5f6121 16
+  s_0a786640ca5775::t_36a9265607461d 1-15,17-46
+_vaults/agent-kit/wiki/architecture/index.md
+  s_0a786640ca5775::t_0898eb2aed2622 11
+_vaults/agent-kit/wiki/architecture/linux-install.md
+  s_0a786640ca5775::t_0898eb2aed2622 1-8,10-12
+  s_0a786640ca5775::t_e8bc4e08f564ed 9
+  s_0a786640ca5775::t_027eed537a9933 13
+.github/workflows/test.yml
+  s_0a786640ca5775::t_027eed537a9933 7,18-19
+src/platforms/index.mjs
+  s_0a786640ca5775::t_2b0a7bbab0327f 2,6
+  s_0a786640ca5775::t_082c508f9a86e1 7
+src/kit.mjs
+  s_0a786640ca5775::t_5a43f460b6ea25 81,135
+src/platforms/linux.mjs
+  s_0a786640ca5775::t_3ab3751819f682 2,9-16,25
+  s_0a786640ca5775::t_2b0a7bbab0327f 1,3-8,17-24,26-48
+_vaults/agent-kit/wiki/index.md
+  s_0a786640ca5775::t_0898eb2aed2622 9,13
+test/kit.test.mjs
+  s_0a786640ca5775::t_fb35a096ece247 160,350,352-374
+  s_0a786640ca5775::t_e4a1a8e3ec0060 34,39
+  s_0a786640ca5775::t_79c79080318ca0 9,112,114,127-159
+  s_0a786640ca5775::t_847673295120b4 315,323-349
+  s_f76f519cdd4d1c::t_668a2d008af178 161,351
+src/platforms/macos.mjs
+  s_0a786640ca5775::t_2b0a7bbab0327f 29,36,62,77
+bin/agent-kit.mjs
+  s_0a786640ca5775::t_5a43f460b6ea25 5,21
+README.md
+  s_0a786640ca5775::t_cd94397d7466a5 3,15,17,25,35,65,67
+src/install/macos.mjs
+  s_0a786640ca5775::t_5a43f460b6ea25 9,233,235-236,258,264,385-386,390-391
+  s_f76f519cdd4d1c::t_85105711d87e0f 392
+manifests/pilot-skeleton.json
+  s_0a786640ca5775::t_2e6876c1d4048e 271-274,277-280,350-353,356-359,428-431,434-437,507-510,513-516,975-978,981-984,1053-1056,1059-1062,1131-1134,1137-1140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f5f123a8fd63b5d62632ae5546036469faaddfbe",
+  "prompts": {},
+  "sessions": {
+    "s_0a786640ca5775": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1792b-10aa-79a3-90bc-e1d6f08bf4c2",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    },
+    "s_f76f519cdd4d1c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1792b-9fa4-7683-b1de-dede3f82b2ed",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
