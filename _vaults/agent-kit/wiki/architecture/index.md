@@ -8,3 +8,4 @@ date: 2026-10-26
 
 - [Read-only boundary](read-only-boundary.md) — command evaluation and platform routing.
 - [macOS install](macos-install.md) — staging, ownership receipts, source boundaries and partial tower status.
+- [Global registration](global-registration.md) — owned hook and skill merge, preview and trust boundary.

@@ -1,5 +1,6 @@
 import { join, isAbsolute } from 'node:path';
 import { inspectPlatform } from './platforms/index.mjs';
+import { previewHooks, publicHookChanges } from './install/hooks.mjs';
 
 function compareVersions(actual, minimum) {
   const a = actual.split('.').map(Number);
@@ -97,7 +98,10 @@ function human(result) {
     for (const item of result.plan.optionalComponents) lines.push(`- ${item.name}: ${item.status}; ${item.version || 'UNVERIFIED COMMIT'} from ${item.origin}`);
     lines.push('Proposed source-owned hook files (no changes made):');
     for (const change of result.plan.hookChanges) lines.push(`- ${change.action}: ${change.path}`);
-    lines.push('Global hook changes: none; vendor registrations remain unverified.');
+    lines.push('Global hook and skill changes (kit-owned entries only):');
+    for (const change of result.plan.globalHookChanges) lines.push(`- ${change.path}: ${JSON.stringify(change.changes)}`);
+    if (!result.plan.globalHookChanges.length) lines.push('- none');
+    lines.push('Codex reviews new or changed hooks interactively; approve them yourself after installation.');
     lines.push('Personal login steps:');
     for (const step of result.plan.loginSteps) lines.push(`- ${step}`);
   } else {
@@ -127,6 +131,8 @@ export function run(argv, manifest, context) {
   if (options.command === 'install') throw new Error('install is asynchronous; use the CLI install entry point');
   if (!context.env.HOME) throw new Error('HOME must be set');
   const evaluation = evaluate(manifest, { ...context, installRoot: options.installRoot }, options);
+  const globalHookChanges = options.command === 'plan' && evaluation.platform.platform === 'darwin'
+    ? publicHookChanges(previewHooks(manifest, { home: context.env.HOME, installRoot: options.installRoot || join(context.env.HOME, '.agent-kit') })) : [];
   const plan = options.command === 'plan' ? {
     tools: evaluation.selected.map(tool => {
       const artifact = tool.artifacts[evaluation.target];
@@ -140,7 +146,7 @@ export function run(argv, manifest, context) {
       { owner: 'firstmate', action: 'include Claude hooks with pinned source', path: join(firstmateLocation(context, options), '.claude/settings.json') },
       { owner: 'firstmate', action: 'include Codex hooks with pinned source', path: join(firstmateLocation(context, options), '.codex/hooks.json') },
     ],
-    globalHookChanges: [],
+    globalHookChanges,
     loginSteps: evaluation.selected.filter(tool => tool.classification === 'per-user-login').map(tool => loginSteps[tool.id]).filter(Boolean),
   } : undefined;
   const result = { command: options.command, release: manifest.release, harness: options.harness, withFigma: options.withFigma,
