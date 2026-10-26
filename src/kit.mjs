@@ -108,10 +108,12 @@ function human(result) {
   return lines.join('\n') + '\n';
 }
 
+const firstmateLocation = (context, options) => options.firstmateHome || join(context.env.HOME, 'firstmate');
+
 function plannedLocation(tool, context, options, release) {
   const root = options.installRoot || join(context.env.HOME, '.agent-kit');
   const versioned = join(root, 'releases', release);
-  if (tool.id === 'firstmate') return options.firstmateHome || join(root, 'firstmate');
+  if (tool.id === 'firstmate') return firstmateLocation(context, options);
   if (tool.id === 'zoe-fleet') return join(versioned, 'zoetrope', 'bin', 'zoe-fleet');
   if (['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint'].includes(tool.id)) return join(versioned, 'bin', tool.id);
   if (['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi'].includes(tool.id)) return join(versioned, 'npm', 'node_modules', '.bin', tool.id);
@@ -135,8 +137,8 @@ export function run(argv, manifest, context) {
     optionalComponents: evaluation.optional.map(tool => ({ id: tool.id, name: tool.name, status: 'optional, not selected',
       version: tool.version.value, versionStatus: tool.version.status, origin: tool.approvedUpstream })),
     hookChanges: [
-      { owner: 'firstmate', action: 'include Claude hooks with pinned source', path: join(options.firstmateHome || join(options.installRoot || join(context.env.HOME, '.agent-kit'), 'firstmate'), '.claude/settings.json') },
-      { owner: 'firstmate', action: 'include Codex hooks with pinned source', path: join(options.firstmateHome || join(options.installRoot || join(context.env.HOME, '.agent-kit'), 'firstmate'), '.codex/hooks.json') },
+      { owner: 'firstmate', action: 'include Claude hooks with pinned source', path: join(firstmateLocation(context, options), '.claude/settings.json') },
+      { owner: 'firstmate', action: 'include Codex hooks with pinned source', path: join(firstmateLocation(context, options), '.codex/hooks.json') },
     ],
     globalHookChanges: [],
     loginSteps: evaluation.selected.filter(tool => tool.classification === 'per-user-login').map(tool => loginSteps[tool.id]).filter(Boolean),

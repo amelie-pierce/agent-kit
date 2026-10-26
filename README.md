@@ -9,22 +9,24 @@ Use Node.js 24.15.0 or newer. The CLI itself has no runtime dependencies.
 ```sh
 node bin/agent-kit.mjs check
 node bin/agent-kit.mjs plan --harness codex --with-figma
-node bin/agent-kit.mjs install --dry-run --install-root /your/new/kit-root --firstmate-home /your/new/kit-root/firstmate
+node bin/agent-kit.mjs install --dry-run --install-root /your/new/kit-root --firstmate-home /your/new/firstmate
 ```
 
 `install --dry-run` is exactly `plan`: it makes no changes. `check` and `plan` only inspect and print. They do not probe authentication, run Firstmate bootstrap, or invoke Herdr lifecycle commands. `--json` is available for all commands. `check` is still the initial read-only presence check, not an installed-state doctor for an arbitrary custom root. Linux and Windows/WSL2 adapters remain out of scope for this PR.
 
 ## macOS install
 
-Choose a new kit root and a new Firstmate home **inside** that root. Do not point the installer at an existing Firstmate home or executable directory.
+Choose a new kit root and a Firstmate home path of your own, **outside** that root (for example `~/.agent-kit` and `~/firstmate`). The Firstmate home must be a new or empty directory. The installer refuses your home directory itself, system locations, a path inside an existing Firstmate home or git checkout, and an existing non-empty directory. The chosen path is recorded in the receipt.
 
 ```sh
-node bin/agent-kit.mjs install --install-root /your/new/kit-root --firstmate-home /your/new/kit-root/firstmate --harness codex
+node bin/agent-kit.mjs install --install-root /your/new/kit-root --firstmate-home /your/new/firstmate --harness codex
 ```
 
-The default harness is Claude; `--harness codex` selects Codex. Figma remains optional with `--with-figma`. The installer requires macOS arm64 or x64 and Node 24.15.0 or newer. It stages exact artifacts under `releases/<release>/staging`, checks SHA-256 before extraction or execution, and activates kit-owned paths by rename. A private `receipt.json` records completed phases, versions, artifact digests, and owned paths without credentials or project names. A narrow lock prevents concurrent installs. On rerun it checks owned file digests and skips matching phases; changed files and unknown existing destinations cause refusal. An interrupted phase can resume from a verified staged artifact or a pending receipt.
+The default harness is Claude; `--harness codex` selects Codex. Figma remains optional with `--with-figma`. The installer requires macOS arm64 or x64 and Node 24.15.0 or newer. It stages exact artifacts under `releases/<release>/staging`, checks SHA-256 before extraction or execution, and activates kit-owned paths by rename. A private `receipt.json` records completed phases, versions, artifact digests, and owned paths without credentials or project names. A narrow lock prevents concurrent installs. On rerun it checks owned file digests and skips matching phases; changed files and unknown existing destinations cause refusal. The Firstmate home is verified by its pinned commit and git-tracked files only, so untracked or ignored files created by normal use (such as `.claude/settings.local.json`) do not block a rerun. A changed tracked Firstmate file is reported as a conflict for that phase, left untouched, and the other phases continue. An interrupted phase can resume from a verified staged artifact or a pending receipt.
 
-The manifest pins the approved `pikenguyen227/firstmate` and `pikenguyen227/zoetrope` commits, with SHA-256 hashes computed from their pinned GitHub source archives. Firstmate is checked out at the pinned commit into the new home. The installer creates empty private `data/`, `state/`, `config/`, and `projects/` directories; it never imports an existing home or runs `fm-bootstrap.sh`. Repository-owned Claude/Codex hooks and relative skills stay with that checkout. The installer leaves global Claude/Codex settings, permissions, plugins, and trust records untouched because a reviewed global integration command is not yet available.
+The manifest pins the approved `pikenguyen227/firstmate` and `pikenguyen227/zoetrope` commits, with SHA-256 hashes computed from their pinned GitHub source archives. Firstmate is checked out at the pinned commit into the new home. The installer creates empty private `data/`, `state/`, `config/`, and `projects/` directories; it never imports an existing home or runs `fm-bootstrap.sh`. Repository-owned Claude/Codex hooks and relative skills stay with that checkout.
+
+**Deferred: global hook and skill registration.** This release does not register anything in global Claude/Codex settings and does not merge hooks or skills by ownership marker. It writes nothing to global Claude/Codex settings, permissions, plugins, or trust records. The ownership-marker merge (show exact changes, then add only kit-owned registrations while preserving unrelated settings) is the first item of the next PR.
 
 The pinned Zoetrope fork has no verified release asset in this pilot. If Cargo and a compatible Rust toolchain are available, the installer attempts `cargo build --locked --release --bin zoe` from the verified source archive, with its own Cargo home and target directory. A missing toolchain or failed build is reported as partial. Even a packaged binary does not prove tower parity: fleet-manifest production and a user-relative launcher still need packaging and acceptance work in the Zoetrope fork. The installer does not launch it.
 
@@ -36,9 +38,9 @@ The result prints kit and npm binary directories; add them to your own shell PAT
 
 ## Verification and next work
 
-`npm test` runs local `node:test` fixtures without network. They cover a no-op second run, interrupted resume, checksum refusal, unsupported OS/architecture, fresh source staging and build packaging, and preservation of unknown global hooks. macOS smoke tests downloaded and verified the pinned Herdr, Treehouse, no-mistakes, ShellCheck, and actionlint assets, the Firstmate source archive, and both npm lock groups with fresh temporary HOME and root paths. Each skipped a second run; Firstmate runtime data began empty. The temporary files were removed. No agent or service was started.
+`npm test` runs local `node:test` fixtures without network. They cover a no-op second run, interrupted resume, checksum refusal, unsupported OS/architecture, fresh source staging and build packaging, Firstmate reruns after local untracked settings, tracked-file conflicts, Firstmate home path refusals, and that install writes no global Claude/Codex settings. macOS smoke tests downloaded and verified the pinned Herdr, Treehouse, no-mistakes, ShellCheck, and actionlint assets, the Firstmate source archive, and both npm lock groups with fresh temporary HOME and root paths. Each skipped a second run; Firstmate runtime data began empty. The temporary files were removed. No agent or service was started.
 
-The real Zoetrope Cargo build and tower runtime were not smoke tested in this isolated HOME. [Zoetrope packaging follow-ups](docs/zoetrope-followups.md) record the fleet-manifest, launcher and acceptance needs. Other follow-ups: reviewed global hook/skill registration where needed; Linux and WSL2 installation; native Windows preflight for the WSL2 handoff; `doctor` and explicit reviewed updates; a starter second-mate template; and an end-to-end personal tower pilot. Windows v1 remains WSL2, with no native or Git Bash installation path.
+The real Zoetrope Cargo build and tower runtime were not smoke tested in this isolated HOME. [Zoetrope packaging follow-ups](docs/zoetrope-followups.md) record the fleet-manifest, launcher and acceptance needs. Next PR, first item: global hook/skill registration by stable ownership markers. Other follow-ups: Linux and WSL2 installation; native Windows preflight for the WSL2 handoff; `doctor` and explicit reviewed updates; a starter second-mate template; and an end-to-end personal tower pilot. Windows v1 remains WSL2, with no native or Git Bash installation path.
 
 ## Never ship
 

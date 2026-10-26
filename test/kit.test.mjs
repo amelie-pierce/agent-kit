@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, rmSync, readFileSync, copyFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { run, validateManifest } from '../src/kit.mjs';
@@ -182,7 +182,7 @@ test('plan lists unselected Figma and harness as optional components', t => {
 
 test('install dry-run plans the selected root and stays read-only', t => {
   const { home, root } = tempFixture(t);
-  const installRoot = join(root, 'new-kit'), firstmateHome = join(installRoot, 'fresh-firstmate');
+  const installRoot = join(root, 'new-kit'), firstmateHome = join(root, 'fresh-firstmate');
   const context = { platform: 'darwin', arch: 'arm64', env: { HOME: home, PATH: '' }, nodeVersion: '24.15.0', applicationDirs: [] };
   const result = run(['install', '--dry-run', '--json', '--install-root', installRoot, '--firstmate-home', firstmateHome], manifest, context);
   assert.equal(result.result.command, 'plan');
@@ -233,7 +233,7 @@ test('--with-figma does not run figma-cli, which writes into HOME', { skip: proc
 function installFixture(t) {
   const { root, home, bin } = tempFixture(t);
   const installRoot = join(root, 'kit');
-  const firstmateHome = join(installRoot, 'fresh-firstmate');
+  const firstmateHome = join(root, 'fresh-firstmate');
   const artifact = join(root, 'herdr-fixture');
   writeFileSync(artifact, 'fixture herdr binary', { mode: 0o755 });
   const digest = createHash('sha256').update(readFileSync(artifact)).digest('hex');
@@ -286,36 +286,55 @@ test('unsupported targets stop before any write', async t => {
   assert.deepEqual(readdirSync(f.home), []);
 });
 
-test('existing unknown Claude and Codex hooks stay byte-for-byte intact', async t => {
+test('install writes no global Claude or Codex settings', async t => {
   const f = installFixture(t);
   mkdirSync(join(f.home, '.claude'));
   mkdirSync(join(f.home, '.codex'));
   const claude = join(f.home, '.claude', 'settings.json'), codex = join(f.home, '.codex', 'hooks.json');
   const content = '{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"unknown-owned-hook"}]}]},"permissions":{"allow":["Read"]}}\n';
   writeFileSync(claude, content); writeFileSync(codex, content);
-  await installMacOS(f.fixtureManifest, f.options);
+  const result = await installMacOS(f.fixtureManifest, f.options);
+  assert.equal(result.status, 'installed');
+  assert.deepEqual(readdirSync(f.home).sort(), ['.claude', '.codex']);
+  assert.deepEqual(readdirSync(join(f.home, '.claude')), ['settings.json']);
+  assert.deepEqual(readdirSync(join(f.home, '.codex')), ['hooks.json']);
   assert.equal(readFileSync(claude, 'utf8'), content);
   assert.equal(readFileSync(codex, 'utf8'), content);
 });
 
-test('verified source archives create a fresh home and stage a tower build', async t => {
+function firstmateFixture(t) {
   const f = installFixture(t);
-  const sourceDir = join(f.root, 'source');
-  mkdirSync(join(sourceDir, 'snapshot'), { recursive: true });
-  writeFileSync(join(sourceDir, 'snapshot', 'README.md'), 'tracked fixture\n');
+  const repo = join(f.root, 'firstmate-upstream');
+  mkdirSync(repo);
+  writeFileSync(join(repo, 'README.md'), 'tracked fixture\n');
+  const git = (...args) => {
+    const result = spawnSync('git', args, { cwd: repo, encoding: 'utf8', env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' } });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  };
+  git('init', '-q');
+  git('add', 'README.md');
+  git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'fixture');
   const archive = join(f.root, 'source.tar.gz');
-  assert.equal(spawnSync('tar', ['-czf', archive, '-C', sourceDir, 'snapshot']).status, 0);
+  git('archive', '--format=tar.gz', '--prefix=snapshot/', '-o', archive, 'HEAD');
   const digest = createHash('sha256').update(readFileSync(archive)).digest('hex');
-  f.fixtureManifest.tools = ['firstmate', 'zoe-fleet'].map(id => {
+  const tool = id => {
     const tool = structuredClone(manifest.tools.find(x => x.id === id));
     tool.artifacts['darwin-arm64'] = { url: `https://fixture.test/${id}.tar.gz`, sha256: digest, status: 'verified', reason: '' };
     return tool;
-  });
-  f.options.fetchArtifact = async (_url, destination) => copyFileSync(archive, destination);
-  f.options.checkoutSource = async (destination, tool) => {
-    mkdirSync(join(destination, '.git'));
-    writeFileSync(join(destination, '.git', 'HEAD'), `${tool.version.value}\n`);
   };
+  const firstmate = tool('firstmate');
+  firstmate.version.value = git('rev-parse', 'HEAD');
+  firstmate.approvedUpstream = `file://${repo}`;
+  f.fixtureManifest.tools = [firstmate];
+  f.options.fetchArtifact = async (_url, destination) => copyFileSync(archive, destination);
+  return { ...f, tool };
+}
+
+test('verified source archives create a fresh home and stage a tower build', async t => {
+  const f = firstmateFixture(t);
+  f.fixtureManifest.tools.push(f.tool('zoe-fleet'));
+  mkdirSync(f.firstmateHome);
   f.options.runCargo = async (_stage, target) => {
     mkdirSync(join(target, 'release'), { recursive: true });
     writeFileSync(join(target, 'release', 'zoe'), 'fixture tower', { mode: 0o755 });
@@ -324,10 +343,63 @@ test('verified source archives create a fresh home and stage a tower build', asy
   assert.equal(result.status, 'partial');
   assert.match(result.towerParity, /manifest and launcher unverified/);
   assert.deepEqual(result.components.map(x => x.status), ['installed', 'installed']);
+  assert.equal(result.firstmateHome, f.firstmateHome);
+  assert.equal(JSON.parse(readFileSync(result.receipt)).phases.firstmate.path, f.firstmateHome);
+  assert.equal(readFileSync(join(f.firstmateHome, 'README.md'), 'utf8'), 'tracked fixture\n');
   for (const dir of ['data', 'state', 'config', 'projects']) assert.deepEqual(readdirSync(join(f.firstmateHome, dir)), []);
   writeFileSync(join(f.firstmateHome, 'data', 'new-person-only'), 'private');
   const second = await installMacOS(f.fixtureManifest, f.options);
   assert.deepEqual(second.components.map(x => x.status), ['skipped', 'skipped']);
+});
+
+test('Firstmate rerun skips after untracked local settings appear', async t => {
+  const f = firstmateFixture(t);
+  assert.equal((await installMacOS(f.fixtureManifest, f.options)).components[0].status, 'installed');
+  mkdirSync(join(f.firstmateHome, '.claude'));
+  writeFileSync(join(f.firstmateHome, '.claude', 'settings.local.json'), '{"permissions":{"allow":["Bash(ls)"]}}\n');
+  const second = await installMacOS(f.fixtureManifest, f.options);
+  assert.equal(second.status, 'installed');
+  assert.equal(second.components[0].status, 'skipped');
+});
+
+test('changed tracked Firstmate file is a phase conflict and other phases continue', async t => {
+  const f = firstmateFixture(t);
+  await installMacOS(f.fixtureManifest, f.options);
+  writeFileSync(join(f.firstmateHome, 'README.md'), 'local edit\n');
+  f.fixtureManifest.tools.push(structuredClone(manifest.tools.find(x => x.id === 'herdr')));
+  f.fixtureManifest.tools[1].artifacts['darwin-arm64'] = { url: 'https://fixture.test/herdr', status: 'verified', reason: '',
+    sha256: createHash('sha256').update(readFileSync(f.artifact)).digest('hex') };
+  f.options.fetchArtifact = async (_url, target) => copyFileSync(f.artifact, target);
+  const result = await installMacOS(f.fixtureManifest, f.options);
+  assert.equal(result.status, 'partial');
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.components[0].status, 'conflict');
+  assert.match(result.components[0].reason, /README\.md/);
+  assert.equal(result.components[1].status, 'installed');
+  assert.equal(result.firstmateHome, null);
+  assert.equal(readFileSync(join(f.firstmateHome, 'README.md'), 'utf8'), 'local edit\n');
+});
+
+test('Firstmate home outside the install root is refused when unsafe', async t => {
+  const f = installFixture(t);
+  const refuse = async (firstmateHome, pattern) => {
+    await assert.rejects(installMacOS(f.fixtureManifest, { ...f.options, firstmateHome }), pattern);
+    assert.equal(existsSync(f.installRoot), false);
+  };
+  await refuse(f.home, /home directory/);
+  for (const path of ['/usr/local/agent-kit-firstmate', '/Library/agent-kit-firstmate', join(f.home, 'Library', 'firstmate')]) await refuse(path, /system location/);
+  await refuse(join(f.installRoot, 'firstmate'), /outside --install-root/);
+  await refuse(dirname(f.installRoot), /outside --install-root/);
+  mkdirSync(join(f.root, 'checkout', '.git'), { recursive: true });
+  await refuse(join(f.root, 'checkout', 'firstmate'), /existing Firstmate home or git checkout/);
+  mkdirSync(join(f.root, 'old-firstmate'));
+  writeFileSync(join(f.root, 'old-firstmate', 'fm-bootstrap.sh'), '');
+  await refuse(join(f.root, 'old-firstmate', 'nested'), /existing Firstmate home or git checkout/);
+  mkdirSync(f.firstmateHome);
+  writeFileSync(join(f.firstmateHome, 'keep'), 'mine');
+  await assert.rejects(installMacOS(f.fixtureManifest, f.options), /new or empty directory/);
+  assert.deepEqual(readdirSync(f.firstmateHome), ['keep']);
+  assert.equal(existsSync(join(f.installRoot, 'releases', 'fixture-1', 'bin', 'herdr')), false);
 });
 
 test('Firstmate archive with runtime home content is refused', async t => {

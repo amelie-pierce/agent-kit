@@ -38,12 +38,11 @@ async function atomicJson(path, value) {
   await rename(tmp, path);
 }
 async function hashFile(path) { return sha(await readFile(path)); }
-async function hashTree(path, ignored = new Set()) {
+async function hashTree(path) {
   const parts = [];
   async function walk(dir) {
     for (const name of (await readdir(dir)).sort()) {
       const file = join(dir, name), st = await lstat(file), rel = relative(path, file);
-      if (dir === path && ignored.has(name)) continue;
       if (st.isDirectory()) await walk(file);
       else if (st.isFile()) parts.push(`${rel}\0${await hashFile(file)}`);
       else if (st.isSymbolicLink()) {
@@ -121,9 +120,41 @@ async function unpackTrackedSource(archive, destination, freshHome = false) {
   await exec('tar', ['-xzf', archive, '-C', destination, '--strip-components=1'], { maxBuffer: 65536, timeout: 120000 });
   if (!(await exists(join(destination, 'README.md')))) throw new Error('source archive has no README');
 }
+const gitEnv = options => ({ ...toolEnv(options.home, options.installRoot), GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' });
+const systemDirs = ['/Applications', '/Library', '/System', '/bin', '/sbin', '/usr', '/etc', '/private/etc', '/dev', '/opt', '/cores'];
+const within = (path, parent) => path === parent || path.startsWith(parent === sep ? parent : `${parent}${sep}`);
+const newDirectory = async path => {
+  const st = await exists(path);
+  return !st || (st.isDirectory() && !st.isSymbolicLink() && (await readdir(path)).length === 0);
+};
+async function checkFirstmateHome(path, root, home) {
+  if (!path || !isAbsolute(path)) throw new Error('--firstmate-home must be an absolute path');
+  const target = resolve(path);
+  if (target === resolve(home)) throw new Error('--firstmate-home must not be your home directory');
+  if (target === sep || [...systemDirs, join(resolve(home), 'Library')].some(dir => within(target, dir))) throw new Error('--firstmate-home must not be a system location');
+  if (within(target, root) || within(root, target)) throw new Error('--firstmate-home must be outside --install-root');
+  for (let dir = dirname(target); ; dir = dirname(dir)) {
+    if (await exists(join(dir, '.git')) || await exists(join(dir, 'fm-bootstrap.sh'))) throw new Error('--firstmate-home must not be inside an existing Firstmate home or git checkout');
+    if (dir === dirname(dir)) break;
+  }
+  return target;
+}
+async function checkFirstmate(entry, version, options) {
+  if (typeof entry.path !== 'string' || !isAbsolute(entry.path)) throw new Error('unsafe receipt path for firstmate');
+  if (!(await exists(entry.path))) return false;
+  const git = async args => (await exec('git', ['--no-optional-locks', '--git-dir', join(entry.path, '.git'), '--work-tree', entry.path, ...args],
+    { env: gitEnv(options), timeout: 30000, maxBuffer: 16 * 1024 * 1024 })).stdout;
+  try {
+    if ((await git(['rev-parse', 'HEAD'])).trim() !== version) return { conflict: `Firstmate home ${entry.path} is not at pinned commit ${version}; left unchanged` };
+    const changed = (await git(['status', '--porcelain', '--untracked-files=no'])).split('\n').filter(Boolean).map(line => line.slice(3));
+    if (changed.length) return { conflict: `tracked Firstmate files changed in ${entry.path}: ${changed.join(', ')}; left unchanged` };
+  } catch (error) {
+    return { conflict: `cannot verify Firstmate checkout in ${entry.path}: ${error.message.split('\n')[0]}; left unchanged` };
+  }
+  return true;
+}
 async function attachPinnedGit(destination, tool, options) {
-  if (options.checkoutSource) return options.checkoutSource(destination, tool);
-  const env = { ...toolEnv(options.home, options.installRoot), GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' };
+  const env = gitEnv(options);
   for (const args of [
     ['init', '-q', destination],
     ['-C', destination, 'remote', 'add', 'origin', tool.approvedUpstream],
@@ -133,19 +164,16 @@ async function attachPinnedGit(destination, tool, options) {
   const { stdout } = await exec('git', ['-C', destination, 'rev-parse', 'HEAD'], { env, timeout: 10000 });
   if (stdout.trim() !== tool.version.value) throw new Error('source commit mismatch');
 }
-async function checkReceipt(root, receipt, id, version, artifactSha) {
+async function checkReceipt(root, receipt, id, version, artifactSha, options) {
   const entry = receipt.phases[id];
   if (!entry || entry.version !== version || entry.artifactSha256 !== artifactSha) return false;
+  if (id === 'firstmate') return checkFirstmate(entry, version, options);
   const path = join(root, entry.path);
   if (!resolve(path).startsWith(`${resolve(root)}${sep}`) || entry.path.split(sep).includes('..')) throw new Error(`unsafe receipt path for ${id}`);
   const st = await exists(path);
   if (!st) return false;
-  const digest = st.isDirectory() ? await hashTree(path, id === 'firstmate' ? new Set(['.git', 'data', 'state', 'config', 'projects']) : new Set()) : st.isFile() ? await hashFile(path) : null;
+  const digest = st.isDirectory() ? await hashTree(path) : st.isFile() ? await hashFile(path) : null;
   if (digest !== entry.ownedSha256) throw new Error(`kit-owned ${id} changed; refusing overwrite`);
-  if (id === 'firstmate') {
-    const head = await readFile(join(path, '.git', 'HEAD'), 'utf8').catch(() => '');
-    if (head.trim() !== version) throw new Error('kit-owned Firstmate checkout changed; refusing overwrite');
-  }
   if (entry.binaryPath && await hashFile(join(root, entry.binaryPath)) !== entry.binarySha256) throw new Error(`kit-owned ${id} binary changed; refusing overwrite`);
   return true;
 }
@@ -208,7 +236,7 @@ export async function installMacOS(manifest, options = {}) {
   if (!options.installRoot || !isAbsolute(options.installRoot)) throw new Error('--install-root must be an absolute path');
   if (!options.home || !isAbsolute(options.home)) throw new Error('HOME must be an absolute path');
   const root = resolve(options.installRoot), release = manifest.release;
-  if (!options.firstmateHome || !isAbsolute(options.firstmateHome) || !resolve(options.firstmateHome).startsWith(`${root}${sep}`)) throw new Error('--firstmate-home must be a new absolute path beneath --install-root');
+  const firstmateHome = await checkFirstmateHome(options.firstmateHome, root, options.home);
   if (!safePart(release)) throw new Error('unsafe release name');
   const rootState = await exists(root);
   if (rootState && (!rootState.isDirectory() || rootState.isSymbolicLink())) throw new Error('install root is not a plain directory');
@@ -218,6 +246,7 @@ export async function installMacOS(manifest, options = {}) {
     const receiptPath = join(root, 'receipt.json');
     let receipt = await exists(receiptPath) ? JSON.parse(await readFile(receiptPath, 'utf8')) : { schemaVersion: 1, release, phases: {} };
     if (receipt.schemaVersion !== 1 || receipt.release !== release || !receipt.phases || Array.isArray(receipt.phases)) throw new Error('incompatible receipt; refusing overwrite');
+    if (receipt.phases.firstmate?.path !== firstmateHome && !(await newDirectory(firstmateHome))) throw new Error('--firstmate-home must be a new or empty directory; refusing to inherit it');
     const save = () => atomicJson(receiptPath, receipt);
     const components = [], targetKey = `darwin-${arch}`;
     await mkdir(join(root, 'releases', release, 'staging'), { recursive: true, mode: 0o700 });
@@ -232,7 +261,12 @@ export async function installMacOS(manifest, options = {}) {
         components.push({ id: tool.id, status: 'unverified', reason: 'no reviewed install adapter' });
         continue;
       }
-      if (await checkReceipt(root, receipt, tool.id, tool.version.value, a.sha256)) {
+      const match = await checkReceipt(root, receipt, tool.id, tool.version.value, a.sha256, options);
+      if (match.conflict) {
+        components.push({ id: tool.id, status: 'conflict', reason: match.conflict });
+        continue;
+      }
+      if (match) {
         if (receipt.phases[tool.id].state === 'pending') { receipt.phases[tool.id].state = 'complete'; await save(); }
         components.push({ id: tool.id, status: 'skipped', reason: 'receipt and owned files match' });
         continue;
@@ -262,16 +296,17 @@ export async function installMacOS(manifest, options = {}) {
         await save();
         components.push({ id: tool.id, status: 'installed', reason: 'verified artifact activated' });
       } else if (tool.id === 'firstmate') {
-        const destination = resolve(options.firstmateHome);
-        if (await exists(destination)) throw new Error('Firstmate home already exists without a matching receipt; refusing to inherit it');
-        const stage = ownedPath(root, 'releases', release, 'staging', `firstmate-${randomUUID()}`);
-        await mkdir(stage, { recursive: true, mode: 0o700 });
-        await unpackTrackedSource(artifactPath, stage, true);
-        await attachPinnedGit(stage, tool, options);
-        for (const dir of ['data', 'state', 'config', 'projects']) await mkdir(join(stage, dir), { mode: 0o700 });
-        const digest = await hashTree(stage, new Set(['.git', 'data', 'state', 'config', 'projects']));
+        const destination = firstmateHome;
+        if (!(await newDirectory(destination))) throw new Error('Firstmate home already exists without a matching receipt; refusing to inherit it');
         await mkdir(dirname(destination), { recursive: true, mode: 0o700 });
-        receipt.phases[tool.id] = { state: 'pending', version: tool.version.value, artifactSha256: a.sha256, path: relative(root, destination), ownedSha256: digest };
+        const stage = join(dirname(destination), `.${basename(destination)}.agent-kit-${randomUUID()}`);
+        await mkdir(stage, { mode: 0o700 });
+        try {
+          await unpackTrackedSource(artifactPath, stage, true);
+          await attachPinnedGit(stage, tool, options);
+          for (const dir of ['data', 'state', 'config', 'projects']) await mkdir(join(stage, dir), { mode: 0o700 });
+        } catch (error) { await rm(stage, { recursive: true, force: true }); throw error; }
+        receipt.phases[tool.id] = { state: 'pending', version: tool.version.value, artifactSha256: a.sha256, path: destination };
         await save();
         await rename(stage, destination);
         receipt.phases[tool.id].state = 'complete';
@@ -317,12 +352,12 @@ export async function installMacOS(manifest, options = {}) {
     if ((options.harness || 'claude') === 'codex') components.push(await npmPhase(root, release, 'npm-codex', manifest, receipt, save, options));
     const towerBuilt = components.some(x => x.id === 'zoe-fleet' && ['installed', 'skipped'].includes(x.status));
     const towerParity = towerBuilt ? 'packaged but fleet manifest and launcher unverified' : 'unavailable';
-    const incomplete = components.some(x => x.status === 'unverified') || selected(manifest, options.harness || 'claude', !!options.withFigma).some(x => x.id === 'zoe-fleet');
+    const incomplete = components.some(x => ['unverified', 'conflict'].includes(x.status)) || selected(manifest, options.harness || 'claude', !!options.withFigma).some(x => x.id === 'zoe-fleet');
     return { status: incomplete ? 'partial' : 'installed', exitCode: incomplete ? 1 : 0, components,
       receipt: receiptPath, bin: join(root, 'releases', release, 'bin'),
       npmBin: coreNpm ? join(root, 'releases', release, 'npm', 'node_modules', '.bin') : null,
       codexBin: (options.harness || 'claude') === 'codex' ? join(root, 'releases', release, 'npm-codex', 'node_modules', '.bin') : null,
-      firstmateHome: components.some(x => x.id === 'firstmate' && ['installed', 'skipped'].includes(x.status)) ? options.firstmateHome : null,
+      firstmateHome: components.some(x => x.id === 'firstmate' && ['installed', 'skipped'].includes(x.status)) ? receipt.phases.firstmate.path : null,
       towerParity,
       loginSteps: selected(manifest, options.harness || 'claude', !!options.withFigma).map(t => login[t.id]).filter(Boolean) };
   } finally { await unlock(); }
