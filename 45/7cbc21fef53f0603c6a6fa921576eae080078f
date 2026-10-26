@@ -1,0 +1,21 @@
+src/install/macos.mjs
+  s_e943c8362dcf8b::t_2e735c1eb5087c 128
+test/kit.test.mjs
+  s_e943c8362dcf8b::t_2e735c1eb5087c 704-707
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "457cbc21fef53f0603c6a6fa921576eae080078f",
+  "prompts": {},
+  "sessions": {
+    "s_e943c8362dcf8b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cdf6806-31fd-4821-86c8-159866616781",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
