@@ -5,6 +5,7 @@ import { readFile, writeFile, mkdir, open, rename, rm, lstat, readdir, chmod, re
 import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
+import { applyHooks, previewHooks, publicHookChanges } from './hooks.mjs';
 
 const exec = promisify(execFile);
 const npmIds = new Set(['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi', 'codex']);
@@ -355,6 +356,18 @@ export async function installMacOS(manifest, options = {}) {
     const coreNpm = selected(manifest, options.harness || 'claude', !!options.withFigma).some(t => npmIds.has(t.id) && t.id !== 'codex');
     if (coreNpm) components.push(await npmPhase(root, release, 'npm', manifest, receipt, save, options));
     if ((options.harness || 'claude') === 'codex') components.push(await npmPhase(root, release, 'npm-codex', manifest, receipt, save, options));
+    const shouldRegister = selected(manifest, options.harness || 'claude', !!options.withFigma).some(t => npmIds.has(t.id) && t.id !== 'codex') || receipt.phases.hooks;
+    let hookChanges = [];
+    if (shouldRegister && (components.some(x => x.id === 'npm' && ['installed', 'skipped'].includes(x.status)) || (!coreNpm && receipt.phases.hooks))) {
+      try {
+        const preview = previewHooks(manifest, { home: options.home, installRoot: root });
+        hookChanges = publicHookChanges(preview);
+        await options.onHooksPreview?.(hookChanges);
+        components.push(await applyHooks(preview, { installRoot: root, receipt, save }));
+      } catch (error) {
+        components.push({ id: 'hooks', status: 'conflict', reason: error.message });
+      }
+    }
     const towerBuilt = components.some(x => x.id === 'zoe-fleet' && ['installed', 'skipped'].includes(x.status));
     const towerParity = towerBuilt ? 'packaged but fleet manifest and launcher unverified' : 'unavailable';
     const incomplete = components.some(x => ['unverified', 'conflict'].includes(x.status)) || selected(manifest, options.harness || 'claude', !!options.withFigma).some(x => x.id === 'zoe-fleet');
@@ -363,8 +376,11 @@ export async function installMacOS(manifest, options = {}) {
       npmBin: coreNpm ? join(root, 'releases', release, 'npm', 'node_modules', '.bin') : null,
       codexBin: (options.harness || 'claude') === 'codex' ? join(root, 'releases', release, 'npm-codex', 'node_modules', '.bin') : null,
       firstmateHome: components.some(x => x.id === 'firstmate' && ['installed', 'skipped'].includes(x.status)) ? firstmateHome : null,
-      towerParity,
-      loginSteps: selected(manifest, options.harness || 'claude', !!options.withFigma).map(t => login[t.id]).filter(Boolean) };
+      towerParity, hookChanges,
+      loginSteps: selected(manifest, options.harness || 'claude', !!options.withFigma).map(t => login[t.id]).filter(Boolean),
+      nextSteps: [
+        'Codex reviews new or changed hooks interactively; review and approve them yourself when prompted.',
+        'no-mistakes init installs its user-level skill when you initialize your own repository.'] };
   } finally { await unlock(); }
 }
 
@@ -374,6 +390,6 @@ export function formatInstall(result) {
     `Kit binaries: ${result.bin || 'none'}`, ...(result.npmBin ? [`npm binaries: ${result.npmBin}`] : []),
     ...(result.codexBin ? [`Codex binaries: ${result.codexBin}`] : []),
     ...(result.firstmateHome ? [`Fresh Firstmate home: ${result.firstmateHome}`] : []),
-    `Tower parity: ${result.towerParity}`, ...result.loginSteps.map(x => `Sign in yourself: ${x}`),
+    `Tower parity: ${result.towerParity}`, ...result.loginSteps.map(x => `Sign in yourself: ${x}`), ...(result.nextSteps || []).map(x => `Next step: ${x}`),
   ].join('\n') + '\n';
 }

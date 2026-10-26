@@ -19,7 +19,12 @@ try {
     validateManifest(manifest);
     if (!options.installRoot || !options.firstmateHome) throw new Error('install requires --install-root and --firstmate-home (both absolute paths)');
     const result = await installMacOS(manifest, { platform: context.platform, arch: context.arch, home: process.env.HOME,
-      installRoot: options.installRoot, firstmateHome: options.firstmateHome, harness: options.harness, withFigma: options.withFigma, nodeVersion: context.nodeVersion });
+      installRoot: options.installRoot, firstmateHome: options.firstmateHome, harness: options.harness, withFigma: options.withFigma, nodeVersion: context.nodeVersion,
+      onHooksPreview: changes => {
+        process.stderr.write('Global hook and skill changes before apply (kit-owned entries only):\n');
+        for (const change of changes) process.stderr.write(`${change.path}: ${JSON.stringify(change.changes)}\n`);
+        if (!changes.length) process.stderr.write('none\n');
+      } });
     process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatInstall(result));
     process.exitCode = result.exitCode;
   } else {
