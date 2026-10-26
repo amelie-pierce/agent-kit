@@ -1,0 +1,12 @@
+{
+  "name": "@amelie-pierce/agent-kit-tools",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "gh-axi": "0.1.35",
+    "chrome-devtools-axi": "0.1.35",
+    "lavish-axi": "0.1.78",
+    "quota-axi": "0.1.53",
+    "tasks-axi": "0.2.6"
+  }
+}

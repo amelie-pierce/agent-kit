@@ -6,4 +6,5 @@ date: 2026-10-26
 
 # Architecture
 
-- [Read-only boundary](read-only-boundary.md) — command evaluation, platform routing and deferred installation.
+- [Read-only boundary](read-only-boundary.md) — command evaluation and platform routing.
+- [macOS install](macos-install.md) — staging, ownership receipts, source boundaries and partial tower status.

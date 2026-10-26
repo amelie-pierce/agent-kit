@@ -1,19 +1,38 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { run } from '../src/kit.mjs';
+import { parseArgs, run, validateManifest } from '../src/kit.mjs';
+import { installMacOS } from '../src/install/macos.mjs';
 
 const manifestPath = fileURLToPath(new URL('../manifests/pilot-skeleton.json', import.meta.url));
 try {
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  const result = run(process.argv.slice(2), manifest, {
+  const argv = process.argv.slice(2);
+  const options = parseArgs(argv);
+  const context = {
     env: process.env,
     platform: process.platform,
     arch: process.arch,
     nodeVersion: process.versions.node,
-  });
-  process.stdout.write(result.output);
-  process.exitCode = result.exitCode;
+  };
+  if (options.command === 'install') {
+    validateManifest(manifest);
+    if (!options.installRoot || !options.firstmateHome) throw new Error('install requires --install-root and --firstmate-home (both absolute paths)');
+    const result = await installMacOS(manifest, { platform: context.platform, arch: context.arch, home: process.env.HOME,
+      installRoot: options.installRoot, firstmateHome: options.firstmateHome, harness: options.harness, withFigma: options.withFigma, nodeVersion: context.nodeVersion });
+    process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : [
+      `Agent Kit install: ${result.status}`, ...result.components.map(x => `- ${x.id}: ${x.status}; ${x.reason}`),
+      `Kit binaries: ${result.bin || 'none'}`, ...(result.npmBin ? [`npm binaries: ${result.npmBin}`] : []),
+      ...(result.codexBin ? [`Codex binaries: ${result.codexBin}`] : []),
+      ...(result.firstmateHome ? [`Fresh Firstmate home: ${result.firstmateHome}`] : []),
+      `Tower parity: ${result.towerParity || 'unavailable'}`, ...result.loginSteps.map(x => `Sign in yourself: ${x}`),
+    ].join('\n') + '\n');
+    process.exitCode = result.exitCode;
+  } else {
+    const result = run(argv, manifest, context);
+    process.stdout.write(result.output);
+    process.exitCode = result.exitCode;
+  }
 } catch (error) {
   process.stderr.write(`agent-kit: ${error.message}\n`);
   process.exitCode = 2;
