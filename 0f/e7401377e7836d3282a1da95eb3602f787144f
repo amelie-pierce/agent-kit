@@ -1,0 +1,27 @@
+README.md
+  s_8ccb8bd1e179c2::t_11dbd4331adc15 15
+src/kit.mjs
+  s_8ccb8bd1e179c2::t_d62dbe51edd27e 78-79,88-89,115-116
+src/platforms/macos.mjs
+  s_8ccb8bd1e179c2::t_d62dbe51edd27e 1-2,25-39,42-61,97-98,102-106
+  s_8ccb8bd1e179c2::t_11dbd4331adc15 40-41
+test/kit.test.mjs
+  s_8ccb8bd1e179c2::t_13398025cf0f2d 13-20,42,48-49,64,91-143
+  s_8ccb8bd1e179c2::t_9c3dcc36a63e34 144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0fe7401377e7836d3282a1da95eb3602f787144f",
+  "prompts": {},
+  "sessions": {
+    "s_8ccb8bd1e179c2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74e91324-170a-4aec-a8b3-68a181cf0952",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
