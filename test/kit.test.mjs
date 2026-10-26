@@ -6,7 +6,7 @@ import { basename, dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { run, validateManifest } from '../src/kit.mjs';
-import { formatInstall, installMacOS, installLinux } from '../src/install/macos.mjs';
+import { formatInstall, installPlatform } from '../src/install/macos.mjs';
 import { applyHooks, previewHooks, publicHookChanges } from '../src/install/hooks.mjs';
 import { createHash } from 'node:crypto';
 
@@ -195,7 +195,7 @@ test('Linux unsupported architecture, libc and WSL1 refuse before inspection or 
   const f = installFixture(t);
   for (const override of [{ arch: 'mips', libc: 'glibc' }, { arch: 'x64', libc: 'musl' }, { arch: 'x64', libc: 'glibc', env: { WSL_DISTRO_NAME: 'Ubuntu' }, procVersion: 'Microsoft WSL1' }]) {
     const options = { ...f.options, platform: 'linux', ...override };
-    const result = await installLinux(f.fixtureManifest, options);
+    const result = await installPlatform(f.fixtureManifest, options);
     assert.equal(result.status, 'unsupported');
     assert.equal(existsSync(f.installRoot), false);
     const planned = run(['check', '--json'], f.fixtureManifest, { ...options, env: { HOME: f.home, PATH: f.bin, ...override.env } });
@@ -335,11 +335,11 @@ function installFixture(t) {
 
 test('macOS install verifies ownership and a second run is a no-op', async t => {
   const f = installFixture(t);
-  const first = await installMacOS(f.fixtureManifest, f.options);
+  const first = await installPlatform(f.fixtureManifest, f.options);
   assert.equal(first.status, 'installed');
   assert.equal(first.components[0].status, 'installed');
   assert.equal(f.downloads.length, 1);
-  const second = await installMacOS(f.fixtureManifest, f.options);
+  const second = await installPlatform(f.fixtureManifest, f.options);
   assert.equal(second.components[0].status, 'skipped');
   assert.equal(f.downloads.length, 1);
   const receipt = JSON.parse(readFileSync(first.receipt));
@@ -352,22 +352,22 @@ test('interrupted install resumes completed phases', async t => {
   const second = structuredClone(f.fixtureManifest.tools[0]);
   second.id = 'actionlint'; second.name = 'actionlint';
   f.fixtureManifest.tools.push(second);
-  await assert.rejects(installMacOS(f.fixtureManifest, { ...f.options, afterPhase: id => { if (id === 'herdr') throw new Error('interrupted'); } }), /interrupted/);
-  const result = await installMacOS(f.fixtureManifest, f.options);
+  await assert.rejects(installPlatform(f.fixtureManifest, { ...f.options, afterPhase: id => { if (id === 'herdr') throw new Error('interrupted'); } }), /interrupted/);
+  const result = await installPlatform(f.fixtureManifest, f.options);
   assert.deepEqual(result.components.map(x => x.status), ['skipped', 'installed']);
 });
 
 test('checksum mismatch refuses activation', async t => {
   const f = installFixture(t);
   f.fixtureManifest.tools[0].artifacts['darwin-arm64'].sha256 = '0'.repeat(64);
-  await assert.rejects(installMacOS(f.fixtureManifest, f.options), /SHA-256 mismatch/);
+  await assert.rejects(installPlatform(f.fixtureManifest, f.options), /SHA-256 mismatch/);
   assert.equal(existsSync(join(f.installRoot, 'releases', 'fixture-1', 'bin', 'herdr')), false);
 });
 
 test('unsupported targets stop before any write', async t => {
   const f = installFixture(t);
   for (const [platform, arch] of [['win32', 'arm64'], ['darwin', 'mips']]) {
-    const result = await installMacOS(f.fixtureManifest, { ...f.options, platform, arch });
+    const result = await installPlatform(f.fixtureManifest, { ...f.options, platform, arch });
     assert.equal(result.status, 'unsupported');
     assert.match(formatInstall(result), new RegExp(`^Agent Kit install: unsupported\nunsupported install target ${platform}/${arch}\n`));
   }
@@ -379,10 +379,10 @@ test('Linux fixture install reuses receipts, checksum verification and global ho
   const artifact = f.fixtureManifest.tools[0].artifacts['darwin-arm64'];
   f.fixtureManifest.tools[0].artifacts['linux-arm64'] = { ...artifact };
   f.options = { ...f.options, platform: 'linux', libc: 'glibc' };
-  const first = await installLinux(f.fixtureManifest, f.options);
+  const first = await installPlatform(f.fixtureManifest, f.options);
   assert.equal(first.status, 'installed');
   assert.equal(first.components[0].status, 'installed');
-  const second = await installLinux(f.fixtureManifest, f.options);
+  const second = await installPlatform(f.fixtureManifest, f.options);
   assert.equal(second.components[0].status, 'skipped');
   assert.equal(f.downloads.length, 1);
   assert.equal(JSON.parse(readFileSync(first.receipt)).phases.herdr.artifactSha256, artifact.sha256);
@@ -398,7 +398,7 @@ test('Linux fixture install reuses receipts, checksum verification and global ho
 test('WSL2 install selects Linux artifact and prints Windows-side notes', async t => {
   const f = installFixture(t);
   f.fixtureManifest.tools[0].artifacts['linux-arm64'] = { ...f.fixtureManifest.tools[0].artifacts['darwin-arm64'] };
-  const result = await installLinux(f.fixtureManifest, { ...f.options, platform: 'linux', libc: 'glibc', env: { WSL_INTEROP: '/run/WSL/1_interop' } });
+  const result = await installPlatform(f.fixtureManifest, { ...f.options, platform: 'linux', libc: 'glibc', env: { WSL_INTEROP: '/run/WSL/1_interop' } });
   assert.equal(result.components[0].status, 'installed');
   assert.match(formatInstall(result), /Windows Terminal and a browser on the Windows side/);
 });
@@ -419,10 +419,10 @@ test('Linux npm locks include Codex platform packages and run the hooks phase', 
       writeFileSync(join(bins, id), 'fixture', { mode: 0o755 });
     }
   } };
-  const result = await installLinux(f.fixtureManifest, f.options);
+  const result = await installPlatform(f.fixtureManifest, f.options);
   assert.deepEqual(result.components.map(x => x.id), ['npm', 'hooks']);
   assert.deepEqual(result.components.map(x => x.status), ['installed', 'installed']);
-  const second = await installLinux(f.fixtureManifest, f.options);
+  const second = await installPlatform(f.fixtureManifest, f.options);
   assert.deepEqual(second.components.map(x => x.status), ['skipped', 'skipped']);
 });
 
@@ -626,7 +626,7 @@ test('verified source archives create a fresh home and stage a tower build', asy
     mkdirSync(join(target, 'release'), { recursive: true });
     writeFileSync(join(target, 'release', 'zoe'), 'fixture tower', { mode: 0o755 });
   };
-  const result = await installMacOS(f.fixtureManifest, f.options);
+  const result = await installPlatform(f.fixtureManifest, f.options);
   assert.equal(result.status, 'partial');
   assert.match(result.towerParity, /manifest and launcher unverified/);
   assert.deepEqual(result.components.map(x => x.status), ['installed', 'installed']);
@@ -635,16 +635,16 @@ test('verified source archives create a fresh home and stage a tower build', asy
   assert.equal(readFileSync(join(f.firstmateHome, 'README.md'), 'utf8'), 'tracked fixture\n');
   for (const dir of ['data', 'state', 'config', 'projects']) assert.deepEqual(readdirSync(join(f.firstmateHome, dir)), []);
   writeFileSync(join(f.firstmateHome, 'data', 'new-person-only'), 'private');
-  const second = await installMacOS(f.fixtureManifest, f.options);
+  const second = await installPlatform(f.fixtureManifest, f.options);
   assert.deepEqual(second.components.map(x => x.status), ['skipped', 'skipped']);
 });
 
 test('Firstmate rerun skips after untracked local settings appear', async t => {
   const f = firstmateFixture(t);
-  assert.equal((await installMacOS(f.fixtureManifest, f.options)).components[0].status, 'installed');
+  assert.equal((await installPlatform(f.fixtureManifest, f.options)).components[0].status, 'installed');
   mkdirSync(join(f.firstmateHome, '.claude'));
   writeFileSync(join(f.firstmateHome, '.claude', 'settings.local.json'), '{"permissions":{"allow":["Bash(ls)"]}}\n');
-  const second = await installMacOS(f.fixtureManifest, f.options);
+  const second = await installPlatform(f.fixtureManifest, f.options);
   assert.equal(second.status, 'installed');
   assert.equal(second.components[0].status, 'skipped');
 });
@@ -654,7 +654,7 @@ test('interrupted Firstmate staging is replaced on resume', async t => {
   const stale = join(f.root, '.fresh-firstmate.agent-kit-staging');
   mkdirSync(join(stale, '.git'), { recursive: true });
   writeFileSync(join(stale, 'README.md'), 'partial checkout\n');
-  const result = await installMacOS(f.fixtureManifest, f.options);
+  const result = await installPlatform(f.fixtureManifest, f.options);
   assert.equal(result.components[0].status, 'installed');
   assert.equal(existsSync(stale), false);
   assert.equal(readFileSync(join(f.firstmateHome, 'README.md'), 'utf8'), 'tracked fixture\n');
@@ -663,22 +663,22 @@ test('interrupted Firstmate staging is replaced on resume', async t => {
 
 test('rerun with a different Firstmate home is refused', async t => {
   const f = firstmateFixture(t);
-  await installMacOS(f.fixtureManifest, f.options);
+  await installPlatform(f.fixtureManifest, f.options);
   const other = join(f.root, 'other-firstmate');
-  await assert.rejects(installMacOS(f.fixtureManifest, { ...f.options, firstmateHome: other }), /differs from the Firstmate home recorded/);
+  await assert.rejects(installPlatform(f.fixtureManifest, { ...f.options, firstmateHome: other }), /differs from the Firstmate home recorded/);
   assert.equal(existsSync(other), false);
-  assert.equal((await installMacOS(f.fixtureManifest, f.options)).firstmateHome, f.firstmateHome);
+  assert.equal((await installPlatform(f.fixtureManifest, f.options)).firstmateHome, f.firstmateHome);
 });
 
 test('changed tracked Firstmate file is a phase conflict and other phases continue', async t => {
   const f = firstmateFixture(t);
-  await installMacOS(f.fixtureManifest, f.options);
+  await installPlatform(f.fixtureManifest, f.options);
   writeFileSync(join(f.firstmateHome, 'README.md'), 'local edit\n');
   f.fixtureManifest.tools.push(structuredClone(manifest.tools.find(x => x.id === 'herdr')));
   f.fixtureManifest.tools[1].artifacts['darwin-arm64'] = { url: 'https://fixture.test/herdr', status: 'verified', reason: '',
     sha256: createHash('sha256').update(readFileSync(f.artifact)).digest('hex') };
   f.options.fetchArtifact = async (_url, target) => copyFileSync(f.artifact, target);
-  const result = await installMacOS(f.fixtureManifest, f.options);
+  const result = await installPlatform(f.fixtureManifest, f.options);
   assert.equal(result.status, 'partial');
   assert.equal(result.exitCode, 1);
   assert.equal(result.components[0].status, 'conflict');
@@ -691,14 +691,14 @@ test('changed tracked Firstmate file is a phase conflict and other phases contin
 test('Firstmate home outside the install root is refused when unsafe', async t => {
   const f = installFixture(t);
   const refuse = async (firstmateHome, pattern) => {
-    await assert.rejects(installMacOS(f.fixtureManifest, { ...f.options, firstmateHome }), pattern);
+    await assert.rejects(installPlatform(f.fixtureManifest, { ...f.options, firstmateHome }), pattern);
     assert.equal(existsSync(f.installRoot), false);
   };
   await refuse(f.home, /home directory/);
   // System locations are POSIX paths; on Windows they resolve under the current drive.
   if (process.platform !== 'win32') for (const path of ['/usr/local/agent-kit-firstmate', '/Library/agent-kit-firstmate', join(f.home, 'Library', 'firstmate')]) await refuse(path, /system location/);
   if (process.platform !== 'win32') for (const path of ['/var/lib/firstmate', '/srv/firstmate', '/run/firstmate']) {
-    await assert.rejects(installLinux(f.fixtureManifest, { ...f.options, platform: 'linux', libc: 'glibc', env: {}, firstmateHome: path }), /system location/);
+    await assert.rejects(installPlatform(f.fixtureManifest, { ...f.options, platform: 'linux', libc: 'glibc', env: {}, firstmateHome: path }), /system location/);
     assert.equal(existsSync(f.installRoot), false);
   }
   await refuse(join(f.installRoot, 'firstmate'), /outside --install-root/);
@@ -710,7 +710,7 @@ test('Firstmate home outside the install root is refused when unsafe', async t =
   await refuse(join(f.root, 'old-firstmate', 'nested'), /existing Firstmate home or git checkout/);
   mkdirSync(f.firstmateHome);
   writeFileSync(join(f.firstmateHome, 'keep'), 'mine');
-  await assert.rejects(installMacOS(f.fixtureManifest, f.options), /new or empty directory/);
+  await assert.rejects(installPlatform(f.fixtureManifest, f.options), /new or empty directory/);
   assert.deepEqual(readdirSync(f.firstmateHome), ['keep']);
   assert.equal(existsSync(join(f.installRoot, 'releases', 'fixture-1', 'bin', 'herdr')), false);
 });
@@ -727,7 +727,7 @@ test('Firstmate archive with runtime home content is refused', async t => {
   tool.artifacts['darwin-arm64'] = { url: 'https://fixture.test/unsafe.tar.gz', sha256: createHash('sha256').update(readFileSync(archive)).digest('hex'), status: 'verified', reason: '' };
   f.fixtureManifest.tools = [tool];
   f.options.fetchArtifact = async (_url, destination) => copyFileSync(archive, destination);
-  await assert.rejects(installMacOS(f.fixtureManifest, f.options), /runtime home content/);
+  await assert.rejects(installPlatform(f.fixtureManifest, f.options), /runtime home content/);
   assert.equal(existsSync(f.firstmateHome), false);
 });
 
@@ -747,16 +747,16 @@ test('npm phase uses committed integrity lock and records exact tool versions', 
       writeFileSync(join(bins, id), 'fixture', { mode: 0o755 });
     }
   };
-  const first = await installMacOS(f.fixtureManifest, f.options);
+  const first = await installPlatform(f.fixtureManifest, f.options);
   assert.equal(first.components[0].status, 'installed');
   assert.equal(first.components[1].id, 'hooks');
   assert.equal(first.components[0].packages['gh-axi'], '0.1.35');
   assert.equal(JSON.parse(readFileSync(first.receipt)).phases.npm.packages['gh-axi'], '0.1.35');
-  const second = await installMacOS(f.fixtureManifest, f.options);
+  const second = await installPlatform(f.fixtureManifest, f.options);
   assert.equal(second.components[0].status, 'skipped');
   assert.equal(invocations, 1);
   writeFileSync(join(f.home, '.claude', 'settings.json'), '{bad');
-  const conflicted = await installMacOS(f.fixtureManifest, f.options);
+  const conflicted = await installPlatform(f.fixtureManifest, f.options);
   assert.deepEqual(conflicted.components.find(x => x.id === 'hooks').status, 'conflict');
   assert.equal(conflicted.status, 'partial');
   assert.match(formatInstall(conflicted), /- hooks: conflict; .*malformed JSON/);
@@ -768,7 +768,7 @@ test('npm phase is not installed while a locked tool version is unverified', asy
   tools[2].version = { ...tools[2].version, status: 'unverified', reason: 'approval pending' };
   f.fixtureManifest = { ...f.fixtureManifest, tools };
   f.options.runNpm = async () => assert.fail('npm must not run');
-  const result = await installMacOS(f.fixtureManifest, f.options);
+  const result = await installPlatform(f.fixtureManifest, f.options);
   assert.equal(result.status, 'partial');
   assert.deepEqual(result.components, [{ id: 'npm', status: 'unverified', reason: 'lavish-axi: approval pending' }]);
   assert.equal(existsSync(join(f.installRoot, 'releases', 'fixture-1', 'npm')), false);

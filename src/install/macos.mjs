@@ -390,8 +390,6 @@ export async function installPlatform(manifest, options = {}) {
   } finally { await unlock(); }
 }
 
-export const installMacOS = installPlatform;
-export const installLinux = installPlatform;
 
 export function formatInstall(result) {
   return [
