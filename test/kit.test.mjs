@@ -701,6 +701,10 @@ test('Firstmate home outside the install root is refused when unsafe', async t =
     await assert.rejects(installPlatform(f.fixtureManifest, { ...f.options, platform: 'linux', libc: 'glibc', env: {}, firstmateHome: path }), /system location/);
     assert.equal(existsSync(f.installRoot), false);
   }
+  if (process.platform !== 'win32') {
+    await assert.rejects(installPlatform({ ...f.fixtureManifest, release: '../stop-before-writes' }, { ...f.options, platform: 'linux', libc: 'glibc', env: {}, home: '/var/home/u', firstmateHome: '/var/home/u/firstmate' }), /unsafe release name/);
+    assert.equal(existsSync(f.installRoot), false);
+  }
   await refuse(join(f.installRoot, 'firstmate'), /outside --install-root/);
   await refuse(dirname(f.installRoot), /outside --install-root/);
   mkdirSync(join(f.root, 'checkout', '.git'), { recursive: true });

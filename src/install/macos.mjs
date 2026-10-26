@@ -125,7 +125,7 @@ async function unpackTrackedSource(archive, destination, freshHome = false) {
 const gitEnv = options => ({ ...toolEnv(options.home, options.installRoot), GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' });
 const systemDirs = {
   darwin: home => ['/Applications', '/Library', '/System', '/bin', '/sbin', '/usr', '/etc', '/private/etc', '/dev', '/opt', '/cores', join(home, 'Library')],
-  linux: () => ['/bin', '/sbin', '/usr', '/etc', '/dev', '/opt', '/var', '/proc', '/sys', '/run', '/srv', '/boot', '/lib', '/lib64'],
+  linux: () => ['/bin', '/sbin', '/usr', '/etc', '/dev', '/opt', '/var/lib', '/var/log', '/var/cache', '/var/spool', '/var/tmp', '/var/opt', '/proc', '/sys', '/run', '/srv', '/boot', '/lib', '/lib64'],
 };
 const within = (path, parent) => path === parent || path.startsWith(parent === sep ? parent : `${parent}${sep}`);
 const newDirectory = async path => {
