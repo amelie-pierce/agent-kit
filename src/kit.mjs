@@ -71,7 +71,7 @@ function evaluate(manifest, context, options) {
   for (const conflict of platform.pathConflicts) issues.push({ status: 'fail', id: conflict.id, reason: 'multiple executable paths; PATH precedence needs review' });
   const target = `${platform.platform}-${context.arch}`;
   for (const tool of selected) {
-    if (tool.version.status !== 'verified') issues.push({ status: 'unknown', id: tool.id, reason: tool.version.reason });
+    if (tool.version.status !== 'verified' && !issues.some(x => x.id === tool.id && x.reason === tool.version.reason)) issues.push({ status: 'unknown', id: tool.id, reason: tool.version.reason });
     const artifact = tool.artifacts[target];
     if (!artifact || artifact.status !== 'verified') issues.push({ status: 'unknown', id: tool.id, reason: artifact?.reason || `artifact for ${target} is not reviewed` });
   }

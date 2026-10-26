@@ -70,6 +70,43 @@ test('unknown pins remain unknown even when the command is present', { skip: pro
   assert.deepEqual(readdirSync(home), []);
 });
 
+test('unverified observed versions are unknown, never pass or fail', { skip: process.platform === 'win32' }, t => {
+  const { home, bin } = tempFixture(t);
+  for (const name of prereqBins.concat('git')) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
+  const tools = ['node', 'git'].map(id => manifest.tools.find(x => x.id === id));
+  assert.ok(tools.every(x => x.version.status === 'unverified'));
+  const outputs = { node: 'v24.21.0', git: 'git version 2.39.5 (Apple Git-154)' };
+  for (const [gitOutput, detected] of [[outputs.git, '2.39.5'], [`git version ${tools[1].version.value}`, tools[1].version.value]]) {
+    const context = { env: { HOME: home, PATH: bin }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.21.0',
+      runCommand: path => ({ ...outputs, git: gitOutput })[basename(path)] ?? '/fake/CommandLineTools' };
+    const result = run(['check', '--json'], { ...manifest, tools }, context).result;
+    for (const id of ['node', 'git']) assert.equal(result.platform.tools.find(x => x.id === id).status, 'unknown');
+    assert.equal(result.platform.tools.find(x => x.id === 'git').detected, detected);
+    assert.equal(result.platform.tools.find(x => x.id === 'node').detected, '24.21.0');
+    assert.ok(!result.issues.some(x => x.id === 'node-runtime'));
+    assert.ok(!result.issues.some(x => x.status === 'fail'));
+  }
+});
+
+test('source commit detection does not walk up into an enclosing HOME repository', { skip: process.platform === 'win32' }, t => {
+  const { home } = tempFixture(t);
+  const git = (...args) => spawnSync('git', args, { cwd: home, encoding: 'utf8' });
+  if (git('--version').status !== 0) return t.skip('git unavailable');
+  git('init', '-q');
+  git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-q', '--allow-empty', '-m', 'home');
+  const homeHead = git('rev-parse', 'HEAD').stdout.trim();
+  assert.match(homeHead, /^[a-f0-9]{40}$/);
+  mkdirSync(join(home, '.agent-kit/sources/firstmate'), { recursive: true });
+  const tool = structuredClone(manifest.tools.find(x => x.id === 'firstmate'));
+  tool.version = { kind: 'git-commit', value: 'b'.repeat(40), status: 'verified', reason: '' };
+  const result = run(['check', '--json'], { ...manifest, tools: [tool] }, {
+    env: { HOME: home, PATH: process.env.PATH }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
+  }).result.platform.tools[0];
+  assert.equal(result.status, 'unknown');
+  assert.equal(result.reason, 'source commit could not be read');
+  assert.notEqual(result.detected, homeHead);
+});
+
 test('Windows and WSL2 stubs state the handoff and do not inspect tools', t => {
   const { home, bin } = tempFixture(t);
   for (const [platform, env, expected] of [
