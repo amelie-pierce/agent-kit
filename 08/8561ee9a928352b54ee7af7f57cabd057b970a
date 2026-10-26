@@ -1,0 +1,68 @@
+bin/agent-kit.mjs
+  s_f5f149a9736dcf::t_b688e86398b482 22-27
+README.md
+  s_f5f149a9736dcf::t_31ea3dc0b11662 65
+  s_f5f149a9736dcf::t_b464ad3b6572a9 29-31,67
+src/install/macos.mjs
+  s_f5f149a9736dcf::t_497384c1f21a0b 376-377,389
+  s_f5f149a9736dcf::t_ec0804a8c5d805 359,366,378-379
+  s_f5f149a9736dcf::t_b688e86398b482 8,360,362-365,375
+  s_f5f149a9736dcf::t_53279d18d1e311 361
+_vaults/agent-kit/wiki/architecture/index.md
+  s_f5f149a9736dcf::t_7436a6be099cec 11
+_vaults/agent-kit/wiki/architecture/macos-install.md
+  s_f5f149a9736dcf::t_7436a6be099cec 13
+src/install/hooks.mjs
+  s_f5f149a9736dcf::t_6326610383ac6f 70,110-111
+  s_f5f149a9736dcf::t_4048a898d1e4a8 82-83
+  s_f5f149a9736dcf::t_5528bb53b82115 30,84
+  s_f5f149a9736dcf::t_f77549f7ce19e5 3,7-16,24-25,31-32,35-37,48-59,61-69,71-75,77-80,85-87,89-91,101-106,108-109,112-115,117-141,146-156,158-169,175,185,187-189,191,193-197,200-203,208-209,241-242,245,253-255,259,266-268,270-271,289-297,303,307,309-311,315
+  s_f5f149a9736dcf::t_b29e0060bfb40a 76,186,244,308
+  s_f5f149a9736dcf::t_5617075a0db07e 88,92-100,116
+  s_f5f149a9736dcf::t_8bfeceb5ef4d98 33-34,246
+  s_f5f149a9736dcf::t_5d8e6fd6617338 157
+  s_f5f149a9736dcf::t_a80a4c4ad53b45 1-2,4,6,17-23,26-29,60,81,107,170-174,176,178-184,192,210-212,214-240,243,252,260-265,277-288,304-306,312-314
+  s_f5f149a9736dcf::t_53279d18d1e311 247-251
+  s_f5f149a9736dcf::t_3bc7d1365f7273 257,272-276
+  s_f5f149a9736dcf::t_091e87c920a13c 142-145
+  s_f5f149a9736dcf::t_13fe825c973c41 199,204-207,256,258,269,298-302
+  s_f5f149a9736dcf::t_d56e91b4e3d0ff 5,38-47,177,190,198,213
+src/kit.mjs
+  s_f5f149a9736dcf::t_ec0804a8c5d805 3,101-104,134-135,149
+test/kit.test.mjs
+  s_f5f149a9736dcf::t_6326610383ac6f 332
+  s_f5f149a9736dcf::t_bd3455965dbfe3 313,355,383
+  s_f5f149a9736dcf::t_82522621cc0af8 328-330
+  s_f5f149a9736dcf::t_8bfeceb5ef4d98 297-298,567-568,574
+  s_f5f149a9736dcf::t_05e67b3f6480d9 400-404,406-419
+  s_f5f149a9736dcf::t_3e61965708171c 569-573,575,579
+  s_f5f149a9736dcf::t_f39b1aaa61985b 365-368
+  s_f5f149a9736dcf::t_5ff3b6fcdc0eda 358-361
+  s_f5f149a9736dcf::t_08651845110b7b 3,10,291-296,299-303,305-312,314-327,331,333-339,344-354,356-357,362-364,369-382,384-398
+  s_f5f149a9736dcf::t_4c8f35d9e08204 304,340-343
+  s_f5f149a9736dcf::t_53279d18d1e311 405
+  s_f5f149a9736dcf::t_b2b578a35ddfc2 399
+_vaults/agent-kit/wiki/architecture/global-registration.md
+  s_f5f149a9736dcf::t_eb53ca4ff0467b 9,11,13,15
+  s_f5f149a9736dcf::t_7436a6be099cec 1-8,10,12,14
+docs/global-hooks.md
+  s_f5f149a9736dcf::t_31ea3dc0b11662 1-2,4-16,18-19
+  s_f5f149a9736dcf::t_b464ad3b6572a9 17
+  s_f5f149a9736dcf::t_091e87c920a13c 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "088561ee9a928352b54ee7af7f57cabd057b970a",
+  "prompts": {},
+  "sessions": {
+    "s_f5f149a9736dcf": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17895-2c66-7632-b684-9fde032e1530",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
