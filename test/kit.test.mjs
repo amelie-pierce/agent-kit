@@ -60,9 +60,10 @@ test('macOS check uses fake HOME and PATH, detects versions and path precedence'
 });
 
 test('unknown pins remain unknown even when the command is present', { skip: process.platform === 'win32' }, t => {
-  const { home, bin } = tempFixture(t);
+  const { home, bin, root } = tempFixture(t);
   for (const name of prereqBins) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
   const context = { env: { HOME: home, PATH: bin }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
+    applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']),
     runCommand: path => basename(path) === 'xcode-select' ? '/fake/CommandLineTools' : 'v24.15.0' };
   const result = run(['--check', '--json'], { ...manifest, tools: [manifest.tools[0]] }, context);
   assert.equal(result.exitCode, 1);
@@ -71,13 +72,14 @@ test('unknown pins remain unknown even when the command is present', { skip: pro
 });
 
 test('unverified observed versions are unknown, never pass or fail', { skip: process.platform === 'win32' }, t => {
-  const { home, bin } = tempFixture(t);
+  const { home, bin, root } = tempFixture(t);
+  const applicationDirs = fakeApps(root, ['Terminal.app', 'Google Chrome.app']);
   for (const name of prereqBins.concat('git')) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
   const tools = ['node', 'git'].map(id => manifest.tools.find(x => x.id === id));
   assert.ok(tools.every(x => x.version.status === 'unverified'));
   const outputs = { node: 'v24.21.0', git: 'git version 2.39.5 (Apple Git-154)' };
   for (const [gitOutput, detected] of [[outputs.git, '2.39.5'], [`git version ${tools[1].version.value}`, tools[1].version.value]]) {
-    const context = { env: { HOME: home, PATH: bin }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.21.0',
+    const context = { env: { HOME: home, PATH: bin }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.21.0', applicationDirs,
       runCommand: path => ({ ...outputs, git: gitOutput })[basename(path)] ?? '/fake/CommandLineTools' };
     const result = run(['check', '--json'], { ...manifest, tools }, context).result;
     for (const id of ['node', 'git']) assert.equal(result.platform.tools.find(x => x.id === id).status, 'unknown');
@@ -89,7 +91,7 @@ test('unverified observed versions are unknown, never pass or fail', { skip: pro
 });
 
 test('source commit detection does not walk up into an enclosing HOME repository', { skip: process.platform === 'win32' }, t => {
-  const { home } = tempFixture(t);
+  const { home, root } = tempFixture(t);
   const git = (...args) => spawnSync('git', args, { cwd: home, encoding: 'utf8' });
   if (git('--version').status !== 0) return t.skip('git unavailable');
   git('init', '-q');
@@ -101,6 +103,7 @@ test('source commit detection does not walk up into an enclosing HOME repository
   tool.version = { kind: 'git-commit', value: 'b'.repeat(40), status: 'verified', reason: '' };
   const result = run(['check', '--json'], { ...manifest, tools: [tool] }, {
     env: { HOME: home, PATH: process.env.PATH }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
+    applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']),
   }).result.platform.tools[0];
   assert.equal(result.status, 'unknown');
   assert.equal(result.reason, 'source commit could not be read');
@@ -128,10 +131,10 @@ test('Windows and WSL2 stubs state the handoff and do not inspect tools', t => {
 test('macOS preflight reports shell, install root, unzip, terminal and browser read-only', { skip: process.platform === 'win32' }, t => {
   const { home, bin, root } = tempFixture(t);
   for (const name of prereqBins.filter(name => name !== 'unzip')) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
-  const base = { platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0', runCommand: () => '/fake/CommandLineTools' };
+  const base = { platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0', runCommand: () => '/fake/CommandLineTools', applicationDirs: [join(root, 'none')] };
   const status = (result, id) => result.result.platform.prerequisites.find(x => x.id === id);
 
-  const bare = run(['check', '--json'], { ...manifest, tools: [] }, { ...base, env: { HOME: home, PATH: bin }, applicationDirs: [join(root, 'none')] });
+  const bare = run(['check', '--json'], { ...manifest, tools: [] }, { ...base, env: { HOME: home, PATH: bin } });
   assert.equal(status(bare, 'shell').status, 'unknown');
   assert.equal(status(bare, 'unzip').status, 'fail');
   assert.equal(status(bare, 'zsh').status, 'pass');
