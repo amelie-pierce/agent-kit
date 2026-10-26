@@ -45,7 +45,7 @@ function inspectBrowser(env, wsl2) {
 
 export function inspectLinux(context, _manifest, selectedTools) {
   const identity = linuxIdentity(context);
-  const platform = identity.wsl ? 'wsl2' : 'linux';
+  const platform = identity.wsl2 ? 'wsl2' : identity.wsl ? 'wsl1' : 'linux';
   const supported = ['x64', 'arm64'].includes(context.arch) && identity.libc === 'glibc' && (!identity.wsl || identity.wsl2);
   const message = !['x64', 'arm64'].includes(context.arch) ? `Linux ${context.arch} is not supported.`
     : identity.libc !== 'glibc' ? `Linux ${identity.libc} libc is not supported by the reviewed binaries.`

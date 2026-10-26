@@ -123,17 +123,20 @@ async function unpackTrackedSource(archive, destination, freshHome = false) {
   if (!(await exists(join(destination, 'README.md')))) throw new Error('source archive has no README');
 }
 const gitEnv = options => ({ ...toolEnv(options.home, options.installRoot), GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' });
-const systemDirs = ['/Applications', '/Library', '/System', '/bin', '/sbin', '/usr', '/etc', '/private/etc', '/dev', '/opt', '/cores'];
+const systemDirs = {
+  darwin: home => ['/Applications', '/Library', '/System', '/bin', '/sbin', '/usr', '/etc', '/private/etc', '/dev', '/opt', '/cores', join(home, 'Library')],
+  linux: () => ['/bin', '/sbin', '/usr', '/etc', '/dev', '/opt', '/var', '/proc', '/sys', '/run', '/srv', '/boot', '/lib', '/lib64'],
+};
 const within = (path, parent) => path === parent || path.startsWith(parent === sep ? parent : `${parent}${sep}`);
 const newDirectory = async path => {
   const st = await exists(path);
   return !st || (st.isDirectory() && !st.isSymbolicLink() && (await readdir(path)).length === 0);
 };
-async function checkFirstmateHome(path, root, home) {
+async function checkFirstmateHome(path, root, home, platform) {
   if (!path || !isAbsolute(path)) throw new Error('--firstmate-home must be an absolute path');
   const target = resolve(path);
   if (target === resolve(home)) throw new Error('--firstmate-home must not be your home directory');
-  if (target === sep || [...systemDirs, join(resolve(home), 'Library')].some(dir => within(target, dir))) throw new Error('--firstmate-home must not be a system location');
+  if (target === sep || systemDirs[platform](resolve(home)).some(dir => within(target, dir))) throw new Error('--firstmate-home must not be a system location');
   if (within(target, root) || within(root, target)) throw new Error('--firstmate-home must be outside --install-root');
   for (let dir = dirname(target); ; dir = dirname(dir)) {
     if (await exists(join(dir, '.git')) || await exists(join(dir, 'fm-bootstrap.sh'))) throw new Error('--firstmate-home must not be inside an existing Firstmate home or git checkout');
@@ -241,7 +244,7 @@ export async function installPlatform(manifest, options = {}) {
   if (!options.installRoot || !isAbsolute(options.installRoot)) throw new Error('--install-root must be an absolute path');
   if (!options.home || !isAbsolute(options.home)) throw new Error('HOME must be an absolute path');
   const root = resolve(options.installRoot), release = manifest.release;
-  const firstmateHome = await checkFirstmateHome(options.firstmateHome, root, options.home);
+  const firstmateHome = await checkFirstmateHome(options.firstmateHome, root, options.home, platform);
   if (!safePart(release)) throw new Error('unsafe release name');
   const rootState = await exists(root);
   if (rootState && (!rootState.isDirectory() || rootState.isSymbolicLink())) throw new Error('install root is not a plain directory');

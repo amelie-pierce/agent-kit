@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, rmSync, readFileSync, copyFileSync, existsSync, readlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, rmSync, readFileSync, copyFileSync, existsSync, readlinkSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -22,7 +22,7 @@ function fakeApps(root, names) {
 }
 
 function tempFixture(t) {
-  const root = mkdtempSync(join(tmpdir(), 'agent-kit-test-'));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-kit-test-')));
   t.after(() => rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }));
   const home = join(root, 'home');
   const bin = join(root, 'bin');
@@ -191,6 +191,11 @@ test('Linux unsupported architecture, libc and WSL1 refuse before inspection or 
     const planned = run(['check', '--json'], f.fixtureManifest, { ...options, env: { HOME: f.home, PATH: f.bin, ...override.env } });
     assert.equal(planned.result.platform.supported, false);
     assert.deepEqual(planned.result.platform.tools, []);
+    if (override.procVersion) {
+      assert.equal(planned.result.platform.platform, 'wsl1');
+      const plan = run(['plan', '--json'], f.fixtureManifest, { ...options, env: { HOME: f.home, PATH: f.bin, ...override.env } });
+      assert.deepEqual(plan.result.plan.globalHookChanges, []);
+    }
   }
 });
 
@@ -678,6 +683,10 @@ test('Firstmate home outside the install root is refused when unsafe', async t =
   await refuse(f.home, /home directory/);
   // System locations are POSIX paths; on Windows they resolve under the current drive.
   if (process.platform !== 'win32') for (const path of ['/usr/local/agent-kit-firstmate', '/Library/agent-kit-firstmate', join(f.home, 'Library', 'firstmate')]) await refuse(path, /system location/);
+  if (process.platform !== 'win32') for (const path of ['/var/lib/firstmate', '/srv/firstmate', '/run/firstmate']) {
+    await assert.rejects(installLinux(f.fixtureManifest, { ...f.options, platform: 'linux', libc: 'glibc', env: {}, firstmateHome: path }), /system location/);
+    assert.equal(existsSync(f.installRoot), false);
+  }
   await refuse(join(f.installRoot, 'firstmate'), /outside --install-root/);
   await refuse(dirname(f.installRoot), /outside --install-root/);
   mkdirSync(join(f.root, 'checkout', '.git'), { recursive: true });

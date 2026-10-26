@@ -132,7 +132,7 @@ export function run(argv, manifest, context) {
   if (!context.env.HOME) throw new Error('HOME must be set');
   const evaluation = evaluate(manifest, { ...context, installRoot: options.installRoot }, options);
   let globalHookChanges = [];
-  if (options.command === 'plan' && ['darwin', 'linux', 'wsl2'].includes(evaluation.platform.platform)) {
+  if (options.command === 'plan' && evaluation.platform.supported) {
     try {
       globalHookChanges = publicHookChanges(previewHooks(manifest, { home: context.env.HOME, installRoot: options.installRoot || join(context.env.HOME, '.agent-kit') }));
     } catch (error) {
