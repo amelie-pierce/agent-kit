@@ -205,16 +205,15 @@ test('CLI writes no files under a temporary HOME in check or plan', t => {
 });
 
 test('--with-figma does not run figma-cli, which writes into HOME', { skip: process.platform === 'win32' }, t => {
-  const { home, bin } = tempFixture(t);
+  const { home, bin, root } = tempFixture(t);
   writeFileSync(join(bin, 'figma-cli'), '#!/bin/sh\nmkdir -p "$HOME/.figma-cli/plugins"\necho 2.2.5-make.2\n', { mode: 0o755 });
-  const cli = join(root, 'bin', 'agent-kit.mjs');
+  const context = { env: { HOME: home, PATH: `${bin}:/bin:/usr/bin` }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
+    applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']) };
   for (const command of ['check', 'plan']) {
-    const result = spawnSync(process.execPath, [cli, command, '--json', '--with-figma'], {
-      env: { HOME: home, PATH: `${bin}:/bin:/usr/bin` }, encoding: 'utf8', timeout: 5000,
-    });
-    assert.equal(result.status, 1, result.stderr);
+    const result = run([command, '--json', '--with-figma'], manifest, context);
+    assert.equal(result.exitCode, 1);
     assert.deepEqual(readdirSync(home), []);
-    const figma = JSON.parse(result.stdout).platform.tools.find(x => x.id === 'figma-cli');
+    const figma = result.result.platform.tools.find(x => x.id === 'figma-cli');
     assert.equal(figma.status, 'unknown');
     assert.deepEqual(figma.paths, [join(bin, 'figma-cli')]);
   }
