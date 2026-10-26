@@ -1,0 +1,5 @@
+# agent-kit knowledge vault: track only the compiled wiki subtree.
+_vaults/*
+!_vaults/agent-kit
+_vaults/agent-kit/*
+!_vaults/agent-kit/wiki
