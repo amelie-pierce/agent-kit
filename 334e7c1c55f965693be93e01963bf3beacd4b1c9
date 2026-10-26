@@ -1,0 +1,23 @@
+_vaults/agent-kit/wiki/index.md
+  s_4c648759e03eff::t_733bbeb779215f 13
+_vaults/agent-kit/wiki/architecture/read-only-boundary.md
+  s_4c648759e03eff::t_488be5d4db696f 9,11,13
+README.md
+  s_4c648759e03eff::t_488be5d4db696f 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "334e7c1c55f965693be93e01963bf3beacd4b1c9",
+  "prompts": {},
+  "sessions": {
+    "s_4c648759e03eff": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2affc847-2fb5-4a38-8928-cb8080229383",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}

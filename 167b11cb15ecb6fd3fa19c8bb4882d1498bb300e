@@ -1,0 +1,24 @@
+src/kit.mjs
+  s_8ccb8bd1e179c2::t_96e07d3da5b63e 74
+test/kit.test.mjs
+  s_8ccb8bd1e179c2::t_1f41f223e58e77 73-109
+src/platforms/macos.mjs
+  s_8ccb8bd1e179c2::t_3e4c8d1bd76983 69
+  s_8ccb8bd1e179c2::t_ef0d8014233ac2 14,19,70,81,83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "167b11cb15ecb6fd3fa19c8bb4882d1498bb300e",
+  "prompts": {},
+  "sessions": {
+    "s_8ccb8bd1e179c2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74e91324-170a-4aec-a8b3-68a181cf0952",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}

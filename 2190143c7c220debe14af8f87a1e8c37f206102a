@@ -1,0 +1,36 @@
+src/kit.mjs
+  s_0abb57e56d673f::t_c2625d409257e1 32-33
+manifests/pilot-skeleton.json
+  s_0abb57e56d673f::t_c2625d409257e1 1405,1407
+manifests/schema-v1.json
+  s_0abb57e56d673f::t_c2625d409257e1 78,84-85
+src/platforms/macos.mjs
+  s_0abb57e56d673f::t_c2625d409257e1 66
+test/kit.test.mjs
+  s_3e8295bde49195::t_31bdde4efe32a2 23
+  s_0abb57e56d673f::t_2968b984275af7 206-221
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2190143c7c220debe14af8f87a1e8c37f206102a",
+  "prompts": {},
+  "sessions": {
+    "s_0abb57e56d673f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "edba2fc4-37dd-4d36-8449-554920fa0cf8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    },
+    "s_3e8295bde49195": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "86097b2a-86a7-45d5-b733-996c6df24525",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
