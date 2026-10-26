@@ -1,0 +1,24 @@
+test/kit.test.mjs
+  s_6a6b33385d63e9::t_16039014b1adcd 410-420
+docs/global-hooks.md
+  s_6a6b33385d63e9::t_4213614cf71d31 19
+src/install/hooks.mjs
+  s_6a6b33385d63e9::t_fca332575641d8 127,163
+  s_6a6b33385d63e9::t_253175fc7a7abc 125-126,128-147,154-155,157,160-161,170-175,180
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "12e0da07231789856df4d3a506b63ba514e1502f",
+  "prompts": {},
+  "sessions": {
+    "s_6a6b33385d63e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee6b1f3e-fe1e-4ffd-9dde-140cf411ea65",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
