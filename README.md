@@ -36,6 +36,28 @@ After installation, each person uses the printed vendor commands and documentati
 
 The result prints kit and npm binary directories; add them to your own shell PATH if you want their commands available by name. The installer does not edit shell startup files or launch the fresh Firstmate home.
 
+## Pins and approval
+
+In the manifest, `verified` means the artifact's identity and integrity were checked against the approved upstream: a source commit, a published SHA-256 digest, or registry integrity in a committed npm lock. It does not mean owner approval, and no pin field claims it. The owner approves a release by merging the PR that changes the manifest. `install` installs only `verified` pins. Unverified pins are reported and skipped.
+
+Versions for owner approval in the `macos-pilot-1` release:
+
+| Tool | Version | Source |
+| --- | --- | --- |
+| Firstmate | `3cebfb5e809f7e87cea296a59fe14e2f1e47b7b6` | github.com/pikenguyen227/firstmate source archive |
+| Zoe fleet (Zoetrope) | `a8c495a887ed78308f7c682c5d194835e7094b05` | github.com/pikenguyen227/zoetrope source archive |
+| Herdr | 0.9.3 | github.com/herdrdev/herdr release asset |
+| Treehouse | 2.3.0 | github.com/kunchenguid/treehouse release asset |
+| no-mistakes | 1.79.0 | github.com/kunchenguid/no-mistakes release asset |
+| ShellCheck | 0.11.0 | github.com/koalaman/shellcheck release asset |
+| actionlint | 1.7.12 | github.com/rhysd/actionlint release asset |
+| gh-axi | 0.1.35 | registry.npmjs.org via `manifests/npm/package-lock.json` |
+| chrome-devtools-axi | 0.1.35 | registry.npmjs.org via `manifests/npm/package-lock.json` |
+| lavish-axi | 0.1.78 | registry.npmjs.org via `manifests/npm/package-lock.json` |
+| quota-axi | 0.1.53 | registry.npmjs.org via `manifests/npm/package-lock.json` |
+| tasks-axi | 0.2.6 | registry.npmjs.org via `manifests/npm/package-lock.json` |
+| Codex CLI (`@openai/codex`) | 0.155.1 | registry.npmjs.org via `manifests/npm-codex/package-lock.json` |
+
 ## Verification and next work
 
 `npm test` runs local `node:test` fixtures without network. They cover a no-op second run, interrupted resume, checksum refusal, unsupported OS/architecture, fresh source staging and build packaging, Firstmate reruns after local untracked settings, tracked-file conflicts, Firstmate home path refusals, and that install writes no global Claude/Codex settings. macOS smoke tests downloaded and verified the pinned Herdr, Treehouse, no-mistakes, ShellCheck, and actionlint assets, the Firstmate source archive, and both npm lock groups with fresh temporary HOME and root paths. Each skipped a second run; Firstmate runtime data began empty. The temporary files were removed. No agent or service was started.

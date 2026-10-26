@@ -560,7 +560,7 @@
         "kind": "release",
         "value": "0.1.35",
         "status": "verified",
-        "reason": "Pinned with registry integrity in the committed npm lock (manifests/npm/package-lock.json)."
+        "reason": "Integrity-pinned in the committed npm lock (manifests/npm/package-lock.json) from registry.npmjs.org."
       },
       "approvedUpstream": "https://github.com/kunchenguid/gh-axi",
       "license": {
@@ -638,7 +638,7 @@
         "kind": "release",
         "value": "0.1.35",
         "status": "verified",
-        "reason": "Pinned with registry integrity in the committed npm lock (manifests/npm/package-lock.json)."
+        "reason": "Integrity-pinned in the committed npm lock (manifests/npm/package-lock.json) from registry.npmjs.org."
       },
       "approvedUpstream": "https://github.com/kunchenguid/chrome-devtools-axi",
       "license": {
@@ -716,7 +716,7 @@
         "kind": "release",
         "value": "0.1.78",
         "status": "verified",
-        "reason": "Pinned with registry integrity in the committed npm lock (manifests/npm/package-lock.json)."
+        "reason": "Integrity-pinned in the committed npm lock (manifests/npm/package-lock.json) from registry.npmjs.org."
       },
       "approvedUpstream": "https://github.com/kunchenguid/lavish-axi",
       "license": {
@@ -794,7 +794,7 @@
         "kind": "release",
         "value": "0.1.53",
         "status": "verified",
-        "reason": "Pinned with registry integrity in the committed npm lock (manifests/npm/package-lock.json)."
+        "reason": "Integrity-pinned in the committed npm lock (manifests/npm/package-lock.json) from registry.npmjs.org."
       },
       "approvedUpstream": "https://github.com/kunchenguid/quota-axi",
       "license": {
@@ -872,7 +872,7 @@
         "kind": "release",
         "value": "0.2.6",
         "status": "verified",
-        "reason": "Pinned with registry integrity in the committed npm lock (manifests/npm/package-lock.json)."
+        "reason": "Integrity-pinned in the committed npm lock (manifests/npm/package-lock.json) from registry.npmjs.org."
       },
       "approvedUpstream": "https://github.com/kunchenguid/tasks-axi",
       "license": {
@@ -1262,7 +1262,7 @@
         "kind": "release",
         "value": "0.155.1",
         "status": "verified",
-        "reason": "Pinned with registry integrity in the committed npm lock (manifests/npm-codex/package-lock.json)."
+        "reason": "Integrity-pinned in the committed npm lock (manifests/npm-codex/package-lock.json) from registry.npmjs.org."
       },
       "approvedUpstream": "https://github.com/openai/codex",
       "license": {
