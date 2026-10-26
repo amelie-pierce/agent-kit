@@ -1,0 +1,23 @@
+_vaults/agent-kit/wiki/architecture/read-only-boundary.md
+  s_7320a98bc1491e::t_bbd64ced80303c 9,13
+_vaults/agent-kit/wiki/index.md
+  s_7320a98bc1491e::t_bbd64ced80303c 9,13
+_vaults/agent-kit/wiki/architecture/macos-install.md
+  s_7320a98bc1491e::t_bbd64ced80303c 9,11,13,15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b7de6e2ce6aa63ea2d28c4e3d5bc8b01890f13fe",
+  "prompts": {},
+  "sessions": {
+    "s_7320a98bc1491e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a02cc9d7-ca17-453e-a060-e34158fbfabc",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
