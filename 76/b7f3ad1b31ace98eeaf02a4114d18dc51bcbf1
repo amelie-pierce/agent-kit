@@ -1,0 +1,23 @@
+_vaults/agent-kit/wiki/architecture/global-registration.md
+  s_4e8fd2ff5bd437::t_d238ec8907d1e5 9,11,13,15
+docs/global-hooks.md
+  s_4e8fd2ff5bd437::t_d238ec8907d1e5 13
+_vaults/agent-kit/wiki/architecture/macos-install.md
+  s_4e8fd2ff5bd437::t_d238ec8907d1e5 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "76b7f3ad1b31ace98eeaf02a4114d18dc51bcbf1",
+  "prompts": {},
+  "sessions": {
+    "s_4e8fd2ff5bd437": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a319b11a-0cfa-413f-9259-ea4f55da362f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
