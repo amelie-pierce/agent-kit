@@ -100,7 +100,7 @@ function human(result) {
     for (const change of result.plan.hookChanges) lines.push(`- ${change.action}: ${change.path}`);
     lines.push('Global hook and skill changes (kit-owned entries only):');
     for (const change of result.plan.globalHookChanges) lines.push(`- ${change.path}: ${JSON.stringify(change.changes)}`);
-    if (!result.plan.globalHookChanges.length) lines.push('- none');
+    if (!result.plan.globalHookChanges.length) lines.push(result.issues.some(x => x.id === 'hooks') ? '- refused; see the hooks conflict below' : '- none');
     lines.push('Codex reviews new or changed hooks interactively; approve them yourself after installation.');
     lines.push('Personal login steps:');
     for (const step of result.plan.loginSteps) lines.push(`- ${step}`);
@@ -131,8 +131,14 @@ export function run(argv, manifest, context) {
   if (options.command === 'install') throw new Error('install is asynchronous; use the CLI install entry point');
   if (!context.env.HOME) throw new Error('HOME must be set');
   const evaluation = evaluate(manifest, { ...context, installRoot: options.installRoot }, options);
-  const globalHookChanges = options.command === 'plan' && evaluation.platform.platform === 'darwin'
-    ? publicHookChanges(previewHooks(manifest, { home: context.env.HOME, installRoot: options.installRoot || join(context.env.HOME, '.agent-kit') })) : [];
+  let globalHookChanges = [];
+  if (options.command === 'plan' && evaluation.platform.platform === 'darwin') {
+    try {
+      globalHookChanges = publicHookChanges(previewHooks(manifest, { home: context.env.HOME, installRoot: options.installRoot || join(context.env.HOME, '.agent-kit') }));
+    } catch (error) {
+      evaluation.issues.push({ status: 'conflict', id: 'hooks', reason: error.message });
+    }
+  }
   const plan = options.command === 'plan' ? {
     tools: evaluation.selected.map(tool => {
       const artifact = tool.artifacts[evaluation.target];

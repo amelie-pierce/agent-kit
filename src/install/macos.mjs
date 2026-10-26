@@ -359,10 +359,14 @@ export async function installMacOS(manifest, options = {}) {
     const shouldRegister = selected(manifest, options.harness || 'claude', !!options.withFigma).some(t => npmIds.has(t.id) && t.id !== 'codex') || receipt.phases.hooks;
     let hookChanges = [];
     if (shouldRegister && (components.some(x => x.id === 'npm' && ['installed', 'skipped'].includes(x.status)) || (!coreNpm && receipt.phases.hooks))) {
-      const preview = previewHooks(manifest, { home: options.home, installRoot: root });
-      hookChanges = publicHookChanges(preview);
-      await options.onHooksPreview?.(hookChanges);
-      components.push(await applyHooks(preview, { installRoot: root, receipt, save }));
+      try {
+        const preview = previewHooks(manifest, { home: options.home, installRoot: root });
+        hookChanges = publicHookChanges(preview);
+        await options.onHooksPreview?.(hookChanges);
+        components.push(await applyHooks(preview, { installRoot: root, receipt, save }));
+      } catch (error) {
+        components.push({ id: 'hooks', status: 'conflict', reason: error.message });
+      }
     }
     const towerBuilt = components.some(x => x.id === 'zoe-fleet' && ['installed', 'skipped'].includes(x.status));
     const towerParity = towerBuilt ? 'packaged but fleet manifest and launcher unverified' : 'unavailable';

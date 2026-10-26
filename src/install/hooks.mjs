@@ -27,6 +27,11 @@ const scriptPath = (root, release, id) => join(root, 'releases', release, 'herdr
 const commandFor = (root, release, id) => herdrScripts[id]
   ? `bash ${quote(scriptPath(root, release, id))} session${marker(id)}`
   : `${quote(join(root, 'releases', release, 'npm', 'node_modules', '.bin', id))}${marker(id)}`;
+const ownedCommand = (command, root, id) => {
+  const [head, tail] = commandFor(root, '\0', id).split('\0');
+  return command.length > head.length + tail.length && command.startsWith(head) && command.endsWith(tail)
+    && /^(?!\.\.?$)[^/']+$/.test(command.slice(head.length, command.length - tail.length));
+};
 const matcherFor = id => id === 'herdr-codex' ? undefined : id === 'herdr-claude' ? '^(startup|resume|clear|compact|fork)$' : '';
 const plainObject = value => value && typeof value === 'object' && !Array.isArray(value);
 const safeFile = path => {
@@ -73,14 +78,13 @@ function managedCommands(value) {
   }
   return found;
 }
-function mergeHooks(source, desired, root, release, path) {
+function mergeHooks(source, desired, root, path) {
   const value = structuredClone(source);
   const before = managedCommands(value);
-  // A marker identifies ownership only when its command still points inside this kit root.
+  // A marker identifies ownership only when its command still points at a release inside this kit root.
   for (const [id, hooks] of before) for (const hook of hooks) {
-    const expected = commandFor(root, release, id);
     const handler = hook.hooks[0];
-    if (handler.command !== expected || handler.type !== 'command' || Object.keys(handler).some(key => !['command', 'type', 'timeout'].includes(key))
+    if (!ownedCommand(handler.command, root, id) || handler.type !== 'command' || Object.keys(handler).some(key => !['command', 'type', 'timeout'].includes(key))
       || hook.matcher !== matcherFor(id)) {
       throw new Error(`${path}: marked ${id} hook was changed outside the kit path; refusing overwrite`);
     }
@@ -123,26 +127,29 @@ function tomlFeature(source, desired, path) {
   const input = source || '';
   const newline = input.includes('\r\n') ? '\r\n' : '\n';
   const lines = input.split(/\r?\n/);
-  let section = '', featureAt = -1, hookAt = -1, hookValue = null;
+  // Only table headers and the features.hooks key are interpreted; every other line passes through untouched.
+  let section = '', featureAt = -1, featureEnd = -1, hookAt = -1, hookValue = null, multiline = null;
   for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i], line = raw.trim();
+    const line = lines[i].trim();
+    if (multiline) {
+      if (line.includes(multiline)) multiline = null;
+      continue;
+    }
+    multiline = ['"""', "'''"].find(delimiter => line.split(delimiter).length % 2 === 0) || null;
     if (!line || line.startsWith('#')) continue;
-    const header = line.match(/^\[([A-Za-z0-9_.-]+)\](?:\s*#.*)?$/);
-    if (header) {
-      section = header[1];
+    const header = line.match(/^\[\s*([^[\]]+?)\s*\](?:\s*#.*)?$/);
+    if (header || /^\[\[.*\]\](?:\s*#.*)?$/.test(line)) {
+      if (section === 'features') featureEnd = i;
+      section = header ? header[1] : 'array';
       if (section === 'features') {
         if (featureAt !== -1) throw new Error(`${path}: duplicate [features] table; refusing hooks phase`);
         featureAt = i;
       }
       continue;
     }
-    if (/^\[\[.*\]\](?:\s*#.*)?$/.test(line)) { section = 'array'; continue; }
     const assignment = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/);
-    if (!assignment) throw new Error(`${path}: malformed or unsupported TOML at line ${i + 1}; refusing hooks phase`);
+    if (!assignment) continue;
     if (section === '' && assignment[1] === 'features.hooks') throw new Error(`${path}: dotted features.hooks needs manual review; refusing hooks phase`);
-    const value = assignment[2].replace(/\s+#.*$/, '').trim();
-    if (value.startsWith('"') && (!value.endsWith('"') || value.length < 2)) throw new Error(`${path}: malformed TOML string at line ${i + 1}; refusing hooks phase`);
-    if (value.startsWith('[') && !value.endsWith(']')) throw new Error(`${path}: malformed TOML array at line ${i + 1}; refusing hooks phase`);
     if (section === 'features' && assignment[1] === 'hooks') {
       if (hookAt !== -1 || !/^(true|false)(?:\s*#.*)?$/.test(assignment[2])) throw new Error(`${path}: invalid features.hooks value; refusing hooks phase`);
       hookAt = i; hookValue = assignment[2].startsWith('true');
@@ -152,8 +159,7 @@ function tomlFeature(source, desired, path) {
   const out = [...lines];
   if (hookAt !== -1) out[hookAt] = out[hookAt].replace(/\bfalse\b/, 'true');
   else if (featureAt !== -1) {
-    let end = featureAt + 1;
-    while (end < out.length && !/^\s*\[/.test(out[end])) end++;
+    let end = featureEnd === -1 ? out.length : featureEnd;
     while (end > featureAt + 1 && out[end - 1].trim() === '') end--;
     out.splice(end, 0, 'hooks = true');
   } else {
@@ -178,12 +184,10 @@ export function previewHooks(manifest, { home, installRoot }) {
     const desired = new Map(axi);
     if (hasHerdr) {
       const id = `herdr-${agent}`;
-      const entry = { hooks: [{ type: 'command', command: commandFor(root, release, id), timeout: 10 }] };
-      if (agent === 'claude') entry.matcher = '^(startup|resume|clear|compact|fork)$';
-      desired.set(id, entry);
+      desired.set(id, { ...(matcherFor(id) === undefined ? {} : { matcher: matcherFor(id) }), hooks: [{ type: 'command', command: commandFor(root, release, id), timeout: 10 }] });
     }
     const { source, value } = jsonFile(path);
-    const merged = mergeHooks(value, desired, root, release, path);
+    const merged = mergeHooks(value, desired, root, path);
     files.push({ path, kind: 'json', before: source, after: merged.changes.length ? `${JSON.stringify(merged.value, null, 2)}\n` : source, changes: merged.changes });
   }
   const config = join(home, '.codex', 'config.toml');

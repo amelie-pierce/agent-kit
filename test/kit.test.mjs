@@ -320,7 +320,8 @@ test('global registration previews exact owned changes, preserves unknown settin
   const original = { hooks: { SessionStart: [{ matcher: '', hooks: [unknown] }], Stop: [{ hooks: [unknown] }] }, permissions: { allow: ['Read'] }, enabledPlugins: { sample: true }, mcpServers: { sample: { command: 'mcp' } }, trust: { sample: true } };
   writeFileSync(claude, `${JSON.stringify(original)}\n`);
   writeFileSync(codex, `${JSON.stringify(original)}\n`);
-  writeFileSync(toml, 'model = "test"\n[features]\nother = true\n');
+  const tomlSource = 'model = "test"\n[projects."/x"]\ntrust_level = "trusted"\n[mcp_servers.x]\nargs = [\n  "a",\n  [1, 2]\n]\nnote = \'\'\'\n[features]\n\'\'\'\n[features]\nother = true\n\n[ tui ]\nx = 1\n';
+  writeFileSync(toml, tomlSource);
   const before = [readFileSync(claude, 'utf8'), readFileSync(codex, 'utf8'), readFileSync(toml, 'utf8')];
   const preview = previewHooks(f.fixtureManifest, f);
   assert.equal(preview.files.filter(x => x.changes.length).length, 3);
@@ -342,7 +343,7 @@ test('global registration previews exact owned changes, preserves unknown settin
     assert.equal(execution.status, 0, execution.stderr);
     assert.equal(execution.stdout, 'gh-axi\n');
   }
-  assert.match(readFileSync(toml, 'utf8'), /other = true\nhooks = true/);
+  assert.equal(readFileSync(toml, 'utf8'), tomlSource.replace('other = true\n', 'other = true\nhooks = true\n'));
   assert.equal(readlinkSync(join(f.home, '.agents', 'skills', 'lavish')), join(f.installRoot, 'releases', 'fixture-1', 'npm', 'node_modules', 'lavish-axi', 'skills', 'lavish'));
   const backups = join(f.installRoot, 'backups', 'hooks');
   assert.equal(readdirSync(join(backups, readdirSync(backups)[0])).length, 3);
@@ -366,6 +367,17 @@ test('global registration updates and removes only marked entries', { skip: proc
   assert.equal(afterUpdate.hooks.SessionStart.findIndex(group => group.hooks.some(hook => hook.command?.endsWith(' # agent-kit:gh-axi'))),
     beforeUpdate.hooks.SessionStart.findIndex(group => group.hooks.some(hook => hook.command?.endsWith(' # agent-kit:gh-axi'))));
   assert.equal(afterUpdate.hooks.SessionStart.find(group => group.hooks.some(hook => hook.command?.endsWith(' # agent-kit:gh-axi'))).hooks[0].timeout, 10);
+  f.fixtureManifest.release = 'fixture-2';
+  f.packageSkills();
+  const upgrade = previewHooks(f.fixtureManifest, f);
+  assert.ok(upgrade.files[0].changes.some(x => x.owner === 'agent-kit:gh-axi' && x.op === 'replace'));
+  await applyHooks(upgrade, f);
+  assert.ok(readFileSync(claude, 'utf8').includes(join(f.installRoot, 'releases', 'fixture-2', 'npm', 'node_modules', '.bin', 'gh-axi')));
+  assert.equal(readlinkSync(join(f.home, '.claude', 'skills', 'gh-axi')), join(f.installRoot, 'releases', 'fixture-2', 'npm', 'node_modules', 'gh-axi', 'skills', 'gh-axi'));
+  const moved = readFileSync(claude, 'utf8');
+  writeFileSync(claude, moved.replace(join(f.installRoot, 'releases', 'fixture-2'), join(f.root, 'elsewhere')));
+  assert.throws(() => previewHooks(f.fixtureManifest, f), /changed outside the kit path/);
+  writeFileSync(claude, moved);
   const before = JSON.parse(readFileSync(claude, 'utf8'));
   before.hooks.SessionStart.unshift({ hooks: [{ type: 'command', command: 'unknown-hook' }] });
   writeFileSync(claude, `${JSON.stringify(before)}\n`);
@@ -388,8 +400,13 @@ test('malformed global files and unowned skill conflicts refuse the hooks phase'
   writeFileSync(claude, '{bad');
   assert.throws(() => previewHooks(f.fixtureManifest, f), /malformed JSON/);
   assert.equal(readFileSync(claude, 'utf8'), '{bad');
-  writeFileSync(claude, '{}\n'); writeFileSync(toml, 'not toml\n');
-  assert.throws(() => previewHooks(f.fixtureManifest, f), /malformed or unsupported TOML/);
+  const context = { platform: 'darwin', arch: 'arm64', env: { HOME: f.home, PATH: '' }, nodeVersion: '24.15.0', applicationDirs: [] };
+  const refused = run(['plan', '--json', '--install-root', f.installRoot], f.fixtureManifest, context);
+  assert.deepEqual(refused.result.plan.globalHookChanges, []);
+  assert.ok(refused.result.issues.some(x => x.id === 'hooks' && x.status === 'conflict' && /malformed JSON/.test(x.reason)));
+  assert.ok(refused.result.plan.tools.length > 0);
+  writeFileSync(claude, '{}\n'); writeFileSync(toml, '[features]\nhooks = "yes"\n');
+  assert.throws(() => previewHooks(f.fixtureManifest, f), /invalid features.hooks/);
   writeFileSync(toml, '[features]\nhooks = false\n');
   const skill = join(f.home, '.agents', 'skills', 'gh-axi');
   mkdirSync(dirname(skill), { recursive: true }); mkdirSync(skill);
@@ -417,6 +434,9 @@ test('Herdr vendor scripts join the owned preview and registration', { skip: pro
   for (const script of preview.scripts) assert.deepEqual(readFileSync(script.path), generated.get(script.id));
   assert.equal(JSON.parse(readFileSync(join(f.home, '.claude', 'settings.json'))).hooks.SessionStart.at(-1).matcher, '^(startup|resume|clear|compact|fork)$');
   assert.equal(f.receipt.phases.hooks.scripts.length, 2);
+  for (const script of preview.scripts) rmSync(script.path);
+  const rerun = previewHooks(f.fixtureManifest, f);
+  assert.deepEqual(rerun.files.flatMap(x => x.changes), []);
 });
 
 function firstmateFixture(t) {
@@ -582,6 +602,11 @@ test('npm phase uses committed integrity lock and records exact tool versions', 
   const second = await installMacOS(f.fixtureManifest, f.options);
   assert.equal(second.components[0].status, 'skipped');
   assert.equal(invocations, 1);
+  writeFileSync(join(f.home, '.claude', 'settings.json'), '{bad');
+  const conflicted = await installMacOS(f.fixtureManifest, f.options);
+  assert.deepEqual(conflicted.components.find(x => x.id === 'hooks').status, 'conflict');
+  assert.equal(conflicted.status, 'partial');
+  assert.match(formatInstall(conflicted), /- hooks: conflict; .*malformed JSON/);
 });
 
 test('npm phase is not installed while a locked tool version is unverified', async t => {
