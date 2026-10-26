@@ -75,7 +75,8 @@ function evaluate(manifest, context, options) {
     const artifact = tool.artifacts[target];
     if (!artifact || artifact.status !== 'verified') issues.push({ status: 'unknown', id: tool.id, reason: artifact?.reason || `artifact for ${target} is not reviewed` });
   }
-  return { selected, platform, issues, target };
+  const optional = manifest.tools.filter(tool => tool.classification !== 'never-ship' && !selected.includes(tool));
+  return { selected, optional, platform, issues, target };
 }
 
 function human(result) {
@@ -84,6 +85,8 @@ function human(result) {
   if (result.command === 'plan') {
     lines.push('Proposed locations and origins (no changes made):');
     for (const item of result.plan.tools) lines.push(`- ${item.name}: ${item.version || 'UNVERIFIED COMMIT'} from ${item.origin}; ${item.installLocation}; artifact ${item.artifactUrl || 'UNVERIFIED'}; SHA-256 ${item.sha256 || 'UNVERIFIED'}`);
+    lines.push('Optional components (not selected):');
+    for (const item of result.plan.optionalComponents) lines.push(`- ${item.name}: ${item.status}; ${item.version || 'UNVERIFIED COMMIT'} from ${item.origin}`);
     lines.push('Proposed source-owned hook files (no changes made):');
     for (const change of result.plan.hookChanges) lines.push(`- ${change.action}: ${change.path}`);
     lines.push('Global hook changes: none; vendor registrations remain unverified.');
@@ -109,6 +112,8 @@ export function run(argv, manifest, context) {
         origin: tool.approvedUpstream, installLocation: join(context.env.HOME, tool.installLocation.relativePath),
         artifactUrl: artifact?.url || null, sha256: artifact?.sha256 || null, classification: tool.classification };
     }),
+    optionalComponents: evaluation.optional.map(tool => ({ id: tool.id, name: tool.name, status: 'optional, not selected',
+      version: tool.version.value, versionStatus: tool.version.status, origin: tool.approvedUpstream })),
     hookChanges: [
       { owner: 'firstmate', action: 'include Claude hooks with future pinned source', path: join(context.env.HOME, '.agent-kit/sources/firstmate/.claude/settings.json') },
       { owner: 'firstmate', action: 'include Codex hooks with future pinned source', path: join(context.env.HOME, '.agent-kit/sources/firstmate/.codex/hooks.json') },

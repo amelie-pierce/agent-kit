@@ -1,5 +1,5 @@
-import { accessSync, constants } from 'node:fs';
-import { delimiter, join } from 'node:path';
+import { accessSync, constants, statSync } from 'node:fs';
+import { basename, delimiter, dirname, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 function isExecutable(path) {
@@ -20,6 +20,43 @@ function safeRun(command, args, context, cwd) {
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
   } catch { return null; }
+}
+
+function exists(path) {
+  try { statSync(path); return true; } catch { return false; }
+}
+
+function inspectShell(shell) {
+  if (!shell) return { id: 'shell', status: 'unknown', detail: 'SHELL is not set' };
+  if (!isExecutable(shell)) return { id: 'shell', status: 'fail', detail: `${shell} is not executable` };
+  const supported = ['bash', 'zsh'].includes(basename(shell));
+  return { id: 'shell', status: supported ? 'pass' : 'unknown', detail: supported ? shell : `${shell} is not bash or zsh` };
+}
+
+function inspectInstallRoot(home) {
+  const root = join(home, '.agent-kit');
+  let existing = root;
+  while (!exists(existing) && dirname(existing) !== existing) existing = dirname(existing);
+  let writable;
+  try { accessSync(existing, constants.W_OK); writable = statSync(existing).isDirectory(); } catch { writable = false; }
+  const where = existing === root ? root : `${root} absent; nearest existing ancestor ${existing}`;
+  return { id: 'install-root', status: writable ? 'pass' : 'fail', detail: `${where} is ${writable ? 'writable' : 'not a writable directory'}` };
+}
+
+function findApps(names, dirs) {
+  return names.flatMap(name => dirs.map(dir => join(dir, name)).filter(exists));
+}
+
+function inspectTerminal(dirs) {
+  const found = findApps(['Terminal.app', 'iTerm.app'], dirs);
+  return { id: 'terminal', status: found.length ? 'pass' : 'unknown', detail: found[0] || 'Terminal.app and iTerm.app not found' };
+}
+
+function inspectBrowser(dirs) {
+  const chrome = findApps(['Google Chrome.app'], dirs);
+  if (chrome.length) return { id: 'browser', status: 'pass', detail: chrome[0] };
+  const other = findApps(['Safari.app', 'Firefox.app', 'Arc.app'], dirs);
+  return { id: 'browser', status: other.length ? 'unknown' : 'fail', detail: other.length ? `Google Chrome absent; found ${other[0]}` : 'no browser found' };
 }
 
 function inspectCommand(tool, context) {
@@ -57,10 +94,16 @@ export function inspectMacOS(context, manifest, selectedTools) {
   const brew = findOnPath('brew', path);
   const xcodeSelect = findOnPath('xcode-select', path);
   const cltPath = xcodeSelect.length ? safeRun(xcodeSelect[0], ['-p'], context) : null;
+  const home = context.env.HOME || '';
+  const appDirs = context.applicationDirs || ['/System/Applications', '/System/Applications/Utilities', '/Applications', '/Applications/Utilities', join(home, 'Applications')];
   const prerequisites = [
     { id: 'homebrew', status: brew.length ? 'pass' : 'fail', detail: brew.length ? brew[0] : 'brew absent from PATH' },
     { id: 'xcode-clt', status: cltPath ? 'pass' : 'unknown', detail: cltPath || 'Xcode CLT presence unverified' },
-    ...['bash', 'curl', 'jq', 'python3', 'tar', 'shasum'].map(name => {
+    inspectShell(context.env.SHELL),
+    inspectInstallRoot(home),
+    inspectTerminal(appDirs),
+    inspectBrowser(appDirs),
+    ...['bash', 'zsh', 'curl', 'jq', 'python3', 'tar', 'unzip', 'shasum'].map(name => {
       const found = findOnPath(name, path);
       return { id: name, status: found.length ? 'pass' : 'fail', detail: found[0] || `${name} absent from PATH` };
     }),

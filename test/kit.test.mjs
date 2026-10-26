@@ -10,6 +10,14 @@ import { run, validateManifest } from '../src/kit.mjs';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const manifest = JSON.parse(readFileSync(join(root, 'manifests/pilot-skeleton.json'), 'utf8'));
 
+const prereqBins = ['node', 'brew', 'xcode-select', 'bash', 'zsh', 'curl', 'jq', 'python3', 'tar', 'unzip', 'shasum'];
+
+function fakeApps(root, names) {
+  const dir = join(root, 'Applications');
+  for (const name of names) mkdirSync(join(dir, name), { recursive: true });
+  return [dir];
+}
+
 function tempFixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'agent-kit-test-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -31,13 +39,14 @@ test('macOS check uses fake HOME and PATH, detects versions and path precedence'
   const { home, bin, root } = tempFixture(t);
   const second = join(root, 'second-bin');
   mkdirSync(second);
-  for (const name of ['node', 'brew', 'xcode-select', 'bash', 'curl', 'jq', 'python3', 'tar', 'shasum']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
+  for (const name of prereqBins) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
   writeFileSync(join(second, 'node'), 'fixture', { mode: 0o755 });
   const tool = structuredClone(manifest.tools.find(x => x.id === 'node'));
   tool.version.status = 'verified';
   tool.artifacts['darwin-arm64'] = { url: 'https://example.test/node.tgz', sha256: 'a'.repeat(64), status: 'verified', reason: '' };
   const fixtureManifest = { ...manifest, tools: [tool] };
-  const context = { env: { HOME: home, PATH: `${bin}${process.platform === 'win32' ? ';' : ':'}${second}` }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
+  const context = { env: { HOME: home, PATH: `${bin}${process.platform === 'win32' ? ';' : ':'}${second}`, SHELL: join(bin, 'zsh') }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
+    applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']),
     runCommand: (path, args) => basename(path) === 'xcode-select' ? '/fake/CommandLineTools' : 'v24.15.0' };
   const result = run(['check', '--json'], fixtureManifest, context);
   assert.equal(result.exitCode, 1);
@@ -52,7 +61,7 @@ test('macOS check uses fake HOME and PATH, detects versions and path precedence'
 
 test('unknown pins remain unknown even when the command is present', { skip: process.platform === 'win32' }, t => {
   const { home, bin } = tempFixture(t);
-  for (const name of ['node', 'brew', 'xcode-select', 'bash', 'curl', 'jq', 'python3', 'tar', 'shasum']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
+  for (const name of prereqBins) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
   const context = { env: { HOME: home, PATH: bin }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
     runCommand: path => basename(path) === 'xcode-select' ? '/fake/CommandLineTools' : 'v24.15.0' };
   const result = run(['--check', '--json'], { ...manifest, tools: [manifest.tools[0]] }, context);
@@ -76,6 +85,60 @@ test('Windows and WSL2 stubs state the handoff and do not inspect tools', t => {
     assert.equal(result.result.plan.hookChanges.length, 2);
     assert.equal(result.result.plan.globalHookChanges.length, 0);
   }
+  assert.deepEqual(readdirSync(home), []);
+});
+
+test('macOS preflight reports shell, install root, unzip, terminal and browser read-only', { skip: process.platform === 'win32' }, t => {
+  const { home, bin, root } = tempFixture(t);
+  for (const name of prereqBins.filter(name => name !== 'unzip')) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
+  const base = { platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0', runCommand: () => '/fake/CommandLineTools' };
+  const status = (result, id) => result.result.platform.prerequisites.find(x => x.id === id);
+
+  const bare = run(['check', '--json'], { ...manifest, tools: [] }, { ...base, env: { HOME: home, PATH: bin }, applicationDirs: [join(root, 'none')] });
+  assert.equal(status(bare, 'shell').status, 'unknown');
+  assert.equal(status(bare, 'unzip').status, 'fail');
+  assert.equal(status(bare, 'zsh').status, 'pass');
+  assert.equal(status(bare, 'terminal').status, 'unknown');
+  assert.equal(status(bare, 'browser').status, 'fail');
+  assert.equal(status(bare, 'install-root').status, 'pass');
+  assert.match(status(bare, 'install-root').detail, new RegExp(`nearest existing ancestor ${home}`));
+
+  const apps = fakeApps(root, ['iTerm.app', 'Safari.app']);
+  const fish = join(bin, 'fish');
+  writeFileSync(fish, 'fixture', { mode: 0o755 });
+  const partial = run(['check', '--json'], { ...manifest, tools: [] }, { ...base, env: { HOME: home, PATH: bin, SHELL: fish }, applicationDirs: apps });
+  assert.equal(status(partial, 'shell').status, 'unknown');
+  assert.equal(status(partial, 'terminal').status, 'pass');
+  assert.equal(status(partial, 'browser').status, 'unknown');
+  assert.match(status(partial, 'browser').detail, /Google Chrome absent; found .*Safari\.app/);
+
+  const ok = run(['check', '--json'], { ...manifest, tools: [] }, { ...base, env: { HOME: home, PATH: bin, SHELL: join(bin, 'bash') }, applicationDirs: fakeApps(root, ['Google Chrome.app']) });
+  assert.equal(status(ok, 'shell').status, 'pass');
+  assert.equal(status(ok, 'browser').status, 'pass');
+  assert.equal(status(run(['check', '--json'], { ...manifest, tools: [] }, { ...base, env: { HOME: home, PATH: bin, SHELL: join(home, 'missing') } }), 'shell').status, 'fail');
+  assert.deepEqual(readdirSync(home), []);
+
+  mkdirSync(join(home, '.agent-kit'), { mode: 0o555 });
+  const locked = run(['check', '--json'], { ...manifest, tools: [] }, { ...base, env: { HOME: home, PATH: bin } });
+  if (process.getuid?.() !== 0) assert.equal(status(locked, 'install-root').status, 'fail');
+  assert.deepEqual(readdirSync(join(home, '.agent-kit')), []);
+});
+
+test('plan lists unselected Figma and harness as optional components', t => {
+  const { home, bin } = tempFixture(t);
+  const context = { platform: 'win32', arch: 'x64', env: { HOME: home, PATH: bin }, nodeVersion: '24.15.0' };
+  const claude = run(['plan', '--json'], manifest, context);
+  const optional = claude.result.plan.optionalComponents;
+  assert.deepEqual(optional.map(x => x.id).sort(), ['codex', 'figma-cli']);
+  const codex = optional.find(x => x.id === 'codex');
+  const lock = manifest.tools.find(x => x.id === 'codex');
+  assert.equal(codex.status, 'optional, not selected');
+  assert.equal(codex.version, lock.version.value);
+  assert.equal(codex.origin, lock.approvedUpstream);
+  const selected = run(['plan', '--json', '--harness', 'codex', '--with-figma'], manifest, context);
+  assert.deepEqual(selected.result.plan.optionalComponents.map(x => x.id), ['claude']);
+  const text = run(['plan'], manifest, context).output;
+  assert.match(text, new RegExp(`- ${lock.name}: optional, not selected; ${lock.version.value.replace(/\./g, '\\.')} from ${lock.approvedUpstream}`));
   assert.deepEqual(readdirSync(home), []);
 });
 
