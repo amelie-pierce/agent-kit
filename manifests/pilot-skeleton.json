@@ -1,0 +1,1427 @@
+{
+  "schemaVersion": 1,
+  "release": "pilot-skeleton-unverified",
+  "nodeMinimum": "24.15.0",
+  "tools": [
+    {
+      "id": "node",
+      "name": "Node.js",
+      "profile": "core",
+      "classification": "shareable",
+      "version": {
+        "kind": "release",
+        "value": "24.15.0",
+        "status": "unverified",
+        "reason": "Node 24.15.0 is the proposed minimum from the report, not a tested kit lock."
+      },
+      "approvedUpstream": "https://nodejs.org/en/download",
+      "license": {
+        "name": "MIT",
+        "reference": "https://github.com/nodejs/node/blob/main/LICENSE"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/runtime/node"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "node",
+        "args": [
+          "--version"
+        ]
+      }
+    },
+    {
+      "id": "git",
+      "name": "Git",
+      "profile": "core",
+      "classification": "shareable",
+      "version": {
+        "kind": "release",
+        "value": "2.48.1",
+        "status": "unverified",
+        "reason": "Observed version; compatibility and release approval are pending."
+      },
+      "approvedUpstream": "https://git-scm.com/downloads",
+      "license": {
+        "name": "GPL-2.0-only",
+        "reference": "https://github.com/git/git/blob/master/COPYING"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "git",
+        "args": [
+          "--version"
+        ]
+      }
+    },
+    {
+      "id": "github-cli",
+      "name": "GitHub CLI",
+      "profile": "core",
+      "classification": "per-user-login",
+      "version": {
+        "kind": "release",
+        "value": "2.83.2",
+        "status": "unverified",
+        "reason": "Observed version; compatibility and release approval are pending."
+      },
+      "approvedUpstream": "https://github.com/cli/cli",
+      "license": {
+        "name": "MIT",
+        "reference": "https://github.com/cli/cli/blob/trunk/LICENSE"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "gh",
+        "args": [
+          "--version"
+        ]
+      }
+    },
+    {
+      "id": "firstmate",
+      "name": "Firstmate",
+      "profile": "core",
+      "classification": "shareable",
+      "version": {
+        "kind": "git-commit",
+        "value": null,
+        "status": "unverified",
+        "reason": "Approved and tested source commit has not been selected."
+      },
+      "approvedUpstream": "https://github.com/pikenguyen227/firstmate",
+      "license": {
+        "name": "MIT",
+        "reference": "https://github.com/pikenguyen227/firstmate/blob/main/LICENSE"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/sources/firstmate"
+      },
+      "detection": {
+        "kind": "git-head",
+        "command": "git",
+        "args": [
+          "rev-parse",
+          "HEAD"
+        ]
+      }
+    },
+    {
+      "id": "herdr",
+      "name": "Herdr",
+      "profile": "core",
+      "classification": "shareable",
+      "version": {
+        "kind": "release",
+        "value": "0.9.3",
+        "status": "unverified",
+        "reason": "Observed version; compatibility and release approval are pending."
+      },
+      "approvedUpstream": "https://github.com/herdrdev/herdr",
+      "license": {
+        "name": "AGPL-3.0-or-commercial; review required",
+        "reference": "https://github.com/herdrdev/herdr"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "herdr",
+        "args": [
+          "--version"
+        ]
+      }
+    },
+    {
+      "id": "zoe-fleet",
+      "name": "Zoe fleet tower",
+      "profile": "core",
+      "classification": "shareable",
+      "version": {
+        "kind": "git-commit",
+        "value": null,
+        "status": "unverified",
+        "reason": "Approved and tested source commit has not been selected."
+      },
+      "approvedUpstream": "https://github.com/pikenguyen227/zoetrope",
+      "license": {
+        "name": "MIT",
+        "reference": "https://github.com/pikenguyen227/zoetrope/blob/main/LICENSE"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/sources/zoetrope"
+      },
+      "detection": {
+        "kind": "git-head",
+        "command": "git",
+        "args": [
+          "rev-parse",
+          "HEAD"
+        ]
+      }
+    },
+    {
+      "id": "treehouse",
+      "name": "Treehouse",
+      "profile": "core",
+      "classification": "shareable",
+      "version": {
+        "kind": "release",
+        "value": "2.3.0",
+        "status": "unverified",
+        "reason": "Observed version; compatibility and release approval are pending."
+      },
+      "approvedUpstream": "https://github.com/kunchenguid/treehouse",
+      "license": {
+        "name": "upstream license review pending",
+        "reference": "https://github.com/kunchenguid/treehouse"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "treehouse",
+        "args": [
+          "--version"
+        ]
+      }
+    },
+    {
+      "id": "gh-axi",
+      "name": "gh-axi",
+      "profile": "core",
+      "classification": "per-user-login",
+      "version": {
+        "kind": "release",
+        "value": "0.1.35",
+        "status": "unverified",
+        "reason": "Observed version; compatibility and release approval are pending."
+      },
+      "approvedUpstream": "https://github.com/kunchenguid/gh-axi",
+      "license": {
+        "name": "MIT",
+        "reference": "https://github.com/kunchenguid/gh-axi"
+      },
+      "runtimeMinimum": "20.0.0",
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "gh-axi",
+        "args": [
+          "--version"
+        ]
+      }
+    },
+    {
+      "id": "chrome-devtools-axi",
+      "name": "chrome-devtools-axi",
+      "profile": "core",
+      "classification": "per-user-login",
+      "version": {
+        "kind": "release",
+        "value": "0.1.35",
+        "status": "unverified",
+        "reason": "Observed version; compatibility and release approval are pending."
+      },
+      "approvedUpstream": "https://github.com/kunchenguid/chrome-devtools-axi",
+      "license": {
+        "name": "MIT",
+        "reference": "https://github.com/kunchenguid/chrome-devtools-axi"
+      },
+      "runtimeMinimum": "20.0.0",
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "chrome-devtools-axi",
+        "args": [
+          "--version"
+        ]
+      }
+    },
+    {
+      "id": "lavish-axi",
+      "name": "lavish-axi",
+      "profile": "core",
+      "classification": "shareable",
+      "version": {
+        "kind": "release",
+        "value": "0.1.78",
+        "status": "unverified",
+        "reason": "Observed version; compatibility and release approval are pending."
+      },
+      "approvedUpstream": "https://github.com/kunchenguid/lavish-axi",
+      "license": {
+        "name": "MIT",
+        "reference": "https://github.com/kunchenguid/lavish-axi"
+      },
+      "runtimeMinimum": "22.0.0",
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "lavish-axi",
+        "args": [
+          "--version"
+        ]
+      }
+    },
+    {
+      "id": "quota-axi",
+      "name": "quota-axi",
+      "profile": "core",
+      "classification": "per-user-login",
+      "version": {
+        "kind": "release",
+        "value": "0.1.53",
+        "status": "unverified",
+        "reason": "Observed version; compatibility and release approval are pending."
+      },
+      "approvedUpstream": "https://github.com/kunchenguid/quota-axi",
+      "license": {
+        "name": "MIT",
+        "reference": "https://github.com/kunchenguid/quota-axi"
+      },
+      "runtimeMinimum": "22.19.0",
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "quota-axi",
+        "args": [
+          "--version"
+        ]
+      }
+    },
+    {
+      "id": "tasks-axi",
+      "name": "tasks-axi",
+      "profile": "core",
+      "classification": "shareable",
+      "version": {
+        "kind": "release",
+        "value": "0.2.6",
+        "status": "unverified",
+        "reason": "Observed version; compatibility and release approval are pending."
+      },
+      "approvedUpstream": "https://github.com/kunchenguid/tasks-axi",
+      "license": {
+        "name": "MIT",
+        "reference": "https://github.com/kunchenguid/tasks-axi"
+      },
+      "runtimeMinimum": "20.0.0",
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "tasks-axi",
+        "args": [
+          "--version"
+        ]
+      }
+    },
+    {
+      "id": "no-mistakes",
+      "name": "no-mistakes",
+      "profile": "core",
+      "classification": "per-user-login",
+      "version": {
+        "kind": "release",
+        "value": "1.79.0",
+        "status": "unverified",
+        "reason": "Observed version; compatibility and release approval are pending."
+      },
+      "approvedUpstream": "https://github.com/kunchenguid/no-mistakes",
+      "license": {
+        "name": "upstream license review pending",
+        "reference": "https://github.com/kunchenguid/no-mistakes"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "no-mistakes",
+        "args": [
+          "--version"
+        ]
+      }
+    },
+    {
+      "id": "shellcheck",
+      "name": "ShellCheck",
+      "profile": "core",
+      "classification": "shareable",
+      "version": {
+        "kind": "release",
+        "value": "0.11.0",
+        "status": "unverified",
+        "reason": "Observed version; compatibility and release approval are pending."
+      },
+      "approvedUpstream": "https://github.com/koalaman/shellcheck",
+      "license": {
+        "name": "GPL-3.0-or-later",
+        "reference": "https://github.com/koalaman/shellcheck/blob/master/LICENSE"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "shellcheck",
+        "args": [
+          "--version"
+        ]
+      }
+    },
+    {
+      "id": "actionlint",
+      "name": "actionlint",
+      "profile": "core",
+      "classification": "shareable",
+      "version": {
+        "kind": "release",
+        "value": "1.7.12",
+        "status": "unverified",
+        "reason": "Observed version; compatibility and release approval are pending."
+      },
+      "approvedUpstream": "https://github.com/rhysd/actionlint",
+      "license": {
+        "name": "MIT",
+        "reference": "https://github.com/rhysd/actionlint/blob/main/LICENSE"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "actionlint",
+        "args": [
+          "-version"
+        ]
+      }
+    },
+    {
+      "id": "claude",
+      "name": "Claude Code",
+      "profile": "claude",
+      "classification": "per-user-login",
+      "version": {
+        "kind": "release",
+        "value": "2.1.310",
+        "status": "unverified",
+        "reason": "Observed version; compatibility and release approval are pending."
+      },
+      "approvedUpstream": "https://code.claude.com/docs/en/setup",
+      "license": {
+        "name": "proprietary vendor terms",
+        "reference": "https://www.anthropic.com/legal/consumer-terms"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "claude",
+        "args": [
+          "--version"
+        ]
+      }
+    },
+    {
+      "id": "codex",
+      "name": "Codex CLI",
+      "profile": "codex",
+      "classification": "per-user-login",
+      "version": {
+        "kind": "release",
+        "value": "0.155.1",
+        "status": "unverified",
+        "reason": "One observed active version; release selection and compatibility are pending."
+      },
+      "approvedUpstream": "https://github.com/openai/codex",
+      "license": {
+        "name": "Apache-2.0",
+        "reference": "https://github.com/openai/codex/blob/main/LICENSE"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "codex",
+        "args": [
+          "--version"
+        ]
+      }
+    },
+    {
+      "id": "figma-cli",
+      "name": "Figma CLI",
+      "profile": "figma",
+      "classification": "per-user-login",
+      "version": {
+        "kind": "release",
+        "value": "2.2.5-make.2",
+        "status": "unverified",
+        "reason": "Observed version; compatibility and release approval are pending."
+      },
+      "approvedUpstream": "https://github.com/amelie-pierce/figma-cli",
+      "license": {
+        "name": "MIT",
+        "reference": "https://github.com/amelie-pierce/figma-cli/blob/main/LICENSE"
+      },
+      "runtimeMinimum": "18.0.0",
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "wsl2-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "presence",
+        "command": "figma-cli",
+        "args": []
+      }
+    }
+  ],
+  "neverShip": [
+    ".env and credential files",
+    "tokens, passwords, cookies and browser profiles",
+    "keychains and credential-manager exports",
+    "SSH keys and machine registrations",
+    "account pins and global user configuration",
+    "existing data/, state/ and config/ values",
+    "captain preferences and memories",
+    "histories, transcripts, databases and sockets",
+    "task, backlog and project registries",
+    "project clones and worktree pools",
+    "validation runs and mirrors",
+    "generated review artifacts and personal plugin caches",
+    "local backups, absolute-path wrappers and private patches",
+    "permissive agent-launch settings"
+  ]
+}
