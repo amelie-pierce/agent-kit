@@ -33,8 +33,8 @@ function inspectShell(shell) {
   return { id: 'shell', status: supported ? 'pass' : 'unknown', detail: supported ? shell : `${shell} is not bash or zsh` };
 }
 
-function inspectInstallRoot(home) {
-  const root = join(home, '.agent-kit');
+function inspectInstallRoot(home, requestedRoot) {
+  const root = requestedRoot || join(home, '.agent-kit');
   let existing = root;
   while (!exists(existing) && dirname(existing) !== existing) existing = dirname(existing);
   let writable;
@@ -79,6 +79,7 @@ function inspectSource(tool, context) {
   const git = findOnPath('git', context.env.PATH)[0];
   if (!git) return { id: tool.id, status: 'unknown', reason: 'git absent from PATH', paths: [] };
   try { accessSync(directory); } catch { return { id: tool.id, status: 'fail', reason: 'source checkout absent', paths: [directory] }; }
+  if (!exists(join(directory, '.git'))) return { id: tool.id, status: 'unknown', reason: 'source commit could not be read', paths: [directory] };
   const output = safeRun(git, tool.detection.args, context, directory, { GIT_CEILING_DIRECTORIES: dirname(directory) });
   if (!output) return { id: tool.id, status: 'unknown', reason: 'source commit could not be read', paths: [directory] };
   if (tool.version.status !== 'verified') return { id: tool.id, status: 'unknown', reason: tool.version.reason, paths: [directory], detected: /^[a-f0-9]{40}$/.test(output) ? output : null };
@@ -101,7 +102,7 @@ export function inspectMacOS(context, manifest, selectedTools) {
     { id: 'homebrew', status: brew.length ? 'pass' : 'fail', detail: brew.length ? brew[0] : 'brew absent from PATH' },
     { id: 'xcode-clt', status: cltPath ? 'pass' : 'unknown', detail: cltPath || 'Xcode CLT presence unverified' },
     inspectShell(context.env.SHELL),
-    inspectInstallRoot(home),
+    inspectInstallRoot(home, context.installRoot),
     inspectTerminal(appDirs),
     inspectBrowser(appDirs),
     ...['bash', 'zsh', 'curl', 'jq', 'python3', 'tar', 'unzip', 'shasum'].map(name => {

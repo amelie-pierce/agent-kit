@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "release": "pilot-skeleton-unverified",
+  "release": "macos-pilot-1",
   "nodeMinimum": "24.15.0",
   "tools": [
     {
@@ -244,9 +244,9 @@
       "classification": "shareable",
       "version": {
         "kind": "git-commit",
-        "value": null,
-        "status": "unverified",
-        "reason": "Approved and tested source commit has not been selected."
+        "value": "3cebfb5e809f7e87cea296a59fe14e2f1e47b7b6",
+        "status": "verified",
+        "reason": "Commit verified on approved upstream."
       },
       "approvedUpstream": "https://github.com/pikenguyen227/firstmate",
       "license": {
@@ -256,16 +256,16 @@
       "runtimeMinimum": null,
       "artifacts": {
         "darwin-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/3cebfb5e809f7e87cea296a59fe14e2f1e47b7b6",
+          "sha256": "845d2faeee9b8248f4924023226f4f3c7a273e1c637b814f83c0d14ce2d323ac",
+          "status": "verified",
+          "reason": "SHA-256 computed from the pinned GitHub source archive."
         },
         "darwin-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/3cebfb5e809f7e87cea296a59fe14e2f1e47b7b6",
+          "sha256": "845d2faeee9b8248f4924023226f4f3c7a273e1c637b814f83c0d14ce2d323ac",
+          "status": "verified",
+          "reason": "SHA-256 computed from the pinned GitHub source archive."
         },
         "linux-arm64": {
           "url": null,
@@ -324,8 +324,8 @@
       "version": {
         "kind": "release",
         "value": "0.9.3",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
+        "status": "verified",
+        "reason": "Verified against the upstream release or commit."
       },
       "approvedUpstream": "https://github.com/herdrdev/herdr",
       "license": {
@@ -335,16 +335,16 @@
       "runtimeMinimum": null,
       "artifacts": {
         "darwin-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-macos-aarch64",
+          "sha256": "5173a3e0ae42d5d1ab7ebfa5d5e6329f7c3d23f8e1a3677c7ce3231da2884157",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "darwin-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-macos-x86_64",
+          "sha256": "db62d548ff3e832b087a96b1894a08d26be3905f1830309cd556783f215d4054",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "linux-arm64": {
           "url": null,
@@ -401,9 +401,9 @@
       "classification": "shareable",
       "version": {
         "kind": "git-commit",
-        "value": null,
-        "status": "unverified",
-        "reason": "Approved and tested source commit has not been selected."
+        "value": "a8c495a887ed78308f7c682c5d194835e7094b05",
+        "status": "verified",
+        "reason": "Commit verified on approved upstream."
       },
       "approvedUpstream": "https://github.com/pikenguyen227/zoetrope",
       "license": {
@@ -413,16 +413,16 @@
       "runtimeMinimum": null,
       "artifacts": {
         "darwin-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/a8c495a887ed78308f7c682c5d194835e7094b05",
+          "sha256": "fca7c36b0b1682d0611bf3e9add9407c269af79163d85d046bd34ae927ececfe",
+          "status": "verified",
+          "reason": "SHA-256 computed from the pinned GitHub source archive."
         },
         "darwin-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/a8c495a887ed78308f7c682c5d194835e7094b05",
+          "sha256": "fca7c36b0b1682d0611bf3e9add9407c269af79163d85d046bd34ae927ececfe",
+          "status": "verified",
+          "reason": "SHA-256 computed from the pinned GitHub source archive."
         },
         "linux-arm64": {
           "url": null,
@@ -481,8 +481,8 @@
       "version": {
         "kind": "release",
         "value": "2.3.0",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
+        "status": "verified",
+        "reason": "Verified against the upstream release or commit."
       },
       "approvedUpstream": "https://github.com/kunchenguid/treehouse",
       "license": {
@@ -492,16 +492,16 @@
       "runtimeMinimum": null,
       "artifacts": {
         "darwin-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/kunchenguid/treehouse/releases/download/v2.3.0/treehouse-v2.3.0-darwin-arm64.tar.gz",
+          "sha256": "1cb09bcfa830b4eec5e54beeaa71589adb9c5d828573dda0f5150e2d80cf13d5",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "darwin-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/kunchenguid/treehouse/releases/download/v2.3.0/treehouse-v2.3.0-darwin-amd64.tar.gz",
+          "sha256": "349afcc13c2beb20d846eb560a11b30e1a5cab8e2dfb22988a36aa7f213b5881",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "linux-arm64": {
           "url": null,
@@ -559,8 +559,8 @@
       "version": {
         "kind": "release",
         "value": "0.1.35",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
+        "status": "verified",
+        "reason": "Integrity-pinned in the committed npm lock (manifests/npm/package-lock.json) from registry.npmjs.org."
       },
       "approvedUpstream": "https://github.com/kunchenguid/gh-axi",
       "license": {
@@ -637,8 +637,8 @@
       "version": {
         "kind": "release",
         "value": "0.1.35",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
+        "status": "verified",
+        "reason": "Integrity-pinned in the committed npm lock (manifests/npm/package-lock.json) from registry.npmjs.org."
       },
       "approvedUpstream": "https://github.com/kunchenguid/chrome-devtools-axi",
       "license": {
@@ -715,8 +715,8 @@
       "version": {
         "kind": "release",
         "value": "0.1.78",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
+        "status": "verified",
+        "reason": "Integrity-pinned in the committed npm lock (manifests/npm/package-lock.json) from registry.npmjs.org."
       },
       "approvedUpstream": "https://github.com/kunchenguid/lavish-axi",
       "license": {
@@ -793,8 +793,8 @@
       "version": {
         "kind": "release",
         "value": "0.1.53",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
+        "status": "verified",
+        "reason": "Integrity-pinned in the committed npm lock (manifests/npm/package-lock.json) from registry.npmjs.org."
       },
       "approvedUpstream": "https://github.com/kunchenguid/quota-axi",
       "license": {
@@ -871,8 +871,8 @@
       "version": {
         "kind": "release",
         "value": "0.2.6",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
+        "status": "verified",
+        "reason": "Integrity-pinned in the committed npm lock (manifests/npm/package-lock.json) from registry.npmjs.org."
       },
       "approvedUpstream": "https://github.com/kunchenguid/tasks-axi",
       "license": {
@@ -949,8 +949,8 @@
       "version": {
         "kind": "release",
         "value": "1.79.0",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
+        "status": "verified",
+        "reason": "Verified against the upstream release or commit."
       },
       "approvedUpstream": "https://github.com/kunchenguid/no-mistakes",
       "license": {
@@ -960,16 +960,16 @@
       "runtimeMinimum": null,
       "artifacts": {
         "darwin-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/kunchenguid/no-mistakes/releases/download/v1.79.0/no-mistakes-v1.79.0-darwin-arm64.tar.gz",
+          "sha256": "80c2f4b9b3d01cb5d60ca294226b41d7331408e6e5cf0400a576cf3ec25166d7",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "darwin-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/kunchenguid/no-mistakes/releases/download/v1.79.0/no-mistakes-v1.79.0-darwin-amd64.tar.gz",
+          "sha256": "97a7fa50be1ec0e07e4b00d38b4fc83b12dc961cbe1a4628a13a5b620662069b",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "linux-arm64": {
           "url": null,
@@ -1027,8 +1027,8 @@
       "version": {
         "kind": "release",
         "value": "0.11.0",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
+        "status": "verified",
+        "reason": "Verified against the upstream release or commit."
       },
       "approvedUpstream": "https://github.com/koalaman/shellcheck",
       "license": {
@@ -1038,16 +1038,16 @@
       "runtimeMinimum": null,
       "artifacts": {
         "darwin-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.darwin.aarch64.tar.gz",
+          "sha256": "339b930feb1ea764467013cc1f72d09cd6b869ebf1013296ba9055ab2ffbd26f",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "darwin-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.darwin.x86_64.tar.gz",
+          "sha256": "c2c15e08df0e8fbc374c335b230a7ee958c313fa5714817a59aa59f1aa594f51",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "linux-arm64": {
           "url": null,
@@ -1105,8 +1105,8 @@
       "version": {
         "kind": "release",
         "value": "1.7.12",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
+        "status": "verified",
+        "reason": "Verified against the upstream release or commit."
       },
       "approvedUpstream": "https://github.com/rhysd/actionlint",
       "license": {
@@ -1116,16 +1116,16 @@
       "runtimeMinimum": null,
       "artifacts": {
         "darwin-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_darwin_arm64.tar.gz",
+          "sha256": "aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "darwin-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+          "url": "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_darwin_amd64.tar.gz",
+          "sha256": "5b44c3bc2255115c9b69e30efc0fecdf498fdb63c5d58e17084fd5f16324c644",
+          "status": "verified",
+          "reason": "GitHub release asset SHA-256 digest."
         },
         "linux-arm64": {
           "url": null,
@@ -1261,8 +1261,8 @@
       "version": {
         "kind": "release",
         "value": "0.155.1",
-        "status": "unverified",
-        "reason": "One observed active version; release selection and compatibility are pending."
+        "status": "verified",
+        "reason": "Integrity-pinned in the committed npm lock (manifests/npm-codex/package-lock.json) from registry.npmjs.org."
       },
       "approvedUpstream": "https://github.com/openai/codex",
       "license": {

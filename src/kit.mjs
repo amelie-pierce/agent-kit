@@ -37,17 +37,24 @@ export function validateManifest(manifest) {
 }
 
 export function parseArgs(argv) {
-  let command, json = false, harness = 'claude', withFigma = false;
+  let command, json = false, harness = 'claude', withFigma = false, dryRun = false, installRoot, firstmateHome;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (['check', '--check', 'plan'].includes(arg) && !command) command = arg === '--check' ? 'check' : arg;
+    if (['check', '--check', 'plan', 'install'].includes(arg) && !command) command = arg === '--check' ? 'check' : arg;
     else if (arg === '--json') json = true;
     else if (arg === '--harness' && ['claude', 'codex'].includes(argv[i + 1])) harness = argv[++i];
     else if (arg === '--with-figma') withFigma = true;
+    else if (arg === '--dry-run') dryRun = true;
+    else if (arg === '--install-root' && argv[i + 1]) installRoot = argv[++i];
+    else if (arg === '--firstmate-home' && argv[i + 1]) firstmateHome = argv[++i];
     else throw new Error(`unknown argument: ${arg}`);
   }
-  if (!command) throw new Error('usage: agent-kit <check|plan|--check> [--json] [--harness claude|codex] [--with-figma]');
-  return { command, json, harness, withFigma };
+  if (!command) throw new Error('usage: agent-kit <check|plan|install> [--json] [--harness claude|codex] [--with-figma]');
+  if (dryRun && command !== 'install') throw new Error('--dry-run applies only to install');
+  if (firstmateHome && !installRoot) throw new Error('--firstmate-home requires --install-root');
+  if (installRoot && !isAbsolute(installRoot)) throw new Error('--install-root must be absolute');
+  if (firstmateHome && !isAbsolute(firstmateHome)) throw new Error('--firstmate-home must be absolute');
+  return { command: dryRun ? 'plan' : command, json, harness, withFigma, installRoot, firstmateHome, dryRun };
 }
 
 const loginSteps = {
@@ -101,23 +108,37 @@ function human(result) {
   return lines.join('\n') + '\n';
 }
 
+const firstmateLocation = (context, options) => options.firstmateHome || join(context.env.HOME, 'firstmate');
+
+function plannedLocation(tool, context, options, release) {
+  const root = options.installRoot || join(context.env.HOME, '.agent-kit');
+  const versioned = join(root, 'releases', release);
+  if (tool.id === 'firstmate') return firstmateLocation(context, options);
+  if (tool.id === 'zoe-fleet') return join(versioned, 'zoetrope', 'bin', 'zoe-fleet');
+  if (['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint'].includes(tool.id)) return join(versioned, 'bin', tool.id);
+  if (['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi'].includes(tool.id)) return join(versioned, 'npm', 'node_modules', '.bin', tool.id);
+  if (tool.id === 'codex') return join(versioned, 'npm-codex', 'node_modules', '.bin', 'codex');
+  return 'UNVERIFIED: no install adapter';
+}
+
 export function run(argv, manifest, context) {
   validateManifest(manifest);
   const options = parseArgs(argv);
+  if (options.command === 'install') throw new Error('install is asynchronous; use the CLI install entry point');
   if (!context.env.HOME) throw new Error('HOME must be set');
-  const evaluation = evaluate(manifest, context, options);
+  const evaluation = evaluate(manifest, { ...context, installRoot: options.installRoot }, options);
   const plan = options.command === 'plan' ? {
     tools: evaluation.selected.map(tool => {
       const artifact = tool.artifacts[evaluation.target];
       return { id: tool.id, name: tool.name, version: tool.version.value, versionStatus: tool.version.status,
-        origin: tool.approvedUpstream, installLocation: join(context.env.HOME, tool.installLocation.relativePath),
+        origin: tool.approvedUpstream, installLocation: plannedLocation(tool, context, options, manifest.release),
         artifactUrl: artifact?.url || null, sha256: artifact?.sha256 || null, classification: tool.classification };
     }),
     optionalComponents: evaluation.optional.map(tool => ({ id: tool.id, name: tool.name, status: 'optional, not selected',
       version: tool.version.value, versionStatus: tool.version.status, origin: tool.approvedUpstream })),
     hookChanges: [
-      { owner: 'firstmate', action: 'include Claude hooks with future pinned source', path: join(context.env.HOME, '.agent-kit/sources/firstmate/.claude/settings.json') },
-      { owner: 'firstmate', action: 'include Codex hooks with future pinned source', path: join(context.env.HOME, '.agent-kit/sources/firstmate/.codex/hooks.json') },
+      { owner: 'firstmate', action: 'include Claude hooks with pinned source', path: join(firstmateLocation(context, options), '.claude/settings.json') },
+      { owner: 'firstmate', action: 'include Codex hooks with pinned source', path: join(firstmateLocation(context, options), '.codex/hooks.json') },
     ],
     globalHookChanges: [],
     loginSteps: evaluation.selected.filter(tool => tool.classification === 'per-user-login').map(tool => loginSteps[tool.id]).filter(Boolean),
