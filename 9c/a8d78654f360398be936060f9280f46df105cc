@@ -1,0 +1,21 @@
+test/install-sh.test.mjs
+  s_16ba6745a6d2c1::t_4e969a68ce28ac 14
+test/setup.test.mjs
+  s_16ba6745a6d2c1::t_4e969a68ce28ac 70,121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9ca8d78654f360398be936060f9280f46df105cc",
+  "prompts": {},
+  "sessions": {
+    "s_16ba6745a6d2c1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "15f9a72d-a5ff-4bd1-9f16-266d1c9794b1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
