@@ -21,11 +21,12 @@ function fixture(t, channel = 'releases') {
   mkdirSync(home); mkdirSync(root, { recursive: true }); mkdirSync(firstmate);
   for (const dir of ['bin', 'data', 'state', 'config', 'projects']) mkdirSync(join(firstmate, dir));
   writeFileSync(join(firstmate, 'README.md'), 'fixture\n');
+  writeFileSync(join(firstmate, '.gitignore'), '.env\n');
   const git = (...args) => {
     const r = spawnSync('git', ['-C', firstmate, ...args], { encoding: 'utf8', env: { ...process.env, HOME: home, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' } });
     assert.equal(r.status, 0, r.stderr); return r.stdout.trim();
   };
-  git('init', '-q'); git('add', 'README.md'); git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'fixture');
+  git('init', '-q'); git('add', 'README.md', '.gitignore'); git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'fixture');
   git('remote', 'add', 'origin', bundled.tools.find(x => x.id === 'firstmate').approvedUpstream);
   const pin = git('rev-parse', 'HEAD');
   const first = structuredClone(bundled.tools.find(x => x.id === 'firstmate'));
@@ -49,6 +50,7 @@ function fixture(t, channel = 'releases') {
 
 test('repair plans without writes, refuses running services, and keeps a private copy of a changed binary', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t), path = join(f.bin, 'herdr');
+  writeFileSync(join(f.firstmate, '.env'), 'TYPESAFE_API_KEY=fixture-secret-123\n', { mode: 0o600 });
   writeFileSync(path, 'person edit');
   const before = readFileSync(f.receiptPath, 'utf8');
   const plan = planRepair(f.manifest, f.options);
@@ -65,10 +67,12 @@ test('repair plans without writes, refuses running services, and keeps a private
   assert.equal(readFileSync(path, 'utf8'), 'restored');
   assert.equal(readFileSync(join(result.backup, 'releases', 'old-release', 'bin', 'herdr'), 'utf8'), 'person edit');
   assert.ok(existsSync(f.firstmate));
+  assert.equal(readFileSync(join(f.firstmate, '.env'), 'utf8'), 'TYPESAFE_API_KEY=fixture-secret-123\n');
 });
 
 test('uninstall leaves the Firstmate home, preserves kit backups and refuses unsafe home removal', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t);
+  writeFileSync(join(f.firstmate, '.env'), 'TYPESAFE_API_KEY=fixture-secret-123\n', { mode: 0o600 });
   const plan = planUninstall(f.options);
   assert.equal(plan.removeFirstmateHome, false);
   assert.ok(existsSync(f.receiptPath));
@@ -90,10 +94,19 @@ test('uninstall leaves the Firstmate home, preserves kit backups and refuses uns
   assert.ok(existsSync(f.receiptPath));
   const result = await applyUninstall(f.options);
   assert.ok(existsSync(f.firstmate));
+  assert.equal(readFileSync(join(f.firstmate, '.env'), 'utf8'), 'TYPESAFE_API_KEY=fixture-secret-123\n');
   assert.equal(existsSync(f.receiptPath), false);
   assert.equal(readFileSync(join(result.backup, 'releases', 'old-release', 'bin', 'herdr'), 'utf8'), 'original');
   assert.match(readFileSync(join(f.home, '.codex', 'config.toml'), 'utf8'), /hooks = false\nother = "keep"/);
   assert.ok(existsSync(result.record));
+});
+
+test('uninstall removes .env only with an exact typed path', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t), path = join(f.firstmate, '.env');
+  writeFileSync(path, 'TYPESAFE_API_KEY=fixture-secret-123\n', { mode: 0o600 });
+  assert.throws(() => planUninstall({ ...f.options, removeEnv: true, confirmEnv: '/wrong' }), /type the exact Firstmate .env path/);
+  await applyUninstall({ ...f.options, removeEnv: true, confirmEnv: path });
+  assert.equal(existsSync(path), false);
 });
 
 test('uninstall removes tagged hooks while retaining an unrelated hook', { skip: process.platform === 'win32' }, async t => {

@@ -277,10 +277,13 @@ export async function applyRepair(manifest, options = {}) {
   }
 }
 
-export function planUninstall({ installRoot, home, env = process.env, isRunning = processRunning, removeFirstmateHome = false, confirmHome, matesRunning } = {}) {
+export function planUninstall({ installRoot, home, env = process.env, isRunning = processRunning, removeFirstmateHome = false, confirmHome, removeEnv = false, confirmEnv, matesRunning } = {}) {
   const root = rootOf(installRoot), { receipt } = receiptAt(root);
   if (!home || !isAbsolute(home)) throw new Error('HOME must be absolute');
   const firstmate = homeOf(receipt), registration = previewUnregister({ home, installRoot: root, receipt });
+  const envPath = join(firstmate, '.env'), envFile = stat(envPath);
+  if (removeEnv && !removeFirstmateHome && (confirmEnv !== envPath || (envFile && (!envFile.isFile() || envFile.isSymbolicLink() || envFile.nlink !== 1))))
+    throw new Error(confirmEnv !== envPath ? `type the exact Firstmate .env path to confirm: ${envPath}` : 'unsafe .env file; refusing removal');
   const running = servicePlan(receipt, root, isRunning);
   if (removeFirstmateHome) {
     if (!receipt.phases.firstmate?.path) throw new Error('cannot prove kit ownership of the Firstmate home');
@@ -297,14 +300,15 @@ export function planUninstall({ installRoot, home, env = process.env, isRunning 
   const tower = towerConfig(receipt, env, home, firstmate);
   const wrapper = receipt.phases['treehouse-root'];
   const wrapperPath = wrapper ? phaseOwned(root, 'treehouse-root', wrapper) : null;
-  return { command: 'uninstall', root, firstmate, removeFirstmateHome, running,
+  return { command: 'uninstall', root, firstmate, removeFirstmateHome, removeEnv, envPath, running,
     kitPaths: ['kit', 'releases', 'npm-cache', 'cargo-home', 'empty-user.npmrc', 'empty-global.npmrc', 'receipt.json'].map(name => join(root, name)).filter(path => !!stat(path)),
     registration: { files: registration.files.filter(x => x.changes.length).map(x => x.path), skills: registration.skills.map(x => x.path),
       kept: registration.files.filter(x => x.note).map(x => `${x.path}: ${x.note}`) },
     tower: tower?.path && digest(tower.path) === tower.ownedSha256 ? { path: tower.path, action: 'remove unchanged kit config' } : { path: tower?.path || null, action: 'keep changed or absent config' },
     wrapper: wrapperPath ? { path: wrapperPath, action: digest(wrapperPath) === wrapper.ownedSha256 ? 'remove unchanged wrapper' : 'keep changed or absent wrapper' } : null,
-    note: removeFirstmateHome ? 'Plan only. Exact path confirmation and clean-work checks authorize removing the Firstmate home; the root, fleet state, private backups and final record stay.'
-      : 'Plan only. The root, Firstmate home, projects, fleet state, private backups and final uninstall record stay. Personal prerequisites, credentials and shell profiles are untouched.' };
+    note: removeFirstmateHome ? 'Plan only. Exact path confirmation and clean-work checks authorize removing the Firstmate home, including its .env; the root, fleet state, private backups and final record stay.'
+      : removeEnv ? 'Plan only. Exact path confirmation authorizes removing the Firstmate home .env; the home and other personal files stay.'
+        : 'Plan only. The root, Firstmate home and its .env, projects, fleet state, private backups and final uninstall record stay. Personal prerequisites, credentials and shell profiles are untouched.' };
 }
 
 export async function applyUninstall(options = {}) {
@@ -329,9 +333,10 @@ export async function applyUninstall(options = {}) {
   }
   await rm(join(root, 'receipt.json'));
   await writeFile(join(recordDir, 'uninstall.json'), `${JSON.stringify({ at: new Date().toISOString(), release: receipt.release, root, firstmate: plan.firstmate,
-    removedFirstmateHome: plan.removeFirstmateHome, backup }, null, 2)}\n`, { mode: 0o600 });
+    removedFirstmateHome: plan.removeFirstmateHome, removedEnv: plan.removeEnv || plan.removeFirstmateHome, backup }, null, 2)}\n`, { mode: 0o600 });
   for (const path of [join(root, 'bin'), root]) if (stat(path)?.isDirectory() && readdirSync(path).length === 0) await rm(path, { recursive: true });
   if (plan.removeFirstmateHome) await rm(plan.firstmate, { recursive: true });
+  else if (plan.removeEnv && stat(plan.envPath)) await rm(plan.envPath);
   return { ...plan, apply: true, backup, record: join(recordDir, 'uninstall.json') };
 }
 

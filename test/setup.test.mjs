@@ -68,7 +68,7 @@ test('harness accepts claude, codex and both in either order', () => {
   assert.equal(parseHarness('gemini'), null);
   assert.equal(parseArgs(['plan', '--harness', 'claude,codex']).harness, 'both');
   assert.equal(parseArgs(['doctor', '--root', '/x/Agentic'], 'linux').installRoot, join('/x/Agentic', '.tools'));
-  assert.throws(() => parseArgs(['plan', '--root', '/x']), /only to doctor and lifecycle commands/);
+  assert.throws(() => parseArgs(['plan', '--root', '/x']), /only to doctor, keys and lifecycle commands/);
   assert.throws(() => parseArgs(['doctor', '--root', '/x', '--install-root', '/y']), /conflicts/);
 });
 
@@ -138,6 +138,29 @@ test('--yes --dry-run without a terminal uses the defaults, prints the summary a
   assert.equal(existsSync(f.root), false);
   assert.deepEqual(readdirSync(f.home), []);
   assert.equal(f.downloads.length, 0);
+});
+
+test('setup writes only the optional key to the new Firstmate .env and records a boolean', posixOnly, async t => {
+  const f = fixture(t), key = 'fixture-typesafe-key-123';
+  const c = f.ctx(['--yes', '--root', f.root, '--typesafe-key-env', '--no-tower', '--no-global-hooks']);
+  c.env.TYPESAFE_API_KEY = key;
+  c.installPlatform = async (_manifest, options) => {
+    assert.equal(options.env.TYPESAFE_API_KEY, undefined, 'install child environment is sanitized');
+    mkdirSync(options.firstmateHome, { recursive: true });
+    writeFileSync(join(options.firstmateHome, '.gitignore'), '.env\n');
+    const git = spawnSync('git', ['init', '-q', options.firstmateHome], { env: options.env, encoding: 'utf8' });
+    assert.equal(git.status, 0, git.stderr);
+    return { status: 'partial', components: [], bin: null, towerParity: 'unavailable', loginSteps: [] };
+  };
+  assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+  const envPath = join(f.root, 'firstmate', '.env');
+  assert.equal(readFileSync(envPath, 'utf8'), `TYPESAFE_API_KEY=${key}\n`);
+  assert.equal(statSync(envPath).mode & 0o777, 0o600);
+  const receipt = readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8');
+  assert.deepEqual(JSON.parse(receipt).setup.keys, { TYPESAFE_API_KEY: true });
+  assert.equal(receipt.includes(key), false);
+  assert.equal(c.text.includes(key), false);
+  assert.match(c.text, /TYPESAFE_API_KEY: will set/);
 });
 
 test('scripted answers drive every prompt; nothing is written before yes; answers are saved without secrets', posixOnly, async t => {
