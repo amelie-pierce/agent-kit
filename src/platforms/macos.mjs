@@ -12,7 +12,7 @@ export function findOnPath(name, path = '') {
   return [...new Set(path.split(delimiter).filter(Boolean).map(dir => join(dir, name)).filter(isExecutable))];
 }
 
-function safeRun(command, args, context, cwd, extraEnv = {}) {
+export function safeRun(command, args, context, cwd, extraEnv = {}) {
   try {
     if (context.runCommand) return context.runCommand(command, args, cwd);
     return execFileSync(command, args, {

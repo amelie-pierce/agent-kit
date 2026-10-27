@@ -18,6 +18,8 @@ const runtimeIds = new Set(['zoe-fleet-runtime']);
 // Files the Zoetrope runtime's launcher contract needs (its docs/FLEET-PACKAGING.md).
 const runtimeLayout = ['bin/zoe-fleet-tower', 'scripts/fleet-config.sh', 'scripts/firstmate-fleet.py', 'fleet-plugin/herdr-plugin.toml', 'fleet-plugin/open.sh', 'docs/FLEET-PACKAGING.md', 'LICENSE'];
 const towerRelease = (tool, artifact) => tool.id === 'zoe-fleet' && artifact.kind === 'release-archive';
+const elfMachine = { x64: 0x3e, arm64: 0xb7 };
+const linuxElf = (body, arch) => body.length > 20 && body.readUInt32BE(0) === 0x7f454c46 && body.readUInt16LE(18) === elfMachine[arch];
 const login = {
   'github-cli': 'Run gh auth login (https://cli.github.com/manual/gh_auth_login).',
   'gh-axi': 'Use your own GitHub CLI sign-in: gh auth login (https://cli.github.com/manual/gh_auth_login).',
@@ -437,6 +439,10 @@ export async function installPlatform(manifest, options = {}) {
         if (await exists(destination)) throw new Error(`${tool.id} exists without a matching receipt`);
         await mkdir(dirname(destination), { recursive: true, mode: 0o700 });
         const body = a.url.endsWith('.tar.gz') ? tarBinary(await readFile(artifactPath), tool.id) : await readFile(artifactPath);
+        if (linux && towerRelease(tool, a) && !linuxElf(body, arch)) {
+          components.push({ id: tool.id, status: 'unverified', reason: `refused: the zoe-fleet release binary is not a Linux ${arch} ELF executable; not activated` });
+          continue;
+        }
         const staged = `${destination}.${randomUUID()}.tmp`;
         await writeFile(staged, body, { mode: 0o755, flag: 'wx' });
         await chmod(staged, 0o755);
@@ -546,7 +552,7 @@ export async function installPlatform(manifest, options = {}) {
     const towerConflict = components.find(x => x.id === 'zoe-fleet' && x.status === 'conflict');
     const towerParity = towerConflict ? `conflict: ${towerConflict.reason}` : towerReleased && towerLauncher ? 'installed from verified release; hands-on acceptance pending (Zoetrope Phase B)'
       : towerReleased ? 'release binary installed; fleet runtime or launcher configuration incomplete'
-        : ok('zoe-fleet') ? 'packaged but fleet manifest and launcher unverified' : 'unavailable';
+        : ok('zoe-fleet') ? 'source build; no Linux tower release this round' : 'unavailable';
     // A selected tower keeps the result partial until hands-on acceptance establishes full parity.
     if (options.update && !components.some(x => ['conflict', 'deferred'].includes(x.status))) {
       receipt.release = release;

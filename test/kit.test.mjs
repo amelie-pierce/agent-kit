@@ -13,6 +13,8 @@ import { createHash } from 'node:crypto';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const manifest = JSON.parse(readFileSync(join(root, 'manifests/pilot-skeleton.json'), 'utf8'));
 
+const wsl2Kernel = 'Linux version 6.6.87.2-microsoft-standard-WSL2 (root@build) #1 SMP';
+const elf = machine => { const body = Buffer.alloc(64); body.set([0x7f, 0x45, 0x4c, 0x46, 2, 1, 1]); body.writeUInt16LE(machine, 18); return body; };
 const prereqBins = ['node', 'git', 'gh', 'claude', 'brew', 'xcode-select', 'bash', 'zsh', 'curl', 'jq', 'python3', 'tar', 'unzip', 'shasum'];
 
 function fakeApps(root, names) {
@@ -157,7 +159,8 @@ test('full reviewed manifest can report ready on macOS, Linux and WSL2 fixture m
     applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']) };
   const linux = { ...base, platform: 'linux', libc: 'glibc', osRelease: 'ID=ubuntu\n', procVersion: 'Linux version 6.8',
     env: { HOME: home, PATH: bin, SHELL: join(bin, 'bash') } };
-  const wsl2 = { ...linux, glibcVersion: '2.35', env: { ...linux.env, WSL_DISTRO_NAME: 'Ubuntu', WSL_INTEROP: '/run/WSL/1_interop' } };
+  const wslEnv = { ...linux.env, WSL_DISTRO_NAME: 'Ubuntu', WSL_INTEROP: '/run/WSL/1_interop' };
+  const wsl2 = { ...linux, glibcVersion: '2.35', procVersion: wsl2Kernel, env: wslEnv };
   for (const context of [mac, linux, wsl2]) {
     for (const command of ['check', 'plan']) {
       const result = run([command, '--json'], manifest, context);
@@ -169,6 +172,19 @@ test('full reviewed manifest can report ready on macOS, Linux and WSL2 fixture m
   const urls = context => Object.fromEntries(run(['plan', '--json'], manifest, context).result.plan.tools.map(x => [x.id, x.artifactUrl]));
   assert.deepEqual([urls(wsl2)['zoe-fleet'], urls(wsl2).herdr], [tower.artifacts['wsl2-arm64'].url, manifest.tools.find(x => x.id === 'herdr').artifacts['linux-arm64'].url]);
   assert.equal(urls(linux)['zoe-fleet'], tower.artifacts['linux-arm64'].url);
+  const envOnly = { ...linux, glibcVersion: '2.35', env: wslEnv };
+  assert.equal(run(['check', '--json'], manifest, envOnly).result.platform.wsl2, true);
+  assert.equal(urls(envOnly)['zoe-fleet'], tower.artifacts['linux-arm64'].url);
+  assert.equal(run(['plan', '--json'], manifest, envOnly).result.plan.towerConfig, null);
+  const towerTools = context => run(['check', '--json'], manifest, context).result.advisories.filter(x => x.id.startsWith('tower-')).map(x => x.id);
+  assert.deepEqual([towerTools(wsl2), towerTools(envOnly), towerTools(linux)], [['tower-python3'], [], []]);
+  assert.deepEqual(towerTools({ ...wsl2, runCommand: (path, args, cwd) => basename(path) === 'python3' ? 'Python 3.12.3' : runCommand(path, args, cwd) }), []);
+  rmSync(join(bin, 'jq'));
+  const missing = run(['check', '--json'], manifest, { ...wsl2, runCommand: (path, args, cwd) => basename(path) === 'python3' ? 'Python 3.8.10' : runCommand(path, args, cwd) });
+  assert.deepEqual([missing.result.summary, missing.exitCode], ['ready', 0]);
+  assert.deepEqual(missing.result.advisories.filter(x => x.id.startsWith('tower-')).map(x => [x.id, x.status]), [['tower-python3', 'warn'], ['tower-jq', 'warn']]);
+  assert.match(missing.result.advisories.find(x => x.id === 'tower-jq').reason, /sudo apt install jq/);
+  assert.match(missing.result.advisories.find(x => x.id === 'tower-python3').reason, /python3 3\.8 is older than 3\.9/);
   assert.ok(run(['plan', '--json'], manifest, wsl2).result.plan.towerConfig);
   assert.equal(run(['plan', '--json'], manifest, linux).result.plan.towerConfig, null);
   const old = run(['check', '--json'], manifest, { ...wsl2, glibcVersion: '2.31' });
@@ -762,7 +778,7 @@ test('verified source archives create a fresh home and stage a tower build', asy
   };
   const result = await installPlatform(f.fixtureManifest, f.options);
   assert.equal(result.status, 'partial');
-  assert.match(result.towerParity, /manifest and launcher unverified/);
+  assert.equal(result.towerParity, 'source build; no Linux tower release this round');
   assert.deepEqual(result.components.map(x => x.status), ['installed', 'installed']);
   assert.equal(result.firstmateHome, f.firstmateHome);
   assert.equal(JSON.parse(readFileSync(result.receipt)).phases.firstmate.path, f.firstmateHome);
@@ -793,7 +809,7 @@ mkdir -p "$d"
 printf 'FM_HOME=%s\\nZOE_FLEET_BIN=%s\\nZOE_FLEET_STATE_DIR=%s\\nZOE_NO_MISTAKES_BIN=%s\\n' "$h" "$b" "$(cd "$s" && pwd -P)" "$nm" > "$d/config"
 `;
 
-function towerFixture(t, { runtimeFiles } = {}) {
+function towerFixture(t, { runtimeFiles, towerBinary = 'fixture tower binary' } = {}) {
   const f = firstmateFixture(t);
   const pack = (name, files) => {
     const dir = join(f.root, `${name}-tree`), archive = join(f.root, `${name}.tar.gz`);
@@ -805,7 +821,7 @@ function towerFixture(t, { runtimeFiles } = {}) {
     return archive;
   };
   const archives = {
-    'https://fixture.test/zoe-fleet.tar.gz': pack('tower', { 'zoe-fleet': ['fixture tower binary', 0o755], LICENSE: ['MIT'], NOTICE: ['notice'], 'BUILD.txt': ['version=0.2.0'] }),
+    'https://fixture.test/zoe-fleet.tar.gz': pack('tower', { 'zoe-fleet': [towerBinary, 0o755], LICENSE: ['MIT'], NOTICE: ['notice'], 'BUILD.txt': ['version=0.2.0'] }),
     'https://fixture.test/runtime.tar.gz': pack('runtime', runtimeFiles || { 'bin/zoe-fleet-tower': [fixtureLauncher, 0o755], 'scripts/fleet-config.sh': [''], 'scripts/firstmate-fleet.py': [''],
       'fleet-plugin/herdr-plugin.toml': [''], 'fleet-plugin/open.sh': [''], 'docs/FLEET-PACKAGING.md': [''], LICENSE: ['MIT'] }),
   };
@@ -961,15 +977,15 @@ test('runtime archive with a link or without its launcher is refused',{ skip: pr
   assert.equal(existsSync(linked.kitPath('zoe-fleet-runtime')), false);
 });
 
-function wsl2TowerFixture(t) {
-  const f = towerFixture(t);
+function wsl2TowerFixture(t, towerBinary = elf(0xb7)) {
+  const f = towerFixture(t, { towerBinary });
   for (const tool of f.fixtureManifest.tools) {
     if (tool.id === 'firstmate') tool.artifacts['linux-arm64'] = tool.artifacts['darwin-arm64'];
     else tool.artifacts['wsl2-arm64'] = tool.artifacts['darwin-arm64'];
     delete tool.artifacts['darwin-arm64'];
   }
-  f.options = { ...f.options, platform: 'linux', libc: 'glibc', glibcVersion: '2.35', env: { WSL_DISTRO_NAME: 'Ubuntu', WSL_INTEROP: '/run/WSL/1_interop' } };
-  return f;
+  f.options = { ...f.options, platform: 'linux', libc: 'glibc', glibcVersion: '2.35', procVersion: wsl2Kernel, env: { WSL_DISTRO_NAME: 'Ubuntu', WSL_INTEROP: '/run/WSL/1_interop' } };
+  return { ...f, towerBinary };
 }
 
 test('WSL2 installs the tower from its release archives and configures the launcher without a source build', { skip: process.platform === 'win32' }, async t => {
@@ -981,7 +997,7 @@ test('WSL2 installs the tower from its release archives and configures the launc
   assert.equal(result.towerParity, 'installed from verified release; hands-on acceptance pending (Zoetrope Phase B)');
   assert.equal(result.towerLauncher, f.kitPath('zoe-fleet-runtime', 'bin', 'zoe-fleet-tower'));
   assert.ok(result.nextSteps.some(x => x.includes(`${result.towerLauncher} doctor`)));
-  assert.equal(readFileSync(f.kitPath('bin', 'zoe-fleet'), 'utf8'), 'fixture tower binary');
+  assert.deepEqual(readFileSync(f.kitPath('bin', 'zoe-fleet')), f.towerBinary);
   assert.equal(existsSync(f.kitPath('zoetrope')), false);
   const state = join(f.home, '.local', 'state', 'zoe-fleet', f.digest);
   assert.equal(readFileSync(join(f.home, '.config', 'zoe-fleet', 'config'), 'utf8'), `FM_HOME=${f.firstmateHome}\nZOE_FLEET_BIN=${f.kitPath('bin', 'zoe-fleet')}\nZOE_FLEET_STATE_DIR=${state}\nZOE_NO_MISTAKES_BIN=\n`);
@@ -1004,6 +1020,18 @@ test('WSL2 below glibc 2.35 refuses the tower release before downloading it', { 
   }
 });
 
+test('WSL2 refuses a tower release binary that is not a Linux ELF for this architecture', { skip: process.platform === 'win32' }, async t => {
+  for (const binary of [elf(0x3e), Buffer.from('\xcf\xfa\xed\xfe darwin binary', 'latin1')]) {
+    const f = wsl2TowerFixture(t, binary);
+    const result = await installPlatform(f.fixtureManifest, f.options);
+    assert.deepEqual(result.components.find(x => x.id === 'zoe-fleet'), { id: 'zoe-fleet', status: 'unverified', reason: 'refused: the zoe-fleet release binary is not a Linux arm64 ELF executable; not activated' });
+    assert.equal(result.components.find(x => x.id === 'zoe-fleet-tower').status, 'unverified');
+    assert.equal(existsSync(f.kitPath('bin', 'zoe-fleet')), false);
+    assert.deepEqual(readdirSync(f.kitPath('bin')).filter(x => x.startsWith('zoe-fleet')), []);
+    assert.equal(JSON.parse(readFileSync(result.receipt)).phases['zoe-fleet'], undefined);
+  }
+});
+
 test('Linux keeps the source-built tower and has no fleet runtime pin', { skip: process.platform === 'win32' }, async t => {
   const f = firstmateFixture(t);
   f.fixtureManifest.tools[0].artifacts['linux-arm64'] = { ...f.fixtureManifest.tools[0].artifacts['darwin-arm64'] };
@@ -1020,7 +1048,7 @@ test('Linux keeps the source-built tower and has no fleet runtime pin', { skip: 
   assert.equal(builds, 1);
   assert.deepEqual(result.components.map(x => [x.id, x.status]), [['firstmate', 'installed'], ['zoe-fleet', 'installed'], ['zoe-fleet-runtime', 'unverified']]);
   assert.match(result.components[2].reason, /no Linux tower release/);
-  assert.equal(result.towerParity, 'packaged but fleet manifest and launcher unverified');
+  assert.equal(result.towerParity, 'source build; no Linux tower release this round');
   assert.equal(result.towerLauncher, null);
   assert.equal(existsSync(join(f.home, '.config')), false);
 });

@@ -76,6 +76,7 @@ Then continue with part 2. In step 1 of part 2, `$env:PROCESSOR_ARCHITECTURE` sh
    - Node.js 24.15.0 or newer from NodeSource or nvm, not `apt install nodejs` (Ubuntu's package is far older). With NodeSource, follow <https://github.com/nodesource/distributions> for Node.js 24. With nvm, follow <https://github.com/nvm-sh/nvm#installing-and-updating>, open a new Ubuntu shell, then run `nvm install 24`.
    - git: `sudo apt-get update && sudo apt-get install -y git`
    - the GitHub CLI, following <https://github.com/cli/cli/blob/trunk/docs/install_linux.md>
+   - for the fleet tower, python3 3.9 or newer and jq: `sudo apt-get install -y python3 jq` (setup lists them as advisories if missing; they do not block it)
 
    Then sign in again inside Ubuntu. This is a separate sign-in from Windows:
 

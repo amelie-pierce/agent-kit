@@ -26,5 +26,8 @@ jobs:
         run: node scripts/jev-resolve-smoke.mjs
       - if: matrix.os == 'ubuntu-latest'
         run: node scripts/linux-install-smoke.mjs
+      - name: WSL2 tower release install smoke (real wsl2-x64 assets, WSL2 kernel identity)
+        if: matrix.os == 'ubuntu-latest'
+        run: node scripts/wsl2-tower-smoke.mjs
       - if: matrix.os == 'windows-latest'
         run: node scripts/windows-preflight-smoke.mjs
