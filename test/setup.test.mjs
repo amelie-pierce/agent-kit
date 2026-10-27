@@ -48,6 +48,7 @@ function fixture(t) {
   return { base, home, bin, root, env, fixtureManifest, installOptions, downloads, ctx };
 }
 
+const kitCopyOf = (f, kit) => join(f.root, '.tools', 'kit', kit.commit);
 function kitCheckout(t, base) {
   const dir = join(base, 'kit-source');
   mkdirSync(join(dir, 'bin'), { recursive: true });
@@ -323,7 +324,16 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   assert.deepEqual(receipt.setup.answers, { root: f.root, harness: 'codex', plans: { codex: 'not-sure' }, dispatchMode: 'balanced', figma: false, tower: false, globalHooks: true, githubOwner: 'my-org',
     gitIdentity: { action: 'set', name: 'Pat Example', email: 'pat@example.test' }, starterMate: { create: false }, channel: 'main' });
   assert.deepEqual(receipt.setup.paths, { root: f.root, installRoot: join(f.root, '.tools'), firstmateHome: join(f.root, 'firstmate'), treehouseRoot: f.root, towerState: join(f.root, '.zoe-fleet') });
-  assert.deepEqual(Object.values(receipt.setup.steps).map(x => x.state), ['complete', 'complete', 'complete', 'complete', 'not-selected', 'complete', 'complete']);
+  assert.deepEqual(Object.values(receipt.setup.steps).map(x => x.state), ['complete', 'complete', 'complete', 'complete', 'complete', 'not-selected', 'complete', 'complete']);
+  assert.equal(receipt.setup.steps.shortcuts.detail, 'not set up: needs python3 on PATH, an agent CLI, the installed kit source');
+  const fm = join(f.root, 'firstmate'), kitBin = join(f.root, '.tools', 'releases', 'fixture-1', 'bin');
+  assert.ok(c.text.endsWith(['Next steps:',
+    `  1. Add these folders to the start of your PATH yourself (the kit never edits shell profiles), then open a new terminal:\n       ${join(f.root, '.tools', 'bin')}\n       ${kitBin}`,
+    `  2. Health check later: node ${join(kitCopyOf(f, kit), 'bin', 'agent-kit.mjs')} doctor --install-root ${join(f.root, '.tools')}`,
+    '  3. Sign in to codex yourself in that terminal; the kit never signs in for you.',
+    '  4. Start Herdr: herdr',
+    `  5. In a Herdr pane, start codex in your Firstmate home: cd '${fm}' && codex`,
+    'Start-up walkthrough: see "After a successful install: start it up" in the Agent Kit guide.', ''].join('\n')), c.text.slice(-1200));
   assert.doesNotMatch(JSON.stringify(receipt), /token|password|secret/i);
   const gitconfig = readFileSync(join(f.home, '.gitconfig'), 'utf8');
   assert.match(gitconfig, /name = Pat Example/);
@@ -340,10 +350,10 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   const again = f.ctx([], [f.root, 'y', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, again), 0, again.text);
   assert.match(again.text, /Reusing your saved answers/);
-  assert.match(again.text, /All 7 setup steps are recorded complete/);
+  assert.match(again.text, /All 8 setup steps are recorded complete/);
   assert.doesNotMatch(again.text, /Claude Code is offered|3\. Figma support: check|7\. Git identity is/);
   assert.match(again.text, /1\. kit source at its pinned commit: complete/);
-  assert.match(again.text, /Step 1 of 7: kit source at its pinned commit\n  complete: kit source verified at its pinned commit/);
+  assert.match(again.text, /Step 1 of 8: kit source at its pinned commit\n  complete: kit source verified at its pinned commit/);
   assert.equal(f.downloads.length, 2, 'rerun downloads nothing');
   const override = f.ctx(['--yes', '--dry-run', '--root', f.root, '--channel', 'releases']);
   assert.equal(await setup(f.fixtureManifest, override), 0, override.text);
@@ -360,7 +370,7 @@ test('a failed step stops safely; the rerun prints the resume summary, re-verifi
   f.installOptions.fetchArtifact = async (url, target) => { if (url.endsWith('treehouse')) throw new Error('network down'); return fetch(url, target); };
   const first = f.ctx(['--yes', '--root', f.root, '--no-tower', '--github-owner', 'my-org']);
   assert.equal(await setup(f.fixtureManifest, first), 1);
-  assert.match(first.text, /Step 2 of 7: pinned tools[\s\S]*failed: network down\nStopped safely at step 2/);
+  assert.match(first.text, /Step 2 of 8: pinned tools[\s\S]*failed: network down\nStopped safely at step 2/);
   let receipt = JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8'));
   assert.equal(receipt.setup.steps.tools.state, 'failed');
   assert.equal(receipt.phases.herdr.state, 'complete');
@@ -370,7 +380,7 @@ test('a failed step stops safely; the rerun prints the resume summary, re-verifi
   f.installOptions.fetchArtifact = fetch;
   const second = f.ctx(['--yes', '--root', f.root]);
   assert.equal(await setup(f.fixtureManifest, second), 0, second.text);
-  assert.match(second.text, /Resuming from step 2 of 7 \(pinned tools, Firstmate home, tower and global hooks\)\.\n  1\. kit source at its pinned commit: not-selected/);
+  assert.match(second.text, /Resuming from step 2 of 8 \(pinned tools, Firstmate home, tower and global hooks\)\.\n  1\. kit source at its pinned commit: not-selected/);
   assert.match(second.text, /2\. pinned tools, Firstmate home, tower and global hooks: failed \(network down\)/);
   assert.match(second.text, /- herdr: skipped; receipt and owned files match/);
   assert.match(second.text, /- treehouse: installed/);

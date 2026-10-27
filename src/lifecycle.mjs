@@ -12,6 +12,7 @@ import { processRunning } from './update.mjs';
 import { wrapperScript } from './setup.mjs';
 import { envManaged, keyStatus } from './keys.mjs';
 import { applyStarter, harnessOf, modeOf, planStarter, plansOf, starterRemovable } from './dispatch.mjs';
+import { applyShortcuts, describeShortcuts, planRemoveShortcuts, planShortcuts, removeShortcuts } from './shortcuts.mjs';
 
 const repo = 'amelie-pierce/agent-kit';
 const sha = data => createHash('sha256').update(data).digest('hex');
@@ -127,6 +128,23 @@ async function reconcileStarter(root, firstmate, mode) {
   if (result.record) receipt.setup.dispatch = result.record; else delete receipt.setup.dispatch;
   await atomicJson(join(root, 'receipt.json'), receipt);
   return starterSummary(result);
+}
+// The open-firstmate launcher and Herdr keys block follow the global registrations answer. Repair restores a
+// removed block and replaces a changed launcher; upgrade refreshes both while unchanged. Like the starter
+// rules, a problem here never rolls back a repair or upgrade.
+async function reconcileShortcuts(root, options, repair) {
+  const { receipt } = receiptAt(root);
+  if (receipt.setup?.answers?.globalHooks === false) return null;
+  const env = options.env || process.env, home = options.home || env.HOME;
+  let result;
+  try { result = await applyShortcuts(planShortcuts(receipt, root, { env, home, record: receipt.setup?.shortcuts || null, repair }), root, { env, ...(options.herdrCheck ? { check: options.herdrCheck } : {}) }); }
+  catch (error) { return [`Herdr shortcuts: not updated; ${error.message}`]; }
+  if (result.action !== 'skip') {
+    const updated = receiptAt(root).receipt;
+    updated.setup ||= {}; updated.setup.shortcuts = result.record;
+    await atomicJson(join(root, 'receipt.json'), updated);
+  }
+  return describeShortcuts(result);
 }
 function gitState(path, env, pin) {
   if (!stat(join(path, '.git'))) return { dirty: true, reason: 'Firstmate home is not a git checkout' };
@@ -292,7 +310,8 @@ export async function applyRepair(manifest, options = {}) {
       if (file?.action === 'verify' || item.original === staging || item.original === npmCache) await rm(item.backup, { recursive: true, force: true });
     }
     const dispatch = await reconcileStarter(plan.root, plan.firstmate.path, 'repair');
-    return { ...plan, apply: true, status: 'repaired', backup, components: result.components, nextSteps, dispatch };
+    const shortcuts = await reconcileShortcuts(plan.root, options, true);
+    return { ...plan, apply: true, status: 'repaired', backup, components: result.components, nextSteps, dispatch, shortcuts };
   } catch (error) {
     await atomicJson(join(plan.root, 'receipt.json'), current);
     for (const item of copied.reverse()) { await rm(item.original, { recursive: true, force: true }); await rename(item.backup, item.original); }
@@ -329,6 +348,7 @@ export function planUninstall({ installRoot, home, env = process.env, isRunning 
       kept: registration.files.filter(x => x.note).map(x => `${x.path}: ${x.note}`) },
     tower: tower?.path && digest(tower.path) === tower.ownedSha256 ? { path: tower.path, action: 'remove unchanged kit config' } : { path: tower?.path || null, action: 'keep changed or absent config' },
     wrapper: wrapperPath ? { path: wrapperPath, action: digest(wrapperPath) === wrapper.ownedSha256 ? 'remove unchanged wrapper' : 'keep changed or absent wrapper' } : null,
+    shortcuts: (({ launcher, keys }) => ({ launcher, keys: keys && { path: keys.path, action: keys.action } }))(planRemoveShortcuts(root, receipt.setup?.shortcuts) || { launcher: null, keys: null }),
     dispatch: receipt.setup?.dispatch && !removeFirstmateHome ? { path: join(firstmate, receipt.setup.dispatch.file || 'config/crew-dispatch.json'),
       action: starterRemovable(firstmate, receipt.setup.dispatch) ? 'remove unchanged kit starter rules'
         : receipt.setup.dispatch.via === 'fm-strategy' ? 'keep the Firstmate strategy the kit selected; Firstmate owns its files' : 'keep rules you or a strategy changed' } : null,
@@ -358,6 +378,7 @@ export async function applyUninstall(options = {}) {
     if (stat(path)) await rename(path, join(backup, name));
   }
   const rules = plan.removeFirstmateHome ? null : starterRemovable(plan.firstmate, receipt.setup?.dispatch);
+  await removeShortcuts(root, planRemoveShortcuts(root, receipt.setup?.shortcuts));
   await rm(join(root, 'receipt.json'));
   await writeFile(join(recordDir, 'uninstall.json'), `${JSON.stringify({ at: new Date().toISOString(), release: receipt.release, root, firstmate: plan.firstmate,
     removedFirstmateHome: plan.removeFirstmateHome, removedEnv: plan.removeEnv || plan.removeFirstmateHome, removedStarterRules: !!rules, backup }, null, 2)}\n`, { mode: 0o600 });
@@ -458,7 +479,8 @@ export async function applyUpgrade(plan, options = {}) {
     updated.setup ||= {}; updated.setup.kit = { commit: plan.commit, path: kitTarget };
     await atomicJson(join(root, 'receipt.json'), updated);
     const dispatch = await reconcileStarter(root, homeOf(updated), 'upgrade');
-    return { ...plan, apply: true, status: 'upgraded', components: result.components, dispatch };
+    const shortcuts = await reconcileShortcuts(root, options, false);
+    return { ...plan, apply: true, status: 'upgraded', components: result.components, dispatch, shortcuts };
   } catch (error) {
     await atomicJson(join(root, 'receipt.json'), old);
     for (const item of oldGlobal.reverse()) {
@@ -491,6 +513,9 @@ export function formatLifecycle(result) {
   if (result.tower) lines.push(`Tower config: ${typeof result.tower === 'string' ? result.tower : result.tower.action}`);
   if (result.wrapper) lines.push(`Treehouse wrapper: ${result.wrapper.action}; ${result.wrapper.path}`);
   if (result.dispatch) lines.push(`Starter dispatch rules: ${result.dispatch.action}${result.dispatch.detail ? ` (${result.dispatch.detail})` : ''}; ${result.dispatch.path}`);
+  if (Array.isArray(result.shortcuts)) lines.push(...result.shortcuts);
+  else if (result.shortcuts?.launcher) lines.push(`open-firstmate launcher: ${result.shortcuts.launcher.action}; ${result.shortcuts.launcher.path}`,
+    ...(result.shortcuts.keys ? [`Herdr keys block: ${result.shortcuts.keys.action}; ${result.shortcuts.keys.path}`] : []));
   for (const item of result.running || []) lines.push(`Running ${item.id}: ${item.step}`);
   for (const step of result.nextSteps || []) lines.push(`Next step: ${step}`);
   if (result.note) lines.push(result.note);

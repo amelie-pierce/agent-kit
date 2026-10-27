@@ -71,7 +71,7 @@ Every question shows its default and, except the key, has a matching flag. The s
 | 2c | Starter routing mode, used once the key is set: `lean`, `balanced` or `full`. Warns before `full` on Pro, Team Standard, Enterprise standard, Plus and Business Standard | `lean` for those plans and API keys, otherwise `balanced` | `--dispatch-mode <mode>` |
 | 3 | Figma support: checks `figma-cli` with its install link and guides Figma Desktop sign-in; never patches or restarts Figma | on | `--no-figma` (`--with-figma` still accepted) |
 | 4 | Fleet tower | on | `--no-tower` (`--with-tower`) |
-| 5 | Register global hooks and skills; lists every file and link, each backed up first | on | `--no-global-hooks` (`--global-hooks`) |
+| 5 | Register global hooks and skills, plus the [Herdr keys](#keyboard-shortcuts-open-firstmate) block; lists every file and link, each backed up first | on | `--no-global-hooks` (`--global-hooks`) |
 | 6 | GitHub account or organization for your projects; recorded only, nothing is created on GitHub | your signed-in `gh` login | `--github-owner <name>` |
 | 7 | Git name and email; an existing value changes only after an explicit yes, with `git config --global` | keep | `--git-name <name>`, `--git-email <email>` |
 | 8 | Starter second mate, with a name and a one-line scope | no | `--starter-mate <name>`, `--starter-scope <text>` (`--no-starter-mate`) |
@@ -116,6 +116,30 @@ printf '# Task\nAdd a unit test for an existing date formatter.\n' > /tmp/jev-sa
 
 Expect `status: clear` and a `profile:` line from your rules. `escalate` with `unmeasured` means quota-axi cannot yet see your sign-in.
 
+### Keyboard shortcuts (open-firstmate)
+
+Setup writes `<root>/.tools/bin/open-firstmate`, a kit-owned launcher. It runs the kit copy's `templates/shortcuts/open_firstmate.py` with python3 and with paths taken from the receipt: the pinned Herdr, your Firstmate home, the kit's Codex CLI, Claude as found on your PATH, and the tower launcher. Run it from a Herdr pane, or press a Herdr key:
+
+| Key | Command | Bound when |
+| --- | --- | --- |
+| Ctrl+B, then F (`prefix+f`) | `open-firstmate claude`: the Claude coordinator | you chose Claude |
+| Ctrl+B, then Shift+F (`prefix+shift+f`) | `open-firstmate codex`: the Codex coordinator | you chose Codex |
+| Ctrl+B, then Shift+M (`prefix+shift+m`) | `open-firstmate mates`: the tower Team tab, where second mates show | the tower is installed |
+
+`claude` or `codex` focuses that coordinator's tab in a `Control Tower` workspace. It creates the workspace or tab when missing and starts the agent CLI in the Firstmate home when the tab is an idle shell. A tab already running something is only focused, never typed into. `mates` runs the tower launcher's own `open`, which links the tower's Herdr plugin and shows the Team tab. Without the tower, the launcher says there is none.
+
+The keys live in one block in your Herdr config (`$HERDR_CONFIG_PATH`, else `${XDG_CONFIG_HOME:-~/.config}/herdr/config.toml`), between `# >>> agent-kit keys` and `# <<< agent-kit keys` lines. Each key is a `[[keys.command]]` popup.
+- **Your keys win.** A key you already bound anywhere else in that file is skipped and named in the plan, the summary and the result.
+- **No Herdr defaults are replaced.** None of the three keys is a Herdr 0.9.3 default. The plan and summary would name any Herdr default a kit key replaced.
+- **Safe writes.** The file is backed up under `<root>/.tools/backups/shortcuts/` before each write and checked with the pinned `herdr config check`. If the check fails, the backup is put back.
+- **No reload.** The kit never reloads Herdr; press Ctrl+B, then Shift+R, or restart Herdr.
+- **Tracked by digest.** The receipt records the launcher and block digests in `setup.shortcuts`.
+  - A rerun or `upgrade` refreshes an unchanged block. A block you edited is left alone and no longer tracked. A block you removed stays removed until `repair` restores it.
+  - `repair` also replaces a changed launcher, backing it up first.
+  - `uninstall` removes the launcher and the block only while unchanged and leaves the rest of the file. It removes the file too when the kit created it and nothing else is in it.
+
+The tower's own key script is not used: the pinned launcher `zoe-fleet-tower` offers only `setup|doctor|open|inspect|demo`, so its key is the `mates` entry above. No Herdr plugin manager is part of the kit stack, so the kit binds no key for one. The keys follow question 5: `--no-global-hooks` leaves the Herdr config and the launcher alone. The launcher needs python3, which the Xcode Command Line Tools provide on macOS. On Linux and in WSL2, install python3 yourself if it is missing; until then setup records why it skipped the launcher and keys.
+
 ### Summary screen
 
 Before anything is written, the summary shows every answer, the derived paths, the exact files outside the root that will change, and what will be installed:
@@ -140,6 +164,7 @@ Derived paths:
 Files outside the root that will be touched:
   /Users/you/.claude/settings.json: add agent-kit:gh-axi, ... (an existing file or link is backed up first)
   ...
+  /Users/you/.config/herdr/config.toml: agent-kit keys block (prefix+shift+f open-firstmate codex, prefix+shift+m open-firstmate mates; keys you already bound are skipped; backed up first; uninstall removes the block)
   /Users/you/.config/zoe-fleet/config: tower launcher config, private 0600 (the launcher has no config override, so it stays in this XDG location)
 Will install (pinned and verified; nothing is downloaded until you say yes):
   - Firstmate 976c3ba7... -> /Users/you/Agentic/firstmate
@@ -155,10 +180,10 @@ Answers are recorded in the private receipt (`<root>/.tools/receipt.json`, mode 
 
 ### Resume after a failed install
 
-Setup records each of its seven steps in the receipt: kit source, tools, Treehouse wrapper, git identity, starter second mate, sign-ins and doctor. Rerunning the installer prints, for example:
+Setup records each of its eight steps in the receipt: kit source, tools, Treehouse wrapper, the `open-firstmate` launcher and Herdr keys, git identity, starter second mate, sign-ins and doctor. Rerunning the installer prints, for example:
 
 ```text
-Resuming from step 2 of 7 (pinned tools, Firstmate home, tower and global hooks).
+Resuming from step 2 of 8 (pinned tools, Firstmate home, tower and global hooks).
   1. kit source at its pinned commit: complete (...)
   2. pinned tools, Firstmate home, tower and global hooks: failed (download failed: HTTP 503)
   3. Treehouse wrapper for the pool under the root: not started
@@ -224,7 +249,7 @@ The `macos-pilot-6` manifest re-pins Firstmate to `976c3ba730b9dafefc159b12a97a0
 
 `pilot-7` changes the release label from `macos-pilot-6`, the Codex CLI pin and lock, and the Claude Code minimum (below). The shorter label does not change the upgrade path for an existing `macos-pilot-6` install. The new user-level writes are the optional Firstmate-home `.env` assignment, the receipt's boolean `setup.keys.TYPESAFE_API_KEY` flag, the starter `<root>/firstmate/config/crew-dispatch.json` once the key is set, the receipt's `setup.dispatch` record, and the saved plan names and routing mode in `setup.answers.plans` and `setup.answers.dispatchMode`. `manifests/plan-models.json` is the new owner-approved plan-to-model table. The Codex CLI pin moves from 0.155.1 to 0.164.0 (GPT-6.1 Terra needs 0.159.0 or later), with a regenerated lock. The Claude Code minimum moves from 2.0.0 to 2.1.293, which Haiku 5.5 needs. The key-update command changes the key, the flag and, when it sets the key, the starter rules. Uninstall removes `.env` only with explicit typed confirmation and removes the starter rules only while unchanged.
 
-`uninstall` removes kit-tagged hooks in `~/.claude/settings.json` and `~/.codex/hooks.json`, kit-owned skill links in `~/.claude/skills/` and `~/.agents/skills/`, an unchanged kit-written tower config, an unchanged Treehouse wrapper, and unchanged kit-written starter dispatch rules. It restores Codex's `features.hooks` setting only when the kit enabled it. It moves kit programs, releases, npm prefixes and existing private backups out of `<root>/.tools` into `<root>/agent-kit-uninstall/backups/`, preserving changed or additional files privately, and writes `<root>/agent-kit-uninstall/uninstall.json`. A changed Treehouse wrapper is left for manual review. The root folder, Firstmate home, projects and tower fleet state remain. `--remove-firstmate-home` additionally asks you to type that home's exact path and refuses if it finds uncommitted or unpushed work, unsafe project contents or live second mates. This typed confirmation is required even with `--yes`.
+`uninstall` removes kit-tagged hooks in `~/.claude/settings.json` and `~/.codex/hooks.json`, kit-owned skill links in `~/.claude/skills/` and `~/.agents/skills/`, an unchanged kit-written tower config, an unchanged Treehouse wrapper, an unchanged `open-firstmate` launcher and agent-kit Herdr keys block, and unchanged kit-written starter dispatch rules. It restores Codex's `features.hooks` setting only when the kit enabled it. It moves kit programs, releases, npm prefixes and existing private backups out of `<root>/.tools` into `<root>/agent-kit-uninstall/backups/`, preserving changed or additional files privately, and writes `<root>/agent-kit-uninstall/uninstall.json`. A changed Treehouse wrapper is left for manual review. The root folder, Firstmate home, projects and tower fleet state remain. `--remove-firstmate-home` additionally asks you to type that home's exact path and refuses if it finds uncommitted or unpushed work, unsafe project contents or live second mates. This typed confirmation is required even with `--yes`.
 
 Repair and upgrade keep the Firstmate home's `.env` unchanged. Uninstall also keeps it by default. `uninstall --remove-env` removes that file only after you type its exact path; `--remove-firstmate-home` includes `.env` in the confirmed home removal.
 

@@ -5,7 +5,8 @@ import { artifactFor, towerGlibcGap } from './platforms/linux.mjs';
 import { previewHooks, publicHookChanges } from './install/hooks.mjs';
 import { npmGroup, towerPaths } from './install/macos.mjs';
 import { defaultLinuxFirstmateHome, defaultLinuxRoot, describeStep, linuxPath, windowsHandoff, windowsNextSteps } from './install/windows.mjs';
-import { harnessLabel, parseHarness, towerIds, usesProfile } from './harness.mjs';
+import { harnessLabel, harnessProfiles, parseHarness, towerIds, usesProfile } from './harness.mjs';
+import { herdrConfigPath, kitKeys, previewKeys } from './shortcuts.mjs';
 
 function compareVersions(actual, minimum) {
   const a = actual.split('.').map(Number);
@@ -155,6 +156,11 @@ export function human(result) {
     for (const change of result.plan.globalHookChanges) lines.push(`- ${change.path}: ${JSON.stringify(change.changes)}`);
     if (result.platform.platform === 'windows') lines.push('- previewed inside WSL by the Linux installer before it applies them');
     else if (!result.plan.globalHookChanges.length) lines.push(result.issues.some(x => x.id === 'hooks') ? '- refused; see the hooks conflict below' : '- none');
+    if (result.plan.herdrKeys) {
+      lines.push(`Herdr keys block (agent-kit markers in ${result.plan.herdrKeys.path}; backed up first; uninstall removes it):`);
+      for (const k of result.plan.herdrKeys.keys) lines.push(`- ${k.key}: ${k.command}`);
+      for (const note of result.plan.herdrKeys.notes) lines.push(`- ${note}`);
+    }
     lines.push('Tower launcher configuration (written by the runtime launcher setup; never launched):');
     const tower = result.plan.towerConfig;
     lines.push(tower ? `- ${tower.config}: FM_HOME ${tower.firstmateHome}; fleet state ${tower.state} (new or empty)` : '- none on this platform');
@@ -220,6 +226,14 @@ export function evaluatePlan(manifest, context, options) {
       evaluation.issues.push({ status: 'conflict', id: 'hooks', reason: error.message });
     }
   }
+  // The Herdr keys block: the kit keys for the chosen agent CLIs (and the tower), each skipped when the
+  // person bound it, with every Herdr default it replaces named.
+  let herdrKeys = null;
+  if (options.command === 'plan' && evaluation.platform.supported && !windows && options.globalHooks !== false) {
+    const agents = harnessProfiles(options.harness), path = herdrConfigPath(context.env, context.env.HOME);
+    const keys = kitKeys.filter(k => k.key && (k.mode === 'mates' ? options.withTower !== false : agents.includes(k.mode)));
+    herdrKeys = { path, keys: keys.map(k => ({ key: k.key, command: `open-firstmate ${k.mode}` })), notes: previewKeys(path, keys) };
+  }
   let towerConfig = null;
   const runtime = evaluation.selected.find(tool => tool.id === 'zoe-fleet-runtime');
   if (options.command === 'plan' && evaluation.platform.supported && !windows && runtime && artifactFor(runtime, evaluation.target)?.status === 'verified') {
@@ -244,6 +258,7 @@ export function evaluatePlan(manifest, context, options) {
       { owner: 'firstmate', action: 'include Codex hooks with pinned source', path: pathJoin(context)(firstmateLocation(context, options), '.codex/hooks.json') },
     ],
     globalHookChanges,
+    herdrKeys,
     towerConfig,
     ...(windows && evaluation.platform.supported ? (({ status, command, commit, message }) => ({ handoff: { status, command: command || null, commit: commit || null, message },
       nextSteps: windowsNextSteps(evaluation.platform.wsl?.target?.name) }))(windowsHandoff({ ...options, handoff: false }, context, evaluation.platform)) : {}),

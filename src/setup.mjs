@@ -15,6 +15,7 @@ import { linuxIdentity } from './platforms/linux.mjs';
 import { kitCommit, kitUpstream, linuxPath, powershellCommand, windowsNextSteps } from './install/windows.mjs';
 import { inspectWindows } from './platforms/windows.mjs';
 import { envManaged, hiddenKey, keyStatus, writeKey } from './keys.mjs';
+import { applyShortcuts, describeShortcuts, herdrConfigPath, kitKeys, planShortcuts, previewKeys } from './shortcuts.mjs';
 import { applyStarter, defaultMode, describeStarter, fullWarnings, loadPlanTable, modes, planIds, planStarter, previewStarter, providersOf } from './dispatch.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
@@ -24,6 +25,7 @@ export const steps = [
   ['kit', 'kit source at its pinned commit'],
   ['tools', 'pinned tools, Firstmate home, tower and global hooks'],
   ['treehouse', 'Treehouse wrapper for the pool under the root'],
+  ['shortcuts', 'open-firstmate launcher and Herdr keys'],
   ['git-identity', 'git name and email'],
   ['starter-mate', 'starter second mate'],
   ['logins', 'guided personal sign-ins'],
@@ -280,7 +282,7 @@ export async function collectAnswers(flags, saved, ctx, io, paths) {
 const shellQuote = value => `'${value.replaceAll("'", "'\\''")}'`;
 const yesNo = value => value ? 'on' : 'off';
 const indent = text => `${text.trimEnd().replace(/^/gm, '  ')}\n`;
-export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, keyPlan = { managed: true, status: 'not set' } }) {
+export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, env = {}, keyPlan = { managed: true, status: 'not set' } }) {
   const g = answers.gitIdentity, tower = plan.plan?.towerConfig;
   const lines = ['', 'Agent Kit setup summary. Nothing has been written yet.', 'Answers:',
     `  1. Root folder: ${paths.root}`, `  2. Agent CLIs: ${harnessLabel(answers.harness)} (plan: ${Object.entries(answers.plans || {}).map(([cli, id]) => `${cli} ${id === 'not-sure' ? 'skip' : id}`).join(', ') || 'skip'}; starter routing mode: ${answers.dispatchMode})`, `  3. Figma support: ${yesNo(answers.figma)}`, `  4. Fleet tower: ${yesNo(answers.tower)}`,
@@ -303,6 +305,9 @@ export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, chan
       outside.push(`  ${change.path}: ${change.changes.map(c => `${c.op} ${c.owner || c.path}`).join(', ')} (an existing file or link is backed up first)`);
     if (plan.issues.some(x => x.id === 'hooks')) outside.push(`  global hooks refused: ${plan.issues.find(x => x.id === 'hooks').reason}`);
   }
+  const keys = kitKeys.filter(k => k.key && (k.mode === 'mates' ? answers.tower : harnessProfiles(answers.harness).includes(k.mode)));
+  if (answers.globalHooks && keys.length) outside.push(`  ${herdrConfigPath(env, home)}: agent-kit keys block (${keys.map(k => `${k.key} open-firstmate ${k.mode}`).join(', ')}; keys you already bound are skipped; backed up first; uninstall removes the block)`,
+    ...previewKeys(herdrConfigPath(env, home), keys).map(note => `    ${note}`));
   if (answers.tower && tower) outside.push(`  ${tower.config}: tower launcher config, private 0600 (the launcher has no config override, so it stays in this XDG location)`);
   if (g.action === 'set' && (g.name !== gitCurrent.name || g.email !== gitCurrent.email)) outside.push(`  ${join(home, '.gitconfig')} (or your git global config): user.name and user.email`);
   lines.push(...(outside.length ? outside : ['  none']));
@@ -363,6 +368,32 @@ async function placeWrapper(paths, receipt, receiptPath, release) {
   await updateReceipt(receiptPath, release, r => { r.phases['treehouse-root'] = { state: 'complete', version: release, path: 'bin/treehouse', ownedSha256: sha(body), treehouseRoot: paths.treehouseRoot }; });
   await rename(temp, paths.wrapper);
   return { state: 'complete', detail: `TREEHOUSE_ROOT=${paths.treehouseRoot}` };
+}
+
+// What to do after setup, in order; the guide's "After a successful install: start it up" section walks through it.
+export function nextSteps({ answers, paths, install, kit, shortcuts }) {
+  const agents = harnessProfiles(answers.harness), keys = new Set(shortcuts?.keys?.bound || []);
+  const shortcut = kitKeys.filter(k => agents.includes(k.mode) && keys.has(k.key)).map(k => `${k.key} for ${k.mode}`);
+  return ['Next steps:',
+    `  1. Add these folders to the start of your PATH yourself (the kit never edits shell profiles), then open a new terminal:\n       ${[dirname(paths.wrapper), install.bin, install.npmBin, install.codexBin].filter(Boolean).join('\n       ')}`,
+    ...(kit.commit ? [`  2. Health check later: node ${join(paths.kit, 'bin', 'agent-kit.mjs')} doctor --install-root ${paths.installRoot}`]
+      : ['  2. Health check later: node bin/agent-kit.mjs doctor --install-root ' + paths.installRoot + ' from this checkout']),
+    `  3. Sign in to ${agents.join(' and ')} yourself in that terminal; the kit never signs in for you.`,
+    '  4. Start Herdr: herdr',
+    `  5. In a Herdr pane, start ${agents.join(' or ')} in your Firstmate home: cd ${shellQuote(paths.firstmateHome)} && ${agents[0]}${shortcut.length ? ` (or press ${shortcut.join(', ')})` : ''}`,
+    'Start-up walkthrough: see "After a successful install: start it up" in the Agent Kit guide.', ''].join('\n');
+}
+
+// The open-firstmate launcher and the Herdr keys block go with the global registrations question, since
+// the keys block is a user-level file outside the root.
+async function placeShortcuts(answers, paths, receiptPath, release, { env, home, check }, output) {
+  if (!answers.globalHooks) return { state: 'not-selected', detail: 'global hooks and skills not selected; Herdr config left unchanged' };
+  const receipt = await readReceipt(receiptPath);
+  const result = await applyShortcuts(planShortcuts(receipt, paths.installRoot, { env, home, record: receipt.setup?.shortcuts || null }), paths.installRoot, { env, ...(check ? { check } : {}) });
+  for (const line of describeShortcuts(result)) output.write(`  ${line}\n`);
+  if (result.action === 'skip') return { state: 'complete', detail: `not set up: ${result.detail}` };
+  await updateReceipt(receiptPath, release, r => { r.setup.shortcuts = result.record; });
+  return { state: 'complete', detail: result.keys.bound?.length ? `keys ${result.keys.bound.join(', ')}` : 'launcher only' };
 }
 
 function applyGitIdentity(answer, env) {
@@ -451,7 +482,7 @@ export async function setup(manifest, ctx) {
     const context = { env, platform, arch: ctx.arch, nodeVersion: ctx.nodeVersion, procVersion: ctx.procVersion, osRelease: ctx.osRelease, libc: ctx.libc, glibcVersion: ctx.glibcVersion, runCommand: ctx.runCommand, applicationDirs: ctx.applicationDirs };
     const plan = evaluatePlan(manifest, context, options).result;
     const blockers = blocking(plan);
-    output.write(formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, keyPlan }));
+    output.write(formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, env, keyPlan }));
     if (blockers.length) {
       output.write('Install these yourself first, then rerun the installer (the kit never installs them):\n');
       for (const issue of blockers) output.write(`  - ${issue.id}: ${issue.reason}\n`);
@@ -471,7 +502,8 @@ export async function setup(manifest, ctx) {
     try {
       receipt = await updateReceipt(receiptPath, manifest.release, r => {
         r.setup = { version: 1, answers, paths: { root: paths.root, installRoot: paths.installRoot, firstmateHome: paths.firstmateHome, treehouseRoot: paths.treehouseRoot, towerState: paths.towerState },
-          kit: kit.commit ? { commit: kit.commit, path: paths.kit } : r.setup?.kit || null, steps: r.setup?.steps || {}, ...(r.setup?.dispatch ? { dispatch: r.setup.dispatch } : {}) };
+          kit: kit.commit ? { commit: kit.commit, path: paths.kit } : r.setup?.kit || null, steps: r.setup?.steps || {}, ...(r.setup?.dispatch ? { dispatch: r.setup.dispatch } : {}),
+          ...(r.setup?.shortcuts ? { shortcuts: r.setup.shortcuts } : {}) };
       });
       const stepRun = async (index, fn) => {
         const [id, label] = steps[index];
@@ -517,15 +549,16 @@ export async function setup(manifest, ctx) {
       });
       receipt = await readReceipt(receiptPath);
       await stepRun(2, () => placeWrapper(paths, receipt, receiptPath, manifest.release));
-      await stepRun(3, async () => applyGitIdentity(answers.gitIdentity, env));
-      await stepRun(4, async () => answers.starterMate.create ? seedStarter(answers.starterMate, paths, env, install.bin) : { state: 'not-selected' });
-      await stepRun(5, async () => {
+      await stepRun(3, () => placeShortcuts(answers, paths, receiptPath, manifest.release, { env, home, check: ctx.herdrCheck }, output));
+      await stepRun(4, async () => applyGitIdentity(answers.gitIdentity, env));
+      await stepRun(5, async () => answers.starterMate.create ? seedStarter(answers.starterMate, paths, env, install.bin) : { state: 'not-selected' });
+      await stepRun(6, async () => {
         output.write('  Sign in yourself; the kit never runs, reads or stores a login:\n');
         for (const step of install.loginSteps) output.write(`  - ${step}\n`);
         if (answers.figma) output.write('  - Figma Desktop: install it from https://www.figma.com/downloads/ and sign in yourself. The kit never patches or restarts Figma.\n');
         return { state: 'complete', detail: 'shown' };
       });
-      await stepRun(6, async () => {
+      await stepRun(7, async () => {
         const health = doctor(manifest, { installRoot: paths.installRoot, home, env, nodeVersion: ctx.nodeVersion, platform, arch: ctx.arch });
         output.write(indent(formatDoctor(health)));
         if (health.exitCode) failed = true;
@@ -533,8 +566,7 @@ export async function setup(manifest, ctx) {
       });
       const partial = (await readReceipt(receiptPath)).setup.steps.tools.state !== 'complete';
       output.write(`\nAgent Kit setup ${failed ? 'finished with failures' : partial ? 'finished; some tools are partial and are retried on rerun' : 'complete'}.\n`);
-      output.write(`Add these folders to the start of your PATH yourself (the kit never edits shell profiles):\n  ${[dirname(paths.wrapper), install.bin, install.npmBin, install.codexBin].filter(Boolean).join('\n  ')}\n`);
-      if (kit.commit) output.write(`Health check later: node ${join(paths.kit, 'bin', 'agent-kit.mjs')} doctor --install-root ${paths.installRoot}\n`);
+      output.write(nextSteps({ answers, paths, install, kit, shortcuts: (await readReceipt(receiptPath)).setup.shortcuts }));
       return failed || partial ? 1 : 0;
     } catch (error) {
       if (error.reported) return 1;
