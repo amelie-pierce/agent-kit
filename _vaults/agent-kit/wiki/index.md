@@ -6,7 +6,7 @@ date: 2026-10-26
 
 # Agent Kit
 
-Agent Kit is a Node CLI for per-person Firstmate and tool setup, entered through `install.sh` or `install.ps1` and the guided `setup` command. It has read-only `check` and `plan` commands, macOS/Linux `install` paths, and a Windows entry that hands off to the Linux install inside WSL2; the [README](../../../README.md) states the current partial-install boundary (README.md:1-15; README.md:17-37).
+Agent Kit is a Node CLI for per-person Firstmate and tool setup, entered through `install.sh` or `install.ps1` and the guided `setup` command. It has read-only `check` and `plan` commands, macOS/Linux `install` paths, and a Windows entry that hands off to Linux inside WSL2. Receipt-scoped repair, upgrade and uninstall are routed through `src/lifecycle.mjs` (README.md:1-15; bin/agent-kit.mjs:61-93).
 
 ## Operating mode and authority
 

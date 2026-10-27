@@ -17,6 +17,7 @@ import { inspectWindows } from './platforms/windows.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
 export const defaultRoot = '~/Agentic';
+export const setupAnswerKeys = ['harness', 'figma', 'tower', 'globalHooks', 'githubOwner', 'gitIdentity', 'starterMate', 'channel'];
 export const steps = [
   ['kit', 'kit source at its pinned commit'],
   ['tools', 'pinned tools, Firstmate home, tower and global hooks'],
@@ -182,7 +183,7 @@ export function resumeSummary(receipt) {
   return { step: first === -1 ? null : first + 1, text: lines.join('\n') };
 }
 
-async function collectAnswers(flags, saved, ctx, io, paths) {
+export async function collectAnswers(flags, saved, ctx, io, paths) {
   const { env, output } = ctx, yes = !!flags.yes, answers = { ...(flags.reconfigure ? {} : saved), root: paths.root };
   const want = key => answers[key] === undefined;
   const claudeInstalled = findOnPath('claude', env.PATH || '').length > 0;
@@ -211,7 +212,7 @@ async function collectAnswers(flags, saved, ctx, io, paths) {
   const current = gitIdentity(env);
   const savedSet = answers.gitIdentity?.action === 'set' ? answers.gitIdentity : null;
   const gitFlags = flags['git-name'] !== undefined || flags['git-email'] !== undefined;
-  const stale = !gitFlags && savedSet && ((current.name && current.name !== savedSet.name) || (current.email && current.email !== savedSet.email)) ? savedSet : null;
+  const stale = !ctx.onlyNew && !gitFlags && savedSet && ((current.name && current.name !== savedSet.name) || (current.email && current.email !== savedSet.email)) ? savedSet : null;
   if (stale) {
     if (yes) answers.gitIdentity = { action: 'keep' };
     else {
