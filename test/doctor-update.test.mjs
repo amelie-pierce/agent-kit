@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, chmodSync, readdirSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, chmodSync, readdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -141,9 +141,11 @@ test('no-mistakes daemon status asks the receipt-recorded kit binary, not PATH',
 test('doctor catches a shadowing binary without running it', t => {
   const f = fixture(t), shadow = join(f.base, 'shadow');
   mkdirSync(shadow);
-  writeFileSync(join(shadow, 'herdr'), '#!/bin/sh\nexit 99\n', { mode: 0o755 });
+  const ran = join(f.base, 'shadow-ran');
+  for (const name of ['herdr', 'treehouse', 'no-mistakes']) writeFileSync(join(shadow, name), `#!/bin/sh\necho "${name} $*" >> '${ran}'\nexit 99\n`, { mode: 0o755 });
   const result = doctor(f.manifest, { ...f.options, env: { HOME: f.home, PATH: `${shadow}:/usr/bin:/bin` } });
   assert.equal(result.checks.find(x => x.id === 'herdr-path').status, 'fail');
+  assert.equal(existsSync(ran), false, 'doctor must not execute PATH binaries');
 });
 
 test('starter output is inert and contains no owner paths or origins', () => {

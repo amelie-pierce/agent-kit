@@ -16,7 +16,7 @@ node bin/agent-kit.mjs install --dry-run --install-root /your/new/kit-root --fir
 
 ## Doctor
 
-After an install, run `node bin/agent-kit.mjs doctor --install-root /your/kit-root` (add `--json` for machine-readable results). Doctor reads the kit receipt and owned paths, checks the pinned Firstmate commit and tracked files, kit file digests, launcher and receipt permissions, hook ownership markers, required platform prerequisites, Node floor, and whether another executable shadows a kit binary on PATH. Each component reports installed, verified digest, configured, authenticated, and live-tested states. Authentication and live testing remain **unknown**: doctor does not inspect sign-in stores, start services, or probe a live fleet. A failed check exits nonzero. This command changes no files.
+After an install, run `node bin/agent-kit.mjs doctor --install-root /your/kit-root` (add `--json` for machine-readable results). Doctor reads the kit receipt and owned paths, checks the pinned Firstmate commit and tracked files, kit file digests, launcher and receipt permissions, hook ownership markers, required platform prerequisites, Node floor, and whether another executable shadows a kit binary on PATH. It resolves PATH entries by file path and never runs them. Each component reports installed, verified digest, configured, authenticated, and live-tested states. Authentication and live testing remain **unknown**: doctor does not inspect sign-in stores, start services, or probe a live fleet. A failed check exits nonzero. This command changes no files.
 
 ## Reviewed updates
 

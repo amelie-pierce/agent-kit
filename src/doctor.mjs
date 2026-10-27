@@ -5,6 +5,7 @@ import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep 
 import { previewHooks } from './install/hooks.mjs';
 import { npmGroup, towerPaths } from './install/macos.mjs';
 import { inspectPlatform } from './platforms/index.mjs';
+import { findOnPath } from './platforms/macos.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
 const status = (id, state, detail) => ({ id, status: state, detail });
@@ -62,12 +63,11 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
   const root = resolve(installRoot), checks = [];
   if (existsSync(root) && (!lstatSync(root).isDirectory() || lstatSync(root).isSymbolicLink())) throw new Error('doctor requires a plain kit root directory');
   checks.push(status('node', versionAtLeast(nodeVersion, manifest.nodeMinimum) ? 'pass' : 'fail', `requires Node ${manifest.nodeMinimum} or newer`));
-  const platform = inspectPlatform({ env, platform: platformName, arch, nodeVersion, installRoot: root }, manifest,
-    manifest.tools.filter(t => t.classification !== 'never-ship' && t.profile === 'core'));
+  const platform = inspectPlatform({ env, platform: platformName, arch, nodeVersion, installRoot: root }, manifest, []);
   for (const prerequisite of platform.prerequisites || []) if (!['terminal', 'browser', 'virtualization'].includes(prerequisite.id))
     checks.push(status(`prerequisite-${prerequisite.id}`, prerequisite.status === 'pass' ? 'pass' : prerequisite.status === 'fail' ? 'fail' : 'unknown', prerequisite.detail));
-  for (const tool of platform.tools || []) if (manifest.tools.find(x => x.id === tool.id)?.version.status === 'unverified' && tool.status === 'fail')
-    checks.push(status(`prerequisite-tool-${tool.id}`, 'fail', tool.reason));
+  for (const tool of manifest.tools) if (tool.profile === 'core' && tool.version.status === 'unverified' && tool.detection.kind === 'command' && !findOnPath(tool.detection.command, env.PATH).length)
+    checks.push(status(`prerequisite-tool-${tool.id}`, 'fail', `${tool.detection.command} absent from PATH`));
   const receiptPath = join(root, 'receipt.json'), receiptFile = safeFile(receiptPath);
   if (!receiptFile) {
     checks.push(status('receipt', 'fail', 'kit receipt missing or not a plain file'));
