@@ -10,6 +10,7 @@ import { linuxIdentity } from '../platforms/linux.mjs';
 
 const exec = promisify(execFile);
 const npmIds = new Set(['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi', 'codex']);
+export const npmGroup = id => id === 'codex' ? 'npm-codex' : npmIds.has(id) ? 'npm' : null;
 const binaryIds = new Set(['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint']);
 const sourceIds = new Set(['firstmate', 'zoe-fleet']);
 const runtimeIds = new Set(['zoe-fleet-runtime']);

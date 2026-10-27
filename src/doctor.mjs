@@ -3,7 +3,7 @@ import { existsSync, lstatSync, readFileSync, readdirSync, readlinkSync, realpat
 import { spawnSync } from 'node:child_process';
 import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { previewHooks } from './install/hooks.mjs';
-import { towerPaths } from './install/macos.mjs';
+import { npmGroup, towerPaths } from './install/macos.mjs';
 import { inspectPlatform } from './platforms/index.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
@@ -29,7 +29,7 @@ function treeDigest(root) {
   walk(root);
   return sha(parts.join('\n'));
 }
-function gitCheck(path, pin, origin) {
+export function gitCheck(path, pin, origin) {
   const args = ['--no-optional-locks', '--git-dir', join(path, '.git'), '--work-tree', path];
   const env = { HOME: dirname(path), PATH: process.env.PATH || '', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' };
   const head = spawnSync('git', [...args, 'rev-parse', 'HEAD'], { encoding: 'utf8', env, timeout: 30000 });
@@ -120,7 +120,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
     }
   }
   for (const tool of manifest.tools) {
-    const group = tool.id === 'codex' ? 'npm-codex' : ['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi'].includes(tool.id) ? 'npm' : null;
+    const group = npmGroup(tool.id);
     if (!group || !receipt.phases[group]) continue;
     const base = phasePath(root, group, receipt.phases[group]);
     if (!base) continue;
@@ -145,7 +145,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
 function doctorResult(checks, release, manifest, receipt, root) {
   const find = id => checks.find(x => x.id === id)?.status || 'unknown';
   const components = manifest.tools.filter(t => t.classification !== 'never-ship').map(tool => {
-    const phaseId = tool.id === 'codex' ? 'npm-codex' : ['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi'].includes(tool.id) ? 'npm' : tool.id;
+    const phaseId = npmGroup(tool.id) || tool.id;
     const entry = receipt?.phases?.[phaseId], path = entry && phasePath(root, phaseId, entry);
     const installed = path && existsSync(path) ? 'pass' : 'unknown';
     const verifiedDigest = find(phaseId);

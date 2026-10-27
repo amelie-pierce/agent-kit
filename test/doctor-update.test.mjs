@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { doctor } from '../src/doctor.mjs';
-import { applyUpdate, planUpdate } from '../src/update.mjs';
+import { applyUpdate, planUpdate, processRunning } from '../src/update.mjs';
 import { secondmateTemplate } from '../src/secondmate.mjs';
 import { parseArgs } from '../src/kit.mjs';
 
@@ -101,6 +101,41 @@ test('digest failure keeps the prior binary; changed Firstmate pin uses guarded 
   assert.equal(firstmate.status, 'conflict');
   assert.match(firstmate.reason, /\/updatefirstmate/);
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'source fixture\n');
+});
+
+test('Firstmate pin change finishes after the guarded /updatefirstmate handoff', async t => {
+  const f = fixture(t);
+  const git = (...args) => {
+    const result = spawnSync('git', args, { cwd: f.firstmate, encoding: 'utf8', env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' } });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  };
+  const oldPin = git('rev-parse', 'HEAD');
+  writeFileSync(join(f.firstmate, 'README.md'), 'reviewed update\n');
+  git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qam', 'next');
+  const newPin = git('rev-parse', 'HEAD');
+  git('checkout', '-q', '--detach', oldPin);
+  const changed = structuredClone(f.manifest);
+  changed.tools.find(x => x.id === 'firstmate').version.value = newPin;
+  const first = await applyUpdate(changed, f.options);
+  assert.equal(first.components.find(x => x.id === 'firstmate').status, 'conflict');
+  assert.equal(JSON.parse(readFileSync(f.receiptPath)).pendingUpdate, 'new-release');
+  git('checkout', '-q', '--detach', newPin);
+  const second = await applyUpdate(changed, f.options);
+  assert.equal(second.components.find(x => x.id === 'firstmate').status, 'skipped');
+  const receipt = JSON.parse(readFileSync(f.receiptPath));
+  assert.equal(receipt.release, 'new-release');
+  assert.equal(receipt.pendingUpdate, undefined);
+  assert.equal(receipt.phases.firstmate.version, newPin);
+  assert.equal(readFileSync(join(f.root, 'releases', 'old-release', 'bin', 'herdr'), 'utf8'), 'old-binary');
+  assert.equal(doctor(changed, f.options).checks.find(x => x.id === 'firstmate').status, 'pass');
+});
+
+test('no-mistakes daemon status asks the receipt-recorded kit binary, not PATH', t => {
+  const f = fixture(t), bin = join(f.base, 'kit-no-mistakes'), marker = join(f.base, 'asked');
+  writeFileSync(bin, `#!/bin/sh\necho "$1 $2" > '${marker}'\necho "daemon running"\n`, { mode: 0o755 });
+  assert.equal(processRunning('no-mistakes', bin), true);
+  assert.equal(readFileSync(marker, 'utf8'), 'daemon status\n');
 });
 
 test('doctor catches a shadowing binary without running it', t => {

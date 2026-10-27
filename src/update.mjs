@@ -2,12 +2,11 @@ import { readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { isAbsolute, join, resolve } from 'node:path';
-import { doctor } from './doctor.mjs';
-import { installPlatform } from './install/macos.mjs';
+import { doctor, gitCheck } from './doctor.mjs';
+import { installPlatform, npmGroup } from './install/macos.mjs';
 import { validateManifest } from './kit.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
-const npmGroup = id => id === 'codex' ? 'npm-codex' : ['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi'].includes(id) ? 'npm' : null;
 const selected = (manifest, harness, withFigma) => manifest.tools.filter(t => t.classification !== 'never-ship' && (t.profile === 'core' || t.profile === harness || (withFigma && t.profile === 'figma')));
 export function reviewedCheckout() {
   const cwd = new URL('..', import.meta.url);
@@ -29,13 +28,16 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
   const oldManifest = structuredClone(manifest);
   for (const tool of oldManifest.tools) if (receipt.phases[tool.id]?.version) tool.version.value = receipt.phases[tool.id].version;
   const health = doctor(oldManifest, { installRoot: root, home, env, nodeVersion, platform, arch });
-  const unsafe = health.checks.filter(x => x.status === 'fail' && x.id !== 'hooks' && !x.id.startsWith('prerequisite-') && !x.id.endsWith('-path') && !x.id.endsWith('-pin'));
+  const firstmate = manifest.tools.find(t => t.id === 'firstmate'), firstmateEntry = receipt.phases.firstmate;
+  const handedOff = !!firstmate && firstmateEntry?.version !== firstmate.version.value && typeof firstmateEntry?.path === 'string' && isAbsolute(firstmateEntry.path) &&
+    gitCheck(firstmateEntry.path, firstmate.version.value, firstmate.approvedUpstream);
+  const unsafe = health.checks.filter(x => x.status === 'fail' && !(handedOff && x.id === 'firstmate') && x.id !== 'hooks' && !x.id.startsWith('prerequisite-') && !x.id.endsWith('-path') && !x.id.endsWith('-pin'));
   if (unsafe.length) throw new Error(`owned installation fails verification: ${unsafe.map(x => x.id).join(', ')}`);
   const target = `${platform}-${arch}`;
   const changes = selected(manifest, effectiveHarness, withFigma).map(tool => {
     const group = npmGroup(tool.id), entry = receipt.phases[group || tool.id];
     const beforeVersion = group ? entry?.packages?.[tool.id === 'codex' ? '@openai/codex' : tool.id] || null : entry?.version || null;
-    const beforeSha256 = group ? entry?.artifactSha256 || null : entry?.artifactSha256 || null;
+    const beforeSha256 = entry?.artifactSha256 || null;
     const lock = group ? readFileSync(new URL(`../manifests/${group}/package-lock.json`, import.meta.url)) : null;
     const afterSha256 = group ? sha(lock) : tool.artifacts[target]?.sha256 || null;
     const afterVersion = tool.version.value;
@@ -44,21 +46,21 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
   });
   if (receipt.release === manifest.release && changes.some(x => x.action === 'stage and verify')) throw new Error('changed pins require a new manifest release name');
   return { command: 'update', fromRelease: receipt.release, toRelease: manifest.release, harness: effectiveHarness, changes,
-    firstmateHome: receipt.phases.firstmate?.path || null, apply: false,
+    firstmateHome: receipt.phases.firstmate?.path || null, noMistakesBin: receipt.phases['no-mistakes']?.path ? join(root, receipt.phases['no-mistakes'].path) : null, apply: false,
     note: 'Plan only. --yes stages and activates reviewed artifacts. Previous release binaries remain for rollback; user state rollback is not promised.' };
 }
 export async function applyUpdate(manifest, options) {
   const plan = planUpdate(manifest, options);
   if (!plan.firstmateHome) throw new Error('Firstmate home is absent from receipt');
   const result = await installPlatform(manifest, { ...options, harness: plan.harness, update: true, firstmateHome: plan.firstmateHome,
-    isRunning: options.isRunning || processRunning });
+    isRunning: options.isRunning || (id => processRunning(id, plan.noMistakesBin)) });
   return { ...plan, apply: true, status: result.status, exitCode: result.exitCode, components: result.components,
     previousRelease: plan.fromRelease, nextSteps: result.components.filter(x => ['conflict', 'deferred'].includes(x.status)).map(x => `${x.id}: ${x.reason}`),
     note: 'Previous release binaries remain in their versioned directory. User state rollback is not promised.' };
 }
-function processRunning(id) {
-  if (id === 'no-mistakes') {
-    const daemon = spawnSync('no-mistakes', ['daemon', 'status'], { encoding: 'utf8', timeout: 10000, maxBuffer: 16 * 1024 });
+export function processRunning(id, noMistakesBin) {
+  if (id === 'no-mistakes' && noMistakesBin) {
+    const daemon = spawnSync(noMistakesBin, ['daemon', 'status'], { encoding: 'utf8', timeout: 10000, maxBuffer: 16 * 1024 });
     if (daemon.status !== 0) return true;
     if (/daemon running/i.test(daemon.stdout)) return true;
     if (!/daemon (?:stopped|not running)/i.test(daemon.stdout)) return true;
