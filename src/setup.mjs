@@ -6,6 +6,8 @@ import { createInterface } from 'node:readline';
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { evaluatePlan } from './kit.mjs';
+import { charterText, seedMate } from './secondmate.mjs';
+export { charterText };
 import { atomicJson, formatInstall, installPlatform, lock, systemDirs, within } from './install/macos.mjs';
 import { globalHookPaths } from './install/hooks.mjs';
 import { doctor, formatDoctor } from './doctor.mjs';
@@ -410,26 +412,11 @@ function applyGitIdentity(answer, env) {
   return { state: 'complete', detail: `${answer.name} <${answer.email}>` };
 }
 
-export function charterText(scope) {
-  const template = readFileSync(new URL('../templates/secondmate/charter.md', import.meta.url), 'utf8');
-  // Firstmate wraps the charter under its own heading, so the template's title line is dropped.
-  return template.replace(/^# .*\n+/, '').replace('<describe the work this mate owns>', scope).replace('<describe the projects and decisions this mate may handle>', scope).trim();
-}
 function seedStarter(answer, paths, env, releaseBin) {
-  const registry = join(paths.firstmateHome, 'data', 'secondmates.md');
-  if (existsSync(registry) && readFileSync(registry, 'utf8').split('\n').some(line => new RegExp(`(^|[^a-z0-9-])${answer.id}([^a-z0-9-]|$)`).test(line)))
-    return { state: 'complete', detail: `${answer.id} is in ${registry}` };
   if (!existsSync(join(paths.firstmateHome, 'bin', 'fm-brief.sh'))) return { state: 'skipped', detail: 'Firstmate home is not installed yet' };
-  const home = join(paths.secondmates, answer.id);
-  if (existsSync(home)) throw new Error(`${home} exists but ${answer.id} is not registered; inspect it yourself, the kit leaves it unchanged`);
-  const seedEnv = { ...env, PATH: [dirname(paths.wrapper), releaseBin, env.PATH].filter(Boolean).join(':'), FM_SECONDMATE_CHARTER: charterText(answer.scope), FM_SECONDMATE_SCOPE: answer.scope };
-  const commands = [...(existsSync(join(paths.firstmateHome, 'data', answer.id, 'brief.md')) ? [] : [['bin/fm-brief.sh', answer.id, '--secondmate', '--no-projects']]),
-    ['bin/fm-home-seed.sh', answer.id, home, '--no-projects']];
-  for (const args of commands) {
-    const r = run('bash', args, { cwd: paths.firstmateHome, env: seedEnv, timeout: 300000 });
-    if (r.status !== 0) throw new Error(`${args[0]} failed: ${(r.stderr || r.stdout || '').trim().split('\n').slice(-1)[0] || `exit ${r.status}`}`);
-  }
-  return { state: 'complete', detail: `${answer.id} seeded at ${home}; launch it yourself from ${paths.firstmateHome} with bin/fm-spawn.sh ${answer.id} --secondmate` };
+  const result = seedMate({ id: answer.id, scope: answer.scope, firstmateHome: paths.firstmateHome, home: join(paths.secondmates, answer.id), env, path: [dirname(paths.wrapper), releaseBin] });
+  return { state: 'complete', detail: result.registered ? `${answer.id} is in ${result.registry}`
+    : `${answer.id} seeded at ${result.home}; launch it yourself from ${paths.firstmateHome} with bin/fm-spawn.sh ${answer.id} --secondmate` };
 }
 
 export async function setup(manifest, ctx) {

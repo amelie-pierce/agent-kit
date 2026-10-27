@@ -50,9 +50,9 @@ export function parseManifest(text) {
 
 // The registry entry Herdr writes for a linked local plugin: the manifest's own fields, its panes and actions,
 // source kind local, and no build step (the kit supplies zoe instead of ensure-zoe.sh installing one).
-export function pluginEntry(pluginRoot) {
+export function pluginEntry(pluginRoot, id = pluginId) {
   const manifestPath = join(pluginRoot, 'herdr-plugin.toml'), m = parseManifest(readFileSync(manifestPath, 'utf8'));
-  if (m.id !== pluginId) throw new Error(`pinned plugin manifest names ${m.id}, not ${pluginId}`);
+  if (m.id !== id) throw new Error(`pinned plugin manifest names ${m.id}, not ${id}`);
   const pick = (item, keys) => Object.fromEntries(keys.filter(k => item[k] !== undefined).map(k => [k, item[k]]));
   return { plugin_id: m.id, name: m.name, version: m.version, min_herdr_version: m.min_herdr_version, description: m.description,
     manifest_path: manifestPath, plugin_root: pluginRoot, enabled: true, platforms: m.platforms,
@@ -77,31 +77,45 @@ export function splitPluginKeys(text) {
   return begin === -1 || end < begin ? null : lines.slice(begin, end + 1).join('\n');
 }
 
-// What setup, repair and upgrade would do with the plugin, without writing. record is setup.shortcuts.plugin.
-export function planPlugin(receipt, root, { env = process.env, home = env.HOME, configPath, record = null, repair = false, isRunning } = {}) {
+// The plugins the kit registers: the session graph with its zoe and keys, and the tower's own Fleet plugin
+// (pikenguyen227.zoetrope-fleet from the runtime's fleet-plugin/), which the launcher's open would otherwise link.
+export const fleetPluginId = 'pikenguyen227.zoetrope-fleet';
+function pluginSpecs(receipt, root) {
   const phase = id => receipt.phases?.[id]?.state === 'complete' && typeof receipt.phases[id].path === 'string' ? join(root, receipt.phases[id].path) : null;
-  const pluginRoot = phase('zoetrope-herdr-plugin'), zoeFleet = phase('zoe-fleet'), herdr = phase('herdr');
-  if (!pluginRoot) return { action: 'none', record };
-  if (!zoeFleet || !stat(zoeFleet)?.isFile()) return { action: 'skip', detail: 'needs the zoe-fleet release binary for zoe', record };
+  const graph = phase('zoetrope-herdr-plugin'), runtime = phase('zoe-fleet-runtime');
+  return [graph && { id: pluginId, root: graph, key: 'entrySha256' },
+    runtime && receipt.phases?.['zoe-fleet-tower'] && stat(join(runtime, 'fleet-plugin', 'herdr-plugin.toml')) && { id: fleetPluginId, root: join(runtime, 'fleet-plugin'), key: 'fleetSha256' }].filter(Boolean);
+}
+function registration(entries, spec, record, repair, registry) {
+  const found = entries.filter(e => e?.plugin_id === spec.id);
+  const entry = pluginEntry(spec.root, spec.id), ours = found.length === 1 && record?.[spec.key] && sha(stable(found[0])) === record[spec.key];
+  if (found.length && !ours) return { spec, entry, action: 'keep', release: true, detail: `${registry} already has a ${spec.id} entry; left as it is` };
+  if (found.length && stable(found[0]) === stable(entry)) return { spec, entry, action: 'verify' };
+  if (!found.length && record?.[spec.key] && !repair) return { spec, entry, action: 'keep', detail: `the kit's ${spec.id} entry was removed; not added again (agent-kit repair restores it)` };
+  return { spec, entry, action: found.length ? 'refresh' : 'add' };
+}
+
+// What setup, repair and upgrade would do with the plugins, without writing. record is setup.shortcuts.plugin.
+export function planPlugin(receipt, root, { env = process.env, home = env.HOME, configPath, record = null, repair = false, isRunning } = {}) {
+  const specs = pluginSpecs(receipt, root), herdr = receipt.phases?.herdr?.state === 'complete' ? join(root, receipt.phases.herdr.path) : null;
+  if (!specs.length) return { action: 'none', record };
   if (!herdr) return { action: 'skip', detail: 'needs the pinned Herdr', record };
-  const registry = record?.registry || pluginsPath(env, home), zoe = join(root, zoeFile), zoeBody = zoeScript(zoeFleet);
-  const entry = pluginEntry(pluginRoot);
-  const current = stat(zoe);
-  const zoeAction = !current ? 'write' : !plainFile(zoe) || !record?.zoeSha256 ? 'conflict'
-    : sha(readFileSync(zoe)) === sha(zoeBody) ? 'verify' : sha(readFileSync(zoe)) === record.zoeSha256 ? 'refresh' : repair ? 'replace' : 'keep';
-  let entries, regAction, detail = null;
+  const graph = specs.find(s => s.id === pluginId), zoeFleet = receipt.phases?.['zoe-fleet']?.path ? join(root, receipt.phases['zoe-fleet'].path) : null;
+  if (graph && (!zoeFleet || !stat(zoeFleet)?.isFile())) return { action: 'skip', detail: 'needs the zoe-fleet release binary for zoe', record };
+  const registry = record?.registry || pluginsPath(env, home);
+  let entries;
   try { entries = readRegistry(registry).entries; } catch (error) { return { action: 'skip', detail: error.message, record }; }
-  const found = entries.filter(e => e?.plugin_id === pluginId);
-  const ours = found.length === 1 && record?.entrySha256 && sha(stable(found[0])) === record.entrySha256;
-  if (found.length && !ours) { regAction = 'keep'; detail = `${registry} already has a ${pluginId} entry; left as it is`; }
-  else if (found.length && stable(found[0]) === stable(entry)) regAction = 'verify';
-  else if (!found.length && record?.entrySha256 && !repair) { regAction = 'keep'; detail = `the kit's ${pluginId} entry was removed; not added again (agent-kit repair restores it)`; }
-  else regAction = found.length ? 'refresh' : 'add';
-  if (['add', 'refresh'].includes(regAction) && (isRunning || (() => false))('herdr')) {
-    regAction = 'deferred'; detail = `Herdr is running and owns ${registry}; stop it (herdr server stop) and rerun to register ${pluginId}`;
+  const regs = specs.map(spec => registration(entries, spec, record, repair, registry));
+  if (regs.some(r => ['add', 'refresh'].includes(r.action)) && (isRunning || (() => false))('herdr'))
+    for (const r of regs) if (['add', 'refresh'].includes(r.action)) Object.assign(r, { action: 'deferred', detail: `Herdr is running and owns ${registry}; stop it (herdr server stop) and rerun to register ${r.spec.id}` });
+  let zoe = null;
+  if (graph) {
+    const path = join(root, zoeFile), body = zoeScript(zoeFleet), current = stat(path);
+    zoe = { path, body, action: !current ? 'write' : !plainFile(path) || !record?.zoeSha256 ? 'conflict'
+      : sha(readFileSync(path)) === sha(body) ? 'verify' : sha(readFileSync(path)) === record.zoeSha256 ? 'refresh' : repair ? 'replace' : 'keep' };
   }
-  return { action: 'apply', root, herdr, pluginRoot, entry, registry, entries, record, configPath,
-    zoe: { path: zoe, action: zoeAction, body: zoeBody }, register: { action: regAction, detail } };
+  return { action: 'apply', root, herdr, pluginRoot: graph?.root || null, registry, entries, record, configPath, zoe, regs,
+    register: regs.find(r => r.spec.id === pluginId) || { action: 'none' } };
 }
 
 // Runs the plugin's own keys.sh through a Herdr stand-in that answers `config check` with the pinned Herdr and
@@ -136,7 +150,7 @@ export async function applyPlugin(plan, { env = process.env } = {}) {
   if (plan.action !== 'apply') return plan;
   const record = { ...(plan.record || {}), registry: plan.registry };
   const z = plan.zoe;
-  if (['write', 'refresh', 'replace'].includes(z.action)) {
+  if (z && ['write', 'refresh', 'replace'].includes(z.action)) {
     if (z.action === 'replace') await backup(plan.root, z.path, 'zoe');
     await mkdir(dirname(z.path), { recursive: true, mode: 0o700 });
     const temp = `${z.path}.${randomUUID()}.tmp`;
@@ -144,23 +158,26 @@ export async function applyPlugin(plan, { env = process.env } = {}) {
     await chmod(temp, 0o755);
     await rename(temp, z.path);
   }
-  if (!['conflict', 'keep'].includes(z.action)) record.zoeSha256 = sha(z.body);
-  const reg = plan.register;
-  if (['add', 'refresh'].includes(reg.action)) {
-    const entries = reg.action === 'add' ? [...plan.entries, plan.entry] : plan.entries.map(e => e?.plugin_id === pluginId ? plan.entry : e);
+  if (z && !['conflict', 'keep'].includes(z.action)) record.zoeSha256 = sha(z.body);
+  const writes = plan.regs.filter(r => ['add', 'refresh'].includes(r.action));
+  if (writes.length) {
+    let entries = plan.entries;
+    for (const r of writes) entries = r.action === 'add' ? [...entries, r.entry] : entries.map(e => e?.plugin_id === r.spec.id ? r.entry : e);
     await writeRegistry(plan.root, plan.registry, entries);
-    record.entrySha256 = sha(stable(plan.entry));
     record.created = record.created ?? !plan.entries.length;
-  } else if (reg.action === 'verify') record.entrySha256 = sha(stable(plan.entry));
-  else if (reg.action === 'keep' && !reg.detail?.includes('was removed')) { delete record.entrySha256; delete record.keysSha256; }
-  // The plugin's own keys, once registered by the kit: setup-keys writes them when its block is absent.
+  }
+  for (const r of plan.regs) {
+    if (['add', 'refresh', 'verify'].includes(r.action)) record[r.spec.key] = sha(stable(r.entry));
+    else if (r.release) { delete record[r.spec.key]; if (r.spec.id === pluginId) delete record.keysSha256; }
+  }
+  // The session graph's own keys, once the kit registered it: its setup-keys writes them when its block is absent.
   let keys = { action: 'none' };
-  if (record.entrySha256 && plan.configPath) {
+  if (record.entrySha256 && plan.configPath && plan.pluginRoot) {
     const text = plainFile(plan.configPath) ? readFileSync(plan.configPath, 'utf8') : '';
     const block = splitPluginKeys(text);
     if (block && record.keysSha256 && sha(block) !== record.keysSha256) { keys = { action: 'keep', detail: `the ${pluginId} keys block was edited; left as it is` }; delete record.keysSha256; }
     else if (block) { keys = { action: 'verify' }; record.keysSha256 ||= sha(block); }
-    else if (!record.keysSha256 || plan.repairKeys !== false) {
+    else {
       const result = await pluginKeys(plan, 'setup', env);
       const written = plainFile(plan.configPath) ? splitPluginKeys(readFileSync(plan.configPath, 'utf8')) : null;
       keys = result.ok && written ? { action: 'add', detail: result.detail } : { action: 'skip', detail: result.detail };
@@ -170,35 +187,35 @@ export async function applyPlugin(plan, { env = process.env } = {}) {
   return { ...plan, record, keys };
 }
 
-// Uninstall: the plugin's own remove-keys while its block is unchanged, then the kit entry and zoe wrapper while unchanged.
+// Uninstall: the session graph's own remove-keys while its block is unchanged, then each kit entry and the zoe wrapper while unchanged.
 export function planRemovePlugin(root, record, configPath) {
   if (!record) return null;
   const zoe = join(root, zoeFile);
-  let entries = [];
-  try { entries = readRegistry(record.registry).entries; } catch { entries = null; }
-  const found = entries?.filter(e => e?.plugin_id === pluginId) || [];
-  const entry = found.length === 1 && record.entrySha256 && sha(stable(found[0])) === record.entrySha256;
+  let entries = null;
+  try { entries = readRegistry(record.registry).entries; } catch { /* left as it is */ }
+  const ours = (id, key) => { const found = entries?.filter(e => e?.plugin_id === id) || []; return found.length === 1 && record[key] && sha(stable(found[0])) === record[key] ? found[0] : null; };
+  const graph = ours(pluginId, 'entrySha256'), fleet = ours(fleetPluginId, 'fleetSha256');
   const block = configPath && plainFile(configPath) ? splitPluginKeys(readFileSync(configPath, 'utf8')) : null;
-  return { root, registry: record.registry, entries, configPath, pluginRoot: entry ? found[0].plugin_root : null,
+  return { root, registry: record.registry, entries, configPath, pluginRoot: graph?.plugin_root || null, remove: [graph && pluginId, fleet && fleetPluginId].filter(Boolean),
     zoe: { path: zoe, action: plainFile(zoe) && record.zoeSha256 && sha(readFileSync(zoe)) === record.zoeSha256 ? 'remove unchanged zoe wrapper' : 'keep changed or absent zoe wrapper' },
-    register: { action: entry ? `remove the kit's ${pluginId} entry` : `keep changed or absent ${pluginId} entry` },
-    keys: { action: entry && block && record.keysSha256 && sha(block) === record.keysSha256 ? `remove the unchanged ${pluginId} keys block` : `keep changed or absent ${pluginId} keys block` } };
+    register: { action: graph || fleet ? `remove the kit's ${[graph && pluginId, fleet && fleetPluginId].filter(Boolean).join(' and ')} entries` : 'keep changed or absent plugin entries' },
+    keys: { action: graph && block && record.keysSha256 && sha(block) === record.keysSha256 ? `remove the unchanged ${pluginId} keys block` : `keep changed or absent ${pluginId} keys block` } };
 }
 export async function removePlugin(plan, { env = process.env, herdr } = {}) {
   if (!plan) return;
   if (plan.keys.action.startsWith('remove') && plan.pluginRoot && stat(join(plan.pluginRoot, 'herdr', 'keys.sh')))
     await pluginKeys({ ...plan, herdr: herdr || 'herdr' }, 'remove', env);
-  if (plan.register.action.startsWith('remove')) await writeRegistry(plan.root, plan.registry, plan.entries.filter(e => e?.plugin_id !== pluginId));
+  if (plan.remove.length) await writeRegistry(plan.root, plan.registry, plan.entries.filter(e => !plan.remove.includes(e?.plugin_id)));
   if (plan.zoe.action.startsWith('remove')) await rm(plan.zoe.path, { force: true });
 }
 
 export function describePlugin(result) {
   if (result.action === 'none') return [];
-  if (result.action === 'skip') return [`Zoetrope session-graph plugin: not set up; ${result.detail}`];
-  const z = result.zoe, r = result.register, k = result.keys || {};
+  if (result.action === 'skip') return [`Herdr plugins: not set up; ${result.detail}`];
+  const z = result.zoe, k = result.keys || {};
   return [
-    z.action === 'conflict' ? `zoe: ${z.path} exists and is not the kit's; left unchanged` : `zoe: ${z.action === 'verify' ? 'verified' : z.action === 'keep' ? 'kept your changed' : 'written'} at ${z.path}`,
-    `Zoetrope plugin (${pluginId}) in ${result.registry}: ${r.detail || (r.action === 'verify' ? 'registered' : `${r.action === 'add' ? 'registered' : 'refreshed'}; backed up first`)}`,
-    ...(k.action && k.action !== 'none' ? [`Zoetrope keys: ${k.action === 'verify' ? 'present' : k.action === 'add' ? 'written by its own setup-keys' : k.detail}${k.action === 'add' && k.detail ? ` (${k.detail})` : ''}`] : []),
+    ...(z ? [z.action === 'conflict' ? `zoe: ${z.path} exists and is not the kit's; left unchanged` : `zoe: ${z.action === 'verify' ? 'verified' : z.action === 'keep' ? 'kept your changed' : 'written'} at ${z.path}`] : []),
+    ...result.regs.map(r => `Herdr plugin ${r.spec.id} in ${result.registry}: ${r.detail || (r.action === 'verify' ? 'registered' : `${r.action === 'add' ? 'registered' : 'refreshed'}; backed up first`)}`),
+    ...(k.action && k.action !== 'none' ? [`Zoetrope keys: ${k.action === 'verify' ? 'present' : k.action === 'add' ? 'written by its own setup-keys' : k.detail}`] : []),
   ];
 }

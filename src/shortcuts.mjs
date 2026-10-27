@@ -44,8 +44,17 @@ export function shortcutInputs(receipt, root, env, recorded = null, kitPath = nu
   // The installed kit copy at its pinned commit (during an upgrade, the new copy), never a temporary checkout.
   const kit = kitPath || receipt.setup?.kit?.path, program = kit && stat(join(kit, programFile)) ? join(kit, programFile) : null;
   const node = recorded?.node && stat(recorded.node) ? recorded.node : process.execPath;
-  return { herdr: phase('herdr'), python, node, kit, firstmateHome: receipt.setup?.paths?.firstmateHome || receipt.phases?.firstmate?.path || null, agents,
-    mate: join(root, mateFile), graph: !!recorded?.plugin?.entrySha256, lock: join(root, '.open-firstmate.lock'), program };
+  const runtime = phase('zoe-fleet-runtime'), npm = phase('npm'), answers = receipt.setup?.answers || {};
+  // The person's own Claude CLI, never the kit's telemetry wrapper in <root>/.tools/bin.
+  const realClaude = harness === 'codex' ? null : recorded?.realClaude && stat(recorded.realClaude) ? recorded.realClaude
+    : findOnPath('claude', env.PATH || '').find(path => dirname(path) !== join(root, 'bin')) || null;
+  const firstmateHome = receipt.setup?.paths?.firstmateHome || receipt.phases?.firstmate?.path || null;
+  return { herdr: phase('herdr'), python, node, kit, firstmateHome, agents, realClaude, mate: join(root, mateFile), graph: !!recorded?.plugin?.entrySha256,
+    lock: join(root, '.open-firstmate.lock'), program, firstmate: join(root, 'bin', 'firstmate'),
+    paths: { root: receipt.setup?.paths?.root || dirname(root), treehouseRoot: receipt.setup?.paths?.treehouseRoot || dirname(root), installRoot: root },
+    tower: receipt.phases?.['zoe-fleet-tower'] && runtime ? { launcher: join(runtime, 'bin', 'zoe-fleet-tower'), runtime } : null,
+    axi: npm ? { 'gh-axi': join(npm, 'node_modules', '.bin', 'gh-axi'), 'chrome-devtools-axi': join(npm, 'node_modules', '.bin', 'chrome-devtools-axi') } : null,
+    fullAccess: harness !== 'claude' && answers.codexFullAccess !== false && !!codexTree };
 }
 
 export const launcherScript = inputs => `#!/bin/sh
@@ -53,13 +62,119 @@ export const launcherScript = inputs => `#!/bin/sh
 # creates a second mate (mates), from a Herdr pane or key. Written by Agent Kit from its receipt; repair rewrites it.
 OPEN_FIRSTMATE_HERDR=${quote(inputs.herdr)}
 OPEN_FIRSTMATE_HOME=${quote(inputs.firstmateHome)}
-OPEN_FIRSTMATE_CLAUDE=${quote(inputs.agents.claude || '')}
-OPEN_FIRSTMATE_CODEX=${quote(inputs.agents.codex || '')}
+OPEN_FIRSTMATE_CLAUDE=${quote(inputs.agents.claude ? inputs.firstmate : '')}
+OPEN_FIRSTMATE_CODEX=${quote(inputs.agents.codex ? inputs.firstmate : '')}
 OPEN_FIRSTMATE_MATE=${quote(inputs.mate)}
 OPEN_FIRSTMATE_LOCK=${quote(inputs.lock)}
 export OPEN_FIRSTMATE_HERDR OPEN_FIRSTMATE_HOME OPEN_FIRSTMATE_CLAUDE OPEN_FIRSTMATE_CODEX OPEN_FIRSTMATE_MATE OPEN_FIRSTMATE_LOCK
 exec ${quote(inputs.python)} ${quote(inputs.program)} "$@"
 `;
+const header = (id, what) => `#!/bin/sh\n# agent-kit:${id} - ${what}\n# Written by Agent Kit from its receipt; agent-kit repair rewrites it and uninstall removes it.\n`;
+// The kit's own environment for Firstmate sessions: names only, values from the receipt.
+export const envScript = inputs => `# agent-kit:env - the paths this Agent Kit setup uses; sourced by the kit's firstmate launcher.
+# Written by Agent Kit from its receipt; agent-kit repair rewrites it and uninstall removes it.
+AGENTIC_ROOT=${quote(inputs.paths.root)}
+FM_HOME=${quote(inputs.firstmateHome)}
+FM_BACKEND=herdr
+TREEHOUSE_ROOT=${quote(inputs.paths.treehouseRoot)}
+export AGENTIC_ROOT FM_HOME FM_BACKEND TREEHOUSE_ROOT
+`;
+// The coordinator launcher: in a Herdr pane, in the Firstmate home, only while Firstmate's own session lock is
+// free. Codex gets full access only when this person answered yes at setup.
+export const firstmateScript = inputs => `#!/bin/bash
+# agent-kit:firstmate - start the Firstmate coordinator (claude or codex) in a Herdr pane, or check the home.
+# Written by Agent Kit from its receipt; agent-kit repair rewrites it and uninstall removes it.
+set -eu
+. ${quote(join(inputs.paths.installRoot, 'env.sh'))}
+mode=\${1:-${inputs.agents.claude ? 'claude' : 'codex'}}
+if [ "$#" -gt 0 ]; then shift; fi
+case "$mode" in
+  check) cd "$FM_HOME"; FM_BOOTSTRAP_DETECT_ONLY=1 exec bash bin/fm-bootstrap.sh ;;
+  claude|codex) ;;
+  *) echo 'Usage: firstmate [claude|codex|check]' >&2; exit 2 ;;
+esac
+if [ "\${HERDR_ENV:-}" != 1 ]; then
+  echo 'Open a Herdr pane, then run firstmate (or press Ctrl+B, then F).' >&2
+  exit 2
+fi
+cd "$FM_HOME"
+lock_status=$(bash bin/fm-lock.sh status)
+case "$lock_status" in
+  'lock: free'|'lock: stale '*) ;;
+  *) printf '%s\\n' "$lock_status" 'Exit the current coordinator cleanly before switching.' >&2; exit 3 ;;
+esac
+unset CLAUDECODE CODEX_THREAD_ID GROK_AGENT PI_CODING_AGENT FM_TASK_ID
+case "$mode" in
+  claude) ${inputs.agents.claude ? `exec ${quote(inputs.tower && inputs.realClaude ? join(inputs.paths.installRoot, 'bin', 'claude') : inputs.agents.claude)} "$@"` : `echo 'Claude is not set up by Agent Kit here.' >&2; exit 2`} ;;
+  codex) ${inputs.agents.codex ? `exec ${quote(inputs.agents.codex)}${inputs.fullAccess ? ` --sandbox danger-full-access --ask-for-approval never --add-dir ${quote(inputs.paths.root)} --enable hooks` : ''} "$@"` : `echo 'Codex is not set up by Agent Kit here.' >&2; exit 2`} ;;
+esac
+`;
+export const helpScript = inputs => `${header('fm-help', "print this Firstmate home's captain guide (data/captain-help.md), when the home keeps one.")}home=\${FM_HOME:-${quote(inputs.firstmateHome)}}
+[ -f "$home/data/captain-help.md" ] || { echo "No captain guide yet at $home/data/captain-help.md; ask Firstmate to write one." >&2; exit 1; }
+exec cat "$home/data/captain-help.md"
+`;
+// SessionStart gates: an axi tool's context only in sessions of this Firstmate home.
+export const ambientScript = (inputs, id) => `${header(`ambient-${id}`, `run ${id}'s session hook only inside this Firstmate home.`)}[ "\${FM_HOME:-}" = ${quote(inputs.firstmateHome)} ] || exit 0
+exec ${quote(inputs.axi[id])} "$@"
+`;
+export const towerShim = (inputs, command) => `${header(`zoe-fleet-${command}`, `the tower launcher's own ${command}, with the pinned Herdr.`)}HERDR_BIN_PATH=${quote(inputs.herdr)}
+export HERDR_BIN_PATH
+exec ${quote(inputs.tower.launcher)} ${command} "$@"
+`;
+// Opens the tower's Fleet tab once for the coordinator pane that just started; never rebinds a live coordinator.
+export const autostartScript = inputs => `${header('zoe-fleet-autostart', 'open the Fleet tab once for the Firstmate coordinator in this Herdr pane (SessionStart hook).')}# Already open for this pane: nothing. Open for a pane that is gone: reopen here. Open for a live pane:
+# nothing, so a second mate's session never takes Fleet from the primary. Liveness must be proved; an
+# unreadable answer leaves the open view alone. A pane that is not focused is skipped, since Fleet binds the
+# coordinator to the focused pane. The open runs in the background and logs to the kit state.
+[ "\${HERDR_ENV:-}" = 1 ] || exit 0
+PANE="\${HERDR_PANE_ID:-}"
+[ -n "$PANE" ] || exit 0
+HERDR=${quote(inputs.herdr)}
+LOG=${quote(join(inputs.paths.installRoot, 'state', 'zoe-fleet', 'autostart.log'))}
+mkdir -p "$(dirname "$LOG")"
+(
+  exec >>"$LOG" 2>&1
+  echo "--- $(date '+%F %T') pane=$PANE"
+  pid=$(pgrep -f ${quote(join(inputs.tower.runtime, 'scripts', 'firstmate-fleet.py'))} | head -1)
+  if [ -n "$pid" ]; then
+    current=$(ps -o command= -p "$pid" | sed -n 's/.*--captain \\([^ ]*\\).*/\\1/p')
+    if [ "$current" = "$PANE" ]; then echo "fleet already open for this coordinator"; exit 0; fi
+    if [ -z "$current" ]; then echo "fleet open but its coordinator pane could not be read; leaving it alone"; exit 0; fi
+    probe=$("$HERDR" pane get "$current" 2>&1)
+    case "$probe" in
+      *pane_not_found*) echo "fleet open for gone captain '$current'; restarting" ;;
+      *) echo "fleet open for live captain '$current'; leaving it alone"; exit 0 ;;
+    esac
+    kill -INT "$pid" 2>/dev/null
+    i=0; while kill -0 "$pid" 2>/dev/null && [ $i -lt 30 ]; do sleep 1; i=$((i+1)); done
+  fi
+  sleep 3
+  if ! "$HERDR" pane get "$PANE" | grep -q '"focused":true'; then
+    echo "coordinator pane not focused; skipped (run zoe-fleet-open from the coordinator tab)"; exit 0
+  fi
+  ${quote(join(inputs.paths.installRoot, 'bin', 'zoe-fleet-open'))} >/dev/null && echo "fleet opened"
+  sleep 2; "$HERDR" agent focus "$PANE" >/dev/null 2>&1 || true
+) </dev/null >/dev/null 2>&1 &
+exit 0
+`;
+// The tower's Claude quota and status bridge in front of the person's own Claude CLI.
+export const claudeScript = inputs => `${header('claude', "the tower's Claude telemetry bridge in front of your own Claude CLI.")}exec ${quote(inputs.python)} ${quote(join(inputs.tower.runtime, 'scripts', 'claude-telemetry.py'))} --launch ${quote(inputs.realClaude)} -- "$@"
+`;
+export const codexScript = inputs => `${header('codex', 'full-access Codex launch (answered yes at setup): full access, no approval prompts, worker hook trust bypassed.')}AGENT_KIT_REAL_CODEX=${quote(inputs.agents.codex)}
+export AGENT_KIT_REAL_CODEX
+exec ${quote(inputs.python)} ${quote(join(inputs.kit, 'templates', 'shortcuts', 'codex_launch.py'))} "$@"
+`;
+// Every file the kit renders into <root>/.tools for this setup, with the condition that wants it.
+export function ownedFiles(inputs, root) {
+  return [
+    [launcherFile, launcherScript(inputs)], [mateFile, mateScript(inputs, root)], ['env.sh', envScript(inputs), 0o644],
+    ['bin/firstmate', firstmateScript(inputs)], ['bin/fm-help', helpScript(inputs)],
+    ...(inputs.axi ? ['gh-axi', 'chrome-devtools-axi'].map(id => [`bin/ambient-${id}`, ambientScript(inputs, id)]) : []),
+    ...(inputs.tower ? [['bin/zoe-fleet-open', towerShim(inputs, 'open')], ['bin/zoe-fleet-demo', towerShim(inputs, 'demo')], ['bin/zoe-fleet-autostart', autostartScript(inputs)]] : []),
+    ...(inputs.tower && inputs.realClaude ? [['bin/claude', claudeScript(inputs)]] : []),
+    ...(inputs.fullAccess ? [['bin/codex', codexScript(inputs)]] : []),
+  ].map(([file, body, mode = 0o755]) => ({ file, body, mode }));
+}
 export const mateScript = (inputs, root) => `#!/bin/sh
 # agent-kit:fm-mate - create, list or retire a second mate with Firstmate's own secondmate commands.
 # Written by Agent Kit from its receipt; repair rewrites it.
@@ -146,7 +261,13 @@ export function planShortcuts(receipt, root, { env = process.env, home = env.HOM
       : sha(readFileSync(path)) === recorded ? 'refresh' : repair ? 'replace' : 'keep';
     return { file, path, action, body };
   };
-  const launchers = [owned(launcherFile, launcherScript(inputs)), owned(mateFile, mateScript(inputs, root))];
+  const wanted = ownedFiles(inputs, root);
+  const launchers = wanted.map(f => ({ ...owned(f.file, f.body), mode: f.mode }));
+  // A file this setup no longer wants (for example after answering no to full access) goes while unchanged.
+  for (const [file, digest] of Object.entries(record?.files || {})) if (!wanted.some(f => f.file === file)) {
+    const path = join(root, file);
+    launchers.push({ file, path, action: plainFile(path) && sha(readFileSync(path)) === digest ? 'retire' : 'forget' });
+  }
   const plan = { action: 'apply', inputs, launchers, record };
   const bindings = keyBindings(inputs, launcher);
   const file = stat(configPath);
@@ -171,14 +292,20 @@ export function planShortcuts(receipt, root, { env = process.env, home = env.HOM
 // atomically, and restored when the pinned `herdr config check` rejects the result.
 export async function applyShortcuts(plan, root, { env = process.env, check = herdrCheck } = {}) {
   if (plan.action === 'skip') return { ...plan, record: plan.record };
-  const record = { ...plan.record, python: plan.inputs.python, node: plan.inputs.node, agents: plan.inputs.agents, files: { ...plan.record?.files }, keys: plan.record?.keys || null };
+  const record = { ...plan.record, python: plan.inputs.python, node: plan.inputs.node, agents: plan.inputs.agents, realClaude: plan.inputs.realClaude,
+    fullAccess: plan.inputs.fullAccess, files: { ...plan.record?.files }, keys: plan.record?.keys || null };
   for (const l of plan.launchers) {
+    if (['retire', 'forget'].includes(l.action)) {
+      if (l.action === 'retire') await rm(l.path, { force: true });
+      delete record.files[l.file];
+      continue;
+    }
     if (['write', 'refresh', 'replace'].includes(l.action)) {
       if (l.action === 'replace') await backup(root, l.path, l.file.split('/').pop());
       await mkdir(dirname(l.path), { recursive: true, mode: 0o700 });
       const temp = `${l.path}.${randomUUID()}.tmp`;
-      await writeFile(temp, l.body, { mode: 0o755, flag: 'wx' });
-      await chmod(temp, 0o755);
+      await writeFile(temp, l.body, { mode: l.mode ?? 0o755, flag: 'wx' });
+      await chmod(temp, l.mode ?? 0o755);
       await rename(temp, l.path);
     }
     if (!['conflict', 'keep'].includes(l.action)) record.files[l.file] = sha(l.body);
@@ -218,21 +345,23 @@ async function backup(root, path, name) {
 
 // Uninstall: the launcher only while unchanged, and the kit block only while unchanged (the rest of the
 // file stays; a file the kit created and that holds nothing else is removed).
-export function planRemoveShortcuts(root, record) {
+export function planRemoveShortcuts(root, record, firstmateHome = null) {
   if (!record) return null;
+  const autostart = record.autostart && firstmateHome ? planAutostart({ firstmateHome, tower: null }, root, { record }) : null;
   const launchers = Object.entries(record.files || {}).map(([file, digest]) => {
     const path = join(root, file);
     return { path, action: plainFile(path) && sha(readFileSync(path)) === digest ? 'remove unchanged kit launcher' : 'keep changed or absent launcher' };
   });
   const path = record.keys?.path;
-  if (!path) return { launchers, keys: null };
+  if (!path) return { launchers, keys: null, autostart };
   const { block, rest } = plainFile(path) ? splitBlock(readFileSync(path, 'utf8')) : {};
   const keysAction = block && sha(block) === record.keys.blockSha256 ? 'remove the unchanged agent-kit keys block' : 'keep changed or absent keys block';
-  return { launchers, keys: { path, action: keysAction, rest, created: !!record.keys.created } };
+  return { launchers, keys: { path, action: keysAction, rest, created: !!record.keys.created }, autostart };
 }
 export async function removeShortcuts(root, plan) {
   if (!plan) return;
   for (const l of plan.launchers) if (l.action === 'remove unchanged kit launcher') await rm(l.path, { force: true });
+  if (plan.autostart?.action === 'remove') await applyAutostart(plan.autostart, root);
   if (plan.keys?.action === 'remove the unchanged agent-kit keys block') {
     await backup(root, plan.keys.path, 'herdr-config.toml');
     const next = joinBlock(plan.keys.rest, null);
@@ -246,6 +375,7 @@ export function describeShortcuts(result) {
   const lines = [];
   for (const l of result.launchers) {
     const name = l.file.split('/').pop();
+    if (l.action === 'retire' || l.action === 'forget') { lines.push(`${name}: ${l.action === 'retire' ? 'removed (no longer selected)' : 'left as you changed it; no longer tracked'} at ${l.path}`); continue; }
     lines.push(l.action === 'conflict' ? `${name}: ${l.path} exists and is not the kit's; left unchanged`
       : l.action === 'keep' ? `${name}: kept your changed ${l.path}` : `${name}: ${l.action === 'verify' ? 'verified' : 'written'} at ${l.path}`);
   }
@@ -267,5 +397,65 @@ export async function placeKitExtras(receipt, root, { env = process.env, home = 
   const record = { ...prior, plugin: plugin.action === 'apply' ? plugin.record : prior?.plugin || null };
   const result = await applyShortcuts(planShortcuts(receipt, root, { env, home, record, repair, kitPath }), root, { env, ...(check ? { check } : {}) });
   const lines = [...describeShortcuts(result), ...describePlugin(plugin)];
-  return { action: result.action, detail: result.detail, keys: result.keys, lines, record: result.action === 'skip' ? record : { ...result.record, plugin: record.plugin } };
+  if (result.action === 'skip') return { action: result.action, detail: result.detail, keys: result.keys, lines, record };
+  const autostartPlan = planAutostart(result.inputs, root, { record: prior, repair });
+  const autostart = await applyAutostart(autostartPlan, root);
+  if (autostartPlan.action !== 'none') lines.push(autostartPlan.action === 'skip' || autostartPlan.action === 'keep' ? `Fleet autostart hook: ${autostartPlan.detail}`
+    : `Fleet autostart hook (${autostartPlan.path}): ${{ add: 'added', refresh: 'refreshed', verify: 'present', remove: 'removed' }[autostartPlan.action]}`);
+  return { action: result.action, detail: result.detail, keys: result.keys, lines,
+    record: { ...result.record, plugin: record.plugin, autostart: autostartPlan.action === 'skip' ? prior?.autostart || null : autostart } };
+}
+
+// The tower's Fleet autostart, as the owner runs it: a marker-owned SessionStart entry in the Firstmate home's
+// local Claude settings (.claude/settings.local.json). Firstmate does not ignore that file, so the kit also adds
+// it to the home's own .git/info/exclude (marker-owned), keeping the home's Git state clean.
+export const autostartMarker = ' # agent-kit:zoe-fleet-autostart';
+const excludeLines = ['# agent-kit:settings-local - Agent Kit keeps its Fleet autostart hook here', '/.claude/settings.local.json'];
+const autostartCommand = path => `[ -x ${quote(path)} ] && ${quote(path)}; exit 0${autostartMarker}`;
+const ownedGroup = group => Array.isArray(group?.hooks) && group.hooks.some(h => typeof h?.command === 'string' && h.command.endsWith(autostartMarker));
+export function planAutostart(inputs, root, { record = null, repair = false } = {}) {
+  if (!inputs.firstmateHome) return { action: 'none' };
+  const path = join(inputs.firstmateHome, '.claude', 'settings.local.json'), exclude = join(inputs.firstmateHome, '.git', 'info', 'exclude');
+  const want = !!inputs.tower;
+  if (stat(path) && !plainFile(path)) return { action: 'skip', path, detail: `${path} is not a plain file` };
+  let settings = {};
+  try { settings = stat(path) ? JSON.parse(readFileSync(path, 'utf8')) : {}; } catch { return { action: 'skip', path, detail: `${path} is not valid JSON; left as it is` }; }
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return { action: 'skip', path, detail: `${path} is not a settings object` };
+  const groups = Array.isArray(settings.hooks?.SessionStart) ? settings.hooks.SessionStart : [];
+  const present = groups.some(ownedGroup), desired = { hooks: [{ type: 'command', command: autostartCommand(join(root, 'bin', 'zoe-fleet-autostart')), timeout: 10 }] };
+  const current = groups.find(ownedGroup);
+  let action = !want ? (present ? 'remove' : 'none') : !present ? (record?.autostart && !repair ? 'keep' : 'add') : JSON.stringify(current) === JSON.stringify(desired) ? 'verify' : 'refresh';
+  const next = structuredClone(settings);
+  if (['add', 'refresh', 'remove'].includes(action)) {
+    const kept = groups.filter(g => !ownedGroup(g));
+    next.hooks = { ...(settings.hooks || {}), SessionStart: action === 'remove' ? kept : [...kept, desired] };
+    if (!next.hooks.SessionStart.length) delete next.hooks.SessionStart;
+    if (!Object.keys(next.hooks).length) delete next.hooks;
+  }
+  const excludeText = stat(exclude) && plainFile(exclude) ? readFileSync(exclude, 'utf8') : null;
+  return { action, path, exclude, excludeText, settings: next, created: !stat(path) || !!record?.autostart?.created, empty: !Object.keys(next).length,
+    detail: action === 'keep' ? 'the Fleet autostart hook was removed; not added again (agent-kit repair restores it)' : null };
+}
+export async function applyAutostart(plan, root) {
+  if (['none', 'skip', 'keep'].includes(plan.action)) return plan.action === 'keep' ? { autostart: true } : null;
+  if (plan.action !== 'verify') {
+    if (stat(plan.path)) await backup(root, plan.path, 'settings.local.json');
+    if (plan.action === 'remove' && plan.empty && plan.created) await rm(plan.path, { force: true });
+    else {
+      await mkdir(dirname(plan.path), { recursive: true });
+      const temp = `${plan.path}.agent-kit-${randomUUID()}.tmp`;
+      await writeFile(temp, `${JSON.stringify(plan.settings, null, 2)}\n`, { mode: 0o644, flag: 'wx' });
+      await rename(temp, plan.path);
+    }
+  }
+  let excludeAdded = false;
+  if (plan.action !== 'remove' && plan.excludeText !== null && !plan.excludeText.split('\n').includes(excludeLines[1])) {
+    await writeFile(plan.exclude, `${plan.excludeText.replace(/\n*$/, '\n')}${excludeLines.join('\n')}\n`);
+    excludeAdded = true;
+  }
+  if (plan.action === 'remove') {
+    if (plan.excludeText?.includes(excludeLines[0])) await writeFile(plan.exclude, plan.excludeText.split('\n').filter(line => !excludeLines.includes(line)).join('\n'));
+    return null;
+  }
+  return { autostart: true, created: plan.created, excludeAdded: excludeAdded || undefined };
 }

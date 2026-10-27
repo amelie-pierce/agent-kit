@@ -120,7 +120,7 @@ test('repair restores a removed block and a changed launcher; setup and upgrade 
   assert.equal((await f.run()).launchers[0].action, 'keep');
   const repaired = await f.run({ repair: true });
   assert.equal(repaired.keys.action, 'add');
-  assert.deepEqual(repaired.launchers.map(l => l.action), ['replace', 'verify']);
+  assert.deepEqual(repaired.launchers.map(l => [l.file, l.action]).filter(([, action]) => action !== 'verify'), [['bin/open-firstmate', 'replace']]);
   assert.equal(readFileSync(f.configPath, 'utf8'), text);
   assert.ok(readdirSync(join(f.root, 'backups', 'shortcuts')).some(name => name.endsWith('open-firstmate')), 'the changed launcher was backed up');
 });
@@ -129,7 +129,8 @@ test('uninstall removes only the unchanged kit block and launcher, and a file th
   const f = fixture(t, { config: '# mine\n[keys]\nprefix = "ctrl+a"\n' });
   await f.run();
   const plan = planRemoveShortcuts(f.root, f.readReceipt().setup.shortcuts);
-  assert.deepEqual(plan.launchers.map(l => [l.path, l.action]), [[f.launcher, 'remove unchanged kit launcher'], [f.mate, 'remove unchanged kit launcher']]);
+  assert.ok(plan.launchers.length >= 5 && plan.launchers.every(l => l.action === 'remove unchanged kit launcher'));
+  assert.ok([f.launcher, f.mate, join(f.root, 'env.sh'), join(f.root, 'bin', 'firstmate')].every(path => plan.launchers.some(l => l.path === path)));
   assert.equal(plan.keys.action, 'remove the unchanged agent-kit keys block');
   await removeShortcuts(f.root, plan);
   assert.equal(readFileSync(f.configPath, 'utf8'), '# mine\n[keys]\nprefix = "ctrl+a"\n');
@@ -149,11 +150,14 @@ test('the launcher wrapper carries receipt paths only and needs python3, the pin
   const body = readFileSync(f.launcher, 'utf8');
   assert.equal(body, launcherScript(result.inputs));
   assert.match(body, new RegExp(`OPEN_FIRSTMATE_HERDR='${join(f.root, 'releases', 'r', 'bin', 'herdr')}'`));
-  assert.match(body, new RegExp(`OPEN_FIRSTMATE_CODEX='${join(f.root, 'releases', 'r', 'npm-codex', 'node_modules', '.bin', 'codex')}'`));
+  assert.match(body, new RegExp(`OPEN_FIRSTMATE_CODEX='${join(f.root, 'bin', 'firstmate')}'`));
   assert.match(body, new RegExp(`OPEN_FIRSTMATE_MATE='${f.mate}'`));
   assert.equal(readFileSync(f.mate, 'utf8'), `#!/bin/sh\n# agent-kit:fm-mate - create, list or retire a second mate with Firstmate's own secondmate commands.\n# Written by Agent Kit from its receipt; repair rewrites it.\nexec '${process.execPath}' '${join(kit, 'bin', 'agent-kit.mjs')}' mate --install-root '${f.root}' "$@"\n`);
   assert.match(body, new RegExp(`exec '${join(f.base, 'bin', 'python3')}' '${join(kit, 'templates', 'shortcuts', 'open_firstmate.py')}'`));
-  assert.deepEqual(f.readReceipt().setup.shortcuts.files, { 'bin/open-firstmate': sha(body), 'bin/fm-mate': sha(readFileSync(f.mate)) });
+  const files = f.readReceipt().setup.shortcuts.files;
+  assert.equal(files['bin/open-firstmate'], sha(body));
+  assert.equal(files['bin/fm-mate'], sha(readFileSync(f.mate)));
+  for (const [file, digest] of Object.entries(files)) assert.equal(sha(readFileSync(join(f.root, file))), digest, file);
   const none = fixture(t);
   const r = none.readReceipt(); delete r.phases.herdr;
   assert.match(planShortcuts(r, none.root, { env: { HOME: none.home, PATH: '/nonexistent' }, home: none.home }).detail, /^needs the pinned Herdr, python3 on PATH$/);
@@ -191,9 +195,8 @@ test('open-firstmate creates the Control Tower, starts the agent in an idle capt
   const calls = stubHerdr(f, { workspaces: [], tabs: [], panes: [], process: {} });
   const created = launch(f, 'codex');
   assert.equal(created.status, 0, created.stderr);
-  const codex = join(f.root, 'releases', 'r', 'npm-codex', 'node_modules', '.bin', 'codex');
   assert.deepEqual(calls(), ['workspace list', `workspace create --cwd ${f.firstmate} --label Control Tower --focus`, 'tab rename w9:t1 Captain (Codex)',
-    `pane run w9:p1 cd ${f.firstmate} && ${codex}`]);
+    `pane run w9:p1 cd ${f.firstmate} && ${join(f.root, 'bin', 'firstmate')} codex`]);
 
   const idle = fixture(t);
   await idle.run();
@@ -202,7 +205,7 @@ test('open-firstmate creates the Control Tower, starts the agent in an idle capt
   const started = launch(idle, 'claude');
   assert.equal(started.status, 0, started.stderr);
   assert.match(started.stdout, /Started claude in Captain \(Claude\)/);
-  assert.equal(idleCalls().at(-1), `pane run w1:p1 cd ${idle.firstmate} && ${join(idle.base, 'bin', 'claude')}`);
+  assert.equal(idleCalls().at(-1), `pane run w1:p1 cd ${idle.firstmate} && ${join(idle.root, 'bin', 'firstmate')} claude`);
 
   const busy = fixture(t);
   await busy.run();
@@ -240,8 +243,8 @@ test('agent-kit uninstall plans and removes the kit shortcuts and leaves the res
   const f = fixture(t, { config: '# mine\n' });
   await f.run();
   const plan = planUninstall({ installRoot: f.root, home: f.home, env: f.env, isRunning: () => false });
-  assert.deepEqual(plan.shortcuts, { launchers: [{ path: f.launcher, action: 'remove unchanged kit launcher' }, { path: f.mate, action: 'remove unchanged kit launcher' }],
-    keys: { path: f.configPath, action: 'remove the unchanged agent-kit keys block' } });
+  assert.ok(plan.shortcuts.launchers.every(l => l.action === 'remove unchanged kit launcher'));
+  assert.deepEqual(plan.shortcuts.keys, { path: f.configPath, action: 'remove the unchanged agent-kit keys block' });
   assert.equal(plan.plugin, null, 'no session-graph plugin was registered here');
   await applyUninstall({ installRoot: f.root, home: f.home, env: f.env, isRunning: () => false });
   assert.equal(readFileSync(f.configPath, 'utf8'), '# mine\n');

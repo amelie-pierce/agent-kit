@@ -798,7 +798,7 @@ set -euo pipefail
 shift
 nm=''
 while [ "$#" -gt 0 ]; do
-  case "$1" in --home) h=$2 ;; --bin) b=$2 ;; --state) s=$2 ;; --no-mistakes) nm=$2 ;; *) exit 2 ;; esac
+  case "$1" in --home) h=$2 ;; --bin) b=$2 ;; --state) s=$2 ;; --telemetry) tl=$2 ;; --no-mistakes) nm=$2 ;; *) exit 2 ;; esac
   shift 2
 done
 [ -x "$h/bin/fm-fleet-snapshot.sh" ] || exit 1
@@ -806,7 +806,7 @@ umask 077
 mkdir -p "$s" "$s/telemetry"
 d="\${XDG_CONFIG_HOME:-$HOME/.config}/zoe-fleet"
 mkdir -p "$d"
-printf 'FM_HOME=%s\\nZOE_FLEET_BIN=%s\\nZOE_FLEET_STATE_DIR=%s\\nZOE_NO_MISTAKES_BIN=%s\\n' "$h" "$b" "$(cd "$s" && pwd -P)" "$nm" > "$d/config"
+printf 'FM_HOME=%s\\nZOE_FLEET_BIN=%s\\nZOE_FLEET_STATE_DIR=%s\\nZOE_TELEMETRY_DIR=%s\\nZOE_NO_MISTAKES_BIN=%s\\n' "$h" "$b" "$(cd "$s" && pwd -P)" "$(cd "$tl" && pwd -P)" "$nm" > "$d/config"
 `;
 
 function towerFixture(t, { runtimeFiles, towerBinary = 'fixture tower binary' } = {}) {
@@ -879,7 +879,7 @@ test('macOS release archives install the tower and configure its launcher withou
   assert.equal(existsSync(f.kitPath('zoetrope')), false);
   const state = join(f.home, '.local', 'state', 'zoe-fleet', f.digest), configPath = join(f.home, '.config', 'zoe-fleet', 'config');
   const config = readFileSync(configPath, 'utf8');
-  assert.equal(config, `FM_HOME=${f.firstmateHome}\nZOE_FLEET_BIN=${f.kitPath('bin', 'zoe-fleet')}\nZOE_FLEET_STATE_DIR=${state}\nZOE_NO_MISTAKES_BIN=\n`);
+  assert.equal(config, `FM_HOME=${f.firstmateHome}\nZOE_FLEET_BIN=${f.kitPath('bin', 'zoe-fleet')}\nZOE_FLEET_STATE_DIR=${state}\nZOE_TELEMETRY_DIR=${join(state, 'telemetry')}\nZOE_NO_MISTAKES_BIN=\n`);
   if (!f.root.startsWith(homedir())) assert.ok(!config.includes(homedir()));
   assert.deepEqual(readdirSync(state), ['telemetry']);
   const receipt = JSON.parse(readFileSync(result.receipt));
@@ -1000,7 +1000,7 @@ test('WSL2 installs the tower from its release archives and configures the launc
   assert.deepEqual(readFileSync(f.kitPath('bin', 'zoe-fleet')), f.towerBinary);
   assert.equal(existsSync(f.kitPath('zoetrope')), false);
   const state = join(f.home, '.local', 'state', 'zoe-fleet', f.digest);
-  assert.equal(readFileSync(join(f.home, '.config', 'zoe-fleet', 'config'), 'utf8'), `FM_HOME=${f.firstmateHome}\nZOE_FLEET_BIN=${f.kitPath('bin', 'zoe-fleet')}\nZOE_FLEET_STATE_DIR=${state}\nZOE_NO_MISTAKES_BIN=\n`);
+  assert.equal(readFileSync(join(f.home, '.config', 'zoe-fleet', 'config'), 'utf8'), `FM_HOME=${f.firstmateHome}\nZOE_FLEET_BIN=${f.kitPath('bin', 'zoe-fleet')}\nZOE_FLEET_STATE_DIR=${state}\nZOE_TELEMETRY_DIR=${join(state, 'telemetry')}\nZOE_NO_MISTAKES_BIN=\n`);
   const receipt = JSON.parse(readFileSync(result.receipt));
   assert.equal(receipt.phases['zoe-fleet'].artifactSha256, f.fixtureManifest.tools[1].artifacts['wsl2-arm64'].sha256);
   const second = await installPlatform(f.fixtureManifest, f.options);

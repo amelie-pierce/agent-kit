@@ -30,6 +30,11 @@ try {
     arch: process.arch,
     nodeVersion: process.versions.node,
   };
+  if (argv[0] === 'mate') {
+    if (process.platform === 'win32') throw new Error('run fm-mate inside the WSL2 distribution');
+    const { runMate } = await import('../src/mate.mjs');
+    process.exitCode = await runMate(argv.slice(1), { env: process.env, kitDir: resolve(fileURLToPath(new URL('..', import.meta.url))) });
+  } else {
   const options = argv[0] === 'setup' ? { command: 'setup' } : parseArgs(argv, process.platform);
   // A kit copy that setup placed at <install-root>/kit/<commit> finds its own receipt.
   const kitDir = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -166,6 +171,7 @@ try {
     const result = run(argv, manifest, context);
     process.stdout.write(result.output);
     process.exitCode = result.exitCode;
+  }
   }
 } catch (error) {
   process.stderr.write(`agent-kit: ${error.message}\n`);

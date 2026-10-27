@@ -4,8 +4,8 @@ Agent Kit writes <root>/.tools/bin/open-firstmate, which sets the OPEN_FIRSTMATE
 from the kit receipt and runs this file. Usage: open-firstmate [claude|codex|mates]
 
 claude or codex focuses the coordinator tab in the "Control Tower" workspace, creating the
-workspace or the tab when missing, and starts that agent CLI in the Firstmate home when the
-tab is an idle shell. mates does the same with the Mates tab and fm-mate, which asks for a
+workspace or the tab when missing, and runs the kit's firstmate launcher for that agent CLI
+when the tab is an idle shell. mates does the same with the Mates tab and fm-mate, which asks for a
 name and scope and creates a second mate. A tab already running something is only focused,
 never typed into.
 
@@ -75,9 +75,9 @@ def captain_tab(herdr, workspace, tabs, mode):
     return (labelled[0] if labelled else None), panes
 
 
-def open_tab(herdr, home, mode, label, program):
-    """Focus the tab for <mode> (found by its agent, else by <label>) and run <program> there when it is an idle shell."""
-    command = shlex.join(['cd', home]) + ' && ' + shlex.join([program])
+def open_tab(herdr, home, mode, label, argv):
+    """Focus the tab for <mode> (found by its agent, else by <label>) and run <argv> there when it is an idle shell."""
+    command = shlex.join(['cd', home]) + ' && ' + shlex.join(argv)
     workspaces = [w for w in cli(herdr, 'workspace', 'list')['workspaces'] if w.get('label') == WORKSPACE_LABEL]
     if len(workspaces) > 1:
         raise RuntimeError(f'Several workspaces are named {WORKSPACE_LABEL}; rename all but one.')
@@ -120,20 +120,21 @@ def main(argv):
     if not herdr or not home:
         raise RuntimeError('open-firstmate is not configured; run agent-kit repair.')
     if mode == 'mates':
-        program, label = setting('MATE'), MATES_TAB
-        if not program:
+        argv, label = [setting('MATE')], MATES_TAB
+        if not argv[0]:
             raise RuntimeError('fm-mate is not configured; run agent-kit repair.')
     elif mode is None or not agents.get(mode):
         raise RuntimeError(f'{mode or "No agent CLI"} is not set up by Agent Kit here; choose ' + ' or '.join(n for n in CAPTAIN_TABS if agents[n]) + '.')
     else:
-        program, label = agents[mode], CAPTAIN_TABS[mode]
+        # The kit's firstmate launcher: Herdr and session-lock checks, then the agent CLI in the Firstmate home.
+        argv, label = [agents[mode], mode], CAPTAIN_TABS[mode]
     # A quickly repeated key must not create two coordinator tabs.
     with open(setting('LOCK') or os.devnull, 'a') as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError:
             raise RuntimeError('open-firstmate is already running; try again in a moment.')
-        print(open_tab(herdr, home, mode, label, program))
+        print(open_tab(herdr, home, mode, label, argv))
 
 
 if __name__ == '__main__':

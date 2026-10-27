@@ -347,7 +347,7 @@ export function planUninstall({ installRoot, home, env = process.env, isRunning 
       kept: registration.files.filter(x => x.note).map(x => `${x.path}: ${x.note}`) },
     tower: tower?.path && digest(tower.path) === tower.ownedSha256 ? { path: tower.path, action: 'remove unchanged kit config' } : { path: tower?.path || null, action: 'keep changed or absent config' },
     wrapper: wrapperPath ? { path: wrapperPath, action: digest(wrapperPath) === wrapper.ownedSha256 ? 'remove unchanged wrapper' : 'keep changed or absent wrapper' } : null,
-    shortcuts: (({ launchers, keys }) => ({ launchers, keys: keys && { path: keys.path, action: keys.action } }))(planRemoveShortcuts(root, receipt.setup?.shortcuts) || { launchers: [], keys: null }),
+    shortcuts: (({ launchers, keys }) => ({ launchers, keys: keys && { path: keys.path, action: keys.action } }))(planRemoveShortcuts(root, receipt.setup?.shortcuts, firstmate) || { launchers: [], keys: null }),
     plugin: (p => p && { zoe: p.zoe, registry: { path: p.registry, action: p.register.action }, keys: p.keys })(planRemovePlugin(root, receipt.setup?.shortcuts?.plugin, receipt.setup?.shortcuts?.keys?.path || null)),
     dispatch: receipt.setup?.dispatch && !removeFirstmateHome ? { path: join(firstmate, receipt.setup.dispatch.file || 'config/crew-dispatch.json'),
       action: starterRemovable(firstmate, receipt.setup.dispatch) ? 'remove unchanged kit starter rules'
@@ -377,7 +377,7 @@ export async function applyUninstall(options = {}) {
   const shortcuts = receipt.setup?.shortcuts;
   await removePlugin(planRemovePlugin(root, shortcuts?.plugin, shortcuts?.keys?.path || herdrConfigPath(options.env || process.env, options.home)), {
     env: { ...(options.env || process.env), HOME: options.home }, herdr: receipt.phases.herdr?.path ? join(root, receipt.phases.herdr.path) : null });
-  await removeShortcuts(root, planRemoveShortcuts(root, shortcuts));
+  await removeShortcuts(root, planRemoveShortcuts(root, shortcuts, plan.removeFirstmateHome ? null : plan.firstmate));
   for (const name of ['kit', 'releases', 'npm-cache', 'cargo-home', 'empty-user.npmrc', 'empty-global.npmrc']) {
     const path = join(root, name);
     if (stat(path)) await rename(path, join(backup, name));

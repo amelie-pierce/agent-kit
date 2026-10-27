@@ -336,11 +336,12 @@ async function towerPhase(root, release, firstmateHome, receipt, save, options) 
   let recorded = false;
   await mkdir(stage, { recursive: true, mode: 0o700 });
   try {
-    const args = [launcher, 'setup', '--home', home, '--bin', bin, '--state', state, ...(await exists(noMistakes) ? ['--no-mistakes', noMistakes] : [])];
+    // Telemetry (the Claude quota and status bridge) lives in the fleet state, private like it.
+    const args = [launcher, 'setup', '--home', home, '--bin', bin, '--state', state, '--telemetry', join(state, 'telemetry'), ...(await exists(noMistakes) ? ['--no-mistakes', noMistakes] : [])];
     await exec('bash', args, { env: { ...toolEnv(options.home, root), XDG_CONFIG_HOME: stage }, timeout: 30000, maxBuffer: 65536 });
     const body = await readFile(join(stage, 'zoe-fleet', 'config'));
     const realState = await realpath(state);
-    const allowed = { FM_HOME: [home], ZOE_FLEET_BIN: [bin], ZOE_FLEET_STATE_DIR: [realState], ZOE_NO_MISTAKES_BIN: ['', noMistakes] };
+    const allowed = { FM_HOME: [home], ZOE_FLEET_BIN: [bin], ZOE_FLEET_STATE_DIR: [realState], ZOE_TELEMETRY_DIR: [join(realState, 'telemetry')], ZOE_NO_MISTAKES_BIN: ['', noMistakes] };
     const lines = body.toString('utf8').split('\n').filter(Boolean).map(line => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]);
     if (!lines.length || lines.some(([key, value]) => !allowed[key]?.includes(value)) || !lines.some(([key]) => key === 'FM_HOME')) throw new Error('launcher setup wrote an unexpected config');
     receipt.phases[id] = { state: 'pending', version: receipt.phases['zoe-fleet-runtime']?.version, path: config, ownedSha256: sha(body), fleetState: state };
