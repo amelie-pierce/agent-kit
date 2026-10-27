@@ -65,7 +65,7 @@ test('doctor verifies receipt, digest, path precedence, modes and unknown auth/l
 test('doctor checks person-installed floors and links without requiring optional Figma', { skip: process.platform === 'win32' }, t => {
   const f = fixture(t), bin = join(f.base, 'bin');
   mkdirSync(bin);
-  for (const [name, version] of Object.entries({ node: 'v24.15.0', git: 'git version 2.20.0', gh: 'gh version 2.0.0', claude: '2.0.0 (Claude Code)' }))
+  for (const [name, version] of Object.entries({ node: 'v24.15.0', git: 'git version 2.20.0', gh: 'gh version 2.0.0', claude: '2.1.293 (Claude Code)' }))
     writeFileSync(join(bin, name), `#!/bin/sh\necho '${version}'\n`, { mode: 0o755 });
   const manifest = { ...f.manifest, tools: [...bundled.tools.filter(x => x.kind === 'prerequisite'), ...f.manifest.tools] };
   const options = { ...f.options, env: { HOME: f.home, PATH: `${bin}:/usr/bin:/bin`, SHELL: '/bin/bash' } };

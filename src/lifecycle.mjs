@@ -10,6 +10,8 @@ import { installPlatform, atomicJson, towerPaths, systemDirs, within } from './i
 import { applyUnregister, previewHooks, previewUnregister } from './install/hooks.mjs';
 import { processRunning } from './update.mjs';
 import { wrapperScript } from './setup.mjs';
+import { envManaged, keyStatus } from './keys.mjs';
+import { applyStarter, harnessOf, modeOf, planStarter, plansOf, starterRemovable } from './dispatch.mjs';
 
 const repo = 'amelie-pierce/agent-kit';
 const sha = data => createHash('sha256').update(data).digest('hex');
@@ -107,6 +109,25 @@ function homeOf(receipt) {
   if (receipt.phases.firstmate?.path && receipt.phases.firstmate.path !== path) throw new Error('Firstmate home paths disagree in receipt');
   return resolve(path);
 }
+// Kit-written starter dispatch rules: repair restores them only while the key is set and nobody changed
+// them, upgrade only refreshes unchanged ones, and rules the person or a strategy changed are left alone.
+function starterPlan(receipt, firstmate, mode) {
+  const keySet = envManaged(firstmate) && keyStatus(firstmate);
+  return planStarter(firstmate, { harness: harnessOf(receipt), plans: plansOf(receipt), mode: receipt.setup?.dispatch?.template || modeOf(receipt), record: receipt.setup?.dispatch || null, restore: mode === 'repair' && keySet });
+}
+const starterSummary = plan => plan.action === 'none' ? null : { path: plan.path, action: plan.action, ...(plan.detail ? { detail: plan.detail } : {}) };
+async function reconcileStarter(root, firstmate, mode) {
+  const { receipt } = receiptAt(root);
+  if (!receipt.setup?.dispatch) return null;
+  let result;
+  // Starter rules are a convenience; a problem with them never rolls back a repair or upgrade.
+  try { result = await applyStarter(starterPlan(receipt, firstmate, mode)); }
+  catch (error) { return { path: join(firstmate, receipt.setup.dispatch.file || 'config/crew-dispatch.json'), action: 'skip', detail: error.message }; }
+  if (result.action === 'none' || result.action === 'skip') return starterSummary(result);
+  if (result.record) receipt.setup.dispatch = result.record; else delete receipt.setup.dispatch;
+  await atomicJson(join(root, 'receipt.json'), receipt);
+  return starterSummary(result);
+}
 function gitState(path, env, pin) {
   if (!stat(join(path, '.git'))) return { dirty: true, reason: 'Firstmate home is not a git checkout' };
   const git = args => command('git', ['-C', path, ...args], { env: gitEnv(env) });
@@ -181,6 +202,7 @@ export function planRepair(manifest, { installRoot, home, env = process.env, isR
   const towerAction = !tower ? 'not installed' : !stat(tower.path) ? 'restore missing' : digest(tower.path) === tower.ownedSha256 ? 'verify' : 'backup and replace changed';
   return { command: 'repair', root, release: receipt.release, files, firstmate: { path: firstmate, status: fm?.status || 'unknown', action: 'report only' },
     hooks: hooks ? { changed: hooks.changed } : { changed: false, ...(hookError ? { note: hookError } : {}) }, tower: towerAction, running: servicePlan(receipt, root, isRunning),
+    dispatch: receipt.setup?.dispatch ? starterSummary(starterPlan(receipt, firstmate, 'repair')) : null,
     note: 'Plan only. Confirmation verifies the reviewed release, privately backs up changed kit files, and restores kit registrations. Firstmate data, state, config and projects remain in place.' };
 }
 
@@ -269,7 +291,8 @@ export async function applyRepair(manifest, options = {}) {
       const file = plan.files.find(x => x.path === item.original);
       if (file?.action === 'verify' || item.original === staging || item.original === npmCache) await rm(item.backup, { recursive: true, force: true });
     }
-    return { ...plan, apply: true, status: 'repaired', backup, components: result.components, nextSteps };
+    const dispatch = await reconcileStarter(plan.root, plan.firstmate.path, 'repair');
+    return { ...plan, apply: true, status: 'repaired', backup, components: result.components, nextSteps, dispatch };
   } catch (error) {
     await atomicJson(join(plan.root, 'receipt.json'), current);
     for (const item of copied.reverse()) { await rm(item.original, { recursive: true, force: true }); await rename(item.backup, item.original); }
@@ -277,10 +300,13 @@ export async function applyRepair(manifest, options = {}) {
   }
 }
 
-export function planUninstall({ installRoot, home, env = process.env, isRunning = processRunning, removeFirstmateHome = false, confirmHome, matesRunning } = {}) {
+export function planUninstall({ installRoot, home, env = process.env, isRunning = processRunning, removeFirstmateHome = false, confirmHome, removeEnv = false, confirmEnv, matesRunning } = {}) {
   const root = rootOf(installRoot), { receipt } = receiptAt(root);
   if (!home || !isAbsolute(home)) throw new Error('HOME must be absolute');
   const firstmate = homeOf(receipt), registration = previewUnregister({ home, installRoot: root, receipt });
+  const envPath = join(firstmate, '.env'), envFile = stat(envPath);
+  if (removeEnv && !removeFirstmateHome && (confirmEnv !== envPath || (envFile && (!envFile.isFile() || envFile.isSymbolicLink() || envFile.nlink !== 1))))
+    throw new Error(confirmEnv !== envPath ? `type the exact Firstmate .env path to confirm: ${envPath}` : 'unsafe .env file; refusing removal');
   const running = servicePlan(receipt, root, isRunning);
   if (removeFirstmateHome) {
     if (!receipt.phases.firstmate?.path) throw new Error('cannot prove kit ownership of the Firstmate home');
@@ -297,14 +323,17 @@ export function planUninstall({ installRoot, home, env = process.env, isRunning 
   const tower = towerConfig(receipt, env, home, firstmate);
   const wrapper = receipt.phases['treehouse-root'];
   const wrapperPath = wrapper ? phaseOwned(root, 'treehouse-root', wrapper) : null;
-  return { command: 'uninstall', root, firstmate, removeFirstmateHome, running,
+  return { command: 'uninstall', root, firstmate, removeFirstmateHome, removeEnv, envPath, running,
     kitPaths: ['kit', 'releases', 'npm-cache', 'cargo-home', 'empty-user.npmrc', 'empty-global.npmrc', 'receipt.json'].map(name => join(root, name)).filter(path => !!stat(path)),
     registration: { files: registration.files.filter(x => x.changes.length).map(x => x.path), skills: registration.skills.map(x => x.path),
       kept: registration.files.filter(x => x.note).map(x => `${x.path}: ${x.note}`) },
     tower: tower?.path && digest(tower.path) === tower.ownedSha256 ? { path: tower.path, action: 'remove unchanged kit config' } : { path: tower?.path || null, action: 'keep changed or absent config' },
     wrapper: wrapperPath ? { path: wrapperPath, action: digest(wrapperPath) === wrapper.ownedSha256 ? 'remove unchanged wrapper' : 'keep changed or absent wrapper' } : null,
-    note: removeFirstmateHome ? 'Plan only. Exact path confirmation and clean-work checks authorize removing the Firstmate home; the root, fleet state, private backups and final record stay.'
-      : 'Plan only. The root, Firstmate home, projects, fleet state, private backups and final uninstall record stay. Personal prerequisites, credentials and shell profiles are untouched.' };
+    dispatch: receipt.setup?.dispatch && !removeFirstmateHome ? { path: join(firstmate, receipt.setup.dispatch.file || 'config/crew-dispatch.json'),
+      action: starterRemovable(firstmate, receipt.setup.dispatch) ? 'remove unchanged kit starter rules' : 'keep rules you or a strategy changed' } : null,
+    note: removeFirstmateHome ? 'Plan only. Exact path confirmation and clean-work checks authorize removing the Firstmate home, including its .env; the root, fleet state, private backups and final record stay.'
+      : removeEnv ? 'Plan only. Exact path confirmation authorizes removing the Firstmate home .env; the home and other personal files stay.'
+        : 'Plan only. The root, Firstmate home and its .env, projects, fleet state, private backups and final uninstall record stay. Personal prerequisites, credentials and shell profiles are untouched.' };
 }
 
 export async function applyUninstall(options = {}) {
@@ -327,11 +356,14 @@ export async function applyUninstall(options = {}) {
     const path = join(root, name);
     if (stat(path)) await rename(path, join(backup, name));
   }
+  const rules = plan.removeFirstmateHome ? null : starterRemovable(plan.firstmate, receipt.setup?.dispatch);
   await rm(join(root, 'receipt.json'));
   await writeFile(join(recordDir, 'uninstall.json'), `${JSON.stringify({ at: new Date().toISOString(), release: receipt.release, root, firstmate: plan.firstmate,
-    removedFirstmateHome: plan.removeFirstmateHome, backup }, null, 2)}\n`, { mode: 0o600 });
+    removedFirstmateHome: plan.removeFirstmateHome, removedEnv: plan.removeEnv || plan.removeFirstmateHome, removedStarterRules: !!rules, backup }, null, 2)}\n`, { mode: 0o600 });
   for (const path of [join(root, 'bin'), root]) if (stat(path)?.isDirectory() && readdirSync(path).length === 0) await rm(path, { recursive: true });
   if (plan.removeFirstmateHome) await rm(plan.firstmate, { recursive: true });
+  else if (plan.removeEnv && stat(plan.envPath)) await rm(plan.envPath);
+  if (rules) await rm(rules);
   return { ...plan, apply: true, backup, record: join(recordDir, 'uninstall.json') };
 }
 
@@ -424,7 +456,8 @@ export async function applyUpgrade(plan, options = {}) {
     }
     updated.setup ||= {}; updated.setup.kit = { commit: plan.commit, path: kitTarget };
     await atomicJson(join(root, 'receipt.json'), updated);
-    return { ...plan, apply: true, status: 'upgraded', components: result.components };
+    const dispatch = await reconcileStarter(root, homeOf(updated), 'upgrade');
+    return { ...plan, apply: true, status: 'upgraded', components: result.components, dispatch };
   } catch (error) {
     await atomicJson(join(root, 'receipt.json'), old);
     for (const item of oldGlobal.reverse()) {
@@ -456,6 +489,7 @@ export function formatLifecycle(result) {
   if (result.firstmatePinChange) lines.push(`Firstmate pin: ${result.firstmateReady ? 'guarded update already verified' : 'run /updatefirstmate in the Firstmate home before applying'}`);
   if (result.tower) lines.push(`Tower config: ${typeof result.tower === 'string' ? result.tower : result.tower.action}`);
   if (result.wrapper) lines.push(`Treehouse wrapper: ${result.wrapper.action}; ${result.wrapper.path}`);
+  if (result.dispatch) lines.push(`Starter dispatch rules: ${result.dispatch.action}${result.dispatch.detail ? ` (${result.dispatch.detail})` : ''}; ${result.dispatch.path}`);
   for (const item of result.running || []) lines.push(`Running ${item.id}: ${item.step}`);
   for (const step of result.nextSteps || []) lines.push(`Next step: ${step}`);
   if (result.note) lines.push(result.note);

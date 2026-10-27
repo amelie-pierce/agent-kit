@@ -15,3 +15,5 @@ date: 2026-10-26
 - [Doctor and reviewed updates](doctor-update.md) — receipt health, versioned update staging, deferred activation and template boundary.
 - [Kit lifecycle commands](lifecycle.md) — receipt-scoped repair, reviewed upgrade, uninstall and rollback boundaries.
 - [Single installer and guided setup](single-installer.md) — install.sh/install.ps1, root-derived layout, prompts and saved answers, summary gate and step resume.
+- [Optional dispatch key](optional-dispatch-key.md) — hidden TYPESAFE_API_KEY prompt, private .env write, later update command and lifecycle preservation.
+- [Starter dispatch rules and Jev readiness](starter-dispatch-rules.md) — plan- and mode-fitted starter rules after the key, the fm-strategy --plans bridge, ownership digest and the doctor jev row.

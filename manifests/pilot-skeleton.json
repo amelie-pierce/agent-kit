@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "release": "macos-pilot-6",
+  "release": "pilot-7",
   "nodeMinimum": "24.15.0",
   "tools": [
     {
@@ -951,7 +951,7 @@
         ]
       },
       "kind": "prerequisite",
-      "minVersion": "2.0.0",
+      "minVersion": "2.1.293",
       "required": true,
       "installDocs": "https://code.claude.com/docs/en/setup"
     },
@@ -962,7 +962,7 @@
       "classification": "per-user-login",
       "version": {
         "kind": "release",
-        "value": "0.155.1",
+        "value": "0.164.0",
         "status": "verified",
         "reason": "Integrity-pinned in the committed npm lock (manifests/npm-codex/package-lock.json) from registry.npmjs.org."
       },

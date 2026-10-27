@@ -21,6 +21,9 @@ jobs:
         run: node scripts/installer-dry-run-smoke.mjs
       - name: Lifecycle command dry-run smoke
         run: node scripts/lifecycle-dry-run-smoke.mjs
+      - name: Jev end-to-end smoke (agent-kit keys, then the pinned Firstmate's resolver with stubbed curl and quota-axi)
+        if: matrix.os != 'windows-latest'
+        run: node scripts/jev-resolve-smoke.mjs
       - if: matrix.os == 'ubuntu-latest'
         run: node scripts/linux-install-smoke.mjs
       - if: matrix.os == 'windows-latest'

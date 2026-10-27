@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, linkSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Readable, Writable } from 'node:stream';
+import { PassThrough, Readable, Writable } from 'node:stream';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -68,7 +68,7 @@ test('harness accepts claude, codex and both in either order', () => {
   assert.equal(parseHarness('gemini'), null);
   assert.equal(parseArgs(['plan', '--harness', 'claude,codex']).harness, 'both');
   assert.equal(parseArgs(['doctor', '--root', '/x/Agentic'], 'linux').installRoot, join('/x/Agentic', '.tools'));
-  assert.throws(() => parseArgs(['plan', '--root', '/x']), /only to doctor and lifecycle commands/);
+  assert.throws(() => parseArgs(['plan', '--root', '/x']), /only to doctor, keys and lifecycle commands/);
   assert.throws(() => parseArgs(['doctor', '--root', '/x', '--install-root', '/y']), /conflicts/);
 });
 
@@ -140,10 +140,162 @@ test('--yes --dry-run without a terminal uses the defaults, prints the summary a
   assert.equal(f.downloads.length, 0);
 });
 
+const keyInstall = async (_manifest, options) => {
+  assert.equal(options.env.TYPESAFE_API_KEY, undefined, 'install child environment is sanitized');
+  mkdirSync(options.firstmateHome, { recursive: true });
+  writeFileSync(join(options.firstmateHome, '.gitignore'), '.env\n');
+  const git = spawnSync('git', ['init', '-q', options.firstmateHome], { env: options.env, encoding: 'utf8' });
+  assert.equal(git.status, 0, git.stderr);
+  return { status: 'partial', components: [], bin: null, towerParity: 'unavailable', loginSteps: [] };
+};
+function ttyCtx(f, argv, replies) {
+  const input = new PassThrough(); input.isTTY = true; input.setRawMode = () => {};
+  const chunks = [];
+  const c = { ...f.ctx(argv), input, installPlatform: keyInstall, output: new Writable({ write(chunk, _enc, done) {
+    chunks.push(chunk.toString());
+    const next = replies[0];
+    if (next && next[0].test(chunks.join(''))) { replies.shift(); setImmediate(() => input.write(next[1])); }
+    done();
+  } }) };
+  Object.defineProperty(c, 'text', { get: () => chunks.join('') });
+  return c;
+}
+
+test('setup writes only the optional key typed at the hidden prompt and records a boolean', posixOnly, async t => {
+  const f = fixture(t), key = 'fixture-typesafe-key-123';
+  const unattended = f.ctx(['--yes', '--root', f.root, '--no-tower', '--no-global-hooks']);
+  unattended.env = { ...f.env, TYPESAFE_API_KEY: key };
+  unattended.installPlatform = keyInstall;
+  assert.equal(await setup(f.fixtureManifest, unattended), 0, unattended.text);
+  const envPath = join(f.root, 'firstmate', '.env');
+  assert.equal(existsSync(envPath), false, '--yes leaves the key unset even with the variable in the environment');
+  assert.match(unattended.text, /10\. Optional TYPESAFE_API_KEY: not set[^\n]*\n\s+Add, change or remove it later [^\n]*bash install\.sh --reconfigure keys --root /);
+
+  const c = ttyCtx(f, ['--root', f.root], [[/Add optional TYPESAFE_API_KEY[^\n]*$/, 'y\n'], [/TYPESAFE_API_KEY \(hidden[^\n]*$/, `${key}\r`], [/Write these changes now[^\n]*$/, 'y\n']]);
+  assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+  assert.equal(readFileSync(envPath, 'utf8'), `TYPESAFE_API_KEY=${key}\n`);
+  assert.equal(statSync(envPath).mode & 0o777, 0o600);
+  const receipt = readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8');
+  assert.deepEqual(JSON.parse(receipt).setup.keys, { TYPESAFE_API_KEY: true });
+  assert.equal(receipt.includes(key), false);
+  assert.equal(c.text.includes(key), false);
+  assert.match(c.text, /TYPESAFE_API_KEY: will set/);
+  assert.throws(() => parseSetupArgs(['--typesafe-key-env']), /unknown|not/i);
+});
+
+test('setup writes Firstmate\'s balanced starter rules only once the key is set and never over existing rules', posixOnly, async t => {
+  const f = fixture(t), key = 'fixture-typesafe-key-123';
+  const template = { dispatch: { rules: [{ when: 'Light', use: [{ harness: 'claude', model: 'claude-small' }, { harness: 'codex', model: 'codex-small' }], strategy: 'light' }],
+    default: [{ harness: 'codex', model: 'codex-fixture' }] }, autonomy: { level: 'balanced' } };
+  const install = async (manifest, options) => {
+    const result = await keyInstall(manifest, options);
+    writeFileSync(join(options.firstmateHome, '.gitignore'), '.env\nconfig/\n');
+    mkdirSync(join(options.firstmateHome, 'bin', 'strategies'), { recursive: true });
+    writeFileSync(join(options.firstmateHome, 'bin', 'strategies', 'balanced.json'), JSON.stringify(template));
+    return result;
+  };
+  const rules = join(f.root, 'firstmate', 'config', 'crew-dispatch.json'), receiptPath = join(f.root, '.tools', 'receipt.json');
+  const first = f.ctx(['--yes', '--root', f.root, '--no-tower', '--no-global-hooks']);
+  first.installPlatform = install;
+  assert.equal(await setup(f.fixtureManifest, first), 0, first.text);
+  assert.match(first.text, /Starter dispatch rules: not written; the kit writes them only once TYPESAFE_API_KEY is set/);
+  assert.equal(existsSync(rules), false, 'no key, no rules');
+
+  const c = ttyCtx(f, ['--root', f.root], [[/Add optional TYPESAFE_API_KEY[^\n]*$/, 'y\n'], [/TYPESAFE_API_KEY \(hidden[^\n]*$/, `${key}\r`], [/Write these changes now[^\n]*$/, 'y\n']]);
+  c.installPlatform = install;
+  assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+  assert.match(c.text, /Starter dispatch rules: will write Firstmate's balanced rules for codex to [^\n]*crew-dispatch\.json/);
+  assert.match(c.text, /Starter dispatch rules: wrote Firstmate's balanced rules for codex/);
+  assert.deepEqual(JSON.parse(readFileSync(rules, 'utf8')), { rules: [{ ...template.dispatch.rules[0], use: [template.dispatch.rules[0].use[1]] }], default: template.dispatch.default });
+  assert.deepEqual(readdirSync(join(f.root, 'firstmate', 'config')), ['crew-dispatch.json']);
+  const receipt = readFileSync(receiptPath, 'utf8');
+  assert.deepEqual(JSON.parse(receipt).setup.dispatch, { file: 'config/crew-dispatch.json', template: 'balanced', providers: 'codex', plans: { codex: 'not-sure' }, sha256: sha(readFileSync(rules)) });
+  assert.equal(receipt.includes(key) || c.text.includes(key), false);
+
+  writeFileSync(rules, '{"rules":[]}\n');
+  const rerun = f.ctx(['--yes', '--root', f.root]);
+  rerun.installPlatform = install;
+  assert.equal(await setup(f.fixtureManifest, rerun), 0, rerun.text);
+  assert.match(rerun.text, /Starter dispatch rules: keep your existing [^\n]*crew-dispatch\.json/);
+  assert.match(rerun.text, /Starter dispatch rules: kept [^\n]*existing rules are yours/);
+  assert.equal(readFileSync(rules, 'utf8'), '{"rules":[]}\n');
+  assert.equal(JSON.parse(readFileSync(receiptPath, 'utf8')).setup.dispatch, undefined);
+});
+
+test('the plan and mode questions use the approved plan ids, warn before full on a small plan, and change with --reconfigure', posixOnly, async t => {
+  const f = fixture(t);
+  const c = ttyCtx(f, ['--root', f.root, '--no-tower', '--no-global-hooks', '--no-figma', '--github-owner', 'my-org', '--no-starter-mate', '--channel', 'releases'],
+    [[/2b\. Codex subscription plan, for starter dispatch rules: plus, pro, business-standard, business-premium, enterprise-edu, api or skip \[skip\][^\n]*$/, 'plus\n'],
+      [/2c\. Starter routing mode used once TYPESAFE_API_KEY is set: lean, balanced or full \[lean\][^\n]*$/, 'full\n'],
+      [/Warning: full on ChatGPT Plus can reach the five-hour limit first, then the weekly limit\. Use full anyway[^\n]*$/, 'n\n'],
+      [/Keep it as it is[^\n]*$/, 'y\n'], [/Add optional TYPESAFE_API_KEY[^\n]*$/, 'n\n'], [/Write these changes now[^\n]*$/, 'y\n']]);
+  assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+  assert.match(c.text, /2\. Agent CLIs: codex \(plan: codex plus; starter routing mode: lean\)/);
+  const receiptPath = join(f.root, '.tools', 'receipt.json'), saved = () => JSON.parse(readFileSync(receiptPath, 'utf8')).setup.answers;
+  assert.deepEqual([saved().plans, saved().dispatchMode], [{ codex: 'plus' }, 'lean']);
+  const rerun = f.ctx(['--yes', '--root', f.root]); rerun.installPlatform = keyInstall;
+  assert.equal(await setup(f.fixtureManifest, rerun), 0, rerun.text);
+  assert.deepEqual([saved().plans, saved().dispatchMode], [{ codex: 'plus' }, 'lean'], 'saved answers reused');
+  const flagged = f.ctx(['--yes', '--reconfigure', '--root', f.root, '--codex-plan', 'pro']); flagged.installPlatform = keyInstall;
+  assert.equal(await setup(f.fixtureManifest, flagged), 0, flagged.text);
+  assert.deepEqual([saved().plans, saved().dispatchMode], [{ codex: 'pro' }, 'balanced'], 'a new plan takes its default mode');
+  const full = f.ctx(['--yes', '--root', f.root, '--codex-plan', 'business-standard', '--dispatch-mode', 'full']); full.installPlatform = keyInstall;
+  assert.equal(await setup(f.fixtureManifest, full), 0, full.text);
+  assert.match(full.text, /Warning: full on Business Standard seat can reach the five-hour limit first/);
+  assert.equal(saved().dispatchMode, 'full');
+  const skip = f.ctx(['--yes', '--root', f.root, '--codex-plan', 'skip']); skip.installPlatform = keyInstall;
+  assert.equal(await setup(f.fixtureManifest, skip), 0, skip.text);
+  assert.deepEqual(saved().plans, { codex: 'not-sure' });
+  for (const [argv, message] of [[['--codex-plan', 'max5x'], /--codex-plan must be one of: plus, pro, business-standard, business-premium, enterprise-edu, api or skip/],
+    [['--claude-plan', 'pro'], /--claude-plan needs claude among the agent CLIs/], [['--dispatch-mode', 'turbo'], /--dispatch-mode must be lean, balanced or full/]])
+    await assert.rejects(setup(f.fixtureManifest, f.ctx(['--yes', '--dry-run', '--root', f.root, ...argv])), message);
+});
+
+test('a terminal dry run never asks for the key and shows only its current status', posixOnly, async t => {
+  const f = fixture(t), key = 'fixture-typesafe-key-123';
+  const first = f.ctx(['--yes', '--root', f.root, '--no-tower', '--no-global-hooks']);
+  first.installPlatform = keyInstall;
+  assert.equal(await setup(f.fixtureManifest, first), 0, first.text);
+  const c = ttyCtx(f, ['--root', f.root, '--dry-run'], [[/Add optional TYPESAFE_API_KEY[^\n]*$/, 'y\n'], [/TYPESAFE_API_KEY \(hidden[^\n]*$/, `${key}\r`]]);
+  assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+  assert.doesNotMatch(c.text, /Add optional TYPESAFE_API_KEY|hidden; press Enter|will set/);
+  assert.match(c.text, /10\. Optional TYPESAFE_API_KEY: not set/);
+  assert.equal(existsSync(join(f.root, 'firstmate', '.env')), false);
+});
+
+test('setup continues past a symlinked or hard-linked .env without reading, changing or recording it', posixOnly, async t => {
+  const f = fixture(t), key = 'fixture-typesafe-key-123';
+  const first = f.ctx(['--yes', '--root', f.root, '--no-tower', '--no-global-hooks']);
+  first.installPlatform = keyInstall;
+  assert.equal(await setup(f.fixtureManifest, first), 0, first.text);
+  const envPath = join(f.root, 'firstmate', '.env'), target = join(f.base, 'shared.env');
+  for (const link of [symlinkSync, linkSync]) {
+    rmSync(envPath, { force: true });
+    writeFileSync(target, `TYPESAFE_API_KEY=${key}\n`, { mode: 0o600 });
+    link(target, envPath);
+    const c = ttyCtx(f, ['--root', f.root], [[/Write these changes now[^\n]*$/, 'y\n']]);
+    assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+    assert.match(c.text, /10\. Optional TYPESAFE_API_KEY: not checked\. Warning: [^\n]*\.env is a symlink, hard link/);
+    assert.doesNotMatch(c.text, /Add optional TYPESAFE_API_KEY|TYPESAFE_API_KEY: (set|not set|will set)/);
+    assert.equal(c.text.includes(key), false);
+    assert.equal(readFileSync(target, 'utf8'), `TYPESAFE_API_KEY=${key}\n`);
+    assert.equal(JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8')).setup.keys, undefined);
+  }
+});
+
+test('the add-later key hint keeps a custom install root and pastes as shell arguments', posixOnly, async t => {
+  const f = fixture(t), root = join(f.base, "Agent ic's"), installRoot = join(f.base, 'custom tools');
+  const c = f.ctx(['--yes', '--dry-run', '--root', root, '--install-root', installRoot]);
+  assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+  const hint = c.text.match(/hidden prompt: bash install\.sh (.*)$/m)[1];
+  const args = spawnSync('/bin/sh', ['-c', `printf '%s\\n' ${hint}`], { encoding: 'utf8' }).stdout.split('\n').slice(0, -1);
+  assert.deepEqual(args, ['--reconfigure', 'keys', '--root', root, '--install-root', installRoot]);
+});
+
 test('scripted answers drive every prompt; nothing is written before yes; answers are saved without secrets', posixOnly, async t => {
   const f = fixture(t);
   const kit = kitCheckout(t, f.base);
-  const answers = [f.root, 'y', 'n', 'n', 'y', 'my-org', 'n', 'Pat Example', 'pat@example.test', 'y', 'n', 'main'];
+  const answers = [f.root, 'y', '', '', 'n', 'n', 'y', 'my-org', 'n', 'Pat Example', 'pat@example.test', 'y', 'n', 'main'];
   const declined = f.ctx(['--kit-dir', kit.dir, '--kit-commit', kit.commit], [...answers, 'n', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, declined), 1);
   assert.match(declined.text, /Cancelled; nothing was written/);
@@ -157,7 +309,7 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
     assert.ok(c.text.includes(prompt), prompt);
   const receipt = JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8'));
   assert.equal(statSync(join(f.root, '.tools', 'receipt.json')).mode & 0o777, 0o600);
-  assert.deepEqual(receipt.setup.answers, { root: f.root, harness: 'codex', figma: false, tower: false, globalHooks: true, githubOwner: 'my-org',
+  assert.deepEqual(receipt.setup.answers, { root: f.root, harness: 'codex', plans: { codex: 'not-sure' }, dispatchMode: 'balanced', figma: false, tower: false, globalHooks: true, githubOwner: 'my-org',
     gitIdentity: { action: 'set', name: 'Pat Example', email: 'pat@example.test' }, starterMate: { create: false }, channel: 'main' });
   assert.deepEqual(receipt.setup.paths, { root: f.root, installRoot: join(f.root, '.tools'), firstmateHome: join(f.root, 'firstmate'), treehouseRoot: f.root, towerState: join(f.root, '.zoe-fleet') });
   assert.deepEqual(Object.values(receipt.setup.steps).map(x => x.state), ['complete', 'complete', 'complete', 'complete', 'not-selected', 'complete', 'complete']);
@@ -186,7 +338,7 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   assert.equal(await setup(f.fixtureManifest, override), 0, override.text);
   assert.match(override.text, /9\. Update channel: releases \(from --channel; your saved answer was main\)/);
   // --reconfigure asks again.
-  const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, 'n', 'n', 'n', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
+  const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, '', '', 'n', 'n', 'n', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, reconfigure), 0, reconfigure.text);
   assert.match(reconfigure.text, /3\. Figma support: check/);
 });

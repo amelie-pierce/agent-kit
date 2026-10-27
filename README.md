@@ -51,12 +51,14 @@ Two locations stay outside the root by their own design, and the summary says so
 
 ### Questions
 
-Every question shows its default and has a matching flag. The installer never asks for secrets, version pins, timezone or locale.
+Every question shows its default and, except the key, has a matching flag. The sole optional secret question uses hidden terminal input. The installer never asks for vendor login credentials, version pins, timezone or locale.
 
 | # | Question | Default | Flag |
 | --- | --- | --- | --- |
 | 1 | Root folder | `~/Agentic` | `--root <folder>` |
 | 2 | Agent CLIs: Codex, Claude or both (Claude is offered when its CLI is installed) | Codex | `--harness codex`, `claude` or `claude,codex` |
+| 2a, 2b | Subscription plan for each chosen agent CLI; shapes the [starter dispatch rules](#starter-dispatch-rules-and-jev). Claude: `pro`, `max5x`, `max20x`, `team-standard`, `team-premium`, `enterprise-standard`, `enterprise-premium`, `api`. Codex: `plus`, `pro`, `business-standard`, `business-premium`, `enterprise-edu`, `api` | skip | `--claude-plan <id>`, `--codex-plan <id>` (`skip` keeps Firstmate's template) |
+| 2c | Starter routing mode, used once the key is set: `lean`, `balanced` or `full`. Warns before `full` on Pro, Team Standard, Enterprise standard, Plus and Business Standard | `lean` for those plans and API keys, otherwise `balanced` | `--dispatch-mode <mode>` |
 | 3 | Figma support: checks `figma-cli` with its install link and guides Figma Desktop sign-in; never patches or restarts Figma | on | `--no-figma` (`--with-figma` still accepted) |
 | 4 | Fleet tower | on | `--no-tower` (`--with-tower`) |
 | 5 | Register global hooks and skills; lists every file and link, each backed up first | on | `--no-global-hooks` (`--global-hooks`) |
@@ -64,8 +66,45 @@ Every question shows its default and has a matching flag. The installer never as
 | 7 | Git name and email; an existing value changes only after an explicit yes, with `git config --global` | keep | `--git-name <name>`, `--git-email <email>` |
 | 8 | Starter second mate, with a name and a one-line scope | no | `--starter-mate <name>`, `--starter-scope <text>` (`--no-starter-mate`) |
 | 9 | Update channel | reviewed releases | `--channel releases` or `main` |
+| 10 | Optional typesafe.ai dispatch key, typed at a hidden prompt | skip | none; the value is never a flag (later: `--reconfigure keys`) |
 
 With `both` agent CLIs, the kit installs the Codex CLI, checks the Claude CLI, and registers hooks for both. `--yes` runs unattended: no questions, saved answers and flags first, then the defaults. Without a terminal and without `--yes`, answers are read line by line from standard input.
+
+### Optional dispatch key
+
+The kit requires **no `.env` keys** for basic Firstmate dispatch. `TYPESAFE_API_KEY` is the only optional key it offers to configure. Get your own key from the [TypeSafe API keys page](https://console.typesafe.ai/keys). It belongs in `<root>/firstmate/.env` (or the chosen `--firstmate-home`), which the pinned Firstmate home ignores in Git. Enabling it sends each job's screened task text to typesafe.ai for Jev typed dispatch. Without it, Jev routing is off and Firstmate uses its normal dispatch rules. The kit does not test the key against the vendor: the vendor does not document a zero-cost validation call. Invalid-looking or empty keys are rejected locally.
+
+At question 10, the default is **skip**. Input in a terminal is hidden; the summary and receipt show only `set`, `not set` or `will set`. The hidden prompt is the only way to enter the key: there is no flag, file or environment variable for it, so the value never appears in a command argument or shell history. With `--yes`, `--dry-run` or without a terminal, the key is left unchanged and the summary says how to add it later. If the Firstmate home's `.env` is a symlink, hard link or other non-plain file, setup continues without reading or changing it: the summary shows the key as `not checked` with a warning, and the receipt drops its key-set flag. A rerun keeps an existing key; change it with the key-update command below. The kit writes `.env` with an atomic rename and mode 0600, preserving unrelated lines and comments.
+
+Add, change or remove the key later by running `bash install.sh --reconfigure keys --root /your/Agentic` (or `node bin/agent-kit.mjs keys --root /your/Agentic`) from your own terminal. If you installed before this key command existed, upgrade first with `node /your/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs upgrade --root /your/Agentic` or rerun `bash install.sh`; `--reconfigure keys` says so when the installed kit is too old. An agent can guide you through that command; type the key in your own terminal. Pasting it into agent chat exposes it to the agent session and transcript. The command shows `set` or `not set`, asks before replacement or removal, and changes only this key and the receipt's key-set flag. Relay (`FMX_PAIRING_TOKEN`, `FMX_RELAY_URL`) and mail (`FM_MAIL_*`) are advanced Firstmate facilities that the kit does not set up. Claude, Codex and GitHub credentials remain in their vendor sign-in flows, never in this `.env`.
+
+### Starter dispatch rules and Jev
+
+Entering the key, at question 10 or with `--reconfigure keys`, is the only step. Once the key is set, the kit also writes starter worker routing to `<root>/firstmate/config/crew-dispatch.json`, which is what Jev chooses from. Firstmate's typed resolver (`bin/fm-dispatch-resolve.sh`) needs the key and at least one rule there. Without rules it never asks Jev.
+
+- **Which rules.** The rules follow Firstmate's own strategy template for your mode (`lean`, `balanced` or `full`). They are read from the pinned home's `bin/strategies/<mode>.json` and narrowed to your agent CLIs exactly as `bin/fm-strategy.sh` renders them: four requested-worker rules, then light, standard and hard tiers. With `skip` for every plan the result is byte-identical to Firstmate's.
+- **Plans.** `manifests/plan-models.json` holds the owner-approved plan profiles. For each plan and mode it lists the model and effort for the coordinator, light, standard and hard work, requested workers, validation and second mates, plus Claude floors.
+  - Each harness with a plan takes its profile's model and effort in every rule slot. An exact-model request runs at high, and the Claude rule notes how Fable is billed on that plan.
+  - Small plans get cheaper tiers. For example, Claude Pro routes light work to Haiku 5.5 and standard work to Sonnet 5.5. Codex Plus routes standard work to GPT-6.1 Terra and light work to Luna at high.
+  - Hard work and validation stay on Opus 5.5 high or GPT-6.1 Sol high on every plan.
+  - Floors appear only on Claude subscriptions. API keys get none, and Codex gets none until its quota-axi scope is confirmed.
+  - Enterprise/Edu routes GPT-6 Sol where other Codex plans use GPT-6.1 Sol.
+  - Coordinator, validation and second-mate settings are printed for you to apply by hand, as Firstmate prints them. The kit never edits launchers or no-mistakes settings.
+- **Who writes them.** A Firstmate whose `bin/fm-strategy.sh --help` documents `--plans` gets `fm-strategy.sh set <mode> --providers <set> --plans claude=<plan>,codex=<plan> --yes`, and Firstmate owns its routing files from then on. The pinned Firstmate (`976c3ba7`) has no `--plans` yet. Until it does, the kit bridges: it renders the same rules from its data file and writes only `config/crew-dispatch.json`. It never writes `config/strategy`, `config/secondmate-harness` or `config/fresh-start.json`, so no autonomy setting changes.
+- **Only when the key is set.** When `crew-dispatch.json` exists, Firstmate reads it for every dispatch and requires an explicit harness for each spawn. The kit therefore leaves routing untouched for anyone who has not opted into Jev.
+- **Never overwritten.** The kit writes the file only when there is no `crew-dispatch.json` and no `config/strategy`. The receipt records `setup.dispatch` (template, agent CLIs, plan names and a SHA-256 digest of the file the kit wrote). Repair restores a missing kit file while the key is still set. Upgrade, and a rerun after a plan change, refresh the file only while it still matches that digest. Uninstall removes it only while unchanged. A file you or a strategy changed is left alone, and the kit stops tracking it.
+- **Changing it later.** Ask Firstmate, run `bin/fm-strategy.sh set <full|balanced|lean>` in the Firstmate home, or edit `config/crew-dispatch.json` yourself. Removing the key with `--reconfigure keys` keeps the rules; Firstmate's normal intake still reads them.
+- **Sign-in.** Jev routing gives a clear answer only when you are signed in to the agent CLI, so `quota-axi` can read its quota. Until then the resolver escalates, and Firstmate decides as it does without the key. Sign-ins stay in each vendor's own flow.
+
+Doctor shows `jev: ready (key set, rules present)`, or `not ready: <reason>` as a warning, never the key. After merge, with your own key set, this live check prints nothing secret. It sends only the sample task text to typesafe.ai:
+
+```sh
+node ~/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs doctor | grep ' jev:'
+printf '# Task\nAdd a unit test for an existing date formatter.\n' > /tmp/jev-sample.md
+(cd ~/Agentic/firstmate && bin/fm-dispatch-resolve.sh /tmp/jev-sample.md --project sample); rm -f /tmp/jev-sample.md
+```
+
+Expect `status: clear` and a `profile:` line from your rules. `escalate` with `unmeasured` means quota-axi cannot yet see your sign-in.
 
 ### Summary screen
 
@@ -75,10 +114,13 @@ Before anything is written, the summary shows every answer, the derived paths, t
 Agent Kit setup summary. Nothing has been written yet.
 Answers:
   1. Root folder: /Users/you/Agentic
-  2. Agent CLIs: codex
+  2. Agent CLIs: codex (plan: codex not-sure)
   3. Figma support: on
   ...
   9. Update channel: releases
+  10. Optional TYPESAFE_API_KEY: not set (Firstmate home .env; without it Jev routing is off and normal dispatch rules apply)
+      ...
+      Starter dispatch rules: not written; the kit writes them only once TYPESAFE_API_KEY is set
 Derived paths:
   Firstmate home: /Users/you/Agentic/firstmate
   Kit install root: /Users/you/Agentic/.tools (private receipt /Users/you/Agentic/.tools/receipt.json)
@@ -99,7 +141,7 @@ Write these changes now (y/n) [n]:
 
 ### Saved answers
 
-Answers are recorded in the private receipt (`<root>/.tools/receipt.json`, mode 0600) with the derived paths and the kit commit. Secrets are never recorded. A rerun asks the root folder, then reuses the saved answers and asks only questions added since. `--reconfigure` asks everything again. A saved git name and email is applied again only while git's global value is unset or still matches it; if you changed it since, the question is asked again, and `--yes` keeps your current value and says so in the summary. `doctor` and `upgrade` read the same answers, so the agent CLIs, Figma, tower and hooks choices carry over.
+Answers are recorded in the private receipt (`<root>/.tools/receipt.json`, mode 0600) with the derived paths and the kit commit. The receipt's `setup.keys.TYPESAFE_API_KEY` is only a set/not-set boolean; secrets are never recorded. A rerun asks the root folder, then reuses the saved answers and asks only questions added since. `--reconfigure` asks everything again. A saved git name and email is applied again only while git's global value is unset or still matches it; if you changed it since, the question is asked again, and `--yes` keeps your current value and says so in the summary. `doctor` and `upgrade` read the same answers, so the agent CLIs, Figma, tower and hooks choices carry over.
 
 ### Resume after a failed install
 
@@ -131,6 +173,7 @@ When you ask for one, setup fills the inert starter charter (`templates/secondma
 | `--dry-run` | ask, check and print the summary; write nothing |
 | `--yes` | unattended; no questions |
 | `--reconfigure` | ask every question again |
+| `--reconfigure keys` (install.sh) | run only the installed key-update command, without a fresh kit fetch; with `--dry-run` it shows only `set` or `not set` and writes nothing |
 | `--allow-existing-root` | accept a root that holds other files or another Firstmate home, after you checked it |
 | `--install-root <dir>`, `--firstmate-home <dir>` | override one derived path; each is checked against `--root` (it cannot be the root itself, overlap `.treehouse` or `.zoe-fleet`, or contain the other) and against the paths recorded in the receipt |
 | `--commit <sha>` | use this reviewed commit (install.sh and install.ps1) |
@@ -151,7 +194,7 @@ node bin/agent-kit.mjs install --dry-run --install-root /your/new/kit-root --fir
 
 ## Doctor
 
-After an install, run `node <root>/.tools/kit/<commit>/bin/agent-kit.mjs doctor`. Run from the kit copy that setup placed, doctor finds its own receipt. From any other checkout, pass `--root <root>` or `--install-root /your/kit-root` (add `--json` for machine-readable results). Doctor reads the kit receipt and owned paths, checks the pinned Firstmate commit and tracked files, kit file digests, launcher and receipt permissions, hook ownership markers, required platform prerequisites, Node floor, and whether another executable shadows a kit binary on PATH. It resolves PATH entries by file path and never runs them. Each component reports installed, verified digest, configured, authenticated, and live-tested states. Authentication and live testing remain **unknown**: doctor does not inspect sign-in stores, start services, or probe a live fleet. A failed check exits nonzero. This command changes no files.
+After an install, run `node <root>/.tools/kit/<commit>/bin/agent-kit.mjs doctor`. Run from the kit copy that setup placed, doctor finds its own receipt. From any other checkout, pass `--root <root>` or `--install-root /your/kit-root` (add `--json` for machine-readable results). Doctor reads the kit receipt and owned paths, checks the pinned Firstmate commit and tracked files, kit file digests, launcher and receipt permissions, hook ownership markers, required platform prerequisites, Node floor, and whether another executable shadows a kit binary on PATH. It resolves PATH entries by file path and never runs them. Each component reports installed, verified digest, configured, authenticated, and live-tested states. The `jev` row reports whether typed dispatch is ready (key line set, well-formed rules, resolver tools on PATH); it is a warning when not ready and shows only set / not set for the key. Authentication and live testing remain **unknown**: doctor does not inspect sign-in stores, start services, or probe a live fleet. A failed check exits nonzero. This command changes no files.
 
 ## Repair, upgrade and uninstall
 
@@ -169,9 +212,13 @@ node bin/agent-kit.mjs uninstall --root /your/Agentic
 
 The `macos-pilot-6` manifest re-pins Firstmate to `976c3ba730b9dafefc159b12a97a084c8c633e8f`; every other pin and digest is unchanged from `macos-pilot-5`. An install made with `macos-pilot-5` moves to it with `upgrade`: the plan prints `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`, and applying refuses with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` until the home has reached the new commit through `/updatefirstmate`. The rerun then prints `Firstmate pin: guarded update already verified` and records the new pin without changing the home. The `macos-pilot-4` manifest re-pins the Zoe fleet tower and its runtime to `fleet-v0.2.0-fc45c4d9ea1d`; every other pin and digest is unchanged from `macos-pilot-3`, which had the same kit-installed pins as `macos-pilot-2` and `macos-pilot-1`. An install made with `macos-pilot-3` moves to it with `update`, which stages the new tower binary and runtime under the new release directory, leaves the previous release in place and rewrites the kit-owned launcher config to name the new paths. The `macos-pilot-2` release directory let a receipt-recorded older Linux tower build be staged from the reviewed source commit, retaining the older build for rollback. `macos-pilot-3` marks the first reviewed release that carries the single installer, so an install made with `macos-pilot-2` moves to it with `update`.
 
-`uninstall` removes kit-tagged hooks in `~/.claude/settings.json` and `~/.codex/hooks.json`, kit-owned skill links in `~/.claude/skills/` and `~/.agents/skills/`, an unchanged kit-written tower config, and an unchanged Treehouse wrapper. It restores Codex's `features.hooks` setting only when the kit enabled it. It moves kit programs, releases, npm prefixes and existing private backups out of `<root>/.tools` into `<root>/agent-kit-uninstall/backups/`, preserving changed or additional files privately, and writes `<root>/agent-kit-uninstall/uninstall.json`. A changed Treehouse wrapper is left for manual review. The root folder, Firstmate home, projects and tower fleet state remain. `--remove-firstmate-home` additionally asks you to type that home's exact path and refuses if it finds uncommitted or unpushed work, unsafe project contents or live second mates. This typed confirmation is required even with `--yes`.
+`pilot-7` changes the release label from `macos-pilot-6`, the Codex CLI pin and lock, and the Claude Code minimum (below). The shorter label does not change the upgrade path for an existing `macos-pilot-6` install. The new user-level writes are the optional Firstmate-home `.env` assignment, the receipt's boolean `setup.keys.TYPESAFE_API_KEY` flag, the starter `<root>/firstmate/config/crew-dispatch.json` once the key is set, the receipt's `setup.dispatch` record, and the saved plan names and routing mode in `setup.answers.plans` and `setup.answers.dispatchMode`. `manifests/plan-models.json` is the new owner-approved plan-to-model table. The Codex CLI pin moves from 0.155.1 to 0.164.0 (GPT-6.1 Terra needs 0.159.0 or later), with a regenerated lock. The Claude Code minimum moves from 2.0.0 to 2.1.293, which Haiku 5.5 needs. The key-update command changes the key, the flag and, when it sets the key, the starter rules. Uninstall removes `.env` only with explicit typed confirmation and removes the starter rules only while unchanged.
 
-These commands do not touch credentials, sign anyone out, remove person-installed Node, git, GitHub CLI, Claude CLI or Xcode tools, or edit shell profiles. On Windows, use `windows/agent-kit.ps1` with the command and `--root ~/Agentic`; it checks WSL2 and prints the handoff, and `--handoff` runs it inside the selected WSL2 distribution.
+`uninstall` removes kit-tagged hooks in `~/.claude/settings.json` and `~/.codex/hooks.json`, kit-owned skill links in `~/.claude/skills/` and `~/.agents/skills/`, an unchanged kit-written tower config, an unchanged Treehouse wrapper, and unchanged kit-written starter dispatch rules. It restores Codex's `features.hooks` setting only when the kit enabled it. It moves kit programs, releases, npm prefixes and existing private backups out of `<root>/.tools` into `<root>/agent-kit-uninstall/backups/`, preserving changed or additional files privately, and writes `<root>/agent-kit-uninstall/uninstall.json`. A changed Treehouse wrapper is left for manual review. The root folder, Firstmate home, projects and tower fleet state remain. `--remove-firstmate-home` additionally asks you to type that home's exact path and refuses if it finds uncommitted or unpushed work, unsafe project contents or live second mates. This typed confirmation is required even with `--yes`.
+
+Repair and upgrade keep the Firstmate home's `.env` unchanged. Uninstall also keeps it by default. `uninstall --remove-env` removes that file only after you type its exact path; `--remove-firstmate-home` includes `.env` in the confirmed home removal.
+
+Repair and upgrade do not touch credentials. Uninstall keeps `.env` unless you request its removal. These commands do not sign anyone out, remove person-installed Node, git, GitHub CLI, Claude CLI or Xcode tools, or edit shell profiles. On Windows, use `windows/agent-kit.ps1` with the command and `--root ~/Agentic`; it checks WSL2 and prints the handoff, and `--handoff` runs it inside the selected WSL2 distribution.
 
 ## Create your first second mate
 
@@ -199,7 +246,7 @@ This release has no Linux tower asset, so Linux and WSL2 keep the previous behav
 
 Herdr 0.9.3, Treehouse 2.3.0, no-mistakes 1.79.0, ShellCheck 0.11.0, and actionlint 1.7.12 use upstream macOS and Linux release assets with published SHA-256 digests in the manifest. The axi tools and optional Codex CLI use committed npm lockfiles with registry integrity data, including Codex Linux arm64/x64 optional packages. `npm ci` runs in a kit-owned prefix with `--ignore-scripts`, an empty kit npm configuration, a kit cache, and the public registry. No global npm installation occurs. Node, Git, GitHub CLI, Claude CLI and the optional Figma CLI are person-installed prerequisites: the kit checks their minimum versions and never installs them (see [Pins and approval](#pins-and-approval)). Other components without a verified adapter or artifact are reported as unverified and skipped. No floating `latest` pin or remote install script is used.
 
-After installation, each person uses the printed vendor commands and documentation to sign in themselves. The kit does not run or capture logins and does not read or store credentials. A partial install is not a ready Control Tower.
+After installation, each person uses the printed vendor commands and documentation to sign in themselves. The kit does not run or capture logins and does not read or store their credentials; its only secret is the optional key in [Optional dispatch key](#optional-dispatch-key). A partial install is not a ready Control Tower.
 
 The result prints kit and npm binary directories; add them to your own shell PATH if you want their commands available by name. The installer does not edit shell startup files or launch the fresh Firstmate home.
 
@@ -251,19 +298,19 @@ Afterwards, open Windows Terminal with your distribution's profile and run Herdr
 
 In the manifest, `verified` means the artifact's identity and integrity were checked against the approved upstream: a source commit, a published SHA-256 digest, or registry integrity in a committed npm lock. It does not mean owner approval, and no pin field claims it. The owner approves a release by merging the PR that changes the manifest. `install` installs only `verified` pins. Unverified pins are reported and skipped. Person-installed `kind: "prerequisite"` entries have a minimum version and vendor install link instead of a kit pin or artifact; `install` and `update` never stage them. `check`, `plan` and `doctor` test their `--version` on PATH, and a missing or old optional Figma CLI is advisory. The Figma CLI and Codex version probes use disposable HOME state, because Figma can initialize its own settings even for `--version` and Codex can leave `~/.codex/tmp` behind when the probe times out.
 
-Versions for owner approval in the `macos-pilot-6` release (the Firstmate pin and its source-archive digest change; every other kit-installed pin and digest is unchanged from `macos-pilot-5`):
+Versions for owner approval in the `pilot-7` release (`macos-pilot-6` -> `pilot-7`): the release label, the Codex CLI pin `0.155.1` -> `0.164.0` with its regenerated npm lock, and the Claude Code minimum `2.0.0` -> `2.1.293`. Every other kit-installed pin and digest is unchanged from `macos-pilot-6`, which changed the Firstmate pin and its source-archive digest from `macos-pilot-5`:
 
 | Person-installed prerequisite | Minimum | Basis and install instructions |
 | --- | --- | --- |
 | Node.js | `24.15.0` | This is the kit's existing `engines.node` and `nodeMinimum` floor; [Node download](https://nodejs.org/en/download). |
 | Git | `2.20.0` | The kit uses `--no-optional-locks` during source verification; the [Git 2.20 manual](https://git-scm.com/docs/git/2.20.0) documents it. [Git download](https://git-scm.com/downloads). |
 | GitHub CLI | `2.0.0` | The kit's GitHub workflow needs `gh auth login` and CLI extension support; [GitHub CLI 2.0.0](https://github.com/cli/cli/releases/tag/v2.0.0) includes extensions. [Install instructions](https://github.com/cli/cli#installation). |
-| Claude Code (Claude harness) | `2.0.0` | The kit installs `SessionStart` command hooks; Claude Code 2.x is the supported hook family for this kit. Install with the [official native installer](https://code.claude.com/docs/en/setup), then sign in yourself. |
+| Claude Code (Claude harness) | `2.1.293` | The kit installs `SessionStart` command hooks, and the starter dispatch rules route Opus 5.5, Sonnet 5.5 and Haiku 5.5, which need Claude Code 2.1.280, 2.1.284 and 2.1.293 respectively. Install with the [official native installer](https://code.claude.com/docs/en/setup), then sign in yourself. |
 | Figma CLI (optional) | `2.0.0` | The kit only checks the CLI's presence and version; it does not call a Figma API. [Figma CLI install instructions](https://github.com/amelie-pierce/figma-cli#readme). |
 
 The former exact-version placeholders and their unverified artifact entries are removed: Node `24.15.0`, Git `2.48.1`, GitHub CLI `2.83.2`, Claude Code `2.1.310`, and Figma CLI `2.2.5-make.2`. These values were not approved kit-distributed pins. Other target-specific unverified artifacts still appear for their own targets; the Linux fleet runtime remains reported as an advisory because Linux uses the source-built tower without that runtime.
 
-The release label is `macos-pilot-6` (was `macos-pilot-5`); only the Firstmate pin and digest in the table below change, and no lock or prerequisite floor changes. The guided setup writes only these user-level files and settings: the private `receipt.json` (0600) with `setup.answers` (no secrets), `setup.paths`, `setup.kit` and `setup.steps`; the kit copy at `<root>/.tools/kit/<commit>`; the kit-owned Treehouse wrapper `<root>/.tools/bin/treehouse` (recorded as the `treehouse-root` receipt phase); tower state under `<root>/.zoe-fleet`, with the launcher config still at `${XDG_CONFIG_HOME:-~/.config}/zoe-fleet/config` (0600); the previously approved global hook and skill files; git `user.name` and `user.email` through `git config --global`, only when you choose new values; and the starter second mate's Firstmate files, only when you ask for one. No new tool or account pin is added.
+The release label is `pilot-7` (was `macos-pilot-6`). The Codex CLI pin moves to `0.164.0` (lock regenerated from registry.npmjs.org, each integrity checked against the registry) and the Claude Code minimum to `2.1.293`; no other pin, digest, lock or prerequisite floor changes. The Firstmate pin and digest changes shown in the table below came with `macos-pilot-6`. The guided setup writes only these user-level files and settings: the private `receipt.json` (0600) with `setup.answers` (no secrets), `setup.paths`, `setup.kit` and `setup.steps`; the kit copy at `<root>/.tools/kit/<commit>`; the kit-owned Treehouse wrapper `<root>/.tools/bin/treehouse` (recorded as the `treehouse-root` receipt phase); tower state under `<root>/.zoe-fleet`, with the launcher config still at `${XDG_CONFIG_HOME:-~/.config}/zoe-fleet/config` (0600); the previously approved global hook and skill files; git `user.name` and `user.email` through `git config --global`, only when you choose new values; and the starter second mate's Firstmate files, only when you ask for one. From `pilot-7` it may also write the optional Firstmate-home `.env` key ([Optional dispatch key](#optional-dispatch-key)) and, once that key is set, `<root>/firstmate/config/crew-dispatch.json` with the receipt's `setup.dispatch` record ([Starter dispatch rules](#starter-dispatch-rules-and-jev)). No new tool or account pin is added.
 
 | Tool | Version | Source |
 | --- | --- | --- |
@@ -281,7 +328,7 @@ The release label is `macos-pilot-6` (was `macos-pilot-5`); only the Firstmate p
 | lavish-axi | 0.1.78 | registry.npmjs.org via `manifests/npm/package-lock.json` |
 | quota-axi | 0.1.53 | registry.npmjs.org via `manifests/npm/package-lock.json` |
 | tasks-axi | 0.2.6 | registry.npmjs.org via `manifests/npm/package-lock.json` |
-| Codex CLI (`@openai/codex`) | 0.155.1 | registry.npmjs.org via `manifests/npm-codex/package-lock.json` |
+| Codex CLI (`@openai/codex`) | 0.164.0 | registry.npmjs.org via `manifests/npm-codex/package-lock.json` |
 
 ## Verification and next work
 
