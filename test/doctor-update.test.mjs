@@ -46,7 +46,7 @@ function fixture(t) {
   return { base, home, root, firstmate, manifest, receiptPath, options };
 }
 
-test('doctor verifies receipt, digest, path precedence, modes and unknown auth/live state', t => {
+test('doctor verifies receipt, digest, path precedence, modes and unknown auth/live state', { skip: process.platform === 'win32' }, t => {
   const f = fixture(t);
   const result = doctor(f.manifest, f.options);
   const find = id => result.checks.find(x => x.id === id);
@@ -62,7 +62,7 @@ test('doctor verifies receipt, digest, path precedence, modes and unknown auth/l
   assert.equal(doctor(f.manifest, f.options).checks.find(x => x.id === 'receipt-mode').status, 'fail');
 });
 
-test('update plan is read-only; apply keeps prior binary and updates receipt after verified activation', async t => {
+test('update plan is read-only; apply keeps prior binary and updates receipt after verified activation', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t);
   const before = readFileSync(f.receiptPath, 'utf8');
   assert.throws(() => planUpdate(f.manifest, { ...f.options, reviewed: false }), /not a clean commit/);
@@ -78,7 +78,7 @@ test('update plan is read-only; apply keeps prior binary and updates receipt aft
   assert.equal(readdirSync(join(f.firstmate, 'data')).length, 0);
 });
 
-test('running binary defers activation and dirty Firstmate is a conflict', async t => {
+test('running binary defers activation and dirty Firstmate is a conflict', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t);
   const deferred = await applyUpdate(f.manifest, { ...f.options, isRunning: async id => id === 'herdr' });
   assert.equal(deferred.components.find(x => x.id === 'herdr').status, 'deferred');
@@ -89,7 +89,7 @@ test('running binary defers activation and dirty Firstmate is a conflict', async
   assert.throws(() => planUpdate(f.manifest, f.options), /owned installation fails verification: firstmate/);
 });
 
-test('digest failure keeps the prior binary; changed Firstmate pin uses guarded handoff', async t => {
+test('digest failure keeps the prior binary; changed Firstmate pin uses guarded handoff', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t);
   await assert.rejects(applyUpdate(f.manifest, { ...f.options, fetchArtifact: async (_url, path) => writeFileSync(path, 'wrong') }), /SHA-256 mismatch/);
   assert.equal(readFileSync(join(f.root, 'releases', 'old-release', 'bin', 'herdr'), 'utf8'), 'old-binary');
@@ -103,7 +103,7 @@ test('digest failure keeps the prior binary; changed Firstmate pin uses guarded 
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'source fixture\n');
 });
 
-test('Firstmate pin change finishes after the guarded /updatefirstmate handoff', async t => {
+test('Firstmate pin change finishes after the guarded /updatefirstmate handoff', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t);
   const git = (...args) => {
     const result = spawnSync('git', args, { cwd: f.firstmate, encoding: 'utf8', env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' } });
@@ -131,14 +131,14 @@ test('Firstmate pin change finishes after the guarded /updatefirstmate handoff',
   assert.equal(doctor(changed, f.options).checks.find(x => x.id === 'firstmate').status, 'pass');
 });
 
-test('no-mistakes daemon status asks the receipt-recorded kit binary, not PATH', t => {
+test('no-mistakes daemon status asks the receipt-recorded kit binary, not PATH', { skip: process.platform === 'win32' }, t => {
   const f = fixture(t), bin = join(f.base, 'kit-no-mistakes'), marker = join(f.base, 'asked');
   writeFileSync(bin, `#!/bin/sh\necho "$1 $2" > '${marker}'\necho "daemon running"\n`, { mode: 0o755 });
   assert.equal(processRunning('no-mistakes', bin), true);
   assert.equal(readFileSync(marker, 'utf8'), 'daemon status\n');
 });
 
-test('doctor catches a shadowing binary without running it', t => {
+test('doctor catches a shadowing binary without running it', { skip: process.platform === 'win32' }, t => {
   const f = fixture(t), shadow = join(f.base, 'shadow');
   mkdirSync(shadow);
   const ran = join(f.base, 'shadow-ran');
