@@ -325,7 +325,9 @@ test('setup handoff script fetches install.sh at the pinned commit with gh and k
   assert.deepEqual(lines.filter(x => x.startsWith('arg:')).map(x => x.slice(4)), ['--commit', commit, '--root', '~/Agentic', '--starter-scope', 'two words']);
   const dir = lines.find(x => x.startsWith('dir:')).slice(4);
   assert.equal(readdirSync(dirname(dir)).includes(basename(dir)), false, 'the fetched install.sh is removed');
-  const noGh = spawnSync('bash', ['-c', setupHandoffScript, 'agent-kit-setup', commit], { encoding: 'utf8', env: { HOME: home, PATH: '/usr/bin:/bin' } });
+  const empty = join(base, 'empty');
+  mkdirSync(empty);
+  const noGh = spawnSync('/bin/bash', ['-c', setupHandoffScript, 'agent-kit-setup', commit], { encoding: 'utf8', env: { HOME: home, PATH: empty } });
   assert.equal(noGh.status, 1);
   assert.match(noGh.stderr, /install the GitHub CLI inside this WSL distribution/);
 });
