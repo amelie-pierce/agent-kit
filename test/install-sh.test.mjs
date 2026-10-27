@@ -11,7 +11,7 @@ const script = join(kitRoot, 'install.sh');
 const manifest = JSON.parse(readFileSync(join(kitRoot, 'manifests/pilot-skeleton.json'), 'utf8'));
 const posixOnly = { skip: process.platform === 'win32' };
 const release = 'd'.repeat(40), main = 'a'.repeat(40);
-const bash = spawnSync('/bin/sh', ['-c', 'command -v bash'], { encoding: 'utf8' }).stdout.trim();
+const bash = posixOnly.skip ? null : spawnSync('/bin/sh', ['-c', 'command -v bash'], { encoding: 'utf8' }).stdout.trim();
 
 // gh, git and node are stubs that log their arguments; a few real system commands are linked in so a missing stub is really missing.
 function fixture(t) {

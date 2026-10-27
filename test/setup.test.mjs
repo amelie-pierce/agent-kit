@@ -67,7 +67,7 @@ test('harness accepts claude, codex and both in either order', () => {
   assert.equal(parseHarness('codex'), 'codex');
   assert.equal(parseHarness('gemini'), null);
   assert.equal(parseArgs(['plan', '--harness', 'claude,codex']).harness, 'both');
-  assert.equal(parseArgs(['doctor', '--root', '/x/Agentic']).installRoot, join('/x/Agentic', '.tools'));
+  assert.equal(parseArgs(['doctor', '--root', '/x/Agentic'], 'linux').installRoot, join('/x/Agentic', '.tools'));
   assert.throws(() => parseArgs(['plan', '--root', '/x']), /only to doctor and update/);
   assert.throws(() => parseArgs(['doctor', '--root', '/x', '--install-root', '/y']), /conflicts/);
 });
@@ -118,7 +118,7 @@ test('root folder refusals: home, its parents, system locations, Windows drives,
   assert.deepEqual(check(join(f.base, 'fresh')).reasons, []);
 });
 
-test('derived paths come from the root, and advanced overrides conflict-check against it', () => {
+test('derived paths come from the root, and advanced overrides conflict-check against it', posixOnly, () => {
   const paths = derivePaths('/x/Agentic', {}, 'a'.repeat(40));
   assert.deepEqual([paths.firstmateHome, paths.installRoot, paths.treehousePool, paths.towerState, paths.wrapper, paths.kit],
     ['/x/Agentic/firstmate', '/x/Agentic/.tools', '/x/Agentic/.treehouse', '/x/Agentic/.zoe-fleet', '/x/Agentic/.tools/bin/treehouse', `/x/Agentic/.tools/kit/${'a'.repeat(40)}`]);
