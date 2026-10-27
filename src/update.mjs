@@ -3,11 +3,10 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { isAbsolute, join, resolve } from 'node:path';
 import { doctor, gitCheck } from './doctor.mjs';
-import { installPlatform, npmGroup } from './install/macos.mjs';
+import { installPlatform, npmGroup, selected } from './install/macos.mjs';
 import { validateManifest } from './kit.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
-const selected = (manifest, harness, withFigma) => manifest.tools.filter(t => t.kind !== 'prerequisite' && t.classification !== 'never-ship' && (t.profile === 'core' || t.profile === harness || (withFigma && t.profile === 'figma')));
 export function reviewedCheckout() {
   const cwd = new URL('..', import.meta.url);
   const git = args => spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 10000, env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' } });
@@ -24,7 +23,8 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
   if (!existsSync(receiptPath)) throw new Error('update requires an existing kit receipt');
   const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
   if (receipt.schemaVersion !== 1 || !receipt.phases || receipt.pendingUpdate && receipt.pendingUpdate !== manifest.release) throw new Error('incompatible receipt or another update is pending');
-  const effectiveHarness = receipt.phases['npm-codex'] ? 'codex' : harness;
+  const answers = receipt.setup?.answers || {};
+  const effectiveHarness = answers.harness || (receipt.phases['npm-codex'] ? 'codex' : harness);
   const oldManifest = structuredClone(manifest);
   for (const tool of oldManifest.tools) if (tool.kind !== 'prerequisite' && receipt.phases[tool.id]?.version) tool.version.value = receipt.phases[tool.id].version;
   const health = doctor(oldManifest, { installRoot: root, home, env, nodeVersion, platform, arch });
@@ -34,7 +34,7 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
   const unsafe = health.checks.filter(x => x.status === 'fail' && !(handedOff && x.id === 'firstmate') && x.id !== 'hooks' && !x.id.startsWith('prerequisite-') && !x.id.endsWith('-path') && !x.id.endsWith('-pin'));
   if (unsafe.length) throw new Error(`owned installation fails verification: ${unsafe.map(x => x.id).join(', ')}`);
   const target = `${platform}-${arch}`;
-  const changes = selected(manifest, effectiveHarness, withFigma).map(tool => {
+  const changes = selected(manifest, effectiveHarness, answers.figma ?? withFigma, answers.tower ?? true).map(tool => {
     const group = npmGroup(tool.id), entry = receipt.phases[group || tool.id];
     const beforeVersion = group ? entry?.packages?.[tool.id === 'codex' ? '@openai/codex' : tool.id] || null : entry?.version || null;
     const beforeSha256 = entry?.artifactSha256 || null;
@@ -46,13 +46,15 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
   });
   if (receipt.release === manifest.release && changes.some(x => x.action === 'stage and verify')) throw new Error('changed pins require a new manifest release name');
   return { command: 'update', fromRelease: receipt.release, toRelease: manifest.release, harness: effectiveHarness, changes,
-    firstmateHome: receipt.phases.firstmate?.path || null, noMistakesBin: receipt.phases['no-mistakes']?.path ? join(root, receipt.phases['no-mistakes'].path) : null, apply: false,
+    firstmateHome: receipt.phases.firstmate?.path || null, setup: receipt.setup || null, noMistakesBin: receipt.phases['no-mistakes']?.path ? join(root, receipt.phases['no-mistakes'].path) : null, apply: false,
     note: 'Plan only. --yes stages and activates reviewed artifacts. Previous release binaries remain for rollback; user state rollback is not promised.' };
 }
 export async function applyUpdate(manifest, options) {
   const plan = planUpdate(manifest, options);
   if (!plan.firstmateHome) throw new Error('Firstmate home is absent from receipt');
+  const answers = plan.setup?.answers || {};
   const result = await installPlatform(manifest, { ...options, harness: plan.harness, update: true, firstmateHome: plan.firstmateHome,
+    withFigma: answers.figma ?? options.withFigma, withTower: answers.tower ?? true, globalHooks: answers.globalHooks ?? true, towerState: plan.setup?.paths?.towerState,
     isRunning: options.isRunning || (id => processRunning(id, plan.noMistakesBin)) });
   return { ...plan, apply: true, status: result.status, exitCode: result.exitCode, components: result.components,
     previousRelease: plan.fromRelease, nextSteps: result.components.filter(x => ['conflict', 'deferred'].includes(x.status)).map(x => `${x.id}: ${x.reason}`),

@@ -397,6 +397,28 @@ test('optional figma version runs with disposable HOME and never writes the team
   }
 });
 
+test('codex version probe runs with disposable HOME and never writes the teammate HOME', { skip: process.platform === 'win32' }, t => {
+  const { home, bin, root } = tempFixture(t);
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\n/bin/mkdir -p "$HOME/.codex/tmp/arg0"\necho codex-cli 0.155.1\n', { mode: 0o755 });
+  const context = { env: { HOME: home, PATH: bin }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
+    applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']) };
+  const result = run(['check', '--json', '--harness', 'codex'], manifest, context);
+  assert.equal(result.result.platform.tools.find(x => x.id === 'codex').status, 'pass');
+  assert.deepEqual(readdirSync(home), []);
+});
+
+test('prerequisite version probes such as gh run with disposable HOME and never write the teammate HOME', { skip: process.platform === 'win32' }, t => {
+  const { home, bin, root } = tempFixture(t);
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\n/bin/mkdir -p "$HOME/.local/state/gh"\necho > "$HOME/.local/state/gh/device-id"\necho gh version 2.102.0\n', { mode: 0o755 });
+  const context = { env: { HOME: home, PATH: bin }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
+    applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']) };
+  for (const command of ['check', 'plan']) {
+    const result = run([command, '--json'], manifest, context);
+    assert.equal(result.result.platform.prerequisites.find(x => x.id === 'github-cli').status, 'pass');
+    assert.deepEqual(readdirSync(home), []);
+  }
+});
+
 function installFixture(t) {
   const { root, home, bin } = tempFixture(t);
   const installRoot = join(root, 'kit');
@@ -725,6 +747,8 @@ test('verified source archives create a fresh home and stage a tower build', asy
   assert.equal(result.firstmateHome, f.firstmateHome);
   assert.equal(JSON.parse(readFileSync(result.receipt)).phases.firstmate.path, f.firstmateHome);
   assert.equal(readFileSync(join(f.firstmateHome, 'README.md'), 'utf8'), 'tracked fixture\n');
+  // Firstmate seeds and syncs second mates from the primary home's local default branch.
+  assert.equal(spawnSync('git', ['-C', f.firstmateHome, 'symbolic-ref', '--short', 'HEAD'], { encoding: 'utf8' }).stdout.trim(), 'main');
   for (const dir of ['data', 'state', 'config', 'projects']) assert.deepEqual(readdirSync(join(f.firstmateHome, dir)), []);
   writeFileSync(join(f.firstmateHome, 'data', 'new-person-only'), 'private');
   const second = await installPlatform(f.fixtureManifest, f.options);
@@ -993,6 +1017,8 @@ test('interrupted Firstmate staging is replaced on resume', async t => {
   assert.equal(result.components[0].status, 'installed');
   assert.equal(existsSync(stale), false);
   assert.equal(readFileSync(join(f.firstmateHome, 'README.md'), 'utf8'), 'tracked fixture\n');
+  // Firstmate seeds and syncs second mates from the primary home's local default branch.
+  assert.equal(spawnSync('git', ['-C', f.firstmateHome, 'symbolic-ref', '--short', 'HEAD'], { encoding: 'utf8' }).stdout.trim(), 'main');
   assert.deepEqual(readdirSync(f.root).filter(name => name.includes('agent-kit')), []);
 });
 

@@ -3,8 +3,9 @@
 # It never installs Node, enables Windows features, asks for elevation or restarts Windows.
 #
 # Usage, from a normal (not administrator) PowerShell window in the kit checkout:
-#   powershell -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\agent-kit.ps1 [-DryRun] [check|plan|install ...]
-# -DryRun keeps everything read-only: install becomes install --dry-run and --handoff is refused.
+#   powershell -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\agent-kit.ps1 [-DryRun] [check|plan|install|setup ...]
+# -DryRun keeps everything read-only: install and setup gain --dry-run and --handoff is refused.
+# install.ps1 at the repository root fetches the reviewed kit and runs this script with setup --handoff.
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
@@ -24,7 +25,7 @@ foreach ($arg in $args) {
 if ($cliArgs.Count -eq 0) { $cliArgs = @('check') }
 if ($dryRun) {
   if ($cliArgs -contains '--handoff') { Say 'agent-kit: -DryRun is read-only and never hands off; remove --handoff.'; exit 2 }
-  if ($cliArgs[0] -eq 'install' -and -not ($cliArgs -contains '--dry-run')) { $cliArgs += '--dry-run' }
+  if ($cliArgs[0] -in @('install', 'setup') -and -not ($cliArgs -contains '--dry-run')) { $cliArgs += '--dry-run' }
 }
 
 $kitRoot = Split-Path -Parent $PSScriptRoot

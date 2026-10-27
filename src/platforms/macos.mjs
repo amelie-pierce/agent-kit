@@ -60,12 +60,21 @@ function inspectBrowser(dirs) {
   return { id: 'browser', status: other.length ? 'unknown' : 'fail', detail: other.length ? `Google Chrome absent; found ${other[0]}` : 'no browser found' };
 }
 
+// Version commands may write into HOME (figma-cli initializes it, Codex can leave ~/.codex/tmp behind, gh 2.102+
+// records a device id in ~/.local/state/gh). Every probe gets disposable state so check and plan never write into
+// the teammate HOME.
+function probeHome(tool, context, probe) {
+  const home = context.runCommand ? null : mkdtempSync(join(tmpdir(), `agent-kit-${tool.id}-version-`));
+  try { probe(home); } finally { if (home) rmSync(home, { recursive: true, force: true }); }
+}
+
 export function inspectCommand(tool, context) {
   const { command, args } = tool.detection;
   const paths = findOnPath(command, context.env.PATH);
   if (!paths.length) return { id: tool.id, status: 'fail', reason: `${command} absent from PATH`, paths: [] };
   if (tool.detection.kind === 'presence') return { id: tool.id, status: 'unknown', reason: 'present; version not read because its command writes into HOME', paths };
-  const output = safeRun(paths[0], args, context);
+  let output;
+  probeHome(tool, context, home => { output = safeRun(paths[0], args, context, undefined, home ? { HOME: home } : {}); });
   if (output === null) return { id: tool.id, status: 'unknown', reason: 'version command failed or timed out', paths };
   const version = tool.version.value;
   const detected = output.match(/\d+\.\d+\.\d+/)?.[0] || null;
@@ -80,11 +89,8 @@ export function inspectPrerequisite(tool, context) {
   const paths = findOnPath(command, context.env.PATH);
   const prefix = `requires ${command} ${tool.minVersion} or newer; install it yourself: ${tool.installDocs}`;
   if (!paths.length) return { id: tool.id, kind: 'prerequisite', required: tool.required, status: 'fail', detail: `${command} absent from PATH; ${prefix}`, paths: [] };
-  // figma-cli may initialize HOME even for --version. Give that probe disposable state.
-  const isolatedHome = tool.id === 'figma-cli' && !context.runCommand ? mkdtempSync(join(tmpdir(), 'agent-kit-figma-version-')) : null;
   let output;
-  try { output = safeRun(paths[0], args, context, undefined, isolatedHome ? { HOME: isolatedHome } : {}); }
-  finally { if (isolatedHome) rmSync(isolatedHome, { recursive: true, force: true }); }
+  probeHome(tool, context, home => { output = safeRun(paths[0], args, context, undefined, home ? { HOME: home } : {}); });
   const detected = typeof output === 'string' ? output.match(/\d+\.\d+\.\d+/)?.[0] : null;
   const meets = detected && (() => {
     const actual = detected.split('.').map(Number), minimum = tool.minVersion.split('.').map(Number);

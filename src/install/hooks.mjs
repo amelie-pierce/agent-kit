@@ -340,3 +340,9 @@ export function publicHookChanges(preview) {
     ...preview.skills.map(({ path, op, before, after, owner }) => ({ path, kind: 'symlink', changes: [{ op, owner, before, after }] })),
     ...preview.scripts.map(({ path, id, op, sha256 }) => ({ path, kind: 'script', changes: [{ op, owner: `agent-kit:${id}`, sha256 }] }))];
 }
+
+// Every user-level path the hooks phase may write, for prompts and summaries before any preview runs.
+export function globalHookPaths(home) {
+  return [join(home, '.claude', 'settings.json'), join(home, '.codex', 'hooks.json'), join(home, '.codex', 'config.toml'),
+    ...tools.flatMap(([, skill]) => [join(home, '.claude', 'skills', skill), join(home, '.agents', 'skills', skill)])];
+}

@@ -32,7 +32,7 @@ export const handoffScript = [
 export function handoffArgv({ distro, commit, installRoot, firstmateHome, harness = 'claude', withFigma = false, json = false }) {
   if (!/^[A-Za-z0-9._-]+$/.test(distro || '')) throw new Error('unsafe WSL distribution name');
   if (!/^[a-f0-9]{40}$/.test(commit || '')) throw new Error('kit commit must be a full SHA-1');
-  if (!['claude', 'codex'].includes(harness)) throw new Error('unsupported harness');
+  if (!['claude', 'codex', 'both'].includes(harness)) throw new Error('unsupported harness');
   const root = linuxPath(installRoot, '--install-root'), home = linuxPath(firstmateHome, '--firstmate-home');
   if (root === home) throw new Error('--firstmate-home must differ from --install-root');
   return ['-d', distro, '--exec', 'bash', '-l', '-c', handoffScript, 'agent-kit-handoff', commit, root, home,

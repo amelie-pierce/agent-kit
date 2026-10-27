@@ -16,6 +16,10 @@ jobs:
           node-version: 24.21.0
       - run: npm test
       - if: matrix.os == 'ubuntu-latest'
+        run: shellcheck install.sh
+      - name: Single installer dry run (install.sh on macOS and Linux, install.ps1 on Windows)
+        run: node scripts/installer-dry-run-smoke.mjs
+      - if: matrix.os == 'ubuntu-latest'
         run: node scripts/linux-install-smoke.mjs
       - if: matrix.os == 'windows-latest'
         run: node scripts/windows-preflight-smoke.mjs

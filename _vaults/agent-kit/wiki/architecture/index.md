@@ -13,3 +13,4 @@ date: 2026-10-26
 - [Global registration](global-registration.md) — owned hook and skill merge, preview and trust boundary.
 - [Windows entry and WSL2 handoff](windows-entry.md) — PowerShell bootstrap, read-only WSL preflight, guided steps and the pinned handoff into Linux.
 - [Doctor and reviewed updates](doctor-update.md) — receipt health, versioned update staging, deferred activation and template boundary.
+- [Single installer and guided setup](single-installer.md) — install.sh/install.ps1, root-derived layout, prompts and saved answers, summary gate and step resume.
