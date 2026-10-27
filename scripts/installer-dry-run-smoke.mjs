@@ -26,6 +26,14 @@ if (process.platform === 'win32') {
     const refused = spawn(shell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', 'install.ps1', '-DryRun', '--kit-dir', '.', '--root', 'C:\\Agentic']);
     assert.equal(refused.status, 2, `${shell} must refuse a Windows root: ${refused.stdout}${refused.stderr}`);
     assert.match(refused.stderr, /Linux path inside WSL/);
+    // The saved-channel receipt path, from install.ps1's own Get-ReceiptPath definition without running the script.
+    const receipt = spawn(shell, ['-NoProfile', '-NonInteractive', '-Command', [
+      '$ast = [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path -LiteralPath install.ps1).Path, [ref]$null, [ref]$null)',
+      "$fn = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-ReceiptPath' }, $true)",
+      '. ([scriptblock]::Create($fn.Extent.Text))',
+      "Get-ReceiptPath '~/Agentic' ''; Get-ReceiptPath '' '~/Agentic/.tools'; Get-ReceiptPath '~' ''; Get-ReceiptPath '' '/home/x/.tools'"].join('; ')]);
+    assert.equal(receipt.status, 0, `${shell} Get-ReceiptPath: ${receipt.stderr}`);
+    assert.deepEqual(receipt.stdout.trim().split(/\r?\n/), ['Agentic/.tools/receipt.json', 'Agentic/.tools/receipt.json', './.tools/receipt.json', '/home/x/.tools/receipt.json']);
   }
   assert.deepEqual(readdirSync(profile).sort(), before, 'USERPROFILE entries changed');
   console.log('install.ps1 -DryRun verified under Windows PowerShell and pwsh; nothing was written');

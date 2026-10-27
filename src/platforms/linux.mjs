@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { findOnPath, inspectCommand, inspectInstallRoot, inspectPrerequisite, inspectShell, inspectSource } from './macos.mjs';
+import { findOnPath, inspectCommand, inspectInstallRoot, inspectPrerequisite, inspectShell, inspectSource, safeRun } from './macos.mjs';
 
 function readSystem(path) {
   try { return readFileSync(path, 'utf8'); } catch { return ''; }
@@ -10,8 +10,9 @@ function detectLibc() {
   try {
     const version = execFileSync('getconf', ['GNU_LIBC_VERSION'], { encoding: 'utf8', timeout: 1500,
       env: { PATH: '/usr/bin:/bin', HOME: '', LC_ALL: 'C' }, stdio: ['ignore', 'pipe', 'ignore'] });
-    return /^glibc\s+\d/.test(version) ? 'glibc' : 'unknown';
-  } catch { return 'unknown'; }
+    const match = version.match(/^glibc\s+(\d+\.\d+)/);
+    return match ? { libc: 'glibc', glibcVersion: match[1] } : { libc: 'unknown', glibcVersion: null };
+  } catch { return { libc: 'unknown', glibcVersion: null }; }
 }
 
 export function linuxIdentity(context) {
@@ -22,8 +23,35 @@ export function linuxIdentity(context) {
     || release.match(/^ID=["']?([^\n"']+)/m)?.[1] || 'unknown distribution';
   const wsl = Boolean(env.WSL_INTEROP || env.WSL_DISTRO_NAME || /microsoft|wsl/i.test(version));
   const wsl2 = wsl && Boolean(env.WSL_INTEROP || /WSL2|microsoft-standard/i.test(version));
-  const libc = context.libc ?? (process.platform === 'linux' ? detectLibc() : 'unknown');
-  return { distro, libc, wsl, wsl2 };
+  const kernel = context.procVersion === undefined ? readSystem('/proc/sys/kernel/osrelease') : '';
+  const wsl2Kernel = wsl2 && /microsoft-standard-WSL2/i.test(`${version}\n${kernel}`);
+  const detected = context.libc === undefined && process.platform === 'linux' ? detectLibc() : {};
+  const libc = context.libc ?? detected.libc ?? 'unknown';
+  return { distro, libc, glibcVersion: context.glibcVersion ?? detected.glibcVersion ?? null, wsl, wsl2, wsl2Kernel };
+}
+
+// Only a WSL2 kernel selects wsl2-<arch> artifacts; tools without one use their linux-<arch> artifact.
+export const artifactTarget = (identity, arch) => `${identity.wsl2Kernel ? 'wsl2' : 'linux'}-${arch}`;
+export const artifactFor = (tool, target) => tool.artifacts[target] ?? (target.startsWith('wsl2-') ? tool.artifacts[`linux-${target.slice(5)}`] : undefined);
+
+// The WSL2 tower release is built against glibc 2.35 (Ubuntu 22.04).
+export function towerGlibcGap(identity) {
+  const [major, minor] = (identity.glibcVersion || '').split('.').map(Number);
+  if (major > 2 || (major === 2 && minor >= 35)) return null;
+  return `the WSL2 tower release needs Ubuntu 22.04 or newer (glibc 2.35 or newer); ${identity.glibcVersion ? `this distribution has glibc ${identity.glibcVersion}` : 'the glibc version could not be read'}. Upgrade the distribution, or rerun setup with --no-tower.`;
+}
+
+function inspectTowerTools(context) {
+  const path = context.env.PATH || '';
+  const python = findOnPath('python3', path)[0], jq = findOnPath('jq', path)[0];
+  const version = python && safeRun(python, ['--version'], context)?.match(/(\d+)\.(\d+)/);
+  const pythonOk = version && (Number(version[1]) > 3 || (Number(version[1]) === 3 && Number(version[2]) >= 9));
+  const need = 'the tower launcher doctor and the Firstmate fleet snapshot need it';
+  return [
+    { id: 'tower-python3', required: false, status: pythonOk ? 'pass' : 'warn', detail: pythonOk ? `python3 ${version[1]}.${version[2]} meets 3.9`
+      : `${!python ? 'python3 absent from PATH' : version ? `python3 ${version[1]}.${version[2]} is older than 3.9` : 'python3 version could not be read'}; ${need} (Ubuntu: sudo apt install python3)` },
+    { id: 'tower-jq', required: false, status: jq ? 'pass' : 'warn', detail: jq || `jq absent from PATH; ${need} (Ubuntu: sudo apt install jq)` },
+  ];
 }
 
 const browsers = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'firefox'];
@@ -58,9 +86,10 @@ export function inspectLinux(context, _manifest, selectedTools) {
     ...['curl', 'tar', 'unzip', 'bash', 'sh', 'sha256sum'].map(name => {
       const found = findOnPath(name, path);
       return { id: name, status: found.length ? 'pass' : 'fail', detail: found[0] || `${name} absent from PATH` };
-    }), ...selectedTools.filter(tool => tool.kind === 'prerequisite').map(tool => inspectPrerequisite(tool, context))];
+    }), ...selectedTools.filter(tool => tool.kind === 'prerequisite').map(tool => inspectPrerequisite(tool, context)),
+    ...(identity.wsl2Kernel && selectedTools.some(tool => tool.id === 'zoe-fleet') ? inspectTowerTools(context) : [])];
   const tools = selectedTools.filter(tool => tool.kind !== 'prerequisite').map(tool => tool.detection.kind === 'git-head' ? inspectSource(tool, context) : inspectCommand(tool, context));
   const pathConflicts = tools.filter(tool => tool.paths.length > 1).map(tool => ({ id: tool.id, paths: tool.paths }));
-  return { platform, arch: context.arch, supported, ...identity, prerequisites, tools, pathConflicts,
+  return { platform, arch: context.arch, supported, ...identity, artifactTarget: artifactTarget(identity, context.arch), prerequisites, tools, pathConflicts,
     message: `${identity.distro}; ${identity.libc}${identity.wsl2 ? '; WSL2. Browser and terminal run on Windows; install tools inside the Linux distro.' : ''}` };
 }

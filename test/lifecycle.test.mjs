@@ -345,9 +345,9 @@ test('upgrade from macos-pilot-5 with only a Firstmate pin change asks for /upda
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate update\n');
 });
 
-test('upgrade from macos-pilot-6 to pilot-7 plans and applies without a release prefix assumption', { skip: process.platform === 'win32' }, async t => {
+test('upgrade from macos-pilot-6 to pilot-8 plans and applies without a release prefix assumption', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t), commit = '7'.repeat(40);
-  assert.equal(bundled.release, 'pilot-7');
+  assert.equal(bundled.release, 'pilot-8');
   renameSync(join(f.root, 'releases', 'old-release'), join(f.root, 'releases', 'macos-pilot-6'));
   const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
   receipt.release = 'macos-pilot-6';
@@ -364,13 +364,13 @@ test('upgrade from macos-pilot-6 to pilot-7 plans and applies without a release 
   const plan = await planUpgrade({ ...f.options, resolveCommit: () => commit, fetchKit });
   t.after(() => rmSync(plan.stage, { recursive: true, force: true }));
   assert.equal(plan.fromRelease, 'macos-pilot-6');
-  assert.equal(plan.toRelease, 'pilot-7');
+  assert.equal(plan.toRelease, 'pilot-8');
   assert.equal(plan.firstmatePinChange, false);
-  assert.match(formatLifecycle(plan), /\nRelease: macos-pilot-6 -> pilot-7\n/);
+  assert.match(formatLifecycle(plan), /\nRelease: macos-pilot-6 -> pilot-8\n/);
   const result = await applyUpgrade(plan, f.options);
   assert.equal(result.status, 'upgraded');
-  assert.equal(JSON.parse(readFileSync(f.receiptPath, 'utf8')).release, 'pilot-7');
-  assert.equal(readFileSync(join(f.root, 'releases', 'pilot-7', 'bin', 'herdr'), 'utf8'), 'restored');
+  assert.equal(JSON.parse(readFileSync(f.receiptPath, 'utf8')).release, 'pilot-8');
+  assert.equal(readFileSync(join(f.root, 'releases', 'pilot-8', 'bin', 'herdr'), 'utf8'), 'restored');
   assert.equal(readFileSync(join(f.root, 'releases', 'macos-pilot-6', 'bin', 'herdr'), 'utf8'), 'original');
   assert.equal(readFileSync(envPath, 'utf8'), 'TYPESAFE_API_KEY=fixture-secret-123\n');
 });

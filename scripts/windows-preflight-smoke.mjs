@@ -27,7 +27,7 @@ const plan = json(spawn(process.execPath, ['bin/agent-kit.mjs', 'plan', '--json'
 const dryRun = json(spawn(process.execPath, ['bin/agent-kit.mjs', 'install', '--dry-run', '--json', ...paths]), 'install --dry-run');
 assert.equal(dryRun.command, 'plan');
 for (const result of [check, plan, dryRun]) assert.ok(['windows-build', 'wsl', 'terminal', 'browser'].every(id => result.platform.prerequisites.some(x => x.id === id)));
-assert.equal(plan.platform.artifactTarget, `linux-${plan.platform.linuxArch}`);
+assert.equal(plan.platform.artifactTarget, `wsl2-${plan.platform.linuxArch}`);
 assert.ok(plan.plan.tools.every(x => !/[A-Za-z]:\\/.test(x.installLocation)), 'plan locations must be Linux paths');
 assert.match(spawn(process.execPath, ['bin/agent-kit.mjs', 'plan']).stdout, /Agent Kit plan: .*\nPlatform: windows\//);
 

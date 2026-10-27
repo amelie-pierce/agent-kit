@@ -5,6 +5,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { doctor, firstmateIssue, gitCheck } from './doctor.mjs';
 import { installPlatform, npmGroup, selected } from './install/macos.mjs';
 import { validateManifest } from './kit.mjs';
+import { artifactFor, artifactTarget, linuxIdentity } from './platforms/linux.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
 export function reviewedCheckout() {
@@ -34,13 +35,13 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
   const unsafe = health.checks.filter(x => x.status === 'fail' && !(handedOff && x.id === 'firstmate') && x.id !== 'hooks' && !x.id.startsWith('prerequisite-') && !x.id.endsWith('-path') && !x.id.endsWith('-pin'));
   if (unsafe.length) throw new Error((unsafe.some(x => x.id === 'firstmate') && firstmate && firstmateIssue(firstmateEntry?.path, firstmateEntry?.version, firstmate.approvedUpstream, firstmate.version.value))
     || `owned installation fails verification: ${unsafe.map(x => x.id).join(', ')}`);
-  const target = `${platform}-${arch}`;
+  const target = platform === 'linux' ? artifactTarget(linuxIdentity({ env }), arch) : `${platform}-${arch}`;
   const changes = selected(manifest, effectiveHarness, answers.figma ?? withFigma, answers.tower ?? true).map(tool => {
     const group = npmGroup(tool.id), entry = receipt.phases[group || tool.id];
     const beforeVersion = group ? entry?.packages?.[tool.id === 'codex' ? '@openai/codex' : tool.id] || null : entry?.version || null;
     const beforeSha256 = entry?.artifactSha256 || null;
     const lock = group ? readFileSync(new URL(`../manifests/${group}/package-lock.json`, import.meta.url)) : null;
-    const afterSha256 = group ? sha(lock) : tool.artifacts[target]?.sha256 || null;
+    const afterSha256 = group ? sha(lock) : artifactFor(tool, target)?.sha256 || null;
     const afterVersion = tool.version.value;
     return { id: tool.id, from: { version: beforeVersion, sha256: beforeSha256 }, to: { version: afterVersion, sha256: afterSha256 },
       action: beforeVersion === afterVersion && beforeSha256 === afterSha256 ? 'retain or stage in new release' : tool.version.status === 'verified' && afterSha256 ? 'stage and verify' : 'unverified' };

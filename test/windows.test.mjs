@@ -163,11 +163,14 @@ test('WSL2 ready: plan targets Linux artifacts, Linux-side paths and prints the 
   assert.equal(prereq(platform, 'wsl2-default').status, 'pass');
   assert.equal(prereq(platform, 'terminal').status, 'pass');
   assert.equal(prereq(platform, 'browser').status, 'pass');
-  assert.equal(platform.artifactTarget, 'linux-x64');
+  assert.equal(platform.artifactTarget, 'wsl2-x64');
   assert.ok(!result.result.issues.some(x => ['windows-build', 'wsl', 'wsl2-default', 'wsl-distro', 'platform'].includes(x.id)));
   const herdr = plan.tools.find(x => x.id === 'herdr');
   assert.equal(herdr.artifactUrl, manifest.tools.find(x => x.id === 'herdr').artifacts['linux-x64'].url);
   assert.equal(herdr.installLocation, `~/.agent-kit/releases/${manifest.release}/bin/herdr`);
+  const tower = manifest.tools.find(x => x.id === 'zoe-fleet');
+  assert.deepEqual(plan.tools.find(x => x.id === 'zoe-fleet').artifactUrl, tower.artifacts['wsl2-x64'].url);
+  assert.equal(plan.tools.find(x => x.id === 'zoe-fleet').installLocation, `~/.agent-kit/releases/${manifest.release}/bin/zoe-fleet`);
   assert.equal(plan.tools.find(x => x.id === 'firstmate').installLocation, '~/firstmate');
   assert.deepEqual(plan.globalHookChanges, []);
   assert.equal(plan.handoff.status, 'handoff-ready');
@@ -182,10 +185,10 @@ test('WSL2 ready: plan targets Linux artifacts, Linux-side paths and prints the 
   assert.deepEqual(readdirSync(home), []);
 });
 
-test('arm64 Windows targets linux-arm64 even when Node runs under x64 emulation; 32-bit is refused', () => {
+test('arm64 Windows targets wsl2-arm64 even when Node runs under x64 emulation; 32-bit is refused', () => {
   const arm = inspectWindows(windowsContext({ machine: 'arm64', arch: 'x64' }));
   assert.equal(arm.linuxArch, 'arm64');
-  assert.equal(arm.artifactTarget, 'linux-arm64');
+  assert.equal(arm.artifactTarget, 'wsl2-arm64');
   assert.equal(arm.ready, true);
   const emulated = inspectWindows(windowsContext({ machine: 'x86_64', env: { PROCESSOR_IDENTIFIER: 'ARMv8 (64-bit) Family 8 Model 1' } }));
   assert.equal(emulated.linuxArch, 'arm64');

@@ -5,6 +5,7 @@ import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep 
 import { previewHooks } from './install/hooks.mjs';
 import { npmGroup, towerPaths } from './install/macos.mjs';
 import { inspectPlatform } from './platforms/index.mjs';
+import { artifactFor } from './platforms/linux.mjs';
 import { usesProfile } from './harness.mjs';
 import { jevReadiness } from './dispatch.mjs';
 
@@ -130,7 +131,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
     checks.push(status(id, digest === entry.ownedSha256 ? 'pass' : 'fail', digest === entry.ownedSha256 ? `installed ${entry.version || ''}; owned digest verified` : 'kit-owned digest differs from receipt'));
     const tool = byId.get(id);
     if (tool?.kind !== 'prerequisite' && tool && tool.version.value !== entry.version) checks.push(status(`${id}-pin`, 'unknown', `installed ${entry.version}; reviewed checkout pins ${tool.version.value || 'unverified'}`));
-    if (tool?.kind !== 'prerequisite' && tool) checks.push(status(`${id}-origin`, entry.artifactSha256 === tool.artifacts[`${platformName}-${arch}`]?.sha256 ? 'pass' : 'unknown', 'artifact digest compared with reviewed manifest origin'));
+    if (tool?.kind !== 'prerequisite' && tool) checks.push(status(`${id}-origin`, entry.artifactSha256 === artifactFor(tool, platform.artifactTarget || `${platformName}-${arch}`)?.sha256 ? 'pass' : 'unknown', 'artifact digest compared with reviewed manifest origin'));
     if (id === 'npm' || id === 'npm-codex') {
       const lock = readFileSync(new URL(`../manifests/${id}/package-lock.json`, import.meta.url));
       checks.push(status(`${id}-origin`, entry.artifactSha256 === sha(lock) ? 'pass' : 'unknown', 'npm lock digest compared with reviewed registry origin'));

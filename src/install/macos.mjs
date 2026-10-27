@@ -6,7 +6,7 @@ import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep 
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { applyHooks, previewHooks, publicHookChanges } from './hooks.mjs';
-import { linuxIdentity } from '../platforms/linux.mjs';
+import { artifactFor, artifactTarget, linuxIdentity, towerGlibcGap } from '../platforms/linux.mjs';
 import { towerIds, usesProfile } from '../harness.mjs';
 
 const exec = promisify(execFile);
@@ -18,6 +18,8 @@ const runtimeIds = new Set(['zoe-fleet-runtime']);
 // Files the Zoetrope runtime's launcher contract needs (its docs/FLEET-PACKAGING.md).
 const runtimeLayout = ['bin/zoe-fleet-tower', 'scripts/fleet-config.sh', 'scripts/firstmate-fleet.py', 'fleet-plugin/herdr-plugin.toml', 'fleet-plugin/open.sh', 'docs/FLEET-PACKAGING.md', 'LICENSE'];
 const towerRelease = (tool, artifact) => tool.id === 'zoe-fleet' && artifact.kind === 'release-archive';
+const elfMachine = { x64: 0x3e, arm64: 0xb7 };
+const linuxElf = (body, arch) => body.length > 20 && body.readUInt32BE(0) === 0x7f454c46 && body.readUInt16LE(18) === elfMachine[arch];
 const login = {
   'github-cli': 'Run gh auth login (https://cli.github.com/manual/gh_auth_login).',
   'gh-axi': 'Use your own GitHub CLI sign-in: gh auth login (https://cli.github.com/manual/gh_auth_login).',
@@ -345,7 +347,7 @@ async function towerPhase(root, release, firstmateHome, receipt, save, options) 
 
 export async function installPlatform(manifest, options = {}) {
   const platform = options.platform || process.platform, arch = options.arch || process.arch;
-  const linux = platform === 'linux' ? linuxIdentity({ env: options.env || process.env, procVersion: options.procVersion, osRelease: options.osRelease, libc: options.libc }) : null;
+  const linux = platform === 'linux' ? linuxIdentity({ env: options.env || process.env, procVersion: options.procVersion, osRelease: options.osRelease, libc: options.libc, glibcVersion: options.glibcVersion }) : null;
   if (!['darwin', 'linux'].includes(platform) || !['arm64', 'x64'].includes(arch) || (linux && (linux.libc !== 'glibc' || (linux.wsl && !linux.wsl2)))) return { status: 'unsupported', exitCode: 2, components: [], message: `unsupported install target ${platform}/${arch}${linux ? ` (${linux.libc}${linux.wsl && !linux.wsl2 ? ', WSL1' : ''})` : ''}`,
     bin: null, npmBin: null, codexBin: null, firstmateHome: null, towerParity: 'unavailable', towerLauncher: null, loginSteps: [] };
   const nodeVersion = options.nodeVersion || process.versions.node;
@@ -369,14 +371,19 @@ export async function installPlatform(manifest, options = {}) {
     if (!recordedHome && !(await newDirectory(firstmateHome))) throw new Error('--firstmate-home must be a new or empty directory; refusing to inherit it');
     const save = () => atomicJson(receiptPath, receipt);
     if (options.update && receipt.release !== release) { receipt.pendingUpdate = release; await save(); }
-    const components = [], targetKey = `${platform}-${arch}`, harness = options.harness || 'claude';
+    const components = [], targetKey = linux ? artifactTarget(linux, arch) : `${platform}-${arch}`, harness = options.harness || 'claude';
     const chosen = selected(manifest, harness, !!options.withFigma, options.withTower !== false);
     await mkdir(join(root, 'releases', release, 'staging'), { recursive: true, mode: 0o700 });
     for (const tool of chosen) {
       if (npmIds.has(tool.id)) continue;
-      const a = tool.artifacts[targetKey];
+      const a = artifactFor(tool, targetKey);
       if (tool.version.status !== 'verified' || a?.status !== 'verified') {
         components.push({ id: tool.id, status: 'unverified', reason: a?.reason || tool.version.reason || `no verified ${platform} artifact` });
+        continue;
+      }
+      const glibcGap = linux?.wsl2 && towerRelease(tool, a) && towerGlibcGap(linux);
+      if (glibcGap) {
+        components.push({ id: tool.id, status: 'unverified', reason: `refused: ${glibcGap}` });
         continue;
       }
       if (!binaryIds.has(tool.id) && !sourceIds.has(tool.id) && !runtimeIds.has(tool.id)) {
@@ -432,6 +439,10 @@ export async function installPlatform(manifest, options = {}) {
         if (await exists(destination)) throw new Error(`${tool.id} exists without a matching receipt`);
         await mkdir(dirname(destination), { recursive: true, mode: 0o700 });
         const body = a.url.endsWith('.tar.gz') ? tarBinary(await readFile(artifactPath), tool.id) : await readFile(artifactPath);
+        if (linux && towerRelease(tool, a) && !linuxElf(body, arch)) {
+          components.push({ id: tool.id, status: 'unverified', reason: `refused: the zoe-fleet release binary is not a Linux ${arch} ELF executable; not activated` });
+          continue;
+        }
         const staged = `${destination}.${randomUUID()}.tmp`;
         await writeFile(staged, body, { mode: 0o755, flag: 'wx' });
         await chmod(staged, 0o755);
@@ -541,7 +552,7 @@ export async function installPlatform(manifest, options = {}) {
     const towerConflict = components.find(x => x.id === 'zoe-fleet' && x.status === 'conflict');
     const towerParity = towerConflict ? `conflict: ${towerConflict.reason}` : towerReleased && towerLauncher ? 'installed from verified release; hands-on acceptance pending (Zoetrope Phase B)'
       : towerReleased ? 'release binary installed; fleet runtime or launcher configuration incomplete'
-        : ok('zoe-fleet') ? 'packaged but fleet manifest and launcher unverified' : 'unavailable';
+        : ok('zoe-fleet') ? 'source build; no Linux tower release this round' : 'unavailable';
     // A selected tower keeps the result partial until hands-on acceptance establishes full parity.
     if (options.update && !components.some(x => ['conflict', 'deferred'].includes(x.status))) {
       receipt.release = release;

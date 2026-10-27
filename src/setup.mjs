@@ -47,7 +47,7 @@ export const validators = {
   channel: value => ['releases', 'main'].includes(value) ? value : (() => { throw new Error('--channel must be releases or main'); })(),
 };
 
-export function parseSetupArgs(argv) {
+export function parseSetupArgs(argv, platform = process.platform) {
   const flags = {};
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -61,6 +61,7 @@ export function parseSetupArgs(argv) {
     if (flags[a] !== undefined && flags[b] !== undefined) throw new Error(`--${a} and --${b} conflict`);
   if (flags['starter-scope'] !== undefined && flags['no-starter-mate']) throw new Error('--starter-scope conflicts with --no-starter-mate');
   if (flags.handoff && flags['dry-run']) throw new Error('--handoff applies only without --dry-run');
+  if ((flags.handoff || flags.distro !== undefined) && platform !== 'win32') throw new Error('--handoff and --distro apply only on Windows');
   if (flags['kit-commit'] !== undefined && !/^[a-f0-9]{40}$/.test(flags['kit-commit'])) throw new Error('--kit-commit must be a full commit SHA');
   if (flags.harness !== undefined) flags.harness = validators.harness(flags.harness);
   if (flags['github-owner'] !== undefined) validators.githubOwner(flags['github-owner']);
@@ -400,7 +401,7 @@ function seedStarter(answer, paths, env, releaseBin) {
 }
 
 export async function setup(manifest, ctx) {
-  const { platform, output } = ctx, flags = parseSetupArgs(ctx.argv);
+  const { platform, output } = ctx, flags = parseSetupArgs(ctx.argv, platform);
   const env = { ...ctx.env };
   delete env.TYPESAFE_API_KEY; // Never pass the key to installer child processes.
   const home = env.HOME;
@@ -447,7 +448,7 @@ export async function setup(manifest, ctx) {
       starter: managed ? previewStarter(paths.firstmateHome, { harness: answers.harness, plans: answers.plans, mode: answers.dispatchMode, table: ctx.planTable, record: receipt?.setup?.dispatch, keySet: !!keyValue || wasSet }) : null };
     const options = { command: 'plan', harness: answers.harness, withFigma: answers.figma, withTower: answers.tower, globalHooks: answers.globalHooks,
       installRoot: paths.installRoot, firstmateHome: paths.firstmateHome, towerState: paths.towerState };
-    const context = { env, platform, arch: ctx.arch, nodeVersion: ctx.nodeVersion, procVersion: ctx.procVersion, osRelease: ctx.osRelease, libc: ctx.libc, runCommand: ctx.runCommand, applicationDirs: ctx.applicationDirs };
+    const context = { env, platform, arch: ctx.arch, nodeVersion: ctx.nodeVersion, procVersion: ctx.procVersion, osRelease: ctx.osRelease, libc: ctx.libc, glibcVersion: ctx.glibcVersion, runCommand: ctx.runCommand, applicationDirs: ctx.applicationDirs };
     const plan = evaluatePlan(manifest, context, options).result;
     const blockers = blocking(plan);
     output.write(formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, keyPlan }));
@@ -490,7 +491,7 @@ export async function setup(manifest, ctx) {
       await stepRun(0, async () => kit.commit ? { state: 'complete', detail: await placeKit(paths, kit, env) } : { state: 'not-selected', detail: 'run from a local kit checkout; no pinned commit given' });
       let install;
       await stepRun(1, async () => {
-        install = await (ctx.installPlatform || installPlatform)(manifest, { platform, arch: ctx.arch, home, env, nodeVersion: ctx.nodeVersion, procVersion: ctx.procVersion, osRelease: ctx.osRelease, libc: ctx.libc,
+        install = await (ctx.installPlatform || installPlatform)(manifest, { platform, arch: ctx.arch, home, env, nodeVersion: ctx.nodeVersion, procVersion: ctx.procVersion, osRelease: ctx.osRelease, libc: ctx.libc, glibcVersion: ctx.glibcVersion,
           installRoot: paths.installRoot, firstmateHome: paths.firstmateHome, harness: answers.harness, withFigma: answers.figma, withTower: answers.tower, globalHooks: answers.globalHooks,
           towerState: paths.towerState, ...ctx.installOptions,
           onHooksPreview: changes => output.write(`  Global hook and skill changes (kit-owned entries only; existing files backed up first):\n${changes.map(c => `    ${c.path}: ${c.changes.map(x => `${x.op} ${x.owner || x.path}`).join(', ')}`).join('\n') || '    none'}\n`) });
@@ -553,7 +554,7 @@ export const setupHandoffScript = [
 ].join('; ');
 
 export function windowsSetup(argv, context) {
-  const flags = parseSetupArgs(argv);
+  const flags = parseSetupArgs(argv, 'win32');
   for (const flag of ['kit-dir', 'kit-commit']) if (flags[flag] !== undefined) throw new Error(`--${flag} is set by install.sh; on Windows the kit commit comes from this checkout`);
   for (const flag of ['root', 'install-root', 'firstmate-home']) if (flags[flag] !== undefined) linuxPath(flags[flag], `--${flag}`);
   const passthrough = [];
