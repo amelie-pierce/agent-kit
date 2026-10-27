@@ -1,17 +1,20 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { lstatSync, readFileSync, statSync } from 'node:fs';
-import { link, mkdir, open, rename, rm } from 'node:fs/promises';
+import { link, mkdir, open, rename, rm, writeFile } from 'node:fs/promises';
 import { delimiter, join } from 'node:path';
 import { harnessProfiles } from './harness.mjs';
 import { envManaged, keyName, keyStatus } from './keys.mjs';
 
-// Starter worker routing for a teammate who turns on Jev (TYPESAFE_API_KEY). When the pinned Firstmate's
-// fm-strategy.sh accepts --plans, the kit selects the strategy there and Firstmate owns every file. Until
-// then (Firstmate 976c3ba7 has no --plans) the kit bridges: it renders the chosen mode's template from the
-// pinned home, fitted to the person's plans from manifests/plan-models.json, and writes only
-// config/crew-dispatch.json, never config/strategy, secondmate-harness or fresh-start.json.
+// Starter worker routing for a teammate who turns on Jev (TYPESAFE_API_KEY). When the home's fm-strategy.sh
+// accepts --plans, the kit selects the strategy there and Firstmate renders every file; the receipt records
+// that selection (via: 'fm-strategy') by the digests of crew-dispatch.json and config/strategy. An older
+// Firstmate without --plans gets the bridge: the kit renders the chosen mode's template from the home,
+// fitted to the person's plans from manifests/plan-models.json, and writes only config/crew-dispatch.json,
+// never config/strategy, secondmate-harness or fresh-start.json. An unchanged bridge file moves to the
+// native selection once the home takes --plans; an edited one stays the person's.
 export const starterFile = 'config/crew-dispatch.json';
+const strategyFile = 'config/strategy';
 export const modes = ['lean', 'balanced', 'full'];
 const sha = data => createHash('sha256').update(data).digest('hex');
 const stat = path => lstatSync(path, { throwIfNoEntry: false });
@@ -105,6 +108,28 @@ export function renderStarter(template, providers, plans = {}, table = loadPlanT
   return `${JSON.stringify(rendered, null, 2)}\n`;
 }
 
+// The owner's two extra tiers, added after the rendered rules as custom rules (no strategy key, so
+// fm-strategy.sh set keeps them on every re-render): check runs the rendered light route at low effort and
+// research the rendered hard route, so they follow the plans already fitted and add no new model or spend.
+export const ownerTiers = [
+  { id: 'check', when: 'Quick checks that change nothing: confirm a fact, read state, rerun an existing check or test, answer a lookup', from: 'light', effort: 'low',
+    why: 'A check needs no deep reasoning; the light route at low effort keeps it cheap.' },
+  { id: 'research', when: 'Open-ended research or investigation across several sources before any change is planned', from: 'hard',
+    why: 'Research rewards the strongest route the plan already uses for hard work.' },
+];
+export function withOwnerTiers(body) {
+  const value = JSON.parse(body), rules = Array.isArray(value.rules) ? value.rules : null;
+  if (!rules) return body;
+  for (const tier of ownerTiers) {
+    if (rules.some(rule => rule.when === tier.when)) continue;
+    const source = rules.find(rule => rule.strategy === tier.from);
+    if (!source) continue;
+    const use = [source.use].flat().map(profile => ({ ...profile, ...(tier.effort ? { effort: tier.effort } : {}) }));
+    rules.push({ when: tier.when, use: Array.isArray(source.use) ? use : use[0], why: tier.why });
+  }
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
 // Settings Firstmate leaves to the person, printed as fm-strategy.sh show does: the coordinator launch,
 // the no-mistakes validation model, and the second mate launch. The kit edits none of them.
 export function starterAdvice(template, providers, plans = {}, table = loadPlanTable(), mode = 'balanced') {
@@ -137,30 +162,45 @@ export function strategyTakesPlans(firstmateHome) {
   return r.status === 0 && /--plans\b/.test(`${r.stdout}${r.stderr}`);
 }
 export const plansArg = plans => Object.entries(plans).filter(([, id]) => id !== 'not-sure').map(([h, id]) => `${h}=${id}`).join(',');
+const setArgv = (mode, providers, plans) => ['set', mode, '--providers', providers, ...(plansArg(plans) ? ['--plans', plansArg(plans)] : [])];
+const nativeRecord = record => record?.via === 'fm-strategy';
+const fileSha = path => plainFile(path) ? sha(readFileSync(path)) : null;
+// A strategy the kit selected stays the kit's to refresh only while neither file it recorded has changed.
+const nativeUnchanged = (firstmateHome, record) => !!record.sha256 && !!record.strategySha256
+  && fileSha(join(firstmateHome, starterFile)) === record.sha256 && fileSha(join(firstmateHome, strategyFile)) === record.strategySha256;
 
 // What the kit would do with the starter rules, without writing. record is receipt.setup.dispatch.
 // create: write when no rules exist and the kit never wrote any; restore: rewrite kit rules that went missing.
 export function planStarter(firstmateHome, { harness, plans = {}, mode, table = loadPlanTable(), record = null, create = false, restore = false } = {}) {
-  const path = join(firstmateHome, starterFile), strategy = join(firstmateHome, 'config', 'strategy');
+  const path = join(firstmateHome, starterFile), strategy = join(firstmateHome, strategyFile);
   const providers = providersOf(harness), chosen = effectivePlans(providers, plans, table);
   mode = modes.includes(mode) ? mode : defaultMode(providers, plans, table);
   const keep = (action, detail) => ({ action, path, providers, mode, record: action === 'skip' ? record : null, detail });
+  const native = (action, extra = {}) => ({ action, path, providers, plans: chosen, mode, record, argv: setArgv(mode, providers, chosen), ...extra });
   const home = stat(firstmateHome), config = stat(join(firstmateHome, 'config'));
   if (!home?.isDirectory() || home.isSymbolicLink() || (config && (!config.isDirectory() || config.isSymbolicLink()))) return keep('skip', 'Firstmate home or its config folder is not a plain directory');
-  if (stat(strategy)) return keep('keep', 'a Firstmate token strategy (config/strategy) owns the routing');
+  if (stat(strategy)) {
+    if (!nativeRecord(record)) return keep('keep', 'a Firstmate token strategy (config/strategy) owns the routing');
+    if (!nativeUnchanged(firstmateHome, record)) return keep('keep', 'the Firstmate strategy the kit selected was changed since; Firstmate owns it');
+    if (!strategyTakesPlans(firstmateHome)) return { action: 'verify', path, providers, mode, record };
+    return native('reselect');
+  }
   const current = stat(path);
   if (current) {
     if (!plainFile(path)) return keep('keep', 'existing rules are not a plain file');
-    if (!record || record.sha256 !== sha(readFileSync(path))) return keep('keep', 'existing rules are yours');
+    if (!record || record.sha256 !== sha(readFileSync(path))) {
+      const hint = record && !nativeRecord(record) && strategyTakesPlans(firstmateHome)
+        ? `; bin/fm-strategy.sh ${setArgv(mode, providers, chosen).join(' ')} switches them to Firstmate's plan-aware strategy` : '';
+      return keep('keep', `existing rules are yours${hint}`);
+    }
+    if (nativeRecord(record)) return keep('keep', 'config/strategy was removed since the kit selected the strategy; the rules are yours');
   } else if (!(record ? restore : create)) return { action: 'none', path, providers, mode, record };
-  if (!current && !record && strategyTakesPlans(firstmateHome)) {
-    const argv = ['set', mode, '--providers', providers, ...(plansArg(chosen) ? ['--plans', plansArg(chosen)] : []), '--yes'];
-    return { action: 'strategy', path, providers, plans: chosen, mode, record: null, argv };
-  }
+  // Here the rules are absent, or are the kit's unchanged bridge file.
+  if (strategyTakesPlans(firstmateHome)) return current ? native('migrate', { prior: record.sha256 }) : native('strategy');
   const template = readTemplate(firstmateHome, mode);
   if (!template) return keep('skip', `this Firstmate has no bin/strategies/${mode}.json template`);
   if (!ignored(firstmateHome)) return keep('skip', `${starterFile} is not gitignored in the Firstmate home`);
-  const body = renderStarter(template, providers, plans, table, mode);
+  const body = withOwnerTiers(renderStarter(template, providers, plans, table, mode));
   const next = { file: starterFile, template: mode, providers, plans: chosen, sha256: sha(body) };
   const extra = { path, providers, plans: chosen, mode, record: next, body, advice: starterAdvice(template, providers, plans, table, mode) };
   if (current) return { action: next.sha256 === record.sha256 ? 'verify' : 'refresh', ...extra, prior: record.sha256 };
@@ -170,12 +210,7 @@ export function planStarter(firstmateHome, { harness, plans = {}, mode, table = 
 // Applies a planStarter result. A new file is linked into place so it never replaces rules that
 // appeared after planning; a refresh replaces only the unchanged kit file it planned against.
 export async function applyStarter(plan) {
-  if (plan.action === 'strategy') {
-    const home = join(plan.path, '..', '..');
-    const { [keyName]: _key, ...env } = process.env;
-    const r = spawnSync('bash', [join(home, 'bin', 'fm-strategy.sh'), ...plan.argv], { cwd: home, env: { ...env, FM_HOME: home }, encoding: 'utf8', timeout: 120000 });
-    return r.status === 0 ? plan : { ...plan, action: 'skip', detail: `fm-strategy.sh ${plan.argv.slice(0, 2).join(' ')} failed: ${(r.stderr || r.stdout || '').trim().split('\n').pop() || `exit ${r.status}`}` };
-  }
+  if (['strategy', 'migrate', 'reselect'].includes(plan.action)) return selectStrategy(plan);
   if (!['write', 'restore', 'refresh'].includes(plan.action)) return plan;
   const dir = join(plan.path, '..');
   await mkdir(dir, { recursive: true });
@@ -200,10 +235,48 @@ export async function applyStarter(plan) {
   return plan;
 }
 
+// Runs the home's fm-strategy.sh without the key. A migration first moves the unchanged bridge file aside so
+// Firstmate renders from its template alone, and puts it back when no strategy was selected. A reselect asks
+// for a dry run first and leaves an already matching home untouched.
+async function selectStrategy(plan) {
+  const home = join(plan.path, '..', '..'), strategy = join(home, strategyFile);
+  const { [keyName]: _key, ...env } = process.env;
+  const run = extra => spawnSync('bash', [join(home, 'bin', 'fm-strategy.sh'), ...plan.argv, ...extra], { cwd: home, env: { ...env, FM_HOME: home }, encoding: 'utf8', timeout: 120000 });
+  const last = r => (r.stderr || r.stdout || '').trim().split('\n').pop() || `exit ${r.status}`;
+  if (plan.action === 'reselect') {
+    const dry = run(['--dry-run']);
+    if (dry.status === 0 && /^no change:/m.test(dry.stdout)) return { ...plan, action: 'verify' };
+  }
+  let aside = null;
+  if (plan.action === 'migrate') {
+    if (fileSha(plan.path) !== plan.prior) return { ...plan, action: 'keep', record: null, detail: 'rules changed while updating; kept them' };
+    aside = join(home, 'config', `.crew-dispatch.agent-kit-${randomUUID()}.bridge`);
+    await rename(plan.path, aside);
+  }
+  const r = run(['--yes']);
+  const selected = !!stat(strategy);
+  if (aside) {
+    if (selected) await rm(aside, { force: true });
+    else {
+      try { await link(aside, plan.path); } catch (error) { if (error.code !== 'EEXIST') throw error; }
+      await rm(aside, { force: true });
+    }
+  }
+  if (!selected) return { ...plan, action: 'skip', detail: `fm-strategy.sh ${plan.argv.slice(0, 2).join(' ')} failed: ${last(r)}` };
+  if (plainFile(plan.path)) {
+    const before = readFileSync(plan.path, 'utf8'), after = withOwnerTiers(before);
+    if (after !== before) { const temp = `${plan.path}.agent-kit-${randomUUID()}.tmp`; await writeFile(temp, after, { flag: 'wx' }); await rename(temp, plan.path); }
+  }
+  const sha256 = fileSha(plan.path), strategySha256 = fileSha(strategy);
+  const record = sha256 && strategySha256 ? { file: starterFile, via: 'fm-strategy', template: plan.mode, providers: plan.providers, plans: plan.plans, sha256, strategySha256 } : null;
+  return { ...plan, record, ...(r.status === 0 ? {} : { detail: `fm-strategy.sh selected the strategy but then reported: ${last(r)}` }) };
+}
+
 // Uninstall removes the starter rules only while they are exactly what the kit wrote and no strategy took over.
+// A strategy the kit selected through fm-strategy.sh is Firstmate's configuration and stays.
 export function starterRemovable(firstmateHome, record) {
   const path = join(firstmateHome, starterFile);
-  if (!record?.sha256 || stat(join(firstmateHome, 'config', 'strategy')) || !plainFile(path)) return null;
+  if (!record?.sha256 || nativeRecord(record) || stat(join(firstmateHome, strategyFile)) || !plainFile(path)) return null;
   return sha(readFileSync(path)) === record.sha256 ? path : null;
 }
 
@@ -212,12 +285,16 @@ const route = r => r ? `${r.model} effort ${r.effort}` : 'harness default';
 const adviceText = advice => advice?.length ? advice.map(a => `\n  ${a.harness}: start the coordinator on ${route(a.coordinator)}; set no-mistakes agent_config validation to ${route(a.validation)}; second mates ${a.secondmates} (set these by hand; the kit never edits them)`).join('') : '';
 export function describeStarter(plan) {
   const where = plan.path;
+  const warning = plan.detail ? `; ${plan.detail}` : '';
+  const command = () => `bin/fm-strategy.sh ${plan.argv.join(' ')} --yes`;
   switch (plan.action) {
-    case 'strategy': return `Starter dispatch rules: selected Firstmate's ${plan.mode} strategy for ${plan.providers}${planText(plan.plans)} with bin/fm-strategy.sh ${plan.argv.join(' ')}; Firstmate owns the routing files`;
+    case 'strategy': return `Starter dispatch rules: selected Firstmate's ${plan.mode} strategy for ${plan.providers}${planText(plan.plans)} with ${command()}; Firstmate owns the routing files${warning}`;
+    case 'migrate': return `Starter dispatch rules: replaced the kit's unchanged bridge rules at ${where} with Firstmate's ${plan.mode} strategy for ${plan.providers}${planText(plan.plans)} (${command()}); Firstmate owns the routing files${warning}`;
+    case 'reselect': return `Starter dispatch rules: refreshed Firstmate's ${plan.mode} strategy the kit selected, for ${plan.providers}${planText(plan.plans)}, with ${command()}${warning}`;
     case 'write': return `Starter dispatch rules: wrote Firstmate's ${plan.mode} rules for ${plan.providers}${planText(plan.plans)} to ${where} (Jev uses them to pick each worker's tier)${adviceText(plan.advice)}`;
     case 'restore': return `Starter dispatch rules: restored the kit's ${plan.mode} rules at ${where}`;
     case 'refresh': return `Starter dispatch rules: refreshed the unchanged kit rules at ${where} from Firstmate's ${plan.mode} template${planText(plan.plans)}${adviceText(plan.advice)}`;
-    case 'verify': return `Starter dispatch rules: unchanged kit rules at ${where}`;
+    case 'verify': return nativeRecord(plan.record) ? `Starter dispatch rules: Firstmate's ${plan.mode} strategy the kit selected is unchanged` : `Starter dispatch rules: unchanged kit rules at ${where}`;
     case 'keep': return `Starter dispatch rules: kept ${where}; ${plan.detail}`;
     case 'skip': return `Starter dispatch rules: not written; ${plan.detail}`;
     default: return null;
@@ -228,9 +305,15 @@ export function describeStarter(plan) {
 export function previewStarter(firstmateHome, { harness, plans = {}, mode, table = loadPlanTable(), record = null, keySet = false } = {}) {
   const path = join(firstmateHome, starterFile), providers = providersOf(harness);
   mode = modes.includes(mode) ? mode : defaultMode(providers, plans, table);
-  if (stat(join(firstmateHome, 'config', 'strategy'))) return `keep ${path}; a Firstmate token strategy owns the routing`;
-  const current = stat(path);
-  if (current) return record?.sha256 && plainFile(path) && sha(readFileSync(path)) === record.sha256 ? `keep the kit's unchanged rules at ${path}` : `keep your existing ${path}`;
+  if (stat(join(firstmateHome, strategyFile))) return nativeRecord(record) && nativeUnchanged(firstmateHome, record)
+    ? `keep Firstmate's strategy the kit selected; refreshed with bin/fm-strategy.sh for ${providers}${planText(effectivePlans(providers, plans, table))}`
+    : `keep ${path}; a Firstmate token strategy owns the routing`;
+  const current = stat(path), unchanged = !!record?.sha256 && plainFile(path) && sha(readFileSync(path)) === record.sha256;
+  if (current) return unchanged && !nativeRecord(record) && strategyTakesPlans(firstmateHome)
+    ? `switch the kit's unchanged rules at ${path} to Firstmate's ${mode} strategy with bin/fm-strategy.sh --plans`
+    : unchanged && !nativeRecord(record) ? `keep the kit's unchanged rules at ${path}` : `keep your existing ${path}`;
+  // A home not cloned yet gets the pinned Firstmate, whose fm-strategy.sh takes --plans.
+  if (!stat(firstmateHome) || strategyTakesPlans(firstmateHome)) return `will select Firstmate's ${mode} strategy for ${providers}${planText(effectivePlans(providers, plans, table))} with bin/fm-strategy.sh --plans`;
   if (!keySet) return `not written; the kit writes them only once TYPESAFE_API_KEY is set`;
   return `will write Firstmate's ${mode} rules for ${providers}${planText(effectivePlans(providers, plans, table))} to ${path}`;
 }

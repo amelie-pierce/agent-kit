@@ -62,7 +62,7 @@ test('doctor verifies receipt, digest, path precedence, modes and unknown auth/l
   assert.equal(doctor(f.manifest, f.options).checks.find(x => x.id === 'receipt-mode').status, 'fail');
 });
 
-test('doctor checks person-installed floors and links without requiring optional Figma', { skip: process.platform === 'win32' }, t => {
+test('doctor checks person-installed floors and links; Figma is a kit component, not a prerequisite', { skip: process.platform === 'win32' }, t => {
   const f = fixture(t), bin = join(f.base, 'bin');
   mkdirSync(bin);
   for (const [name, version] of Object.entries({ node: 'v24.15.0', git: 'git version 2.20.0', gh: 'gh version 2.0.0', claude: '2.1.293 (Claude Code)' }))
@@ -71,7 +71,7 @@ test('doctor checks person-installed floors and links without requiring optional
   const options = { ...f.options, env: { HOME: f.home, PATH: `${bin}:/usr/bin:/bin`, SHELL: '/bin/bash' } };
   const checks = doctor(manifest, options).checks;
   assert.equal(checks.find(x => x.id === 'prerequisite-github-cli').status, 'pass');
-  assert.equal(checks.find(x => x.id === 'prerequisite-figma-cli').status, 'warn');
+  assert.equal(checks.some(x => x.id === 'prerequisite-figma-cli'), false);
   writeFileSync(join(bin, 'gh'), '#!/bin/sh\necho "gh version 1.9.9"\n', { mode: 0o755 });
   const old = doctor(manifest, options);
   assert.equal(old.exitCode, 1);
@@ -178,4 +178,18 @@ test('starter output is inert and contains no owner paths or origins', () => {
   assert.equal(parseArgs(['secondmate-template', '--print']).command, 'secondmate-template');
   assert.equal(parseArgs(['--update', '--install-root', '/tmp/kit']).command, 'upgrade');
   assert.throws(() => parseArgs(['update', '--yes', '--install-root', '/tmp/kit', '--firstmate-home', '/tmp/home']), /does not apply|requires|unknown/);
+});
+
+test('an upgrade places the kit launchers, Herdr pieces and plugins from the new kit, as setup does', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t);
+  // An upgrade defers them until it can no longer roll back: nothing is placed or recorded yet.
+  const deferred = await applyUpdate(f.manifest, { ...f.options, herdrCheck: () => ({ ok: true }), deferExtras: true });
+  assert.equal(deferred.shortcuts, null);
+  assert.equal('shortcuts' in (JSON.parse(readFileSync(f.receiptPath, 'utf8')).setup || {}), false);
+  // Without python3 or the kit copy this fixture cannot write launchers, so the upgrade reports why, and the receipt keeps the result.
+  const applied = await applyUpdate(f.manifest, { ...f.options, herdrCheck: () => ({ ok: true }) });
+  assert.ok(Array.isArray(applied.shortcuts), 'applyUpdate ran the extras step');
+  assert.match(applied.shortcuts.join('\n'), /Herdr shortcuts: not set up; needs /);
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  assert.ok('shortcuts' in receipt.setup, 'the upgrade recorded the extras result in the receipt');
 });

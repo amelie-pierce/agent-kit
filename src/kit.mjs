@@ -5,7 +5,8 @@ import { artifactFor, towerGlibcGap } from './platforms/linux.mjs';
 import { previewHooks, publicHookChanges } from './install/hooks.mjs';
 import { npmGroup, towerPaths } from './install/macos.mjs';
 import { defaultLinuxFirstmateHome, defaultLinuxRoot, describeStep, linuxPath, windowsHandoff, windowsNextSteps } from './install/windows.mjs';
-import { harnessLabel, parseHarness, towerIds, usesProfile } from './harness.mjs';
+import { harnessLabel, harnessProfiles, parseHarness, towerIds, usesProfile } from './harness.mjs';
+import { herdrConfigPath, keyBindings, previewKeys } from './shortcuts.mjs';
 
 function compareVersions(actual, minimum) {
   const a = actual.split('.').map(Number);
@@ -111,6 +112,8 @@ const loginSteps = {
 };
 
 const advisoryPrerequisites = ['terminal', 'browser', 'virtualization'];
+// The runtime and the session-graph plugin are installed with the tower, never found on PATH beforehand.
+const towerAdvisories = new Set(['zoe-fleet-runtime', 'zoetrope-herdr-plugin', 'herdr-plugin-manager']);
 
 function evaluate(manifest, context, options) {
   const relevant = manifest.tools.filter(tool => tool.classification !== 'never-ship' && (options.withTower !== false || !towerIds.has(tool.id))
@@ -123,7 +126,7 @@ function evaluate(manifest, context, options) {
   if (!platform.supported) issues.push({ status: 'fail', id: 'platform', reason: platform.message });
   for (const prereq of platform.prerequisites) if (prereq.status !== 'pass') (advisoryPrerequisites.includes(prereq.id) || prereq.required === false ? advisories : issues).push({ status: prereq.status, id: prereq.id, reason: prereq.detail });
   for (const result of platform.tools) if (result.status !== 'pass')
-    (result.id === 'zoe-fleet-runtime' && (result.status === 'unknown' || ['linux', 'wsl2'].includes(platform.platform)) ? advisories : issues).push({ status: result.status, id: result.id, reason: result.reason });
+    (towerAdvisories.has(result.id) && (result.status === 'unknown' || ['linux', 'wsl2'].includes(platform.platform)) ? advisories : issues).push({ status: result.status, id: result.id, reason: result.reason });
   for (const conflict of platform.pathConflicts) issues.push({ status: 'fail', id: conflict.id, reason: 'multiple executable paths; PATH precedence needs review' });
   const target = platform.artifactTarget || `${platform.platform}-${context.arch}`;
   for (const tool of selected) {
@@ -131,7 +134,7 @@ function evaluate(manifest, context, options) {
     const artifact = artifactFor(tool, target);
     const glibcGap = tool.id === 'zoe-fleet' && platform.platform === 'wsl2' && artifact?.kind === 'release-archive' && towerGlibcGap(platform);
     if (glibcGap) issues.push({ status: 'fail', id: tool.id, reason: glibcGap });
-    if (!npmGroup(tool.id) && (!artifact || artifact.status !== 'verified')) (tool.id === 'zoe-fleet-runtime' && ['linux', 'wsl2'].includes(platform.platform) ? advisories : issues).push({ status: 'unknown', id: tool.id, reason: artifact?.reason || `artifact for ${target} is not reviewed` });
+    if (!npmGroup(tool.id) && (!artifact || artifact.status !== 'verified')) (towerAdvisories.has(tool.id) && ['linux', 'wsl2'].includes(platform.platform) ? advisories : issues).push({ status: 'unknown', id: tool.id, reason: artifact?.reason || `artifact for ${target} is not reviewed` });
   }
   const optional = manifest.tools.filter(tool => tool.kind !== 'prerequisite' && tool.classification !== 'never-ship' && !selected.includes(tool) && (options.withTower !== false || !towerIds.has(tool.id)));
   return { relevant, selected, optional, platform, issues, advisories, target };
@@ -155,6 +158,11 @@ export function human(result) {
     for (const change of result.plan.globalHookChanges) lines.push(`- ${change.path}: ${JSON.stringify(change.changes)}`);
     if (result.platform.platform === 'windows') lines.push('- previewed inside WSL by the Linux installer before it applies them');
     else if (!result.plan.globalHookChanges.length) lines.push(result.issues.some(x => x.id === 'hooks') ? '- refused; see the hooks conflict below' : '- none');
+    if (result.plan.herdrKeys) {
+      lines.push(`Herdr keys block (agent-kit markers in ${result.plan.herdrKeys.path}; backed up first; uninstall removes it):`);
+      for (const k of result.plan.herdrKeys.keys) lines.push(`- ${k.key}: ${k.command}`);
+      for (const note of result.plan.herdrKeys.notes) lines.push(`- ${note}`);
+    }
     lines.push('Tower launcher configuration (written by the runtime launcher setup; never launched):');
     const tower = result.plan.towerConfig;
     lines.push(tower ? `- ${tower.config}: FM_HOME ${tower.firstmateHome}; fleet state ${tower.state} (new or empty)` : '- none on this platform');
@@ -186,9 +194,11 @@ function plannedLocation(tool, context, options, release, artifact) {
   if (tool.id === 'firstmate') return firstmateLocation(context, options);
   if (tool.id === 'zoe-fleet') return artifact?.kind === 'release-archive' ? join(versioned, 'bin', 'zoe-fleet') : join(versioned, 'zoetrope', 'bin', 'zoe-fleet');
   if (tool.id === 'zoe-fleet-runtime') return join(versioned, 'zoe-fleet-runtime');
+  if (tool.id === 'zoetrope-herdr-plugin' || tool.id === 'herdr-plugin-manager') return join(versioned, tool.id);
   if (['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint'].includes(tool.id)) return join(versioned, 'bin', tool.id);
   if (['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi'].includes(tool.id)) return join(versioned, 'npm', 'node_modules', '.bin', tool.id);
   if (tool.id === 'codex') return join(versioned, 'npm-codex', 'node_modules', '.bin', 'codex');
+  if (tool.id === 'figma-cli') return join(versioned, 'npm-figma', 'node_modules', '.bin', 'figma-cli');
   return 'UNVERIFIED: no install adapter';
 }
 
@@ -220,6 +230,16 @@ export function evaluatePlan(manifest, context, options) {
       evaluation.issues.push({ status: 'conflict', id: 'hooks', reason: error.message });
     }
   }
+  // The Herdr keys block, by the same rules as setup: the kit keys for the chosen agent CLIs, the mates key, and
+  // the plugin keys for the plugins the kit registers, each skipped when the person bound it, with every Herdr
+  // default it replaces named.
+  let herdrKeys = null;
+  if (options.command === 'plan' && evaluation.platform.supported && !windows && options.globalHooks !== false) {
+    const ids = new Set(evaluation.selected.map(tool => tool.id)), path = herdrConfigPath(context.env, context.env.HOME);
+    const keys = keyBindings({ agents: Object.fromEntries(harnessProfiles(options.harness).map(agent => [agent, true])),
+      graph: ids.has('zoetrope-herdr-plugin') && ids.has('zoe-fleet'), pluginManager: ids.has('herdr-plugin-manager') }, 'open-firstmate');
+    herdrKeys = { path, keys: keys.map(k => ({ key: k.key, command: k.action || `open-firstmate ${k.mode}` })), notes: previewKeys(path, keys) };
+  }
   let towerConfig = null;
   const runtime = evaluation.selected.find(tool => tool.id === 'zoe-fleet-runtime');
   if (options.command === 'plan' && evaluation.platform.supported && !windows && runtime && artifactFor(runtime, evaluation.target)?.status === 'verified') {
@@ -244,6 +264,7 @@ export function evaluatePlan(manifest, context, options) {
       { owner: 'firstmate', action: 'include Codex hooks with pinned source', path: pathJoin(context)(firstmateLocation(context, options), '.codex/hooks.json') },
     ],
     globalHookChanges,
+    herdrKeys,
     towerConfig,
     ...(windows && evaluation.platform.supported ? (({ status, command, commit, message }) => ({ handoff: { status, command: command || null, commit: commit || null, message },
       nextSteps: windowsNextSteps(evaluation.platform.wsl?.target?.name) }))(windowsHandoff({ ...options, handoff: false }, context, evaluation.platform)) : {}),

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
+import { strategyTakesPlans } from '../src/dispatch.mjs';
 
 // End-to-end proof that typing a key into `agent-kit keys` is the only step Jev routing needs: the kit writes
 // the key and its plan-fitted starter rules (Claude Pro, lean) into a copy of the pinned Firstmate, and that Firstmate's own
@@ -69,9 +70,16 @@ sys.exit(os.waitstatus_to_exitcode(status))
   const keys = run('python3', ['-c', driver], { input: JSON.stringify({ argv: [process.execPath, join(kit, 'bin', 'agent-kit.mjs'), 'keys', '--install-root', tools],
     env: gitEnv, replies: [['Keep or add?', 'add\n'], ['hidden; press Enter', `${placeholder}\r`]] }) });
   assert.equal(keys.status, 0, keys.stdout + keys.stderr);
-  assert.match(keys.stdout, /Starter dispatch rules: wrote Firstmate's lean rules for claude fitted to your plan \(claude pro\)/);
-  // The pinned Firstmate has no fm-strategy.sh --plans yet, so this is the kit's bridge file.
-  assert.equal(existsSync(join(firstmate, 'config', 'strategy')), false);
+  // A Firstmate whose fm-strategy.sh takes --plans selects the strategy itself; an older one gets the kit's bridge file.
+  const native = strategyTakesPlans(firstmate);
+  if (native) {
+    assert.match(keys.stdout, /Starter dispatch rules: selected Firstmate's lean strategy for claude fitted to your plan \(claude pro\) with bin\/fm-strategy\.sh set lean --providers claude --plans claude=pro --yes/);
+    assert.match(readFileSync(join(firstmate, 'config', 'strategy'), 'utf8'), /^plans=claude=pro$/m);
+    assert.equal(JSON.parse(readFileSync(join(tools, 'receipt.json'), 'utf8')).setup.dispatch.via, 'fm-strategy');
+  } else {
+    assert.match(keys.stdout, /Starter dispatch rules: wrote Firstmate's lean rules for claude fitted to your plan \(claude pro\)/);
+    assert.equal(existsSync(join(firstmate, 'config', 'strategy')), false);
+  }
   assert.equal((keys.stdout + keys.stderr).includes(placeholder), false, 'keys never shows the value');
   const rules = JSON.parse(readFileSync(join(firstmate, 'config', 'crew-dispatch.json'), 'utf8'));
   const pick = rules.rules.findIndex(rule => rule.strategy === 'standard');
@@ -115,7 +123,7 @@ JSON
   const health = run(process.execPath, [join(kit, 'bin', 'agent-kit.mjs'), 'doctor', '--install-root', tools], { env: { HOME: home, PATH: [stubs, dirname(jq), '/usr/bin', '/bin'].join(':') } });
   assert.match(health.stdout, /PASS jev: ready \(key set, rules present\)/);
   assert.equal(health.stdout.includes(placeholder), false);
-  console.log(`Jev end-to-end smoke passed against Firstmate ${pin.version.value}: keys wrote the key and rules, fm-dispatch-resolve.sh returned ${expected.harness} ${expected.model} ${expected.effort}`);
+  console.log(`Jev end-to-end smoke passed against Firstmate ${process.env.AGENT_KIT_FIRSTMATE_SRC ? 'at AGENT_KIT_FIRSTMATE_SRC' : pin.version.value}: keys wrote the key and ${native ? 'selected the strategy' : 'the bridge rules'}, fm-dispatch-resolve.sh returned ${expected.harness} ${expected.model} ${expected.effort}`);
 } finally {
   rmSync(base, { recursive: true, force: true });
 }

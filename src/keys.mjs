@@ -8,6 +8,8 @@ import { Writable } from 'node:stream';
 
 export const keyName = 'TYPESAFE_API_KEY';
 const assignment = /^\s*(?:export\s+)?TYPESAFE_API_KEY=/;
+// A key turned off with `agent-kit jev off` stays in .env, commented out, until `jev on`.
+const paused = /^\s*#\s*(?:export\s+)?TYPESAFE_API_KEY=\S/;
 const safeFile = path => {
   const st = lstatSync(path, { throwIfNoEntry: false });
   if (st && (!st.isFile() || st.isSymbolicLink() || st.nlink !== 1)) throw new Error(`${path}: expected a plain, unlinked file`);
@@ -49,18 +51,31 @@ function ignored(firstmateHome) {
   return tracked.status !== 0;
 }
 
+// True when .env holds a commented-out key that `jev on` can turn back on.
+export function keyPaused(firstmateHome) {
+  const path = join(firstmateHome, '.env');
+  try { if (!safeFile(path)) return false; } catch { return false; }
+  return readFileSync(path, 'utf8').split('\n').some(line => paused.test(line));
+}
+
 export async function writeKey(firstmateHome, action, value) {
-  if (!['set', 'remove'].includes(action)) throw new Error('invalid key action');
+  if (!['set', 'remove', 'pause', 'resume'].includes(action)) throw new Error('invalid key action');
   if (action === 'set') validateTypesafeKey(value);
   if (!ignored(firstmateHome)) throw new Error('Firstmate home must gitignore .env before changing its key');
   const path = join(firstmateHome, '.env');
   const st = safeFile(path);
   const old = st ? readFileSync(path, 'utf8') : '';
   const lines = old ? old.split('\n') : [];
-  const kept = lines.filter(line => !assignment.test(line));
+  let kept;
+  if (action === 'pause') kept = lines.map(line => assignment.test(line) ? `# ${line.trimStart()}` : line);
+  else if (action === 'resume') {
+    if (lines.some(line => assignment.test(line))) kept = lines;
+    else { let done = false; kept = lines.map(line => !done && paused.test(line) ? (done = true, line.replace(/^\s*#\s*/, '')) : line); }
+  } else kept = lines.filter(line => !assignment.test(line) && !paused.test(line));
   if (action === 'set') kept.push(`${keyName}=${value}`);
   const body = kept.join('\n').replace(/\n*$/, '\n');
-  if (body === old) return action === 'set';
+  const result = () => action === 'set' || (action === 'resume' && kept.some(line => assignment.test(line)));
+  if (body === old) return result();
   const temp = join(firstmateHome, `.env.agent-kit-${randomUUID()}.tmp`);
   let file;
   try {
@@ -78,7 +93,7 @@ export async function writeKey(firstmateHome, action, value) {
     if (file) await file.close();
     await rm(temp, { force: true });
   }
-  return action === 'set';
+  return result();
 }
 
 export async function hiddenKey(input, output) {

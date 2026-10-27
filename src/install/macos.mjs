@@ -11,10 +11,20 @@ import { towerIds, usesProfile } from '../harness.mjs';
 
 const exec = promisify(execFile);
 const npmIds = new Set(['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi', 'codex']);
-export const npmGroup = id => id === 'codex' ? 'npm-codex' : npmIds.has(id) ? 'npm' : null;
+export const npmGroup = id => id === 'codex' ? 'npm-codex' : id === 'figma-cli' ? 'npm-figma' : npmIds.has(id) ? 'npm' : null;
+// npm package names that map to a different manifest tool id.
+const npmTool = { '@openai/codex': 'codex', '@amelie-pierce/figma-cli': 'figma-cli' };
+// A tool pinned to a git commit installs from that commit's codeload archive, integrity-pinned in its lock.
+const codeload = tool => `https://codeload.github.com/${tool.approvedUpstream.replace(/^https:\/\/github\.com\//, '')}/tar.gz/${tool.version.value}`;
 const binaryIds = new Set(['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint']);
 const sourceIds = new Set(['firstmate', 'zoe-fleet']);
 const runtimeIds = new Set(['zoe-fleet-runtime']);
+// Herdr plugins from pinned source archives: the subtree that holds herdr-plugin.toml, and the files it needs.
+const pluginSpecs = {
+  'zoetrope-herdr-plugin': { subdir: 'herdr-plugin', layout: ['herdr-plugin.toml', 'herdr/keys.sh', 'herdr/open.sh', 'herdr/pane.sh', 'herdr/resolve.sh'] },
+  'herdr-plugin-manager': { subdir: '', layout: ['herdr-plugin.toml', 'bin/manager.sh', 'LICENSE'] },
+};
+const pluginIds = new Set(Object.keys(pluginSpecs));
 // Files the Zoetrope runtime's launcher contract needs (its docs/FLEET-PACKAGING.md).
 const runtimeLayout = ['bin/zoe-fleet-tower', 'scripts/fleet-config.sh', 'scripts/firstmate-fleet.py', 'fleet-plugin/herdr-plugin.toml', 'fleet-plugin/open.sh', 'docs/FLEET-PACKAGING.md', 'LICENSE'];
 const towerRelease = (tool, artifact) => tool.id === 'zoe-fleet' && artifact.kind === 'release-archive';
@@ -155,6 +165,17 @@ async function unpackRuntime(archive, destination) {
     if (!(await exists(join(destination, ...file.split('/'))))?.isFile()) throw new Error(`fleet runtime archive lacks ${file}; its launcher contract is not met`);
   }
 }
+// Extracts the archive's plugin subtree only, refusing anything but regular files and directories.
+async function unpackPlugin(archive, destination, { subdir, layout }) {
+  const { stdout } = await exec('tar', ['-tvzf', archive], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 60000 });
+  const { stdout: names } = await exec('tar', ['-tzf', archive], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 60000 });
+  const list = names.split('\n').filter(Boolean), top = list[0]?.split('/')[0];
+  if (!top || list.some(name => name.startsWith('/') || name.split('/').includes('..') || name.split('/')[0] !== top)) throw new Error('unsafe plugin source archive path');
+  const lines = stdout.split('\n').filter(Boolean), subtree = subdir ? `${top}/${subdir}/` : `${top}/`;
+  if (lines.some((line, i) => list[i]?.startsWith(subtree) && !/^[-d]/.test(line))) throw new Error(`plugin archive holds a link or special file under ${subdir || 'its root'}`);
+  await exec('tar', ['-xzf', archive, '-C', destination, `--strip-components=${subdir ? 2 : 1}`, subdir ? `${top}/${subdir}` : top], { maxBuffer: 65536, timeout: 120000 });
+  for (const file of layout) if (!(await exists(join(destination, ...file.split('/'))))?.isFile()) throw new Error(`plugin archive lacks ${subdir ? `${subdir}/` : ''}${file}`);
+}
 async function unpackTrackedSource(archive, destination, freshHome = false) {
   const { stdout } = await exec('tar', ['-tzf', archive], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 30000 });
   for (const name of stdout.split('\n').filter(Boolean)) {
@@ -234,22 +255,46 @@ export function selected(manifest, harness, withFigma, withTower = true) {
   return manifest.tools.filter(t => t.kind !== 'prerequisite' && t.classification !== 'never-ship' && (withTower || !towerIds.has(t.id))
     && (t.profile === 'core' || usesProfile(harness, t.profile) || (withFigma && t.profile === 'figma')));
 }
+// figma-cli's own skills install (figma-cli, figma-make, figma-make-team) for each chosen agent CLI. It never
+// overwrites a skill the person changed or a skill another tool owns; those are reported. Recorded for uninstall.
+async function figmaSkills(root, receipt, save, harness, options) {
+  const entry = join(root, receipt.phases['npm-figma'].path, 'node_modules', '@amelie-pierce', 'figma-cli', 'src', 'index.js');
+  const results = [];
+  for (const agent of usesProfile(harness, 'claude') && usesProfile(harness, 'codex') ? ['claude', 'codex'] : [usesProfile(harness, 'claude') ? 'claude' : 'codex']) {
+    try {
+      const { stdout } = await (options.runFigma || ((args, env) => exec(process.execPath, [entry, ...args], { env, timeout: 60000, maxBuffer: 1024 * 1024 })))(
+        ['skills', 'install', '--agent', agent], { ...toolEnv(options.home, root), FIGMA_CLI_SKIP_SKILLS: '1' });
+      results.push(...JSON.parse(stdout).results);
+    } catch (error) {
+      const body = error.stdout ? (() => { try { return JSON.parse(error.stdout).results; } catch { return null; } })() : null;
+      if (body) results.push(...body); else return { id: 'figma-skills', status: 'conflict', reason: `figma-cli skills install failed: ${(error.stderr || error.message).trim().split('\n').pop()}` };
+    }
+  }
+  receipt.phases['npm-figma'].skills = results.filter(r => ['installed', 'updated', 'up-to-date'].includes(r.status)).map(r => r.path);
+  await save();
+  const kept = results.filter(r => !['installed', 'updated', 'up-to-date', 'linked'].includes(r.status));
+  return kept.length ? { id: 'figma-skills', status: 'conflict', reason: kept.map(r => `${r.path}: ${r.reason || r.status}`).join('; ') }
+    : { id: 'figma-skills', status: 'installed', reason: `figma-cli skills registered: ${results.map(r => r.path).join(', ')}` };
+}
 async function npmPhase(root, release, group, manifest, receipt, save, options) {
   const base = fileURLToPath(new URL(`../../manifests/${group}/`, import.meta.url));
   const lockData = await readFile(join(base, 'package-lock.json'));
   const pkgData = await readFile(join(base, 'package.json'));
   const locked = JSON.parse(lockData);
   const packages = JSON.parse(pkgData).dependencies;
+  const pinnedSources = new Set();
   for (const [name, value] of Object.entries(packages)) {
-    const id = name === '@openai/codex' ? 'codex' : name;
+    const id = npmTool[name] || name;
     const tool = manifest.tools.find(x => x.id === id);
-    if (tool?.version.value !== value) throw new Error(`manifest and npm lock disagree for ${id}`);
+    const commit = tool?.version.kind === 'git-commit';
+    if (!tool || (commit ? value !== codeload(tool) : tool.version.value !== value)) throw new Error(`manifest and npm lock disagree for ${id}`);
     if (tool.version.status !== 'verified') return { id: group, status: 'unverified', reason: `${id}: ${tool.version.reason}` };
     const item = locked.packages[`node_modules/${name}`];
-    if (!item || item.version !== value || !item.integrity) throw new Error(`unlocked npm dependency: ${name}`);
+    if (!item || !item.integrity || (commit ? item.resolved !== value : item.version !== value)) throw new Error(`unlocked npm dependency: ${name}`);
+    if (commit) pinnedSources.add(value);
   }
   for (const [name, item] of Object.entries(locked.packages)) {
-    if (name && (!item.integrity || !item.resolved?.startsWith('https://registry.npmjs.org/'))) throw new Error(`unreviewed npm lock entry: ${name}`);
+    if (name && (!item.integrity || !(item.resolved?.startsWith('https://registry.npmjs.org/') || pinnedSources.has(item.resolved)))) throw new Error(`unreviewed npm lock entry: ${name}`);
   }
   const id = group, lockSha = sha(lockData), target = ownedPath(root, 'releases', release, group);
   if (await checkReceipt(root, receipt, id, locked.version, lockSha, options)) {
@@ -322,11 +367,12 @@ async function towerPhase(root, release, firstmateHome, receipt, save, options) 
   let recorded = false;
   await mkdir(stage, { recursive: true, mode: 0o700 });
   try {
-    const args = [launcher, 'setup', '--home', home, '--bin', bin, '--state', state, ...(await exists(noMistakes) ? ['--no-mistakes', noMistakes] : [])];
+    // Telemetry (the Claude quota and status bridge) lives in the fleet state, private like it.
+    const args = [launcher, 'setup', '--home', home, '--bin', bin, '--state', state, '--telemetry', join(state, 'telemetry'), ...(await exists(noMistakes) ? ['--no-mistakes', noMistakes] : [])];
     await exec('bash', args, { env: { ...toolEnv(options.home, root), XDG_CONFIG_HOME: stage }, timeout: 30000, maxBuffer: 65536 });
     const body = await readFile(join(stage, 'zoe-fleet', 'config'));
     const realState = await realpath(state);
-    const allowed = { FM_HOME: [home], ZOE_FLEET_BIN: [bin], ZOE_FLEET_STATE_DIR: [realState], ZOE_NO_MISTAKES_BIN: ['', noMistakes] };
+    const allowed = { FM_HOME: [home], ZOE_FLEET_BIN: [bin], ZOE_FLEET_STATE_DIR: [realState], ZOE_TELEMETRY_DIR: [join(realState, 'telemetry')], ZOE_NO_MISTAKES_BIN: ['', noMistakes] };
     const lines = body.toString('utf8').split('\n').filter(Boolean).map(line => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]);
     if (!lines.length || lines.some(([key, value]) => !allowed[key]?.includes(value)) || !lines.some(([key]) => key === 'FM_HOME')) throw new Error('launcher setup wrote an unexpected config');
     receipt.phases[id] = { state: 'pending', version: receipt.phases['zoe-fleet-runtime']?.version, path: config, ownedSha256: sha(body), fleetState: state };
@@ -375,7 +421,7 @@ export async function installPlatform(manifest, options = {}) {
     const chosen = selected(manifest, harness, !!options.withFigma, options.withTower !== false);
     await mkdir(join(root, 'releases', release, 'staging'), { recursive: true, mode: 0o700 });
     for (const tool of chosen) {
-      if (npmIds.has(tool.id)) continue;
+      if (npmGroup(tool.id)) continue;
       const a = artifactFor(tool, targetKey);
       if (tool.version.status !== 'verified' || a?.status !== 'verified') {
         components.push({ id: tool.id, status: 'unverified', reason: a?.reason || tool.version.reason || `no verified ${platform} artifact` });
@@ -386,7 +432,7 @@ export async function installPlatform(manifest, options = {}) {
         components.push({ id: tool.id, status: 'unverified', reason: `refused: ${glibcGap}` });
         continue;
       }
-      if (!binaryIds.has(tool.id) && !sourceIds.has(tool.id) && !runtimeIds.has(tool.id)) {
+      if (!binaryIds.has(tool.id) && !sourceIds.has(tool.id) && !runtimeIds.has(tool.id) && !pluginIds.has(tool.id)) {
         components.push({ id: tool.id, status: 'unverified', reason: 'no reviewed install adapter' });
         continue;
       }
@@ -427,7 +473,7 @@ export async function installPlatform(manifest, options = {}) {
         const pending = `${artifactPath}.${randomUUID()}.part`;
         try { await (options.fetchArtifact || download)(a.url, pending); } catch (error) {
           await rm(pending, { force: true });
-          if (!['zoe-fleet', 'zoe-fleet-runtime'].includes(tool.id)) throw error;
+          if (!['zoe-fleet', 'zoe-fleet-runtime', ...pluginIds].includes(tool.id)) throw error;
           components.push({ id: tool.id, status: 'unverified', reason: `tower download unavailable: ${error.code || error.message}` });
           continue;
         }
@@ -464,6 +510,18 @@ export async function installPlatform(manifest, options = {}) {
         receipt.phases[tool.id].state = 'complete';
         await save();
         components.push({ id: tool.id, status: 'installed', reason: 'verified fleet runtime archive activated' });
+      } else if (pluginIds.has(tool.id)) {
+        const destination = ownedPath(root, 'releases', release, tool.id);
+        if (await exists(destination)) throw new Error(`${tool.id} exists without a matching receipt`);
+        const stage = ownedPath(root, 'releases', release, 'staging', `${tool.id}-${randomUUID()}`);
+        await mkdir(stage, { recursive: true, mode: 0o700 });
+        try { await unpackPlugin(artifactPath, stage, pluginSpecs[tool.id]); } catch (error) { await rm(stage, { recursive: true, force: true }); throw error; }
+        receipt.phases[tool.id] = { state: 'pending', version: tool.version.value, artifactSha256: a.sha256, path: relative(root, destination), ownedSha256: await hashTree(stage) };
+        await save();
+        await rename(stage, destination);
+        receipt.phases[tool.id].state = 'complete';
+        await save();
+        components.push({ id: tool.id, status: 'installed', reason: 'verified Herdr plugin from its pinned source commit; registered with Herdr by setup' });
       } else if (tool.id === 'firstmate') {
         const destination = firstmateHome;
         if (!(await newDirectory(destination))) throw new Error('Firstmate home already exists without a matching receipt; refusing to inherit it');
@@ -531,6 +589,11 @@ export async function installPlatform(manifest, options = {}) {
     const coreNpm = chosen.some(t => npmIds.has(t.id) && t.id !== 'codex');
     if (coreNpm) components.push(await npmPhase(root, release, 'npm', manifest, receipt, save, options));
     if (chosen.some(t => t.id === 'codex')) components.push(await npmPhase(root, release, 'npm-codex', manifest, receipt, save, options));
+    if (chosen.some(t => t.id === 'figma-cli')) {
+      const figma = await npmPhase(root, release, 'npm-figma', manifest, receipt, save, options);
+      components.push(figma);
+      if (['installed', 'skipped'].includes(figma.status) && options.globalHooks !== false) components.push(await figmaSkills(root, receipt, save, harness, options));
+    }
     const shouldRegister = chosen.some(t => npmIds.has(t.id) && t.id !== 'codex') || receipt.phases.hooks;
     let hookChanges = [];
     if (options.globalHooks === false) {
@@ -564,13 +627,14 @@ export async function installPlatform(manifest, options = {}) {
       receipt: receiptPath, bin: join(root, 'releases', release, 'bin'),
       npmBin: coreNpm ? join(root, 'releases', release, 'npm', 'node_modules', '.bin') : null,
       codexBin: chosen.some(t => t.id === 'codex') ? join(root, 'releases', release, 'npm-codex', 'node_modules', '.bin') : null,
+      figmaBin: chosen.some(t => t.id === 'figma-cli') ? join(root, 'releases', release, 'npm-figma', 'node_modules', '.bin') : null,
       firstmateHome: components.some(x => x.id === 'firstmate' && ['installed', 'skipped'].includes(x.status)) ? firstmateHome : null,
       towerParity, towerLauncher, hookChanges,
       loginSteps: manifest.tools.filter(t => t.classification === 'per-user-login' && (t.profile === 'core' || usesProfile(harness, t.profile) || (options.withFigma && t.profile === 'figma'))).map(t => login[t.id]).filter(Boolean),
       nextSteps: [
         'Codex reviews new or changed hooks interactively; review and approve them yourself when prompted.',
         'no-mistakes init installs its user-level skill when you initialize your own repository.',
-        ...(towerLauncher ? [`Run ${towerLauncher} doctor, then open from a Herdr pane; open links the Herdr plugin. The kit does neither.`] : []),
+        ...(towerLauncher ? [`Run ${towerLauncher} doctor, then open the Fleet tab from a Herdr pane (zoe-fleet-open). The kit never runs either.`] : []),
         ...(linux?.wsl2 ? ['Use Windows Terminal and a browser on the Windows side; run agent tools inside your WSL2 Linux distro.'] : [])] };
   } finally { await unlock(); }
 }

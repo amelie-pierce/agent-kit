@@ -51,7 +51,7 @@ test('bundled manifest keeps verified source commits and macOS/Linux digests', (
     assert.match(tower.artifacts[target].url, /^https:\/\/github\.com\/pikenguyen227\/zoetrope\/releases\/download\/fleet-v0\.2\.0-fc45c4d9ea1d-linux\//);
     assert.deepEqual(runtime.artifacts[target], { ...runtime.artifacts['darwin-arm64'], reason: runtime.artifacts[target].reason });
   }
-  assert.ok(manifest.tools.filter(x => x.artifacts && !['zoe-fleet', 'zoe-fleet-runtime'].includes(x.id)).every(x => !Object.keys(x.artifacts).some(target => target.startsWith('wsl2-'))));
+  assert.ok(manifest.tools.filter(x => x.artifacts && !['zoe-fleet', 'zoe-fleet-runtime', 'zoetrope-herdr-plugin', 'herdr-plugin-manager'].includes(x.id)).every(x => !Object.keys(x.artifacts).some(target => target.startsWith('wsl2-'))));
   const badKind = structuredClone(tower);
   badKind.artifacts['darwin-arm64'].kind = 'installer';
   assert.throws(() => validateManifest({ ...manifest, tools: [badKind] }), /invalid artifact kind/);
@@ -119,11 +119,11 @@ test('person-installed prerequisites pass at their floors and fail below them wi
   assert.match(oldRuntime.issues.find(x => x.id === 'node-runtime').reason, /https:\/\/nodejs.org\/en\/download/);
 });
 
-test('correct macOS, headless Linux and WSL2 prerequisite checks are ready; optional Figma is advisory', { skip: process.platform === 'win32' }, t => {
+test('correct macOS, headless Linux and WSL2 prerequisite checks are ready; Figma is no longer a person-installed prerequisite', { skip: process.platform === 'win32' }, t => {
   const { home, bin, root } = tempFixture(t);
   for (const name of [...prereqBins, 'sh', 'sha256sum']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
   const tools = manifest.tools.filter(x => x.kind === 'prerequisite');
-  const outputs = { node: 'v24.15.0', git: 'git version 2.20.0', gh: 'gh version 2.0.0', claude: '2.1.293 (Claude Code)' };
+  const outputs = { node: 'v24.15.0', git: 'git version 2.20.0', gh: 'gh version 2.0.0', claude: '2.1.293 (Claude Code)', python3: 'Python 3.12.3' };
   const base = { arch: 'arm64', nodeVersion: '24.15.0', runCommand: path => outputs[basename(path)] || '/fake/CommandLineTools' };
   const mac = { ...base, platform: 'darwin', env: { HOME: home, PATH: bin, SHELL: join(bin, 'zsh') },
     applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']) };
@@ -134,7 +134,7 @@ test('correct macOS, headless Linux and WSL2 prerequisite checks are ready; opti
       const result = run([command, '--json'], { ...manifest, tools }, context);
       assert.deepEqual([result.result.summary, result.exitCode], ['ready', 0], JSON.stringify(result.result.issues));
       assert.equal(result.result.issues.length, 0);
-      assert.ok(result.result.advisories.some(x => x.id === 'figma-cli' && /figma-cli absent.*https:\/\//.test(x.reason)));
+      assert.ok(!result.result.platform.prerequisites.some(x => x.id === 'figma-cli'), 'the kit installs figma-cli itself when Figma is chosen');
     }
   }
   assert.deepEqual(readdirSync(home), []);
@@ -151,6 +151,7 @@ test('full reviewed manifest can report ready on macOS, Linux and WSL2 fixture m
   const versions = Object.fromEntries(manifest.tools.filter(x => x.detection.kind === 'command').map(x => [x.detection.command, x.kind === 'prerequisite' ? x.minVersion : x.version.value]));
   const runCommand = (path, args, cwd) => {
     if (basename(path) === 'xcode-select') return '/fake/CommandLineTools';
+    if (basename(path) === 'python3') return 'Python 3.12.3';
     if (basename(path) === 'git' && args[0] === 'rev-parse') return manifest.tools.find(x => x.installLocation?.relativePath.endsWith(`/${basename(cwd)}`)).version.value;
     return `${basename(path)} ${versions[basename(path)]}`;
   };
@@ -177,15 +178,19 @@ test('full reviewed manifest can report ready on macOS, Linux and WSL2 fixture m
   assert.equal(urls(envOnly)['zoe-fleet'], tower.artifacts['linux-arm64'].url);
   assert.equal(run(['plan', '--json'], manifest, envOnly).result.plan.towerConfig, null);
   const towerTools = context => run(['check', '--json'], manifest, context).result.advisories.filter(x => x.id.startsWith('tower-')).map(x => x.id);
-  assert.deepEqual([towerTools(wsl2), towerTools(envOnly), towerTools(linux)], [['tower-python3'], [], []]);
-  assert.deepEqual(towerTools({ ...wsl2, runCommand: (path, args, cwd) => basename(path) === 'python3' ? 'Python 3.12.3' : runCommand(path, args, cwd) }), []);
+  assert.deepEqual([towerTools(wsl2), towerTools(envOnly), towerTools(linux)], [[], [], []]);
   rmSync(join(bin, 'jq'));
   const missing = run(['check', '--json'], manifest, { ...wsl2, runCommand: (path, args, cwd) => basename(path) === 'python3' ? 'Python 3.8.10' : runCommand(path, args, cwd) });
-  assert.deepEqual([missing.result.summary, missing.exitCode], ['ready', 0]);
-  assert.deepEqual(missing.result.advisories.filter(x => x.id.startsWith('tower-')).map(x => [x.id, x.status]), [['tower-python3', 'warn'], ['tower-jq', 'warn']]);
+  assert.deepEqual([missing.result.summary, missing.exitCode], ['1 gaps or unknowns', 1], 'python3 3.9 is required on every Linux install now');
+  assert.deepEqual(missing.result.advisories.filter(x => x.id.startsWith('tower-')).map(x => [x.id, x.status]), [['tower-jq', 'warn']]);
   assert.match(missing.result.advisories.find(x => x.id === 'tower-jq').reason, /sudo apt install jq/);
-  assert.match(missing.result.advisories.find(x => x.id === 'tower-python3').reason, /python3 3\.8 is older than 3\.9/);
+  assert.match(missing.result.issues.find(x => x.id === 'python3').reason, /python3 3\.8 is older than 3\.9; the kit's launchers and the tower need python3 3\.9 or newer/);
   assert.ok(run(['plan', '--json'], manifest, wsl2).result.plan.towerConfig);
+  // The plan's Herdr keys follow setup's binding rules: the mates key always, and the plugin keys as plugin actions.
+  const keys = Object.fromEntries(run(['plan', '--json'], manifest, wsl2).result.plan.herdrKeys.keys.map(k => [k.key, k.command]));
+  assert.equal(keys['prefix+shift+m'], 'open-firstmate mates');
+  assert.equal(keys['prefix+shift+c'], 'furkankly.zoetrope.open-tab');
+  assert.equal(keys['prefix+m'], 'ray.plugin-manager.open');
   assert.equal(run(['plan', '--json'], manifest, linux).result.plan.towerConfig, null);
   const old = run(['check', '--json'], manifest, { ...wsl2, glibcVersion: '2.31' });
   assert.equal(old.exitCode, 1);
@@ -242,9 +247,9 @@ test('Linux and WSL2 inspect distro, libc, tools, paths and select Linux artifac
 
 test('Linux preflight reports browser and terminal without failing; WSL2 marks them Windows side', { skip: process.platform === 'win32' }, t => {
   const { home, bin, root } = tempFixture(t);
-  for (const name of ['git', 'curl', 'tar', 'unzip', 'bash', 'sh', 'sha256sum', 'herdr']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
+  for (const name of ['git', 'curl', 'tar', 'unzip', 'bash', 'sh', 'sha256sum', 'herdr', 'python3']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
   const fixtureManifest = { ...manifest, tools: [structuredClone(manifest.tools.find(x => x.id === 'herdr'))] };
-  const base = { platform: 'linux', arch: 'x64', libc: 'glibc', osRelease: 'ID=ubuntu\n', procVersion: 'Linux version 6.8', nodeVersion: '24.21.0', runCommand: () => 'herdr 0.9.3' };
+  const base = { platform: 'linux', arch: 'x64', libc: 'glibc', osRelease: 'ID=ubuntu\n', procVersion: 'Linux version 6.8', nodeVersion: '24.21.0', runCommand: path => basename(path) === 'python3' ? 'Python 3.12.3' : 'herdr 0.9.3' };
   const check = env => {
     const result = run(['check', '--json', '--install-root', join(root, 'kit')], fixtureManifest, { ...base, env: { HOME: home, PATH: bin, SHELL: join(bin, 'bash'), ...env } });
     const prereq = id => result.result.platform.prerequisites.find(x => x.id === id);
@@ -345,12 +350,12 @@ test('macOS preflight reports shell, install root, unzip, terminal and browser r
   assert.deepEqual(readdirSync(join(home, '.agent-kit')), []);
 });
 
-test('plan lists the unselected harness and reports Figma as an optional prerequisite', t => {
+test('plan lists the unselected harness and Figma as optional kit components', t => {
   const { home, bin } = tempFixture(t);
   const context = { platform: 'linux', arch: 'x64', env: { HOME: home, PATH: bin }, nodeVersion: '24.15.0', libc: 'glibc', procVersion: '', osRelease: '' };
   const claude = run(['plan', '--json'], manifest, context);
   const optional = claude.result.plan.optionalComponents;
-  assert.deepEqual(optional.map(x => x.id).sort(), ['codex']);
+  assert.deepEqual(optional.map(x => x.id).sort(), ['codex', 'figma-cli']);
   const codex = optional.find(x => x.id === 'codex');
   const lock = manifest.tools.find(x => x.id === 'codex');
   assert.equal(codex.status, 'optional, not selected');
@@ -360,7 +365,8 @@ test('plan lists the unselected harness and reports Figma as an optional prerequ
   assert.ok(claude.result.plan.loginSteps.some(x => x.includes('Claude Code')));
   const selected = run(['plan', '--json', '--harness', 'codex', '--with-figma'], manifest, context);
   assert.deepEqual(selected.result.plan.optionalComponents.map(x => x.id), []);
-  assert.equal(selected.result.platform.prerequisites.find(x => x.id === 'figma-cli').required, false);
+  const figma = selected.result.plan.tools.find(x => x.id === 'figma-cli');
+  assert.deepEqual([figma.version, figma.lockGroup], ['cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942', 'npm-figma']);
   const text = run(['plan'], manifest, context).output;
   assert.match(text, new RegExp(`- ${lock.name}: optional, not selected; ${lock.version.value.replace(/\./g, '\\.')} from ${lock.approvedUpstream}`));
   assert.deepEqual(readdirSync(home), []);
@@ -418,7 +424,7 @@ test('CLI writes no files under a temporary HOME in check or plan', t => {
   }
 });
 
-test('optional figma version runs with disposable HOME and never writes the teammate HOME', { skip: process.platform === 'win32' }, t => {
+test('the figma-cli version probe runs with disposable HOME and never writes the teammate HOME', { skip: process.platform === 'win32' }, t => {
   const { home, bin, root } = tempFixture(t);
   writeFileSync(join(bin, 'figma-cli'), '#!/bin/sh\n/bin/mkdir -p "$HOME/.figma-cli/plugins"\necho 2.2.5-make.2\n', { mode: 0o755 });
   const context = { env: { HOME: home, PATH: bin }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
@@ -427,8 +433,8 @@ test('optional figma version runs with disposable HOME and never writes the team
     const result = run([command, '--json', '--with-figma'], manifest, context);
     assert.equal(result.exitCode, 1);
     assert.deepEqual(readdirSync(home), []);
-    const figma = result.result.platform.prerequisites.find(x => x.id === 'figma-cli');
-    assert.equal(figma.status, 'pass');
+    const figma = result.result.platform.tools.find(x => x.id === 'figma-cli');
+    assert.deepEqual([figma.status, figma.reason], ['unknown', 'present; version not read because its command writes into HOME']);
     assert.deepEqual(figma.paths, [join(bin, 'figma-cli')]);
   }
 });
@@ -798,7 +804,7 @@ set -euo pipefail
 shift
 nm=''
 while [ "$#" -gt 0 ]; do
-  case "$1" in --home) h=$2 ;; --bin) b=$2 ;; --state) s=$2 ;; --no-mistakes) nm=$2 ;; *) exit 2 ;; esac
+  case "$1" in --home) h=$2 ;; --bin) b=$2 ;; --state) s=$2 ;; --telemetry) tl=$2 ;; --no-mistakes) nm=$2 ;; *) exit 2 ;; esac
   shift 2
 done
 [ -x "$h/bin/fm-fleet-snapshot.sh" ] || exit 1
@@ -806,7 +812,7 @@ umask 077
 mkdir -p "$s" "$s/telemetry"
 d="\${XDG_CONFIG_HOME:-$HOME/.config}/zoe-fleet"
 mkdir -p "$d"
-printf 'FM_HOME=%s\\nZOE_FLEET_BIN=%s\\nZOE_FLEET_STATE_DIR=%s\\nZOE_NO_MISTAKES_BIN=%s\\n' "$h" "$b" "$(cd "$s" && pwd -P)" "$nm" > "$d/config"
+printf 'FM_HOME=%s\\nZOE_FLEET_BIN=%s\\nZOE_FLEET_STATE_DIR=%s\\nZOE_TELEMETRY_DIR=%s\\nZOE_NO_MISTAKES_BIN=%s\\n' "$h" "$b" "$(cd "$s" && pwd -P)" "$(cd "$tl" && pwd -P)" "$nm" > "$d/config"
 `;
 
 function towerFixture(t, { runtimeFiles, towerBinary = 'fixture tower binary' } = {}) {
@@ -879,7 +885,7 @@ test('macOS release archives install the tower and configure its launcher withou
   assert.equal(existsSync(f.kitPath('zoetrope')), false);
   const state = join(f.home, '.local', 'state', 'zoe-fleet', f.digest), configPath = join(f.home, '.config', 'zoe-fleet', 'config');
   const config = readFileSync(configPath, 'utf8');
-  assert.equal(config, `FM_HOME=${f.firstmateHome}\nZOE_FLEET_BIN=${f.kitPath('bin', 'zoe-fleet')}\nZOE_FLEET_STATE_DIR=${state}\nZOE_NO_MISTAKES_BIN=\n`);
+  assert.equal(config, `FM_HOME=${f.firstmateHome}\nZOE_FLEET_BIN=${f.kitPath('bin', 'zoe-fleet')}\nZOE_FLEET_STATE_DIR=${state}\nZOE_TELEMETRY_DIR=${join(state, 'telemetry')}\nZOE_NO_MISTAKES_BIN=\n`);
   if (!f.root.startsWith(homedir())) assert.ok(!config.includes(homedir()));
   assert.deepEqual(readdirSync(state), ['telemetry']);
   const receipt = JSON.parse(readFileSync(result.receipt));
@@ -1000,7 +1006,7 @@ test('WSL2 installs the tower from its release archives and configures the launc
   assert.deepEqual(readFileSync(f.kitPath('bin', 'zoe-fleet')), f.towerBinary);
   assert.equal(existsSync(f.kitPath('zoetrope')), false);
   const state = join(f.home, '.local', 'state', 'zoe-fleet', f.digest);
-  assert.equal(readFileSync(join(f.home, '.config', 'zoe-fleet', 'config'), 'utf8'), `FM_HOME=${f.firstmateHome}\nZOE_FLEET_BIN=${f.kitPath('bin', 'zoe-fleet')}\nZOE_FLEET_STATE_DIR=${state}\nZOE_NO_MISTAKES_BIN=\n`);
+  assert.equal(readFileSync(join(f.home, '.config', 'zoe-fleet', 'config'), 'utf8'), `FM_HOME=${f.firstmateHome}\nZOE_FLEET_BIN=${f.kitPath('bin', 'zoe-fleet')}\nZOE_FLEET_STATE_DIR=${state}\nZOE_TELEMETRY_DIR=${join(state, 'telemetry')}\nZOE_NO_MISTAKES_BIN=\n`);
   const receipt = JSON.parse(readFileSync(result.receipt));
   assert.equal(receipt.phases['zoe-fleet'].artifactSha256, f.fixtureManifest.tools[1].artifacts['wsl2-arm64'].sha256);
   const second = await installPlatform(f.fixtureManifest, f.options);
@@ -1228,4 +1234,49 @@ test('npm phase is not installed while a locked tool version is unverified', asy
   assert.equal(result.status, 'partial');
   assert.deepEqual(result.components, [{ id: 'npm', status: 'unverified', reason: 'lavish-axi: approval pending' }]);
   assert.equal(existsSync(join(f.installRoot, 'releases', 'fixture-1', 'npm')), false);
+});
+
+test('with Figma, the npm-figma lock installs figma-cli from its pinned codeload commit and figma-cli registers its own skills', async t => {
+  const f = installFixture(t);
+  f.fixtureManifest.tools = [structuredClone(manifest.tools.find(x => x.id === 'figma-cli'))];
+  const lock = JSON.parse(readFileSync(new URL('../manifests/npm-figma/package-lock.json', import.meta.url)));
+  assert.equal(lock.packages['node_modules/@amelie-pierce/figma-cli'].resolved, 'https://codeload.github.com/amelie-pierce/figma-cli/tar.gz/cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942');
+  assert.ok(Object.entries(lock.packages).filter(([name]) => name && name !== 'node_modules/@amelie-pierce/figma-cli').every(([, item]) => item.resolved.startsWith('https://registry.npmjs.org/') && item.integrity));
+  f.options.runNpm = async stage => { mkdirSync(join(stage, 'node_modules', '.bin'), { recursive: true }); writeFileSync(join(stage, 'node_modules', '.bin', 'figma-cli'), 'fixture', { mode: 0o755 }); };
+  const asked = [];
+  f.options.runFigma = async args => { asked.push(args.join(' ')); return { stdout: JSON.stringify({ ready: true, results: [{ agent: args[3], name: 'figma-make-team', path: join(f.home, args[3] === 'claude' ? '.claude' : '.agents', 'skills', 'figma-make-team'), status: 'installed' }] }) }; };
+  const result = await installPlatform(f.fixtureManifest, { ...f.options, withFigma: true, harness: 'both' });
+  assert.deepEqual(result.components.map(x => [x.id, x.status]), [['npm-figma', 'installed'], ['figma-skills', 'installed']]);
+  assert.deepEqual(asked, ['skills install --agent claude', 'skills install --agent codex']);
+  assert.equal(result.figmaBin, join(f.installRoot, 'releases', 'fixture-1', 'npm-figma', 'node_modules', '.bin'));
+  assert.equal(JSON.parse(readFileSync(result.receipt)).phases['npm-figma'].skills.length, 2);
+  const none = await installPlatform(f.fixtureManifest, { ...f.options, withFigma: false });
+  assert.ok(!none.components.some(x => x.id === 'npm-figma'), 'without Figma there is nothing to install');
+});
+
+test('a Herdr plugin installs only its subtree from the pinned source archive and refuses links in it', async t => {
+  const f = installFixture(t);
+  const repo = join(f.root, 'zoetrope-src');
+  mkdirSync(join(repo, 'herdr-plugin', 'herdr'), { recursive: true }); mkdirSync(join(repo, 'src'));
+  writeFileSync(join(repo, 'src', 'main.rs'), 'fn main() {}\n');
+  writeFileSync(join(repo, 'herdr-plugin', 'herdr-plugin.toml'), 'id = "furkankly.zoetrope"\n');
+  for (const name of ['keys.sh', 'open.sh', 'pane.sh', 'resolve.sh']) writeFileSync(join(repo, 'herdr-plugin', 'herdr', name), '#!/bin/sh\n', { mode: 0o755 });
+  const archive = join(f.root, 'zoetrope.tar.gz');
+  assert.equal(spawnSync('tar', ['-czf', archive, '-C', f.root, 'zoetrope-src']).status, 0);
+  const tool = structuredClone(manifest.tools.find(x => x.id === 'zoetrope-herdr-plugin'));
+  tool.artifacts['darwin-arm64'] = { url: 'https://fixture.test/zoetrope.tar.gz', sha256: createHash('sha256').update(readFileSync(archive)).digest('hex'), kind: 'source-archive', status: 'verified', reason: '' };
+  f.fixtureManifest.tools = [tool];
+  f.options.fetchArtifact = async (_url, destination) => copyFileSync(archive, destination);
+  const result = await installPlatform(f.fixtureManifest, f.options);
+  assert.equal(result.components[0].status, 'installed');
+  const installed = join(f.installRoot, 'releases', 'fixture-1', 'zoetrope-herdr-plugin');
+  assert.deepEqual(readdirSync(installed).sort(), ['herdr', 'herdr-plugin.toml'], 'only herdr-plugin/, never the rest of the repository');
+  const linked = installFixture(t);
+  symlinkSync('/etc/hosts', join(repo, 'herdr-plugin', 'herdr', 'link.sh'));
+  const bad = join(linked.root, 'bad.tar.gz');
+  assert.equal(spawnSync('tar', ['-czf', bad, '-C', f.root, 'zoetrope-src']).status, 0);
+  tool.artifacts['darwin-arm64'].sha256 = createHash('sha256').update(readFileSync(bad)).digest('hex');
+  linked.fixtureManifest.tools = [tool];
+  linked.options.fetchArtifact = async (_url, destination) => copyFileSync(bad, destination);
+  await assert.rejects(installPlatform(linked.fixtureManifest, linked.options), /plugin archive holds a link or special file under herdr-plugin/);
 });

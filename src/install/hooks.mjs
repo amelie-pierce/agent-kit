@@ -24,14 +24,23 @@ const sha = data => createHash('sha256').update(data).digest('hex');
 const marker = id => ` # agent-kit:${id}`;
 const quote = value => `'${value.replaceAll("'", "'\\''")}'`;
 const scriptPath = (root, release, id) => join(root, 'releases', release, 'herdr-hooks', herdrScripts[id].agent, 'herdr-agent-state.sh');
-const commandFor = (root, release, id) => herdrScripts[id]
+// gh-axi and chrome-devtools-axi run through a gate that keeps their session context to the person's Firstmate
+// home (the owner's ambient-* hooks); the gate lives in the release beside the Herdr scripts.
+const gatedTools = new Set(['gh-axi', 'chrome-devtools-axi']);
+const gatePath = (root, release, id) => join(root, 'releases', release, 'hook-gates', `ambient-${id}`);
+export const gateScript = (firstmateHome, binary, id) => `#!/bin/sh\n# agent-kit:ambient-${id} - run ${id}'s session hook only inside this Firstmate home.\n[ "\${FM_HOME:-}" = ${quote(firstmateHome)} ] || exit 0\nexec ${quote(binary)} "$@"\n`;
+const commandFor = (root, release, id, gated = false) => herdrScripts[id]
   ? `bash ${quote(scriptPath(root, release, id))} session${marker(id)}`
-  : `${quote(join(root, 'releases', release, 'npm', 'node_modules', '.bin', id))}${marker(id)}`;
-const ownedCommand = (command, root, id) => {
-  const [head, tail] = commandFor(root, '\0', id).split('\0');
+  : gated ? `${quote(gatePath(root, release, id))}${marker(id)}` : `${quote(join(root, 'releases', release, 'npm', 'node_modules', '.bin', id))}${marker(id)}`;
+const ownedCommand = (command, root, id) => [false, ...(gatedTools.has(id) ? [true] : [])].some(gated => {
+  const [head, tail] = commandFor(root, '\0', id, gated).split('\0');
   return command.length > head.length + tail.length && command.startsWith(head) && command.endsWith(tail)
     && /^(?!\.\.?$)[^/']+$/.test(command.slice(head.length, command.length - tail.length));
-};
+});
+// The Firstmate home the receipt records, which the gates compare against; none before the first install.
+function receiptHome(root) {
+  try { const r = JSON.parse(readFileSync(join(root, 'receipt.json'), 'utf8')); return r.setup?.paths?.firstmateHome || r.phases?.firstmate?.path || null; } catch { return null; }
+}
 const matcherFor = id => id === 'herdr-codex' ? undefined : id === 'herdr-claude' ? '^(startup|resume|clear|compact|fork)$' : '';
 const plainObject = value => value && typeof value === 'object' && !Array.isArray(value);
 const safeFile = path => {
@@ -211,8 +220,12 @@ export function previewHooks(manifest, { home, installRoot }) {
   if (!home || !installRoot) throw new Error('hooks preview requires HOME and --install-root');
   const root = resolve(installRoot), release = manifest.release;
   const selected = new Set(manifest.tools.filter(tool => tool.kind !== 'prerequisite' && tool.classification !== 'never-ship' && tool.profile === 'core' && tool.version.status === 'verified').map(tool => tool.id));
-  const axi = new Map();
-  for (const id of hookTools) if (selected.has(id)) axi.set(id, { matcher: '', hooks: [{ type: 'command', command: commandFor(root, release, id), timeout: 10 }] });
+  const axi = new Map(), fmHome = receiptHome(root), gates = [];
+  for (const id of hookTools) if (selected.has(id)) {
+    const gated = !!fmHome && gatedTools.has(id);
+    axi.set(id, { matcher: '', hooks: [{ type: 'command', command: commandFor(root, release, id, gated), timeout: 10 }] });
+    if (gated) gates.push({ id: `ambient-${id}`, path: gatePath(root, release, id), body: gateScript(fmHome, join(root, 'releases', release, 'npm', 'node_modules', '.bin', id), id) });
+  }
   const herdr = manifest.tools.find(tool => tool.id === 'herdr');
   if (herdr?.version.status === 'verified' && herdr.version.value !== '0.9.3') throw new Error('Herdr integration contract requires review for this version');
   const hasHerdr = herdr?.version.status === 'verified' && herdr.version.value === '0.9.3';
@@ -258,6 +271,12 @@ export function previewHooks(manifest, { home, installRoot }) {
     if (hasHerdr && source === null) scripts.push({ path, id, op: 'add', sha256: spec.sha256 });
     else if (!hasHerdr && source !== null) scripts.push({ path, id, op: 'remove', sha256: spec.sha256 });
   }
+  for (const gate of gates) {
+    plainParents(root, gate.path);
+    const source = safeFile(gate.path);
+    if (source !== null && sha(source) !== sha(gate.body)) throw new Error(`${gate.path}: kit hook gate changed; refusing hooks phase`);
+    if (source === null) scripts.push({ path: gate.path, id: gate.id, op: 'add', sha256: sha(gate.body), body: gate.body });
+  }
   return { files, skills, scripts, binaries: [...axi.keys()].map(id => join(root, 'releases', release, 'npm', 'node_modules', '.bin', id)),
     herdrBinary: hasHerdr ? join(root, 'releases', release, 'bin', 'herdr') : null,
     changed: files.some(x => x.changes.length) || skills.length > 0 || scripts.length > 0 };
@@ -291,7 +310,8 @@ export async function applyHooks(preview, { installRoot, receipt, save, generate
     if (!entry || entry.state !== 'complete' || !existsSync(preview.herdrBinary) || sha(await readFile(preview.herdrBinary)) !== entry.ownedSha256)
       throw new Error(`${preview.herdrBinary}: pinned Herdr receipt or binary mismatch; refusing hooks phase`);
   }
-  const scripts = preview.scripts.some(x => x.op === 'add') ? await (generateHerdrHooks || generateHerdr)(preview, installRoot) : new Map();
+  const scripts = preview.scripts.some(x => x.op === 'add' && herdrScripts[x.id]) ? await (generateHerdrHooks || generateHerdr)(preview, installRoot) : new Map();
+  for (const script of preview.scripts) if (script.body !== undefined) scripts.set(script.id, Buffer.from(script.body));
   for (const skill of preview.skills) if (skill.after && !existsSync(join(skill.after, 'SKILL.md'))) throw new Error(`${skill.after}: pinned skill missing; refusing hooks phase`);
   for (const file of preview.files) if (file.changes.length && safeFile(file.path) !== file.before) throw new Error(`${file.path}: changed since preview; refusing hooks phase`);
   for (const skill of preview.skills) {

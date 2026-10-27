@@ -7,6 +7,7 @@ import { PassThrough, Readable, Writable } from 'node:stream';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { withOwnerTiers } from '../src/dispatch.mjs';
 import { charterText, checkRoot, derivePaths, expandRoot, parseSetupArgs, resumeSummary, setup, wrapperScript } from '../src/setup.mjs';
 import { doctor } from '../src/doctor.mjs';
 import { parseHarness } from '../src/harness.mjs';
@@ -24,6 +25,8 @@ function fixture(t) {
   mkdirSync(home); mkdirSync(bin);
   // Person-installed and platform commands the Linux preflight looks for; gh answers only `api user` and `auth status`.
   for (const name of ['curl', 'tar', 'unzip', 'sh', 'sha256sum', 'firefox', 'xterm']) writeFileSync(join(bin, name), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  // A python3 that reports 3.12, as the Linux preflight requires; the shortcuts step finds it too.
+  writeFileSync(join(bin, 'python3'), '#!/bin/sh\n[ "$1" = --version ] && { echo Python 3.12.3; exit 0; }\nexit 1\n', { mode: 0o755 });
   writeFileSync(join(bin, 'gh'), '#!/bin/sh\nif [ "$1 $2" = "api user" ]; then echo fixture-owner; exit 0; fi\nif [ "$1 $2" = "auth status" ]; then exit 0; fi\nexit 1\n', { mode: 0o755 });
   // PATH holds only these stubs plus the real git and bash, so a removed stub is really missing.
   for (const name of ['git', 'bash']) symlinkSync(spawnSync('/bin/sh', ['-c', `command -v ${name}`], { encoding: 'utf8' }).stdout.trim(), join(bin, name));
@@ -48,6 +51,7 @@ function fixture(t) {
   return { base, home, bin, root, env, fixtureManifest, installOptions, downloads, ctx };
 }
 
+const kitCopyOf = (f, kit) => join(f.root, '.tools', 'kit', kit.commit);
 function kitCheckout(t, base) {
   const dir = join(base, 'kit-source');
   mkdirSync(join(dir, 'bin'), { recursive: true });
@@ -151,6 +155,16 @@ test('--yes --dry-run without a terminal uses the defaults, prints the summary a
   assert.equal(f.downloads.length, 0);
 });
 
+test('the summary lists exactly the Herdr keys the kit will bind, by the placement rules', posixOnly, async t => {
+  const f = fixture(t);
+  const c = f.ctx(['--yes', '--dry-run', '--harness', 'claude', '--no-tower', '--root', f.root]);
+  assert.equal(await setup(f.fixtureManifest, c), 0);
+  const line = c.text.split('\n').find(l => l.includes('agent-kit keys block'));
+  assert.ok(line, c.text);
+  assert.match(line, /\(prefix\+f open-firstmate claude, prefix\+shift\+m open-firstmate mates;/, 'the mates key is bound even with the tower off');
+  assert.doesNotMatch(line, /prefix\+shift\+f|prefix\+shift\+c|prefix\+m /, 'no Codex key, and no plugin keys for plugins not registered');
+});
+
 const keyInstall = async (_manifest, options) => {
   assert.equal(options.env.TYPESAFE_API_KEY, undefined, 'install child environment is sanitized');
   mkdirSync(options.firstmateHome, { recursive: true });
@@ -209,7 +223,7 @@ test('setup writes Firstmate\'s balanced starter rules only once the key is set 
   const first = f.ctx(['--yes', '--root', f.root, '--no-tower', '--no-global-hooks']);
   first.installPlatform = install;
   assert.equal(await setup(f.fixtureManifest, first), 0, first.text);
-  assert.match(first.text, /Starter dispatch rules: not written; the kit writes them only once TYPESAFE_API_KEY is set/);
+  assert.match(first.text, /Starter dispatch rules: will select Firstmate's \w+ strategy for [^\n]* with bin\/fm-strategy\.sh --plans/, 'a home not cloned yet is judged by the pinned Firstmate, key or not');
   assert.equal(existsSync(rules), false, 'no key, no rules');
 
   const c = ttyCtx(f, ['--root', f.root], [[/Add optional TYPESAFE_API_KEY[^\n]*$/, 'y\n'], [/TYPESAFE_API_KEY \(hidden[^\n]*$/, `${key}\r`], [/Write these changes now[^\n]*$/, 'y\n']]);
@@ -217,7 +231,8 @@ test('setup writes Firstmate\'s balanced starter rules only once the key is set 
   assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
   assert.match(c.text, /Starter dispatch rules: will write Firstmate's balanced rules for codex to [^\n]*crew-dispatch\.json/);
   assert.match(c.text, /Starter dispatch rules: wrote Firstmate's balanced rules for codex/);
-  assert.deepEqual(JSON.parse(readFileSync(rules, 'utf8')), { rules: [{ ...template.dispatch.rules[0], use: [template.dispatch.rules[0].use[1]] }], default: template.dispatch.default });
+  const rendered = { rules: [{ ...template.dispatch.rules[0], use: [template.dispatch.rules[0].use[1]] }], default: template.dispatch.default };
+  assert.deepEqual(JSON.parse(readFileSync(rules, 'utf8')), JSON.parse(withOwnerTiers(`${JSON.stringify(rendered)}\n`)), 'the template rules, then the kit\'s check and research tiers');
   assert.deepEqual(readdirSync(join(f.root, 'firstmate', 'config')), ['crew-dispatch.json']);
   const receipt = readFileSync(receiptPath, 'utf8');
   assert.deepEqual(JSON.parse(receipt).setup.dispatch, { file: 'config/crew-dispatch.json', template: 'balanced', providers: 'codex', plans: { codex: 'not-sure' }, sha256: sha(readFileSync(rules)) });
@@ -237,11 +252,14 @@ test('the plan and mode questions use the approved plan ids, warn before full on
   const f = fixture(t);
   const c = ttyCtx(f, ['--root', f.root, '--no-tower', '--no-global-hooks', '--no-figma', '--github-owner', 'my-org', '--no-starter-mate', '--channel', 'releases'],
     [[/2b\. Codex subscription plan, for starter dispatch rules: plus, pro, business-standard, business-premium, enterprise-edu, api or skip \[skip\][^\n]*$/, 'plus\n'],
-      [/2c\. Starter routing mode used once TYPESAFE_API_KEY is set: lean, balanced or full \[lean\][^\n]*$/, 'full\n'],
+      [/2c\. Starter routing mode for Firstmate's dispatch strategy: lean, balanced or full \[lean\][^\n]*$/, 'full\n'],
       [/Warning: full on ChatGPT Plus can reach the five-hour limit first, then the weekly limit\. Use full anyway[^\n]*$/, 'n\n'],
+      [/2d\. Use the full-access Codex launch[^\n]*$/, '\n'],
       [/Keep it as it is[^\n]*$/, 'y\n'], [/Add optional TYPESAFE_API_KEY[^\n]*$/, 'n\n'], [/Write these changes now[^\n]*$/, 'y\n']]);
   assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
   assert.match(c.text, /2\. Agent CLIs: codex \(plan: codex plus; starter routing mode: lean\)/);
+  assert.match(c.text, /2d\. Full-access Codex launch: ON - Codex workers can read and write anything your account can/, 'the default is on and the summary says so');
+  assert.equal(JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8')).setup.answers.codexFullAccess, true);
   const receiptPath = join(f.root, '.tools', 'receipt.json'), saved = () => JSON.parse(readFileSync(receiptPath, 'utf8')).setup.answers;
   assert.deepEqual([saved().plans, saved().dispatchMode], [{ codex: 'plus' }, 'lean']);
   const rerun = f.ctx(['--yes', '--root', f.root]); rerun.installPlatform = keyInstall;
@@ -306,7 +324,7 @@ test('the add-later key hint keeps a custom install root and pastes as shell arg
 test('scripted answers drive every prompt; nothing is written before yes; answers are saved without secrets', posixOnly, async t => {
   const f = fixture(t);
   const kit = kitCheckout(t, f.base);
-  const answers = [f.root, 'y', '', '', 'n', 'n', 'y', 'my-org', 'n', 'Pat Example', 'pat@example.test', 'y', 'n', 'main'];
+  const answers = [f.root, 'y', '', '', 'n', 'n', 'n', 'y', '', 'my-org', 'n', 'Pat Example', 'pat@example.test', 'y', 'n', 'main'];
   const declined = f.ctx(['--kit-dir', kit.dir, '--kit-commit', kit.commit], [...answers, 'n', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, declined), 1);
   assert.match(declined.text, /Cancelled; nothing was written/);
@@ -320,10 +338,20 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
     assert.ok(c.text.includes(prompt), prompt);
   const receipt = JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8'));
   assert.equal(statSync(join(f.root, '.tools', 'receipt.json')).mode & 0o777, 0o600);
-  assert.deepEqual(receipt.setup.answers, { root: f.root, harness: 'codex', plans: { codex: 'not-sure' }, dispatchMode: 'balanced', figma: false, tower: false, globalHooks: true, githubOwner: 'my-org',
+  assert.match(c.text, /2d\. Full-access Codex launch: Codex workers that Firstmate starts can read and write anything your user account can, run any command without asking you first, and run hooks without the hook trust review\./);
+  assert.deepEqual(receipt.setup.answers, { root: f.root, harness: 'codex', plans: { codex: 'not-sure' }, dispatchMode: 'balanced', codexFullAccess: false, figma: false, tower: false, globalHooks: true, herdrLayout: true, githubOwner: 'my-org',
     gitIdentity: { action: 'set', name: 'Pat Example', email: 'pat@example.test' }, starterMate: { create: false }, channel: 'main' });
   assert.deepEqual(receipt.setup.paths, { root: f.root, installRoot: join(f.root, '.tools'), firstmateHome: join(f.root, 'firstmate'), treehouseRoot: f.root, towerState: join(f.root, '.zoe-fleet') });
-  assert.deepEqual(Object.values(receipt.setup.steps).map(x => x.state), ['complete', 'complete', 'complete', 'complete', 'not-selected', 'complete', 'complete']);
+  assert.deepEqual(Object.values(receipt.setup.steps).map(x => x.state), ['complete', 'complete', 'complete', 'complete', 'complete', 'not-selected', 'complete', 'complete']);
+  assert.equal(receipt.setup.steps.shortcuts.detail, 'not set up: needs an agent CLI, the installed kit source');
+  const fm = join(f.root, 'firstmate'), kitBin = join(f.root, '.tools', 'releases', 'fixture-1', 'bin');
+  assert.ok(c.text.endsWith(['Next steps:',
+    `  1. Add these folders to the start of your PATH yourself (the kit never edits shell profiles), then open a new terminal:\n       ${join(f.root, '.tools', 'bin')}\n       ${kitBin}`,
+    `  2. Health check later: node ${join(kitCopyOf(f, kit), 'bin', 'agent-kit.mjs')} doctor --install-root ${join(f.root, '.tools')}`,
+    '  3. Sign in to codex yourself in that terminal; the kit never signs in for you.',
+    '  4. Start Herdr: herdr',
+    `  5. In a Herdr pane, start codex in your Firstmate home: cd '${fm}' && codex`,
+    'Start-up walkthrough: see "After a successful install: start it up" in the Agent Kit guide.', ''].join('\n')), c.text.slice(-1200));
   assert.doesNotMatch(JSON.stringify(receipt), /token|password|secret/i);
   const gitconfig = readFileSync(join(f.home, '.gitconfig'), 'utf8');
   assert.match(gitconfig, /name = Pat Example/);
@@ -340,16 +368,16 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   const again = f.ctx([], [f.root, 'y', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, again), 0, again.text);
   assert.match(again.text, /Reusing your saved answers/);
-  assert.match(again.text, /All 7 setup steps are recorded complete/);
+  assert.match(again.text, /All 8 setup steps are recorded complete/);
   assert.doesNotMatch(again.text, /Claude Code is offered|3\. Figma support: check|7\. Git identity is/);
   assert.match(again.text, /1\. kit source at its pinned commit: complete/);
-  assert.match(again.text, /Step 1 of 7: kit source at its pinned commit\n  complete: kit source verified at its pinned commit/);
+  assert.match(again.text, /Step 1 of 8: kit source at its pinned commit\n  complete: kit source verified at its pinned commit/);
   assert.equal(f.downloads.length, 2, 'rerun downloads nothing');
   const override = f.ctx(['--yes', '--dry-run', '--root', f.root, '--channel', 'releases']);
   assert.equal(await setup(f.fixtureManifest, override), 0, override.text);
   assert.match(override.text, /9\. Update channel: releases \(from --channel; your saved answer was main\)/);
   // --reconfigure asks again.
-  const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, '', '', 'n', 'n', 'n', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
+  const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, '', '', '', 'n', 'n', 'n', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, reconfigure), 0, reconfigure.text);
   assert.match(reconfigure.text, /3\. Figma support: check/);
 });
@@ -360,7 +388,7 @@ test('a failed step stops safely; the rerun prints the resume summary, re-verifi
   f.installOptions.fetchArtifact = async (url, target) => { if (url.endsWith('treehouse')) throw new Error('network down'); return fetch(url, target); };
   const first = f.ctx(['--yes', '--root', f.root, '--no-tower', '--github-owner', 'my-org']);
   assert.equal(await setup(f.fixtureManifest, first), 1);
-  assert.match(first.text, /Step 2 of 7: pinned tools[\s\S]*failed: network down\nStopped safely at step 2/);
+  assert.match(first.text, /Step 2 of 8: pinned tools[\s\S]*failed: network down\nStopped safely at step 2/);
   let receipt = JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8'));
   assert.equal(receipt.setup.steps.tools.state, 'failed');
   assert.equal(receipt.phases.herdr.state, 'complete');
@@ -370,7 +398,7 @@ test('a failed step stops safely; the rerun prints the resume summary, re-verifi
   f.installOptions.fetchArtifact = fetch;
   const second = f.ctx(['--yes', '--root', f.root]);
   assert.equal(await setup(f.fixtureManifest, second), 0, second.text);
-  assert.match(second.text, /Resuming from step 2 of 7 \(pinned tools, Firstmate home, tower and global hooks\)\.\n  1\. kit source at its pinned commit: not-selected/);
+  assert.match(second.text, /Resuming from step 2 of 8 \(pinned tools, Firstmate home, tower and global hooks\)\.\n  1\. kit source at its pinned commit: not-selected/);
   assert.match(second.text, /2\. pinned tools, Firstmate home, tower and global hooks: failed \(network down\)/);
   assert.match(second.text, /- herdr: skipped; receipt and owned files match/);
   assert.match(second.text, /- treehouse: installed/);

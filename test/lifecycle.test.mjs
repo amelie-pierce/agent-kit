@@ -345,9 +345,9 @@ test('upgrade from macos-pilot-5 with only a Firstmate pin change asks for /upda
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate update\n');
 });
 
-test('upgrade from macos-pilot-6 to pilot-8 plans and applies without a release prefix assumption', { skip: process.platform === 'win32' }, async t => {
+test('upgrade from macos-pilot-6 to pilot-9 plans and applies without a release prefix assumption', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t), commit = '7'.repeat(40);
-  assert.equal(bundled.release, 'pilot-8');
+  assert.equal(bundled.release, 'pilot-9');
   renameSync(join(f.root, 'releases', 'old-release'), join(f.root, 'releases', 'macos-pilot-6'));
   const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
   receipt.release = 'macos-pilot-6';
@@ -364,15 +364,72 @@ test('upgrade from macos-pilot-6 to pilot-8 plans and applies without a release 
   const plan = await planUpgrade({ ...f.options, resolveCommit: () => commit, fetchKit });
   t.after(() => rmSync(plan.stage, { recursive: true, force: true }));
   assert.equal(plan.fromRelease, 'macos-pilot-6');
-  assert.equal(plan.toRelease, 'pilot-8');
+  assert.equal(plan.toRelease, 'pilot-9');
   assert.equal(plan.firstmatePinChange, false);
-  assert.match(formatLifecycle(plan), /\nRelease: macos-pilot-6 -> pilot-8\n/);
+  assert.match(formatLifecycle(plan), /\nRelease: macos-pilot-6 -> pilot-9\n/);
   const result = await applyUpgrade(plan, f.options);
   assert.equal(result.status, 'upgraded');
-  assert.equal(JSON.parse(readFileSync(f.receiptPath, 'utf8')).release, 'pilot-8');
-  assert.equal(readFileSync(join(f.root, 'releases', 'pilot-8', 'bin', 'herdr'), 'utf8'), 'restored');
+  assert.equal(JSON.parse(readFileSync(f.receiptPath, 'utf8')).release, 'pilot-9');
+  assert.ok(Array.isArray(result.shortcuts), 'the new kit placed its extras once the upgrade could no longer roll back');
+  assert.equal(readFileSync(join(f.root, 'releases', 'pilot-9', 'bin', 'herdr'), 'utf8'), 'restored');
   assert.equal(readFileSync(join(f.root, 'releases', 'macos-pilot-6', 'bin', 'herdr'), 'utf8'), 'original');
   assert.equal(readFileSync(envPath, 'utf8'), 'TYPESAFE_API_KEY=fixture-secret-123\n');
+});
+
+test('regression: after an upgrade fails early or after its extras step, every kit launcher keeps its bytes and points at the kit copy that exists; after success all point at the new copy', { skip: process.platform === 'win32' }, async t => {
+  const { placeKitExtras } = await import('../src/shortcuts.mjs');
+  const kitCopy = destination => { for (const dir of ['bin', 'src', 'templates', 'manifests']) cpSync(join(source, dir), join(destination, dir), { recursive: true }); };
+  const kitRefs = root => text => [...text.matchAll(new RegExp(`${join(root, 'kit')}/[^/'"\\s]+`, 'g'))].map(m => m[0]);
+  for (const outcome of ['failure', 'late failure', 'success']) {
+    const f = fixture(t), oldCommit = 'd'.repeat(40), newCommit = 'e'.repeat(40), oldKit = join(f.root, 'kit', oldCommit), tools = join(f.base, 'tools');
+    mkdirSync(tools); writeFileSync(join(tools, 'python3'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+    const env = { ...f.options.env, PATH: `${tools}:${f.options.env.PATH}` }, options = { ...f.options, env, herdrCheck: () => ({ ok: true }) };
+    kitCopy(oldKit);
+    const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+    receipt.setup.answers.globalHooks = true; receipt.setup.kit = { commit: oldCommit, path: oldKit };
+    const placed = await placeKitExtras(receipt, f.root, { env, home: f.home, check: () => ({ ok: true }), isRunning: stopped });
+    receipt.setup.shortcuts = placed.record;
+    // Late: without its keys block the upgrade adds it again, so the Herdr config check runs after the launchers are rewritten.
+    if (outcome === 'late failure') { rmSync(placed.record.keys.path); receipt.setup.shortcuts = { ...placed.record, keys: null }; }
+    writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+    const launchers = Object.keys(placed.record.files).map(file => join(f.root, file));
+    assert.ok(launchers.length >= 4, 'the old kit placed its launchers');
+    const before = Object.fromEntries(launchers.map(path => [path, readFileSync(path, 'utf8')]));
+    const fetchKit = async (_commit, _env, destination) => {
+      kitCopy(destination);
+      const target = structuredClone(f.manifest);
+      target.release = 'new-release';
+      if (outcome === 'failure') target.tools.find(x => x.id === 'herdr').artifacts['darwin-arm64'].sha256 = sha('restored');
+      writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
+    };
+    const plan = await planUpgrade({ ...options, resolveCommit: () => newCommit, fetchKit });
+    if (outcome !== 'success') {
+      // Once the new kit has rewritten the launchers, the check leaves a receipt the next upgrade step rejects.
+      const late = { ...options, herdrCheck: () => {
+        if (launchers.some(path => readFileSync(path, 'utf8').includes(newCommit))) writeFileSync(f.receiptPath, `${JSON.stringify({ ...JSON.parse(readFileSync(f.receiptPath, 'utf8')), schemaVersion: 2 })}\n`);
+        return { ok: true };
+      } };
+      if (outcome === 'failure') await assert.rejects(applyUpgrade(plan, { ...options, afterPhase: id => { if (id === 'herdr') throw new Error('injected failure'); } }), /injected failure/);
+      else await assert.rejects(applyUpgrade(plan, late), /incompatible kit receipt/);
+      for (const path of launchers) {
+        assert.equal(readFileSync(path, 'utf8'), before[path], `${path} keeps its previous bytes`);
+        for (const ref of kitRefs(f.root)(before[path])) assert.ok(existsSync(ref), `${path} points at ${ref}, which exists`);
+      }
+      assert.equal(existsSync(join(f.root, 'kit', newCommit)), false);
+      assert.equal(JSON.parse(readFileSync(f.receiptPath, 'utf8')).setup.kit.path, oldKit);
+    } else {
+      const result = await applyUpgrade(plan, options);
+      assert.equal(result.status, 'upgraded');
+      const after = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+      assert.equal(after.setup.kit.path, join(f.root, 'kit', newCommit));
+      for (const path of launchers) {
+        const refs = kitRefs(f.root)(readFileSync(path, 'utf8'));
+        for (const ref of refs) { assert.equal(ref, join(f.root, 'kit', newCommit), `${path} points at the new kit copy`); assert.ok(existsSync(ref)); }
+      }
+      assert.ok(launchers.some(path => kitRefs(f.root)(readFileSync(path, 'utf8')).length), 'launchers name the kit copy');
+    }
+    assert.equal(existsSync(join(f.root, 'kit-extras')), false, 'no second kit copy');
+  }
 });
 
 test('upgrade refuses a missing or symlinked Firstmate home and never clones a replacement', { skip: process.platform === 'win32' }, async t => {

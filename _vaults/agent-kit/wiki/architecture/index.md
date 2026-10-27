@@ -16,4 +16,6 @@ date: 2026-10-26
 - [Kit lifecycle commands](lifecycle.md) — receipt-scoped repair, reviewed upgrade, uninstall and rollback boundaries.
 - [Single installer and guided setup](single-installer.md) — install.sh/install.ps1, root-derived layout, prompts and saved answers, summary gate and step resume.
 - [Optional dispatch key](optional-dispatch-key.md) — hidden TYPESAFE_API_KEY prompt, private .env write, later update command and lifecycle preservation.
-- [Starter dispatch rules and Jev readiness](starter-dispatch-rules.md) — plan- and mode-fitted starter rules after the key, the fm-strategy --plans bridge, ownership digest and the doctor jev row.
+- [Owner stack parity](owner-stack-parity.md) — every piece pilot-9 ships from the owner's stack, its code, lifecycle and exclusions.
+- [Keyboard shortcuts and open-firstmate](keyboard-shortcuts.md) — the open-firstmate launcher, the agent-kit Herdr keys block, Herdr 0.9.3 key facts and receipt lifecycle.
+- [Starter dispatch rules and Jev readiness](starter-dispatch-rules.md) — plan- and mode-fitted starter rules after the key, the native fm-strategy --plans selection with its bridge fallback, ownership digests and the doctor jev row.

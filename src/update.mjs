@@ -1,9 +1,13 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { isAbsolute, join, resolve } from 'node:path';
+import { isAbsolute, join, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { doctor, firstmateIssue, gitCheck } from './doctor.mjs';
-import { installPlatform, npmGroup, selected } from './install/macos.mjs';
+import { atomicJson, installPlatform, npmGroup, selected } from './install/macos.mjs';
+import { herdrConfigPath, ownedFiles, placeKitExtras, shortcutInputs } from './shortcuts.mjs';
+import { pluginsPath, zoeFile } from './herdr-plugin.mjs';
+import { applyStarter, describeStarter, harnessOf, modeOf, planStarter, plansOf, strategyTakesPlans } from './dispatch.mjs';
 import { validateManifest } from './kit.mjs';
 import { artifactFor, artifactTarget, linuxIdentity } from './platforms/linux.mjs';
 
@@ -58,9 +62,47 @@ export async function applyUpdate(manifest, options) {
   const result = await installPlatform(manifest, { ...options, harness: plan.harness, update: true, firstmateHome: plan.firstmateHome,
     withFigma: answers.figma ?? options.withFigma, withTower: answers.tower ?? true, globalHooks: answers.globalHooks ?? true, towerState: plan.setup?.paths?.towerState,
     isRunning: options.isRunning || (id => processRunning(id, plan.noMistakesBin)) });
-  return { ...plan, apply: true, status: result.status, exitCode: result.exitCode, components: result.components,
+  // The kit's launchers, Herdr keys and session-graph plugin arrive with an upgrade too, placed by this (the new)
+  // kit from its own installed copy. An upgrade defers them until it can no longer roll back.
+  const shortcuts = options.deferExtras || result.components.some(x => ['conflict', 'deferred'].includes(x.status)) ? null
+    : await placeUpdateExtras(options, plan.firstmateHome, plan.noMistakesBin);
+  return { ...plan, apply: true, status: result.status, exitCode: result.exitCode, components: result.components, shortcuts,
     previousRelease: plan.fromRelease, nextSteps: result.components.filter(x => ['conflict', 'deferred'].includes(x.status)).map(x => `${x.id}: ${x.reason}`),
     note: 'Previous release binaries remain in their versioned directory. User state rollback is not promised.' };
+}
+const ownKit = () => fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/]$/, '');
+// Every file placeUpdateExtras may write, so an upgrade that rolls back restores their previous bytes.
+export function extrasPaths(options, receipt) {
+  const root = resolve(options.installRoot), env = options.env || process.env, home = options.home || env.HOME, prior = receipt.setup?.shortcuts || null;
+  const inputs = shortcutInputs(receipt, root, env, prior, ownKit()), firstmate = inputs.firstmateHome;
+  return [...new Set([...ownedFiles(inputs, root).map(f => f.file), ...Object.keys(prior?.files || {}), zoeFile])].map(file => join(root, file))
+    .concat(prior?.keys?.path || herdrConfigPath(env, home), prior?.plugin?.registry || pluginsPath(env, home),
+      firstmate ? [join(firstmate, '.claude', 'settings.local.json'), join(firstmate, '.git', 'info', 'exclude'), join(firstmate, 'data', 'captain-help.md')] : []);
+}
+// The kit extras and, for a home that now takes fm-strategy.sh --plans, the person's strategy; a problem with
+// them never fails the update. Returns the lines to report.
+export async function placeUpdateExtras(options, firstmateHome, noMistakesBin = null) {
+  const root = resolve(options.installRoot), receiptPath = join(root, 'receipt.json'), kitPath = ownKit();
+  let shortcuts = null;
+  try {
+    const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+    const extras = await placeKitExtras(receipt, root, { env: options.env || process.env, home: options.home, check: options.herdrCheck,
+      kitPath: kitPath.startsWith(join(root, 'kit') + sep) ? kitPath : null, isRunning: options.isRunning || (id => processRunning(id, noMistakesBin)) });
+    if (extras.action !== 'not-selected') {
+      const current = JSON.parse(readFileSync(receiptPath, 'utf8'));
+      current.setup ||= {}; current.setup.shortcuts = extras.record;
+      await atomicJson(receiptPath, current);
+    }
+    shortcuts = extras.lines;
+    // A home that now takes fm-strategy.sh --plans gets the person's strategy, as a new install does.
+    const current = JSON.parse(readFileSync(receiptPath, 'utf8'));
+    if (!current.setup?.dispatch && firstmateHome && strategyTakesPlans(firstmateHome)) {
+      const selected = await applyStarter(planStarter(firstmateHome, { harness: harnessOf(current), plans: plansOf(current), mode: modeOf(current), create: true }));
+      if (selected.record) { current.setup ||= {}; current.setup.dispatch = selected.record; await atomicJson(receiptPath, current); }
+      const line = describeStarter(selected); if (line) shortcuts.push(line);
+    }
+  } catch (error) { shortcuts = [`Herdr shortcuts: not updated; ${error.message}`]; }
+  return shortcuts;
 }
 export function processRunning(id, noMistakesBin) {
   if (id === 'no-mistakes' && noMistakesBin) {
