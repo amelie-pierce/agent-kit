@@ -8,6 +8,9 @@ import { inspectPlatform } from './platforms/index.mjs';
 import { artifactFor } from './platforms/linux.mjs';
 import { usesProfile } from './harness.mjs';
 import { jevReadiness } from './dispatch.mjs';
+import { shortcutsHealth } from './shortcuts.mjs';
+// The only Firstmate the kit installs and updates from: the owner's fork.
+export const firstmateFork = 'https://github.com/pikenguyen227/firstmate';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
 const status = (id, state, detail) => ({ id, status: state, detail });
@@ -156,7 +159,10 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
     const found = (env.PATH || '').split(delimiter).map(dir => join(dir, tool.id)).find(p => existsSync(p));
     let same = false;
     try { same = !!found && realpathSync(found) === realpathSync(expected); } catch { /* broken path is a failed precedence check */ }
-    checks.push(status(`${tool.id}-path`, !found ? 'unknown' : same ? 'pass' : 'fail', !found ? 'not on PATH' : same ? 'kit npm binary has PATH precedence' : 'another binary has PATH precedence'));
+    // The kit's own launcher for that tool (the full-access codex) wraps the pinned binary, so it may come first.
+    const kitLauncher = !!found && found === join(root, 'bin', tool.id) && !!receipt.setup?.shortcuts?.files?.[`bin/${tool.id}`];
+    checks.push(status(`${tool.id}-path`, !found ? 'unknown' : same || kitLauncher ? 'pass' : 'fail', !found ? 'not on PATH' : same ? 'kit npm binary has PATH precedence'
+      : kitLauncher ? 'the kit launcher in front of the pinned binary has PATH precedence' : 'another binary has PATH precedence'));
   }
   if (receipt.phases.hooks) {
     try {
@@ -171,6 +177,14 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
     const jev = jevReadiness(jevHome, env);
     checks.push(status('jev', jev.ready ? 'pass' : 'warn', jev.ready ? 'ready (key set, rules present)' : `not ready: ${jev.reasons.join('; ')}`));
   }
+  const firstmateTool = manifest.tools.find(t => t.id === 'firstmate'), fmHome = receipt.phases.firstmate?.path;
+  if (firstmateTool && typeof fmHome === 'string' && isAbsolute(fmHome) && existsSync(join(fmHome, '.git'))) {
+    // Updates come from the home's origin (Firstmate's /updatefirstmate fast-forwards from it): it must be the approved fork.
+    const origin = gitIn(fmHome, 'remote', 'get-url', 'origin').stdout?.trim();
+    const fork = origin === firstmateTool.approvedUpstream && firstmateTool.approvedUpstream === firstmateFork;
+    checks.push(status('firstmate-fork', fork ? 'pass' : 'warn', fork ? `firstmate origin: ${origin} (approved fork)` : `firstmate origin: ${origin || 'unreadable'}; expected the approved fork ${firstmateFork}`));
+  }
+  checks.push(...shortcutsHealth(receipt, root));
   checks.push(status('authenticated', 'unknown', 'sign-in belongs to this teammate; no auth store queried'));
   checks.push(status('live-tested', 'unknown', 'live fleet was not probed'));
   return doctorResult(checks, receipt.release, manifest, receipt, root);

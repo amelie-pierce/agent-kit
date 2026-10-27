@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { lstatSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { chmod, mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
 import { findOnPath } from './platforms/macos.mjs';
@@ -53,7 +53,6 @@ export function shortcutInputs(receipt, root, env, recorded = null, kitPath = nu
     lock: join(root, '.open-firstmate.lock'), program, firstmate: join(root, 'bin', 'firstmate'),
     paths: { root: receipt.setup?.paths?.root || dirname(root), treehouseRoot: receipt.setup?.paths?.treehouseRoot || dirname(root), installRoot: root },
     tower: receipt.phases?.['zoe-fleet-tower'] && runtime ? { launcher: join(runtime, 'bin', 'zoe-fleet-tower'), runtime } : null,
-    axi: npm ? { 'gh-axi': join(npm, 'node_modules', '.bin', 'gh-axi'), 'chrome-devtools-axi': join(npm, 'node_modules', '.bin', 'chrome-devtools-axi') } : null,
     fullAccess: harness !== 'claude' && answers.codexFullAccess !== false && !!codexTree };
 }
 
@@ -113,10 +112,6 @@ export const helpScript = inputs => `${header('fm-help', "print this Firstmate h
 [ -f "$home/data/captain-help.md" ] || { echo "No captain guide yet at $home/data/captain-help.md; ask Firstmate to write one." >&2; exit 1; }
 exec cat "$home/data/captain-help.md"
 `;
-// SessionStart gates: an axi tool's context only in sessions of this Firstmate home.
-export const ambientScript = (inputs, id) => `${header(`ambient-${id}`, `run ${id}'s session hook only inside this Firstmate home.`)}[ "\${FM_HOME:-}" = ${quote(inputs.firstmateHome)} ] || exit 0
-exec ${quote(inputs.axi[id])} "$@"
-`;
 export const towerShim = (inputs, command) => `${header(`zoe-fleet-${command}`, `the tower launcher's own ${command}, with the pinned Herdr.`)}HERDR_BIN_PATH=${quote(inputs.herdr)}
 export HERDR_BIN_PATH
 exec ${quote(inputs.tower.launcher)} ${command} "$@"
@@ -169,7 +164,6 @@ export function ownedFiles(inputs, root) {
   return [
     [launcherFile, launcherScript(inputs)], [mateFile, mateScript(inputs, root)], ['bin/fm-jev', jevScript(inputs, root)], ['env.sh', envScript(inputs), 0o644],
     ['bin/firstmate', firstmateScript(inputs)], ['bin/fm-help', helpScript(inputs)],
-    ...(inputs.axi ? ['gh-axi', 'chrome-devtools-axi'].map(id => [`bin/ambient-${id}`, ambientScript(inputs, id)]) : []),
     ...(inputs.tower ? [['bin/zoe-fleet-open', towerShim(inputs, 'open')], ['bin/zoe-fleet-demo', towerShim(inputs, 'demo')], ['bin/zoe-fleet-autostart', autostartScript(inputs)]] : []),
     ...(inputs.tower && inputs.realClaude ? [['bin/claude', claudeScript(inputs)]] : []),
     ...(inputs.fullAccess ? [['bin/codex', codexScript(inputs)]] : []),
@@ -581,4 +575,48 @@ export async function placeCaptainHelp(inputs, bound, { record = null, repair = 
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, body, { mode: 0o644, flag: 'wx' });
   return { action: 'write', path, record: { path, sha256: sha(body) } };
+}
+
+// Doctor rows for everything above: each kit launcher by digest, the Herdr blocks, the plugins and their keys, the
+// Fleet autostart hook, the captain's guide and the full-access answer. Warnings, never failures: the kit still
+// works without them, and repair restores what changed.
+export function shortcutsHealth(receipt, root) {
+  const record = receipt.setup?.shortcuts, checks = [], row = (id, ok, detail) => checks.push({ id, status: ok ? 'pass' : 'warn', detail });
+  if (receipt.setup?.answers?.globalHooks === false) return [{ id: 'shortcuts', status: 'unknown', detail: 'global hooks and skills not selected; no launchers or Herdr changes' }];
+  if (!record) return [{ id: 'shortcuts', status: 'warn', detail: 'kit launchers and Herdr keys not placed yet; rerun the installer or run agent-kit repair' }];
+  for (const [file, digest] of Object.entries(record.files || {})) {
+    const path = join(root, file), now = plainFile(path) ? sha(readFileSync(path)) : null;
+    row(`launcher-${file.split('/').pop()}`, now === digest, now === digest ? `${path} matches the receipt` : now ? `${path} changed since the kit wrote it; agent-kit repair rewrites it` : `${path} is missing; agent-kit repair restores it`);
+  }
+  const block = (id, path, split, digest) => {
+    if (!digest) return;
+    const found = path && plainFile(path) ? split(readFileSync(path, 'utf8')).block : null;
+    row(id, !!found && sha(found) === digest, found ? (sha(found) === digest ? `marker-owned block in ${path}` : `block in ${path} changed; left as you edited it`) : `block missing from ${path}; agent-kit repair restores it`);
+  };
+  block('herdr-keys', record.keys?.path, splitBlock, record.keys?.blockSha256);
+  block('herdr-layout', record.keys?.path, splitLayout, record.layout?.blockSha256);
+  const plugin = record.plugin;
+  if (plugin?.registry) {
+    let entries = [];
+    try { entries = JSON.parse(readFileSync(plugin.registry, 'utf8')); } catch { /* reported below */ }
+    for (const [id, key] of [['furkankly.zoetrope', 'entrySha256'], ['pikenguyen227.zoetrope-fleet', 'fleetSha256']]) if (plugin[key]) {
+      const found = Array.isArray(entries) ? entries.filter(e => e?.plugin_id === id) : [];
+      row(`herdr-plugin-${id}`, found.length === 1 && sha(JSON.stringify(found[0])) === plugin[key], found.length === 1 ? `registered in ${plugin.registry}` : `not registered in ${plugin.registry}; agent-kit repair restores it while Herdr is stopped`);
+    }
+    if (plugin.zoeSha256) { const path = join(root, 'bin', 'zoe'); row('zoe', plainFile(path) && sha(readFileSync(path)) === plugin.zoeSha256, `${path} runs the pinned zoe-fleet build`); }
+    if (plugin.keysSha256) {
+      const text = record.keys?.path && plainFile(record.keys.path) ? readFileSync(record.keys.path, 'utf8') : '';
+      const found = text.split('\n').includes('# <<< furkankly.zoetrope keys');
+      row('zoetrope-keys', found, found ? 'session-graph keys written by its own setup-keys' : 'session-graph keys block missing; agent-kit repair runs its setup-keys again');
+    }
+  }
+  if (record.autostart) {
+    const home = receipt.setup?.paths?.firstmateHome, path = home && join(home, '.claude', 'settings.local.json');
+    let ok = false;
+    try { ok = JSON.parse(readFileSync(path, 'utf8')).hooks.SessionStart.some(ownedGroup); } catch { /* not present */ }
+    row('fleet-autostart', ok, ok ? `marker-owned SessionStart entry in ${path}` : `Fleet autostart entry missing from ${path}; agent-kit repair restores it`);
+  }
+  if (record.captainHelp?.path) row('captain-help', existsSync(record.captainHelp.path), existsSync(record.captainHelp.path) ? `${record.captainHelp.path} (print it with fm-help)` : `${record.captainHelp.path} is missing`);
+  if (receipt.setup?.answers?.codexFullAccess !== undefined) checks.push({ id: 'codex-full-access', status: 'pass', detail: `codex full-access launch: ${receipt.setup.answers.codexFullAccess ? 'on' : 'off'}` });
+  return checks;
 }
