@@ -70,9 +70,12 @@ Afterwards, open Windows Terminal with your distribution's profile and run Herdr
 
 **Needs a real Windows machine (owner acceptance).** CI covers mocked `wsl.exe` fixtures and a read-only `check`/`plan`/`install --dry-run` and bootstrap smoke on the GitHub `windows-latest` runner. It never enables WSL. These remain untested until a person runs them on a real device:
 
-- enabling WSL2 with `wsl --install -d Ubuntu`, the restart, and first-run Linux user creation;
+- on a PC without WSL, `check` printing the administrator `wsl --install -d Ubuntu` and restart steps without running them; then enabling WSL2 with that command, the restart, and first-run Linux user creation;
 - `wsl --set-default-version 2` and `wsl --set-version` on a WSL1 setup, and non-English `wsl --status` output (the default version then reads as unknown);
-- `install --handoff` end to end: argument passing through `wsl.exe --exec`, fetching the private repository inside WSL, and the Linux install;
+- with a running WSL2 Ubuntu and non-English (for example German) `wsl.exe` output, `check` and `plan` reporting ready and `install` printing the pinned `wsl.exe` handoff command with Linux paths;
+- `install` refusing `--install-root /mnt/c/kit` and `C:\kit`, so Windows and Linux files stay separate;
+- the preflight under Windows PowerShell 5.1 and pwsh leaving your user profile folder unchanged (CI checks this on the `windows-latest` runner only);
+- `install --handoff` end to end on a real WSL2 distribution: argument passing through `wsl.exe --exec`, fetching the pinned kit commit of the private repository inside WSL, and the Linux install;
 - the Windows browser opened from WSL by chrome-devtools-axi, Lavish and vendor sign-in flows;
 - Herdr and the Zoe tower running under Windows Terminal in the WSL shell;
 - a clean Windows 11 first run through Windows PowerShell 5.1, and an Arm64 PC.
