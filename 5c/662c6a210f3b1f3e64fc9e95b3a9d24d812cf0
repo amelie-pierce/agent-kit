@@ -1,0 +1,27 @@
+README.md
+  s_0457bf753ae5fa::t_f562caa6bb7688 341-342
+src/shortcuts.mjs
+  s_0457bf753ae5fa::t_d984dd5e86bc40 258-259,281-282,526-528,539,583-587
+src/herdr-plugin.mjs
+  s_0457bf753ae5fa::t_d984dd5e86bc40 92,114-115
+test/extras.test.mjs
+  s_0457bf753ae5fa::t_4a4cf9ea3eb91d 85-122
+test/shortcuts.test.mjs
+  s_0457bf753ae5fa::t_4a4cf9ea3eb91d 78-102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5c662c6a210f3b1f3e64fc9e95b3a9d24d812cf0",
+  "prompts": {},
+  "sessions": {
+    "s_0457bf753ae5fa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "330d8878-61a3-42d5-9cd3-739db95e94b5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
