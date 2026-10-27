@@ -1,0 +1,37 @@
+src/lifecycle.mjs
+  s_acd09e1cfaf11b::t_9ebe639017710a 333-334
+src/dispatch.mjs
+  s_acd09e1cfaf11b::t_3d1a79500d5f7d 282-288,290
+  s_acd09e1cfaf11b::t_f16eb73ae70e6b 191
+  s_acd09e1cfaf11b::t_443675db597a49 9-15,17
+  s_acd09e1cfaf11b::t_3812711a4a72fb 143-148,153,157,160-165,169-174,176-177
+  s_acd09e1cfaf11b::t_50a20814cd544c 262-263,265-267
+  s_acd09e1cfaf11b::t_098ac5f59016fa 271
+  s_acd09e1cfaf11b::t_bc16dcb29bc63b 216-248,250,253
+test/dispatch.test.mjs
+  s_acd09e1cfaf11b::t_d166864afbe67e 434-551
+scripts/jev-resolve-smoke.mjs
+  s_acd09e1cfaf11b::t_b620cd1a6a75b7 8,73-82,126
+README.md
+  s_acd09e1cfaf11b::t_901c56610c8bd5 93,95
+_vaults/agent-kit/wiki/architecture/index.md
+  s_acd09e1cfaf11b::t_29176879313088 19
+_vaults/agent-kit/wiki/architecture/starter-dispatch-rules.md
+  s_acd09e1cfaf11b::t_29176879313088 3,21,23-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ef4a11efb232c3d5b3a153cb1dc3b3dc3b1ca66f",
+  "prompts": {},
+  "sessions": {
+    "s_acd09e1cfaf11b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a5482aa-55d9-4866-b542-09bfa9383265",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
