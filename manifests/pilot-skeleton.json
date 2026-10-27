@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "release": "macos-pilot-4",
+  "release": "macos-pilot-5",
   "nodeMinimum": "24.15.0",
   "tools": [
     {
