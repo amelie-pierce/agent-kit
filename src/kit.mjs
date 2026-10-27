@@ -25,7 +25,7 @@ export function validateManifest(manifest) {
     if (!relativePath || !/^[A-Za-z0-9._/-]+$/.test(relativePath) || isAbsolute(relativePath) || relativePath.split('/').some(part => !part || part === '..' || part === '.')) throw new Error(`unsafe install location for ${tool.id}`);
     if (!tool.artifacts || !Object.keys(tool.artifacts).length) throw new Error(`missing artifacts for ${tool.id}`);
     for (const [target, artifact] of Object.entries(tool.artifacts)) {
-      if (!/^(darwin|linux|wsl2|windows)-(arm64|x64)$/.test(target)) throw new Error(`invalid target for ${tool.id}`);
+      if (!/^(darwin|linux|windows)-(arm64|x64)$/.test(target)) throw new Error(`invalid target for ${tool.id}`);
       if (!['verified', 'unverified'].includes(artifact.status) || (artifact.url !== null && !artifact.url?.startsWith('https://')) || (artifact.sha256 !== null && !/^[a-f0-9]{64}$/i.test(artifact.sha256 || ''))) throw new Error(`invalid artifact for ${tool.id}`);
       if (artifact.status === 'verified' && (!artifact.url || !artifact.sha256)) throw new Error(`verified artifact incomplete for ${tool.id}`);
     }
@@ -69,23 +69,26 @@ const loginSteps = {
   'figma-cli': 'Sign in directly with Figma and grant OS permissions yourself.',
 };
 
+const advisoryPrerequisites = ['terminal', 'browser'];
+
 function evaluate(manifest, context, options) {
   const selected = manifest.tools.filter(tool => tool.classification !== 'never-ship' && (tool.profile === 'core' || tool.profile === options.harness || (options.withFigma && tool.profile === 'figma')));
   const platform = inspectPlatform(context, manifest, selected);
   const issues = [];
+  const advisories = [];
   if (compareVersions(context.nodeVersion, manifest.nodeMinimum) < 0) issues.push({ status: 'fail', id: 'node-runtime', reason: `Node ${manifest.nodeMinimum} or newer required` });
   if (!platform.supported) issues.push({ status: 'fail', id: 'platform', reason: platform.message });
-  for (const prereq of platform.prerequisites) if (prereq.status !== 'pass') issues.push({ status: prereq.status, id: prereq.id, reason: prereq.detail });
+  for (const prereq of platform.prerequisites) if (prereq.status !== 'pass') (advisoryPrerequisites.includes(prereq.id) ? advisories : issues).push({ status: prereq.status, id: prereq.id, reason: prereq.detail });
   for (const result of platform.tools) if (result.status !== 'pass') issues.push({ status: result.status, id: result.id, reason: result.reason });
   for (const conflict of platform.pathConflicts) issues.push({ status: 'fail', id: conflict.id, reason: 'multiple executable paths; PATH precedence needs review' });
-  const target = `${platform.platform}-${context.arch}`;
+  const target = `${platform.platform === 'wsl2' ? 'linux' : platform.platform}-${context.arch}`;
   for (const tool of selected) {
     if (tool.version.status !== 'verified' && !issues.some(x => x.id === tool.id && x.reason === tool.version.reason)) issues.push({ status: 'unknown', id: tool.id, reason: tool.version.reason });
     const artifact = tool.artifacts[target];
     if (!artifact || artifact.status !== 'verified') issues.push({ status: 'unknown', id: tool.id, reason: artifact?.reason || `artifact for ${target} is not reviewed` });
   }
   const optional = manifest.tools.filter(tool => tool.classification !== 'never-ship' && !selected.includes(tool));
-  return { selected, optional, platform, issues, target };
+  return { selected, optional, platform, issues, advisories, target };
 }
 
 function human(result) {
@@ -109,6 +112,8 @@ function human(result) {
     for (const tool of result.platform.tools) lines.push(`${tool.status.toUpperCase()} ${tool.id}: ${tool.reason}${tool.detected ? ` (${tool.detected})` : ''}`);
   }
   for (const issue of result.issues) lines.push(`${issue.status.toUpperCase()} ${issue.id}: ${issue.reason}`);
+  if (result.advisories.length) lines.push('Advisories (do not block readiness):');
+  for (const advisory of result.advisories) lines.push(`- ${advisory.status.toUpperCase()} ${advisory.id}: ${advisory.reason}`);
   return lines.join('\n') + '\n';
 }
 
@@ -132,7 +137,7 @@ export function run(argv, manifest, context) {
   if (!context.env.HOME) throw new Error('HOME must be set');
   const evaluation = evaluate(manifest, { ...context, installRoot: options.installRoot }, options);
   let globalHookChanges = [];
-  if (options.command === 'plan' && evaluation.platform.platform === 'darwin') {
+  if (options.command === 'plan' && evaluation.platform.supported) {
     try {
       globalHookChanges = publicHookChanges(previewHooks(manifest, { home: context.env.HOME, installRoot: options.installRoot || join(context.env.HOME, '.agent-kit') }));
     } catch (error) {
@@ -156,7 +161,7 @@ export function run(argv, manifest, context) {
     loginSteps: evaluation.selected.filter(tool => tool.classification === 'per-user-login').map(tool => loginSteps[tool.id]).filter(Boolean),
   } : undefined;
   const result = { command: options.command, release: manifest.release, harness: options.harness, withFigma: options.withFigma,
-    platform: evaluation.platform, plan, issues: evaluation.issues,
+    platform: evaluation.platform, plan, issues: evaluation.issues, advisories: evaluation.advisories,
     summary: evaluation.issues.length ? `${evaluation.issues.length} gaps or unknowns` : 'ready', readOnly: true };
   return { output: options.json ? JSON.stringify(result, null, 2) + '\n' : human(result), exitCode: evaluation.issues.length ? 1 : 0, result };
 }

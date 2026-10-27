@@ -4,6 +4,7 @@ on:
   pull_request:
 jobs:
   test:
+    timeout-minutes: 45
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
@@ -14,3 +15,5 @@ jobs:
         with:
           node-version: 24.21.0
       - run: npm test
+      - if: matrix.os == 'ubuntu-latest'
+        run: node scripts/linux-install-smoke.mjs

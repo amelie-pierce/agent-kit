@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, run, validateManifest } from '../src/kit.mjs';
-import { formatInstall, installMacOS } from '../src/install/macos.mjs';
+import { formatInstall, installPlatform } from '../src/install/macos.mjs';
 
 const manifestPath = fileURLToPath(new URL('../manifests/pilot-skeleton.json', import.meta.url));
 try {
@@ -18,7 +18,7 @@ try {
   if (options.command === 'install') {
     validateManifest(manifest);
     if (!options.installRoot || !options.firstmateHome) throw new Error('install requires --install-root and --firstmate-home (both absolute paths)');
-    const result = await installMacOS(manifest, { platform: context.platform, arch: context.arch, home: process.env.HOME,
+    const result = await installPlatform(manifest, { platform: context.platform, arch: context.arch, home: process.env.HOME,
       installRoot: options.installRoot, firstmateHome: options.firstmateHome, harness: options.harness, withFigma: options.withFigma, nodeVersion: context.nodeVersion,
       onHooksPreview: changes => {
         process.stderr.write('Global hook and skill changes before apply (kit-owned entries only):\n');

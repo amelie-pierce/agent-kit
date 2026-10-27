@@ -6,6 +6,7 @@ import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep 
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { applyHooks, previewHooks, publicHookChanges } from './hooks.mjs';
+import { linuxIdentity } from '../platforms/linux.mjs';
 
 const exec = promisify(execFile);
 const npmIds = new Set(['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi', 'codex']);
@@ -122,17 +123,20 @@ async function unpackTrackedSource(archive, destination, freshHome = false) {
   if (!(await exists(join(destination, 'README.md')))) throw new Error('source archive has no README');
 }
 const gitEnv = options => ({ ...toolEnv(options.home, options.installRoot), GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' });
-const systemDirs = ['/Applications', '/Library', '/System', '/bin', '/sbin', '/usr', '/etc', '/private/etc', '/dev', '/opt', '/cores'];
+const systemDirs = {
+  darwin: home => ['/Applications', '/Library', '/System', '/bin', '/sbin', '/usr', '/etc', '/private/etc', '/dev', '/opt', '/cores', join(home, 'Library')],
+  linux: () => ['/bin', '/sbin', '/usr', '/etc', '/dev', '/opt', '/var/lib', '/var/log', '/var/cache', '/var/spool', '/var/tmp', '/var/opt', '/proc', '/sys', '/run', '/srv', '/boot', '/lib', '/lib64'],
+};
 const within = (path, parent) => path === parent || path.startsWith(parent === sep ? parent : `${parent}${sep}`);
 const newDirectory = async path => {
   const st = await exists(path);
   return !st || (st.isDirectory() && !st.isSymbolicLink() && (await readdir(path)).length === 0);
 };
-async function checkFirstmateHome(path, root, home) {
+async function checkFirstmateHome(path, root, home, platform) {
   if (!path || !isAbsolute(path)) throw new Error('--firstmate-home must be an absolute path');
   const target = resolve(path);
   if (target === resolve(home)) throw new Error('--firstmate-home must not be your home directory');
-  if (target === sep || [...systemDirs, join(resolve(home), 'Library')].some(dir => within(target, dir))) throw new Error('--firstmate-home must not be a system location');
+  if (target === sep || systemDirs[platform](resolve(home)).some(dir => within(target, dir))) throw new Error('--firstmate-home must not be a system location');
   if (within(target, root) || within(root, target)) throw new Error('--firstmate-home must be outside --install-root');
   for (let dir = dirname(target); ; dir = dirname(dir)) {
     if (await exists(join(dir, '.git')) || await exists(join(dir, 'fm-bootstrap.sh'))) throw new Error('--firstmate-home must not be inside an existing Firstmate home or git checkout');
@@ -229,9 +233,10 @@ async function npmPhase(root, release, group, manifest, receipt, save, options) 
   return { id, status: 'installed', reason: 'npm ci from committed integrity lock; scripts disabled', packages };
 }
 
-export async function installMacOS(manifest, options = {}) {
+export async function installPlatform(manifest, options = {}) {
   const platform = options.platform || process.platform, arch = options.arch || process.arch;
-  if (platform !== 'darwin' || !['arm64', 'x64'].includes(arch)) return { status: 'unsupported', exitCode: 2, components: [], message: `unsupported install target ${platform}/${arch}`,
+  const linux = platform === 'linux' ? linuxIdentity({ env: options.env || process.env, procVersion: options.procVersion, osRelease: options.osRelease, libc: options.libc }) : null;
+  if (!['darwin', 'linux'].includes(platform) || !['arm64', 'x64'].includes(arch) || (linux && (linux.libc !== 'glibc' || (linux.wsl && !linux.wsl2)))) return { status: 'unsupported', exitCode: 2, components: [], message: `unsupported install target ${platform}/${arch}${linux ? ` (${linux.libc}${linux.wsl && !linux.wsl2 ? ', WSL1' : ''})` : ''}`,
     bin: null, npmBin: null, codexBin: null, firstmateHome: null, towerParity: 'unavailable', loginSteps: [] };
   const nodeVersion = options.nodeVersion || process.versions.node;
   const actual = nodeVersion.split('.').map(Number), minimum = manifest.nodeMinimum.split('.').map(Number);
@@ -239,7 +244,7 @@ export async function installMacOS(manifest, options = {}) {
   if (!options.installRoot || !isAbsolute(options.installRoot)) throw new Error('--install-root must be an absolute path');
   if (!options.home || !isAbsolute(options.home)) throw new Error('HOME must be an absolute path');
   const root = resolve(options.installRoot), release = manifest.release;
-  const firstmateHome = await checkFirstmateHome(options.firstmateHome, root, options.home);
+  const firstmateHome = await checkFirstmateHome(options.firstmateHome, root, options.home, platform);
   if (!safePart(release)) throw new Error('unsafe release name');
   const rootState = await exists(root);
   if (rootState && (!rootState.isDirectory() || rootState.isSymbolicLink())) throw new Error('install root is not a plain directory');
@@ -253,13 +258,13 @@ export async function installMacOS(manifest, options = {}) {
     if (recordedHome && recordedHome !== firstmateHome) throw new Error(`--firstmate-home differs from the Firstmate home recorded in the receipt (${recordedHome}); refusing to move it`);
     if (!recordedHome && !(await newDirectory(firstmateHome))) throw new Error('--firstmate-home must be a new or empty directory; refusing to inherit it');
     const save = () => atomicJson(receiptPath, receipt);
-    const components = [], targetKey = `darwin-${arch}`;
+    const components = [], targetKey = `${platform}-${arch}`;
     await mkdir(join(root, 'releases', release, 'staging'), { recursive: true, mode: 0o700 });
     for (const tool of selected(manifest, options.harness || 'claude', !!options.withFigma)) {
       if (npmIds.has(tool.id)) continue;
       const a = tool.artifacts[targetKey];
       if (tool.version.status !== 'verified' || a?.status !== 'verified') {
-        components.push({ id: tool.id, status: 'unverified', reason: a?.reason || tool.version.reason || 'no verified macOS artifact' });
+        components.push({ id: tool.id, status: 'unverified', reason: a?.reason || tool.version.reason || `no verified ${platform} artifact` });
         continue;
       }
       if (!binaryIds.has(tool.id) && !sourceIds.has(tool.id)) {
@@ -380,9 +385,11 @@ export async function installMacOS(manifest, options = {}) {
       loginSteps: selected(manifest, options.harness || 'claude', !!options.withFigma).map(t => login[t.id]).filter(Boolean),
       nextSteps: [
         'Codex reviews new or changed hooks interactively; review and approve them yourself when prompted.',
-        'no-mistakes init installs its user-level skill when you initialize your own repository.'] };
+        'no-mistakes init installs its user-level skill when you initialize your own repository.',
+        ...(linux?.wsl2 ? ['Use Windows Terminal and a browser on the Windows side; run agent tools inside your WSL2 Linux distro.'] : [])] };
   } finally { await unlock(); }
 }
+
 
 export function formatInstall(result) {
   return [

@@ -27,7 +27,8 @@
         "runtimeMinimum": { "type": ["string", "null"], "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
         "artifacts": {
           "type": "object", "minProperties": 1,
-          "propertyNames": { "pattern": "^(darwin|linux|wsl2|windows)-(arm64|x64)$" },
+          "description": "Keyed by <os>-<arch>. WSL2 has no separate targets; it resolves to linux-<arch>.",
+          "propertyNames": { "pattern": "^(darwin|linux|windows)-(arm64|x64)$" },
           "additionalProperties": { "$ref": "#/$defs/artifact" }
         },
         "installLocation": { "$ref": "#/$defs/location" },
