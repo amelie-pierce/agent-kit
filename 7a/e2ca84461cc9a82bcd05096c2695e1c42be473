@@ -1,0 +1,19 @@
+_vaults/agent-kit/wiki/architecture/optional-dispatch-key.md
+  s_992f9cfa2b93c6::t_a989a3f7c1b11e 9,13,15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7ae2ca84461cc9a82bcd05096c2695e1c42be473",
+  "prompts": {},
+  "sessions": {
+    "s_992f9cfa2b93c6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8513a35f-03d3-4e9e-8922-6e5f63fd53df",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
