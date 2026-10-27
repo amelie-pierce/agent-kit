@@ -1,0 +1,37 @@
+README.md
+  s_acd09e1cfaf11b::t_d71821c5e467aa 341,373,495
+  s_acd09e1cfaf11b::t_f698253b3c0017 251
+  s_acd09e1cfaf11b::t_66b114e55b4a35 425-449,457,461,465-469
+  s_acd09e1cfaf11b::t_eb784c39d6a935 97
+  s_acd09e1cfaf11b::t_7aed0fdcdca87a 122-153,156,160-165,167,169,171,174,177-181,183-222
+  s_acd09e1cfaf11b::t_9509bc18b415ca 333-340,367
+  s_acd09e1cfaf11b::t_8fef3ac83d3603 71-73,75-76,105-107
+src/install/macos.mjs
+  s_acd09e1cfaf11b::t_f698253b3c0017 637
+_vaults/agent-kit/wiki/architecture/starter-dispatch-rules.md
+  s_acd09e1cfaf11b::t_d825a80edb28b0 21
+manifests/pilot-skeleton.json
+  s_acd09e1cfaf11b::t_d71821c5e467aa 1292-1293
+_vaults/agent-kit/wiki/architecture/index.md
+  s_acd09e1cfaf11b::t_d825a80edb28b0 19
+_vaults/agent-kit/wiki/architecture/owner-stack-parity.md
+  s_acd09e1cfaf11b::t_d825a80edb28b0 1-31
+_vaults/agent-kit/wiki/architecture/keyboard-shortcuts.md
+  s_acd09e1cfaf11b::t_d825a80edb28b0 13,16,24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f42ed68633828909ef782d3240fbc38b851a69fb",
+  "prompts": {},
+  "sessions": {
+    "s_acd09e1cfaf11b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a5482aa-55d9-4866-b542-09bfa9383265",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
