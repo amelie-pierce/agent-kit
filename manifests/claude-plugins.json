@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "note": "Claude Code plugins the kit installs with the person's own claude CLI when Claude is chosen. Each marketplace is fetched from its own repository at a pinned commit (the git commit is its content digest); nothing is vendored here. Plugins that connect to an account are installed only: each teammate signs in through the plugin's own flow, and the kit never writes a token or MCP credential. Excluded by the owner: claude-mem. Plugin files are pinned by git commit; some MCP servers fetch packages or connect to vendor services at run time (see each plugin's runtime note).",
+  "note": "Claude Code plugins the kit installs with the person's own claude CLI when Claude is chosen. Each marketplace is fetched from its own repository at a pinned commit (the git commit is its content digest); nothing is vendored here. Plugins that connect to an account are installed only: each teammate signs in through the plugin's own flow, and the kit never writes a token or MCP credential. Excluded by the owner: claude-mem. Plugin files are pinned by git commit; MCP servers that run an npm package are version-pinned (each plugin's npm field records the version and registry integrity), and some MCP servers connect to vendor services at run time (see each plugin's runtime note).",
   "marketplaces": [
     {
       "name": "openai-codex",
@@ -54,7 +54,12 @@
           "name": "chrome-devtools-mcp",
           "when": "claude",
           "license": "Apache-2.0 (ChromeDevTools/chrome-devtools-mcp)",
-          "runtime": "its MCP server runs `npx chrome-devtools-mcp@1.11.0`: version-pinned, fetched from npm at launch without an integrity pin"
+          "runtime": "its MCP server runs `npx chrome-devtools-mcp@1.11.0`: version-pinned upstream, fetched from npm at launch",
+          "npm": {
+            "package": "chrome-devtools-mcp",
+            "version": "1.11.0",
+            "integrity": "sha512-CytJ/5tnzrS+J/74be2P5aCOsS/mmGRHys/Si+IYC4ucrbnWAmES/dYdxGJjeUCECRcoFUilZAysdjlwqUjXIA=="
+          }
         },
         {
           "name": "code-review",
@@ -98,7 +103,12 @@
           "name": "playwright",
           "when": "claude",
           "license": "Apache-2.0 (claude-plugins-official)",
-          "runtime": "its MCP server runs `npx @playwright/mcp@latest`: an unpinned npm package fetched at every launch, outside the kit pin"
+          "runtime": "its MCP server runs `npx @playwright/mcp@0.0.83`: the kit's playwright-mcp-version edit pins the upstream `@latest`, fetched from npm at launch",
+          "npm": {
+            "package": "@playwright/mcp",
+            "version": "0.0.83",
+            "integrity": "sha512-oNcl+Ae2/IAjhfPeP46BfIkSakfmprY+aOtkv5MjrQ4lPav4/yNtPhL0iq8SlIM90oApWgBDUxaNKvktazUKOg=="
+          }
         },
         {
           "name": "security-guidance",
@@ -131,6 +141,7 @@
   "patches": [
     {
       "id": "codex-companion-session-end-timeout",
+      "kind": "hook-timeout",
       "plugin": "codex@openai-codex",
       "file": "hooks/hooks.json",
       "sha256": "6ba33b3f6a75ba4271a76160b0465e7050a607a02e1ec212a7c0f3b9cd3cb35a",
@@ -138,6 +149,17 @@
       "event": "SessionEnd",
       "from": 5,
       "to": 3
+    },
+    {
+      "id": "playwright-mcp-version",
+      "kind": "mcp-args",
+      "plugin": "playwright@claude-plugins-official",
+      "file": ".mcp.json",
+      "sha256": "b6fd7e9ccee1682af353854195516826da6970026b68c86ad800ff4d931d3250",
+      "description": "Pin the playwright MCP server to @playwright/mcp 0.0.83 (registry integrity in the plugin's npm field) instead of @latest.",
+      "server": "playwright",
+      "from": "@playwright/mcp@latest",
+      "to": "@playwright/mcp@0.0.83"
     }
   ]
 }

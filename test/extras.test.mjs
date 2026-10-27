@@ -7,8 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyPlugin, fleetPluginId, managerPluginId, planPlugin, planRemovePlugin, pluginId, removePlugin } from '../src/herdr-plugin.mjs';
-import { applyAutostart, applyLayout, autostartMarker, captainHelp, layoutBegin, placeCaptainHelp, planAutostart, planLayout, shortcutsHealth, shortcutInputs } from '../src/shortcuts.mjs';
-import { applyPatch, placeClaudePlugins, pluginTable, removeClaudePlugins } from '../src/claude-plugins.mjs';
+import { applyAutostart, applyLayout, autostartMarker, captainHelp, kitKeys, layoutBegin, placeCaptainHelp, planAutostart, planLayout, renderBlock, shortcutsHealth, shortcutInputs, splitBlock } from '../src/shortcuts.mjs';
+import { applyPatch, claudePluginsHealth, placeClaudePlugins, pluginTable, removeClaudePlugins } from '../src/claude-plugins.mjs';
 import { previewHooks } from '../src/install/hooks.mjs';
 import { runJev } from '../src/jev.mjs';
 import { runMate } from '../src/mate.mjs';
@@ -128,6 +128,55 @@ test('the Herdr layout block sits before the person\'s first table, leaves out w
   assert.equal(readFileSync(f.configPath, 'utf8'), text);
   await applyLayout(planLayout(f.configPath, { want: false, record: layout }), f.root, {});
   assert.equal(readFileSync(f.configPath, 'utf8'), mine);
+});
+
+test('the Herdr layout block never lands inside the kit keys block or the session graph\'s keys block', posixOnly, async t => {
+  const f = fixture(t);
+  mkdirSync(join(f.home, '.config', 'herdr'), { recursive: true });
+  const keys = renderBlock(kitKeys.map(k => ({ ...k, command: k.action || `open-firstmate ${k.mode}` })));
+  const graph = '# >>> furkankly.zoetrope keys (managed: `setup-keys` writes this block, `remove-keys` deletes it)\n[[keys.command]]\nkey = "prefix+shift+z"\n# <<< furkankly.zoetrope keys';
+  const mine = `onboarding = true\n\n${graph}\n\n${keys}\n`;
+  writeFileSync(f.configPath, mine);
+  const plan = planLayout(f.configPath, { root: '/r/Agentic', want: true });
+  assert.equal(plan.action, 'add');
+  const layout = await applyLayout(plan, f.root, { env: f.env, check: () => ({ ok: true }) });
+  const text = readFileSync(f.configPath, 'utf8');
+  assert.equal(splitBlock(text).block, keys, 'the kit keys block is intact, so its digest still matches');
+  assert.ok(text.includes(graph), 'the session graph keys block is intact');
+  assert.ok(text.indexOf(layoutBegin) > text.indexOf('onboarding = true') && text.indexOf(layoutBegin) < text.indexOf(graph));
+  await applyLayout(planLayout(f.configPath, { want: false, record: layout }), f.root, {});
+  assert.equal(readFileSync(f.configPath, 'utf8'), mine);
+});
+
+test('the playwright MCP server is pinned through the kit\'s edit of the pinned .mcp.json, and doctor names a marketplace the person already had', posixOnly, async t => {
+  const f = fixture(t);
+  const table = pluginTable(), patch = table.patches.find(p => p.id === 'playwright-mcp-version');
+  const playwright = table.marketplaces.find(m => m.name === 'claude-plugins-official').plugins.find(p => p.name === 'playwright');
+  assert.deepEqual(playwright.npm, { package: '@playwright/mcp', version: '0.0.83', integrity: 'sha512-oNcl+Ae2/IAjhfPeP46BfIkSakfmprY+aOtkv5MjrQ4lPav4/yNtPhL0iq8SlIM90oApWgBDUxaNKvktazUKOg==' });
+  const upstream = '{\n  "playwright": {\n    "command": "npx",\n    "args": ["@playwright/mcp@latest"]\n  }\n}\n';
+  assert.equal(sha(upstream), patch.sha256, 'the pinned original at claude-plugins-official 41f619d6');
+  const cache = join(f.home, '.claude', 'plugins', 'cache', 'claude-plugins-official', 'playwright', '41f619d61b99');
+  mkdirSync(cache, { recursive: true });
+  writeFileSync(join(cache, '.mcp.json'), upstream);
+  const run = () => ({ status: 0, stdout: `${JSON.stringify({ outcome: 'ok', message: 'Successfully done' })}\n` });
+  const result = await placeClaudePlugins({ harness: 'claude', figma: false }, { claude: '/bin/claude', env: f.env, home: f.home, run });
+  assert.deepEqual(JSON.parse(readFileSync(join(cache, '.mcp.json'), 'utf8')).playwright.args, ['@playwright/mcp@0.0.83']);
+  assert.ok(result.record.patches.includes('playwright-mcp-version'));
+  assert.ok(result.lines.includes('Claude plugins: playwright-mcp-version: playwright MCP server runs @playwright/mcp@0.0.83'));
+  const again = await placeClaudePlugins({ harness: 'claude', figma: false }, { claude: '/bin/claude', env: f.env, home: f.home, record: result.record, run });
+  assert.ok(again.lines.includes('Claude plugins: playwright-mcp-version: playwright MCP server runs @playwright/mcp@0.0.83'), 'a rerun sees the edit in place');
+  writeFileSync(join(cache, '.mcp.json'), upstream.replace('@latest', '@next'));
+  assert.equal((await applyPatch(patch, join(f.home, '.claude'))).applied, false, 'a file that is not the pinned original is left as it is');
+  // A marketplace the person already had is theirs; doctor compares its revision with the kit's pin.
+  const pinned = table.marketplaces.find(m => m.name === 'claude-plugins-official').commit, location = join(f.base, 'official');
+  mkdirSync(location, { recursive: true });
+  writeFileSync(join(f.home, '.claude', 'plugins', 'known_marketplaces.json'), JSON.stringify({ 'claude-plugins-official': { installLocation: location } }));
+  writeFileSync(join(location, '.gcs-sha'), `${'a'.repeat(40)}\n`);
+  const row = () => claudePluginsHealth(null, f.env, f.home, { harness: 'claude' }).find(r => r.id === 'claude-marketplace-claude-plugins-official');
+  assert.deepEqual([row().status, row().detail], ['warn', `your own claude-plugins-official marketplace is at ${'a'.repeat(40)}, not the kit's pinned ${pinned}; its plugins follow your revision`]);
+  writeFileSync(join(location, '.gcs-sha'), `${pinned}\n`);
+  assert.equal(row().status, 'pass');
+  assert.equal(claudePluginsHealth({ markets: ['claude-plugins-official'], plugins: [] }, f.env, f.home, { harness: 'claude' }).some(r => r.id.startsWith('claude-marketplace-')), false, 'a marketplace the kit added is pinned already');
 });
 
 test('a starter captain guide is written only when the home has none, names the bound keys, and is never overwritten', posixOnly, async t => {

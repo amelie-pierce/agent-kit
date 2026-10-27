@@ -62,32 +62,37 @@ export async function applyUpdate(manifest, options) {
     withFigma: answers.figma ?? options.withFigma, withTower: answers.tower ?? true, globalHooks: answers.globalHooks ?? true, towerState: plan.setup?.paths?.towerState,
     isRunning: options.isRunning || (id => processRunning(id, plan.noMistakesBin)) });
   // The kit's launchers, Herdr keys and session-graph plugin arrive with an upgrade too, placed by this (the new)
-  // kit from its own installed copy; a problem with them never fails the update.
-  let shortcuts = null;
-  if (!result.components.some(x => ['conflict', 'deferred'].includes(x.status))) {
-    const root = resolve(options.installRoot), receiptPath = join(root, 'receipt.json'), kitPath = fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/]$/, '');
-    try {
-      const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
-      const extras = await placeKitExtras(receipt, root, { env: options.env || process.env, home: options.home, check: options.herdrCheck,
-        kitPath: kitPath.startsWith(join(root, 'kit') + sep) ? kitPath : null, isRunning: options.isRunning || (id => processRunning(id, plan.noMistakesBin)) });
-      if (extras.action !== 'not-selected') {
-        const current = JSON.parse(readFileSync(receiptPath, 'utf8'));
-        current.setup ||= {}; current.setup.shortcuts = extras.record;
-        await atomicJson(receiptPath, current);
-      }
-      shortcuts = extras.lines;
-      // A home that now takes fm-strategy.sh --plans gets the person's strategy, as a new install does.
-      const current = JSON.parse(readFileSync(receiptPath, 'utf8')), home = plan.firstmateHome;
-      if (!current.setup?.dispatch && home && strategyTakesPlans(home)) {
-        const selected = await applyStarter(planStarter(home, { harness: harnessOf(current), plans: plansOf(current), mode: modeOf(current), create: true }));
-        if (selected.record) { current.setup ||= {}; current.setup.dispatch = selected.record; await atomicJson(receiptPath, current); }
-        const line = describeStarter(selected); if (line) shortcuts.push(line);
-      }
-    } catch (error) { shortcuts = [`Herdr shortcuts: not updated; ${error.message}`]; }
-  }
+  // kit from its own installed copy. An upgrade defers them until it can no longer roll back.
+  const shortcuts = options.deferExtras || result.components.some(x => ['conflict', 'deferred'].includes(x.status)) ? null
+    : await placeUpdateExtras(options, plan.firstmateHome, plan.noMistakesBin);
   return { ...plan, apply: true, status: result.status, exitCode: result.exitCode, components: result.components, shortcuts,
     previousRelease: plan.fromRelease, nextSteps: result.components.filter(x => ['conflict', 'deferred'].includes(x.status)).map(x => `${x.id}: ${x.reason}`),
     note: 'Previous release binaries remain in their versioned directory. User state rollback is not promised.' };
+}
+// The kit extras and, for a home that now takes fm-strategy.sh --plans, the person's strategy; a problem with
+// them never fails the update. Returns the lines to report.
+export async function placeUpdateExtras(options, firstmateHome, noMistakesBin = null) {
+  const root = resolve(options.installRoot), receiptPath = join(root, 'receipt.json'), kitPath = fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/]$/, '');
+  let shortcuts = null;
+  try {
+    const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+    const extras = await placeKitExtras(receipt, root, { env: options.env || process.env, home: options.home, check: options.herdrCheck,
+      kitPath: kitPath.startsWith(join(root, 'kit') + sep) ? kitPath : null, isRunning: options.isRunning || (id => processRunning(id, noMistakesBin)) });
+    if (extras.action !== 'not-selected') {
+      const current = JSON.parse(readFileSync(receiptPath, 'utf8'));
+      current.setup ||= {}; current.setup.shortcuts = extras.record;
+      await atomicJson(receiptPath, current);
+    }
+    shortcuts = extras.lines;
+    // A home that now takes fm-strategy.sh --plans gets the person's strategy, as a new install does.
+    const current = JSON.parse(readFileSync(receiptPath, 'utf8'));
+    if (!current.setup?.dispatch && firstmateHome && strategyTakesPlans(firstmateHome)) {
+      const selected = await applyStarter(planStarter(firstmateHome, { harness: harnessOf(current), plans: plansOf(current), mode: modeOf(current), create: true }));
+      if (selected.record) { current.setup ||= {}; current.setup.dispatch = selected.record; await atomicJson(receiptPath, current); }
+      const line = describeStarter(selected); if (line) shortcuts.push(line);
+    }
+  } catch (error) { shortcuts = [`Herdr shortcuts: not updated; ${error.message}`]; }
+  return shortcuts;
 }
 export function processRunning(id, noMistakesBin) {
   if (id === 'no-mistakes' && noMistakesBin) {

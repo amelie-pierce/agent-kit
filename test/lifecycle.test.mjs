@@ -370,6 +370,7 @@ test('upgrade from macos-pilot-6 to pilot-9 plans and applies without a release 
   const result = await applyUpgrade(plan, f.options);
   assert.equal(result.status, 'upgraded');
   assert.equal(JSON.parse(readFileSync(f.receiptPath, 'utf8')).release, 'pilot-9');
+  assert.ok(Array.isArray(result.shortcuts), 'the new kit placed its extras once the upgrade could no longer roll back');
   assert.equal(readFileSync(join(f.root, 'releases', 'pilot-9', 'bin', 'herdr'), 'utf8'), 'restored');
   assert.equal(readFileSync(join(f.root, 'releases', 'macos-pilot-6', 'bin', 'herdr'), 'utf8'), 'original');
   assert.equal(readFileSync(envPath, 'utf8'), 'TYPESAFE_API_KEY=fixture-secret-123\n');

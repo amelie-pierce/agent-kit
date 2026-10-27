@@ -213,7 +213,7 @@ test('setup writes Firstmate\'s balanced starter rules only once the key is set 
   const first = f.ctx(['--yes', '--root', f.root, '--no-tower', '--no-global-hooks']);
   first.installPlatform = install;
   assert.equal(await setup(f.fixtureManifest, first), 0, first.text);
-  assert.match(first.text, /Starter dispatch rules: not written; the kit writes them only once TYPESAFE_API_KEY is set/);
+  assert.match(first.text, /Starter dispatch rules: will select Firstmate's \w+ strategy for [^\n]* with bin\/fm-strategy\.sh --plans/, 'a home not cloned yet is judged by the pinned Firstmate, key or not');
   assert.equal(existsSync(rules), false, 'no key, no rules');
 
   const c = ttyCtx(f, ['--root', f.root], [[/Add optional TYPESAFE_API_KEY[^\n]*$/, 'y\n'], [/TYPESAFE_API_KEY \(hidden[^\n]*$/, `${key}\r`], [/Write these changes now[^\n]*$/, 'y\n']]);
@@ -242,7 +242,7 @@ test('the plan and mode questions use the approved plan ids, warn before full on
   const f = fixture(t);
   const c = ttyCtx(f, ['--root', f.root, '--no-tower', '--no-global-hooks', '--no-figma', '--github-owner', 'my-org', '--no-starter-mate', '--channel', 'releases'],
     [[/2b\. Codex subscription plan, for starter dispatch rules: plus, pro, business-standard, business-premium, enterprise-edu, api or skip \[skip\][^\n]*$/, 'plus\n'],
-      [/2c\. Starter routing mode used once TYPESAFE_API_KEY is set: lean, balanced or full \[lean\][^\n]*$/, 'full\n'],
+      [/2c\. Starter routing mode for Firstmate's dispatch strategy: lean, balanced or full \[lean\][^\n]*$/, 'full\n'],
       [/Warning: full on ChatGPT Plus can reach the five-hour limit first, then the weekly limit\. Use full anyway[^\n]*$/, 'n\n'],
       [/2d\. Use the full-access Codex launch[^\n]*$/, '\n'],
       [/Keep it as it is[^\n]*$/, 'y\n'], [/Add optional TYPESAFE_API_KEY[^\n]*$/, 'n\n'], [/Write these changes now[^\n]*$/, 'y\n']]);

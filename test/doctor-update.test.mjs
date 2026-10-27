@@ -182,6 +182,10 @@ test('starter output is inert and contains no owner paths or origins', () => {
 
 test('an upgrade places the kit launchers, Herdr pieces and plugins from the new kit, as setup does', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t);
+  // An upgrade defers them until it can no longer roll back: nothing is placed or recorded yet.
+  const deferred = await applyUpdate(f.manifest, { ...f.options, herdrCheck: () => ({ ok: true }), deferExtras: true });
+  assert.equal(deferred.shortcuts, null);
+  assert.equal('shortcuts' in (JSON.parse(readFileSync(f.receiptPath, 'utf8')).setup || {}), false);
   // Without python3 or the kit copy this fixture cannot write launchers, so the upgrade reports why, and the receipt keeps the result.
   const applied = await applyUpdate(f.manifest, { ...f.options, herdrCheck: () => ({ ok: true }) });
   assert.ok(Array.isArray(applied.shortcuts), 'applyUpdate ran the extras step');

@@ -186,6 +186,11 @@ test('full reviewed manifest can report ready on macOS, Linux and WSL2 fixture m
   assert.match(missing.result.advisories.find(x => x.id === 'tower-jq').reason, /sudo apt install jq/);
   assert.match(missing.result.issues.find(x => x.id === 'python3').reason, /python3 3\.8 is older than 3\.9; the kit's launchers and the tower need python3 3\.9 or newer/);
   assert.ok(run(['plan', '--json'], manifest, wsl2).result.plan.towerConfig);
+  // The plan's Herdr keys follow setup's binding rules: the mates key always, and the plugin keys as plugin actions.
+  const keys = Object.fromEntries(run(['plan', '--json'], manifest, wsl2).result.plan.herdrKeys.keys.map(k => [k.key, k.command]));
+  assert.equal(keys['prefix+shift+m'], 'open-firstmate mates');
+  assert.equal(keys['prefix+shift+c'], 'furkankly.zoetrope.open-tab');
+  assert.equal(keys['prefix+m'], 'ray.plugin-manager.open');
   assert.equal(run(['plan', '--json'], manifest, linux).result.plan.towerConfig, null);
   const old = run(['check', '--json'], manifest, { ...wsl2, glibcVersion: '2.31' });
   assert.equal(old.exitCode, 1);

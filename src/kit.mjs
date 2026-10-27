@@ -6,7 +6,7 @@ import { previewHooks, publicHookChanges } from './install/hooks.mjs';
 import { npmGroup, towerPaths } from './install/macos.mjs';
 import { defaultLinuxFirstmateHome, defaultLinuxRoot, describeStep, linuxPath, windowsHandoff, windowsNextSteps } from './install/windows.mjs';
 import { harnessLabel, harnessProfiles, parseHarness, towerIds, usesProfile } from './harness.mjs';
-import { herdrConfigPath, kitKeys, previewKeys } from './shortcuts.mjs';
+import { herdrConfigPath, keyBindings, previewKeys } from './shortcuts.mjs';
 
 function compareVersions(actual, minimum) {
   const a = actual.split('.').map(Number);
@@ -230,13 +230,15 @@ export function evaluatePlan(manifest, context, options) {
       evaluation.issues.push({ status: 'conflict', id: 'hooks', reason: error.message });
     }
   }
-  // The Herdr keys block: the kit keys for the chosen agent CLIs (and the tower), each skipped when the
-  // person bound it, with every Herdr default it replaces named.
+  // The Herdr keys block, by the same rules as setup: the kit keys for the chosen agent CLIs, the mates key, and
+  // the plugin keys for the plugins the kit registers, each skipped when the person bound it, with every Herdr
+  // default it replaces named.
   let herdrKeys = null;
   if (options.command === 'plan' && evaluation.platform.supported && !windows && options.globalHooks !== false) {
-    const agents = harnessProfiles(options.harness), path = herdrConfigPath(context.env, context.env.HOME);
-    const keys = kitKeys.filter(k => k.key && (k.mode === 'mates' ? options.withTower !== false : agents.includes(k.mode)));
-    herdrKeys = { path, keys: keys.map(k => ({ key: k.key, command: `open-firstmate ${k.mode}` })), notes: previewKeys(path, keys) };
+    const ids = new Set(evaluation.selected.map(tool => tool.id)), path = herdrConfigPath(context.env, context.env.HOME);
+    const keys = keyBindings({ agents: Object.fromEntries(harnessProfiles(options.harness).map(agent => [agent, true])),
+      graph: ids.has('zoetrope-herdr-plugin') && ids.has('zoe-fleet'), pluginManager: ids.has('herdr-plugin-manager') }, 'open-firstmate');
+    herdrKeys = { path, keys: keys.map(k => ({ key: k.key, command: k.action || `open-firstmate ${k.mode}` })), notes: previewKeys(path, keys) };
   }
   let towerConfig = null;
   const runtime = evaluation.selected.find(tool => tool.id === 'zoe-fleet-runtime');

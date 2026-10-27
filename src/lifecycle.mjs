@@ -486,7 +486,7 @@ export async function applyUpgrade(plan, options = {}) {
     if (!stat(kitTarget)) { await mkdir(dirname(kitTarget), { recursive: true, mode: 0o700 }); await rename(plan.kit, kitTarget); }
     const target = await import(pathToFileURL(join(kitTarget, 'src', 'update.mjs')).href);
     const result = await target.applyUpdate(plan.manifest, { ...options, installRoot: root, home: options.home, platform: options.platform || process.platform,
-      arch: options.arch || process.arch, reviewed: true, isRunning: () => false });
+      arch: options.arch || process.arch, reviewed: true, isRunning: () => false, deferExtras: true });
     if (unresolved(result.components, plan.manifest, options.platform || process.platform, options.arch || process.arch, false).failed.length) throw new Error('upgrade has unresolved components; prior kit files restored');
     const updated = receiptAt(root).receipt;
     const updatedWrapper = updated.phases['treehouse-root'];
@@ -499,8 +499,10 @@ export async function applyUpgrade(plan, options = {}) {
     }
     updated.setup ||= {}; updated.setup.kit = { commit: plan.commit, path: kitTarget };
     await atomicJson(join(root, 'receipt.json'), updated);
+    // Past every check that rolls back: what the new kit places from here stays tracked in the receipt.
+    const shortcuts = await target.placeUpdateExtras({ ...options, installRoot: root, isRunning: () => false }, homeOf(updated));
     const dispatch = await reconcileStarter(root, homeOf(updated), 'upgrade');
-    return { ...plan, apply: true, status: 'upgraded', components: result.components, dispatch, shortcuts: result.shortcuts || null };
+    return { ...plan, apply: true, status: 'upgraded', components: result.components, dispatch, shortcuts };
   } catch (error) {
     await atomicJson(join(root, 'receipt.json'), old);
     for (const item of oldGlobal.reverse()) {

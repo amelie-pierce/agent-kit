@@ -312,8 +312,9 @@ export function previewStarter(firstmateHome, { harness, plans = {}, mode, table
   if (current) return unchanged && !nativeRecord(record) && strategyTakesPlans(firstmateHome)
     ? `switch the kit's unchanged rules at ${path} to Firstmate's ${mode} strategy with bin/fm-strategy.sh --plans`
     : unchanged && !nativeRecord(record) ? `keep the kit's unchanged rules at ${path}` : `keep your existing ${path}`;
+  // A home not cloned yet gets the pinned Firstmate, whose fm-strategy.sh takes --plans.
+  if (!stat(firstmateHome) || strategyTakesPlans(firstmateHome)) return `will select Firstmate's ${mode} strategy for ${providers}${planText(effectivePlans(providers, plans, table))} with bin/fm-strategy.sh --plans`;
   if (!keySet) return `not written; the kit writes them only once TYPESAFE_API_KEY is set`;
-  if (strategyTakesPlans(firstmateHome)) return `will select Firstmate's ${mode} strategy for ${providers}${planText(effectivePlans(providers, plans, table))} with bin/fm-strategy.sh --plans`;
   return `will write Firstmate's ${mode} rules for ${providers}${planText(effectivePlans(providers, plans, table))} to ${path}`;
 }
 

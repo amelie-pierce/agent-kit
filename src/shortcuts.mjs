@@ -181,7 +181,7 @@ exec ${quote(inputs.node)} ${quote(join(inputs.kit, 'bin', 'agent-kit.mjs'))} ma
 // The kit's key data, one entry per key; changing a key is a one-line change here. prefix+f and prefix+shift+f
 // open the Claude and Codex coordinators (only the CLIs set up here), prefix+shift+m creates a second mate in
 // the Mates tab, and prefix+shift+c opens the Zoetrope session graph in a tab once the kit registered that
-// plugin (its own setup-keys binds prefix+shift+z for the overlay). No plugin manager is part of the kit stack.
+// plugin (its own setup-keys binds prefix+shift+z for the overlay).
 export const kitKeys = [
   { mode: 'claude', key: 'prefix+f', description: 'Firstmate: Claude coordinator', purpose: 'open the Claude coordinator' },
   { mode: 'codex', key: 'prefix+shift+f', description: 'Firstmate: Codex coordinator', purpose: 'open the Codex coordinator' },
@@ -479,7 +479,8 @@ export async function applyAutostart(plan, root) {
 
 // The owner's Herdr look, as one marker-fenced block: onboarding off, new panes in the agent root, and the
 // theme, sidebar, tab bar, pane and toast settings. It sits after the person's own top-level keys and before
-// their first table, since a top-level key after a table header would belong to that table. A table or
+// their first table or marker-fenced block (the kit keys and the plugin's keys), since a top-level key after a
+// table header would belong to that table and a block inside another block would break both. A table or
 // top-level key the person already sets is left out of the block and named, so nothing is ever defined twice.
 export const layoutBegin = '# >>> agent-kit layout (managed: agent-kit setup and upgrade write this block, uninstall removes it)';
 export const layoutEnd = '# <<< agent-kit layout';
@@ -533,8 +534,8 @@ export function planLayout(configPath, { root, want, record = null, repair = fal
   }
   lines.push(layoutEnd);
   const nextBlock = lines.length > 2 ? lines.join('\n') : null;
-  // Insert after the person's own top-level lines, before their first table header.
-  const restLines = rest.split('\n'), first = restLines.findIndex(line => /^\s*\[/.test(line));
+  // Insert after the person's own top-level lines, before their first table header or marker-fenced block.
+  const restLines = rest.split('\n'), first = restLines.findIndex(line => /^\s*\[/.test(line) || line.startsWith('# >>> '));
   const head = (first === -1 ? restLines : restLines.slice(0, first)).join('\n').replace(/\n+$/, ''), tail = first === -1 ? '' : restLines.slice(first).join('\n');
   const next = nextBlock ? `${head ? `${head}\n\n` : ''}${nextBlock}\n${tail ? `\n${tail.replace(/^\n+/, '')}` : ''}` : rest;
   const body = next.endsWith('\n') || !next ? next : `${next}\n`;
@@ -624,7 +625,7 @@ export function shortcutsHealth(receipt, root) {
     row('fleet-autostart', ok, ok ? `marker-owned SessionStart entry in ${path}` : `Fleet autostart entry missing from ${path}; agent-kit repair restores it`);
   }
   if (record.captainHelp?.path) row('captain-help', existsSync(record.captainHelp.path), existsSync(record.captainHelp.path) ? `${record.captainHelp.path} (print it with fm-help)` : `${record.captainHelp.path} is missing`);
-  checks.push(...claudePluginsHealth(record.claudePlugins, process.env, process.env.HOME));
+  checks.push(...claudePluginsHealth(record.claudePlugins, process.env, process.env.HOME, receipt.setup?.answers || {}));
   if (receipt.setup?.answers?.codexFullAccess !== undefined) checks.push({ id: 'codex-full-access', status: 'pass', detail: `codex full-access launch: ${receipt.setup.answers.codexFullAccess ? 'on' : 'off'}` });
   return checks;
 }

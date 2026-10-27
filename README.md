@@ -201,9 +201,9 @@ Question 5a adds the owner's Herdr look as one block between `# >>> agent-kit la
 
 When you choose Claude, the kit installs the owner's Claude Code plugins with your own `claude` CLI at user scope:
 - **Pinned marketplaces.** Each comes from its own marketplace, added with `claude plugin marketplace add owner/repo#<commit>`. Nothing is vendored in the kit, and the commit is the content digest.
-- **Your plugins win.** A marketplace or plugin you already have is left as yours and never recorded. Uninstall removes only what the kit added.
+- **Your plugins win.** A marketplace or plugin you already have is left as yours and never recorded. Uninstall removes only what the kit added. If you already have one of these marketplaces (for example `claude-plugins-official`), its plugins follow your own marketplace revision, not the kit's pin; doctor warns when that revision differs from the pinned commit.
 - **Account sign-in.** Plugins that connect to an account are installed only; you sign in through each plugin's own flow, and the kit never writes a token or MCP credential.
-- **Run-time fetches.** Some MCP servers fetch packages or connect to vendor services at run time, outside the kit pin (see the table).
+- **Pinned MCP packages.** MCP servers that run an npm package run a pinned version: `chrome-devtools-mcp@1.11.0` upstream, and `@playwright/mcp@0.0.83` through the kit's edit of the playwright plugin's `.mcp.json` (upstream says `@latest`). The edit applies only while that file matches the pinned original by SHA-256; repair restores it, upgrade refreshes it, and uninstall removes it with the plugin. `manifests/claude-plugins.json` records each version and its npm registry integrity. Some MCP servers connect to vendor services at run time (see the table).
 
 | Plugin | Source and pin | Licence | Runs at run time |
 | --- | --- | --- | --- |
@@ -212,11 +212,11 @@ When you choose Claude, the kit installs the owner's Claude Code plugins with yo
 | `figma-cli@amelie-pierce` (with Figma) | amelie-pierce/figma-cli `cf6883a0` | MIT | |
 | From `claude-plugins-official` at `41f619d6` (Apache-2.0): `code-review`, `code-simplifier`, `commit-commands`, `frontend-design`, `security-guidance`, `skill-creator`, `typescript-lsp`, `rust-analyzer-lsp` | that marketplace | Apache-2.0 | |
 | `atlassian` | atlassian/atlassian-mcp-server `b74220d4`, via the official marketplace | Apache-2.0 | Atlassian-hosted MCP; sign in yourself |
-| `chrome-devtools-mcp` | ChromeDevTools/chrome-devtools-mcp `a878bcad` | Apache-2.0 | `npx chrome-devtools-mcp@1.11.0` (version-pinned, no integrity pin) |
+| `chrome-devtools-mcp` | ChromeDevTools/chrome-devtools-mcp `a878bcad` | Apache-2.0 | `npx chrome-devtools-mcp@1.11.0`, pinned upstream (registry integrity `sha512-CytJ/5tn…` recorded) |
 | `context7` | the official marketplace | Apache-2.0 | Context7-hosted MCP |
 | `data-engineering` | astronomer/agents `486ee63d` | Apache-2.0 | uv/uvx fetch Python packages |
 | `figma` | figma/mcp-server-guide `f2789420` | no licence file; installed by reference from the official marketplace, nothing redistributed | Figma-hosted MCP; sign in yourself |
-| `playwright` | the official marketplace | Apache-2.0 | `npx @playwright/mcp@latest`: **unpinned**, fetched from npm at every launch |
+| `playwright` | the official marketplace | Apache-2.0 | `npx @playwright/mcp@0.0.83`, pinned by the kit's edit of its `.mcp.json` (upstream `@latest`; registry integrity `sha512-oNcl+Ae2…` recorded) |
 | `superpowers` | obra/superpowers `bb92a777` | MIT | |
 
 Excluded by the owner: git-ai (and its Codex hook), claude-mem, tode, and the terminal-browser app and skill.
@@ -235,7 +235,7 @@ Answers:
   9. Update channel: releases
   10. Optional TYPESAFE_API_KEY: not set (Firstmate home .env; without it Jev routing is off and normal dispatch rules apply)
       ...
-      Starter dispatch rules: not written; the kit writes them only once TYPESAFE_API_KEY is set
+      Starter dispatch rules: will select Firstmate's lean strategy for codex with bin/fm-strategy.sh --plans
 Derived paths:
   Firstmate home: /Users/you/Agentic/firstmate
   Kit install root: /Users/you/Agentic/.tools (private receipt /Users/you/Agentic/.tools/receipt.json)
@@ -426,7 +426,7 @@ In the manifest, `verified` means the artifact's identity and integrity were che
 
 ### Versions for owner approval (`pilot-8` -> `pilot-9`)
 
-> **Security-relevant first: the full-access Codex launch is on by default.** Setup question 2d shows this warning before the answer: "Full-access Codex launch: Codex workers that Firstmate starts can read and write anything your user account can, run any command without asking you first, and run hooks without the hook trust review. This matches the kit owner's own setup. Answer no to keep Codex's normal sandbox and approval prompts." It is asked only with Codex, it is on under `--yes`, the summary shows `ON`, doctor reports it, and uninstall removes `<root>/.tools/bin/codex`. Also: the `playwright` Claude plugin's MCP server runs `npx @playwright/mcp@latest`, which is fetched unpinned at every launch.
+> **Security-relevant first: the full-access Codex launch is on by default.** Setup question 2d shows this warning before the answer: "Full-access Codex launch: Codex workers that Firstmate starts can read and write anything your user account can, run any command without asking you first, and run hooks without the hook trust review. This matches the kit owner's own setup. Answer no to keep Codex's normal sandbox and approval prompts." It is asked only with Codex, it is on under `--yes`, the summary shows `ON`, doctor reports it, and uninstall removes `<root>/.tools/bin/codex`.
 
 - **Label.** `pilot-8` -> `pilot-9`.
 - **Firstmate.** `976c3ba730b9dafefc159b12a97a084c8c633e8f` -> `e823c61f684bc78cc8f2de4dd92f8b40651c764e`, the squash of pikenguyen227/firstmate#31 with the same tree as its head `2dff464f`. Source-archive SHA-256 `fef93f35…` -> `636ecdf6060fc3890eead54ac5cb01f938a6042633c0e198b11aee4f1e644161`, from two downloads. Its `fm-strategy.sh` takes `--plans`, so setup selects your strategy natively.
@@ -435,7 +435,8 @@ In the manifest, `verified` means the artifact's identity and integrity were che
   - Zoetrope session-graph plugin: `c80eef89`, SHA-256 `c533e712…`.
   - ray.plugin-manager: `e4fef269`, SHA-256 `3382cd13…`.
   - figma-cli: `cf6883a0`, archive SHA-256 `0dd73755…`, with `manifests/npm-figma`.
-  - The [Claude plugin](#claude-plugins) marketplace commits.
+  - The [Claude plugin](#claude-plugins) marketplace commits; a teammate who already has one of those marketplaces keeps it, its plugins follow their revision, and doctor warns when it differs from the pin.
+  - MCP packages: `@playwright/mcp@0.0.83` (registry integrity `sha512-oNcl+Ae2/IAjhfPeP46BfIkSakfmprY+aOtkv5MjrQ4lPav4/yNtPhL0iq8SlIM90oApWgBDUxaNKvktazUKOg==`), set by the kit's edit of the playwright plugin's `.mcp.json` (pinned original SHA-256 `b6fd7e9c…`) in place of `@latest`; `chrome-devtools-mcp@1.11.0` (registry integrity `sha512-CytJ/5tnzrS+J/74be2P5aCOsS/mmGRHys/Si+IYC4ucrbnWAmES/dYdxGJjeUCECRcoFUilZAysdjlwqUjXIA==`), pinned upstream.
   - python3 3.9 is required on every platform, and figma-cli is no longer a person-installed prerequisite.
 - **New user-level files and settings.**
   - The kit launchers in `<root>/.tools` ([list](#kit-launchers-and-commands)).

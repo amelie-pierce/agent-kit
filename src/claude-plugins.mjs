@@ -7,8 +7,8 @@ import { join } from 'node:path';
 // The owner's Claude Code plugins, installed with the person's own claude CLI when Claude is chosen
 // (manifests/claude-plugins.json). Each marketplace is added from its repository pinned to a commit; a
 // marketplace or plugin the person already has is left as theirs and never recorded, so uninstall removes only
-// what the kit added. The Codex Companion SessionEnd timeout edit applies only while the installed file is
-// byte-identical to the pinned original.
+// what the kit added. The kit's edits (the Codex Companion SessionEnd timeout, the playwright MCP version pin)
+// apply only while the installed file is byte-identical to the pinned original.
 const sha = data => createHash('sha256').update(data).digest('hex');
 export const pluginTable = () => JSON.parse(readFileSync(new URL('../manifests/claude-plugins.json', import.meta.url), 'utf8'));
 const configDir = (env, home) => env.CLAUDE_CONFIG_DIR || join(home, '.claude');
@@ -17,10 +17,11 @@ function wantedPlugins(table, answers) {
   const claude = answers.harness === 'claude' || answers.harness === 'both' || answers.harness === undefined;
   return table.marketplaces.flatMap(m => m.plugins.filter(p => claude && (p.when === 'claude' || (p.when === 'claude+figma' && answers.figma))).map(p => ({ ...p, market: m })));
 }
+const readJson = path => { try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return {}; } };
+const knownMarkets = (env, home) => readJson(join(configDir(env, home), 'plugins', 'known_marketplaces.json'));
 // What the person already has: enabled plugins in their user settings and the marketplaces Claude Code knows.
 function existing(env, home) {
-  const dir = configDir(env, home), read = path => { try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return {}; } };
-  return { plugins: new Set(Object.keys(read(join(dir, 'settings.json')).enabledPlugins || {})), markets: new Set(Object.keys(read(join(dir, 'plugins', 'known_marketplaces.json')))) };
+  return { plugins: new Set(Object.keys(readJson(join(configDir(env, home), 'settings.json')).enabledPlugins || {})), markets: new Set(Object.keys(knownMarkets(env, home))) };
 }
 const lastJson = text => { try { return JSON.parse(text.trim().split('\n').pop()); } catch { return null; } };
 
@@ -61,21 +62,33 @@ function installedFiles(patch, dir) {
   if (!existsSync(base)) return [];
   return readdirSync(base).map(version => join(base, version, ...patch.file.split('/'))).filter(path => existsSync(path));
 }
+// Each kind of kit edit: the change to the parsed file, whether a file already carries it, and how it reads.
+const edits = {
+  'hook-timeout': {
+    apply: (value, patch) => { for (const group of value.hooks[patch.event] || []) for (const hook of group.hooks || []) if (hook.timeout === patch.from) hook.timeout = patch.to; },
+    done: (value, patch) => value.hooks[patch.event].every(g => g.hooks.every(h => h.timeout === patch.to)),
+    detail: patch => `${patch.event} timeout set to ${patch.to}s`,
+  },
+  'mcp-args': {
+    apply: (value, patch) => { value[patch.server].args = value[patch.server].args.map(arg => arg === patch.from ? patch.to : arg); },
+    done: (value, patch) => value[patch.server].args.includes(patch.to) && !value[patch.server].args.includes(patch.from),
+    detail: patch => `${patch.server} MCP server runs ${patch.to}`,
+  },
+};
 export async function applyPatch(patch, dir) {
-  const files = installedFiles(patch, dir);
+  const files = installedFiles(patch, dir), edit = edits[patch.kind];
   if (!files.length) return { applied: false, detail: `no installed ${patch.file} found; skipped` };
   let applied = false;
   for (const path of files) {
     const body = readFileSync(path, 'utf8');
-    if (sha(body) !== patch.sha256) { applied ||= patchedAlready(body, patch); continue; }
+    if (sha(body) !== patch.sha256) { applied ||= (() => { try { return edit.done(JSON.parse(body), patch); } catch { return false; } })(); continue; }
     const value = JSON.parse(body);
-    for (const group of value.hooks[patch.event] || []) for (const hook of group.hooks || []) if (hook.timeout === patch.from) hook.timeout = patch.to;
+    edit.apply(value, patch);
     await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
     applied = true;
   }
-  return { applied, detail: applied ? `${patch.event} timeout set to ${patch.to}s` : `the installed ${patch.file} differs from the pinned original; left as it is` };
+  return { applied, detail: applied ? edit.detail(patch) : `the installed ${patch.file} differs from the pinned original; left as it is` };
 }
-const patchedAlready = (body, patch) => { try { return JSON.parse(body).hooks[patch.event].every(g => g.hooks.every(h => h.timeout === patch.to)); } catch { return false; } };
 
 // Uninstall: only the plugins and marketplaces the kit added, through the person's claude CLI.
 export function removeClaudePlugins(record, { claude, env = process.env, home = env.HOME, run } = {}) {
@@ -87,9 +100,21 @@ export function removeClaudePlugins(record, { claude, env = process.env, home = 
   return lines;
 }
 
-export function claudePluginsHealth(record, env, home) {
-  if (!record) return [];
-  const settings = (() => { try { return JSON.parse(readFileSync(join(configDir(env, home), 'settings.json'), 'utf8')); } catch { return {}; } })();
-  return (record.plugins || []).map(id => ({ id: `claude-plugin-${id}`, status: settings.enabledPlugins?.[id] ? 'pass' : 'warn',
-    detail: settings.enabledPlugins?.[id] ? `${id} enabled in your Claude settings` : `${id} is not enabled; agent-kit repair installs it again` }));
+// The revision Claude Code fetched a marketplace at: its .gcs-sha, or the HEAD of its git checkout.
+function marketRevision(location) {
+  if (typeof location !== 'string') return null;
+  try { return readFileSync(join(location, '.gcs-sha'), 'utf8').trim(); } catch { /* a git checkout instead */ }
+  const r = spawnSync('git', ['-C', location, 'rev-parse', 'HEAD'], { encoding: 'utf8', timeout: 10000 });
+  return r.status === 0 ? r.stdout.trim() : null;
+}
+// A pinned marketplace the person already had stays theirs, so its plugins follow their revision; doctor names it.
+export function claudePluginsHealth(record, env, home, answers = {}) {
+  const settings = readJson(join(configDir(env, home), 'settings.json')), known = knownMarkets(env, home);
+  const markets = [...new Set(wantedPlugins(pluginTable(), answers).map(w => w.market))].filter(m => known[m.name] && !(record?.markets || []).includes(m.name)).map(m => {
+    const revision = marketRevision(known[m.name].installLocation);
+    return { id: `claude-marketplace-${m.name}`, status: revision === m.commit ? 'pass' : 'warn', detail: revision === m.commit ? `your ${m.name} marketplace is at the kit's pinned ${m.commit}`
+      : `your own ${m.name} marketplace is at ${revision || 'an unknown revision'}, not the kit's pinned ${m.commit}; its plugins follow your revision` };
+  });
+  return [...markets, ...(record?.plugins || []).map(id => ({ id: `claude-plugin-${id}`, status: settings.enabledPlugins?.[id] ? 'pass' : 'warn',
+    detail: settings.enabledPlugins?.[id] ? `${id} enabled in your Claude settings` : `${id} is not enabled; agent-kit repair installs it again` }))];
 }

@@ -225,7 +225,7 @@ export async function collectAnswers(flags, saved, ctx, io, paths) {
     answers.dispatchMode = checkMode(flags['dispatch-mode']);
     if (answers.dispatchMode === 'full' && warnings.length) output.write(`Warning: ${fullNote}.\n`);
   } else if (want('dispatchMode') || plansChanged) {
-    answers.dispatchMode = yes ? suggested : await io.valid(`2c. Starter routing mode used once TYPESAFE_API_KEY is set: lean, balanced or full`, suggested, checkMode);
+    answers.dispatchMode = yes ? suggested : await io.valid(`2c. Starter routing mode for Firstmate's dispatch strategy: lean, balanced or full`, suggested, checkMode);
     if (answers.dispatchMode === 'full' && warnings.length && !yes && !(await io.confirm(`   Warning: ${fullNote}. Use full anyway`, false))) answers.dispatchMode = suggested;
   }
   const toggle = async (key, on, off, number, question) => {
