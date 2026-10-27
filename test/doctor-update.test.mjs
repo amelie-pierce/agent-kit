@@ -176,6 +176,6 @@ test('starter output is inert and contains no owner paths or origins', () => {
   assert.match(output, /bin\/fm-spawn\.sh <id> --secondmate/);
   assert.doesNotMatch(output, /pikenguyen|amelie-pierce|\/Users\/|github\.com|@example/);
   assert.equal(parseArgs(['secondmate-template', '--print']).command, 'secondmate-template');
-  assert.equal(parseArgs(['--update', '--install-root', '/tmp/kit']).command, 'update');
+  assert.equal(parseArgs(['--update', '--install-root', '/tmp/kit']).command, 'upgrade');
   assert.throws(() => parseArgs(['update', '--yes', '--install-root', '/tmp/kit', '--firstmate-home', '/tmp/home']), /does not apply|requires|unknown/);
 });

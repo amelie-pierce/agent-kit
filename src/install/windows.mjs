@@ -88,8 +88,33 @@ export function windowsHandoff(options, context, inspected) {
     message: `Linux install inside ${platform.wsl.target.name} exited with ${result.status}.` };
 }
 
+// Lifecycle commands execute only in the person's WSL2 installation. The Windows process never
+// opens that distribution's receipt or attempts to manage Linux files itself.
+export function windowsLifecycle(options, context, inspected) {
+  const platform = inspected || inspectWindows(context, { distro: options.distro });
+  const base = { operation: options.command, platform: 'windows', build: platform.build, linuxArch: platform.linuxArch, prerequisites: platform.prerequisites,
+    steps: platform.steps, nextSteps: windowsNextSteps(platform.wsl?.target?.name) };
+  if (!platform.supported || !platform.ready) return { ...base, status: 'needs-setup', exitCode: 1, message: platform.message, command: null };
+  const root = linuxPath(options.installRoot || '~/Agentic/.tools', '--install-root');
+  const script = [
+    'set -eu', 'root=$1', 'shift', 'case "$root" in "~/"*) root="$HOME/${root#??}";; esac',
+    'receipt=$root/receipt.json',
+    'test -f "$receipt" || { echo "agent-kit: installed receipt missing" >&2; exit 2; }',
+    'commit=$(node -e \'const r=JSON.parse(require("fs").readFileSync(process.argv[1])); process.stdout.write(r.setup?.kit?.commit||"")\' "$receipt")',
+    '[[ $commit =~ ^[a-f0-9]{40}$ ]] || { echo "agent-kit: installed kit commit missing" >&2; exit 2; }',
+    'action=$1', 'shift', 'exec node "$root/kit/$commit/bin/agent-kit.mjs" "$action" --install-root "$root" "$@"',
+  ].join('; ');
+  const argv = ['-d', platform.wsl.target.name, '--exec', 'bash', '-l', '-c', script, 'agent-kit-lifecycle', root, options.command,
+    ...(options.yes ? ['--yes'] : []), ...(options.removeFirstmateHome ? ['--remove-firstmate-home'] : []), ...(options.json ? ['--json'] : [])];
+  const command = powershellCommand(argv);
+  if (!options.handoff) return { ...base, status: 'handoff-ready', exitCode: 0, command, argv, message: 'Run this command in WSL2, or rerun with --handoff:' };
+  const result = (context.spawn || ((cmd, args) => spawnSync(cmd, args, { stdio: 'inherit', windowsHide: false })))(platform.wsl.path, argv);
+  if (result.error) throw result.error;
+  return { ...base, status: 'handed-off', exitCode: typeof result.status === 'number' ? result.status : 1, command, argv, message: `Lifecycle command inside ${platform.wsl.target.name} exited with ${result.status}.` };
+}
+
 export function formatWindows(result) {
-  const lines = [`Agent Kit install (Windows): ${result.status}`, result.message];
+  const lines = [`Agent Kit ${result.operation || 'install'} (Windows): ${result.status}`, result.message];
   if (result.command) lines.push(`  ${result.command}`);
   for (const p of result.prerequisites.filter(p => p.status !== 'pass')) lines.push(`${p.status.toUpperCase()} ${p.id}: ${p.detail}`);
   if (result.steps.length) lines.push('Steps you run yourself (the kit never enables features, elevates or restarts Windows):');

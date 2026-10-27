@@ -1,0 +1,190 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { applyRepair, applyUninstall, applyUpgrade, planRepair, planUninstall, planUpgrade, resolveReviewedCommit } from '../src/lifecycle.mjs';
+import { parseArgs } from '../src/kit.mjs';
+import { windowsLifecycle } from '../src/install/windows.mjs';
+
+const sha = body => createHash('sha256').update(body).digest('hex');
+const bundled = JSON.parse(readFileSync(new URL('../manifests/pilot-skeleton.json', import.meta.url)));
+const source = fileURLToPath(new URL('..', import.meta.url));
+const stopped = () => false;
+function fixture(t, channel = 'releases') {
+  const base = mkdtempSync(join(tmpdir(), 'kit-lifecycle-'));
+  t.after(() => rmSync(base, { recursive: true, force: true }));
+  const home = join(base, 'home'), setupRoot = join(home, 'Agentic'), root = join(setupRoot, '.tools'), firstmate = join(setupRoot, 'firstmate');
+  mkdirSync(home); mkdirSync(root, { recursive: true }); mkdirSync(firstmate);
+  for (const dir of ['bin', 'data', 'state', 'config', 'projects']) mkdirSync(join(firstmate, dir));
+  writeFileSync(join(firstmate, 'README.md'), 'fixture\n');
+  const git = (...args) => {
+    const r = spawnSync('git', ['-C', firstmate, ...args], { encoding: 'utf8', env: { ...process.env, HOME: home, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' } });
+    assert.equal(r.status, 0, r.stderr); return r.stdout.trim();
+  };
+  git('init', '-q'); git('add', 'README.md'); git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'fixture');
+  git('remote', 'add', 'origin', bundled.tools.find(x => x.id === 'firstmate').approvedUpstream);
+  const pin = git('rev-parse', 'HEAD');
+  const first = structuredClone(bundled.tools.find(x => x.id === 'firstmate'));
+  first.version.value = pin;
+  const herdr = structuredClone(bundled.tools.find(x => x.id === 'herdr'));
+  herdr.version.value = '0.9.3';
+  herdr.artifacts['darwin-arm64'] = { status: 'verified', url: 'https://fixture.test/herdr', sha256: sha('restored'), reason: '' };
+  const manifest = { ...bundled, release: 'old-release', tools: [first, herdr] };
+  const bin = join(root, 'releases', 'old-release', 'bin'); mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, 'herdr'), 'original', { mode: 0o755 });
+  const receipt = { schemaVersion: 1, release: 'old-release', phases: {
+    firstmate: { state: 'complete', version: pin, artifactSha256: first.artifacts['darwin-arm64'].sha256, path: firstmate },
+    herdr: { state: 'complete', version: '0.9.3', artifactSha256: sha('old-artifact'), path: 'releases/old-release/bin/herdr', ownedSha256: sha('original') },
+  }, setup: { version: 1, answers: { channel, harness: 'claude', tower: false, globalHooks: false }, paths: { root: setupRoot, installRoot: root, firstmateHome: firstmate } } };
+  const receiptPath = join(root, 'receipt.json');
+  writeFileSync(receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const options = { installRoot: root, home, env: { HOME: home, PATH: '/usr/bin:/bin' }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
+    isRunning: stopped, fetchArtifact: async (_url, path) => writeFileSync(path, 'restored') };
+  return { base, home, root, setupRoot, firstmate, bin, manifest, receiptPath, options, git };
+}
+
+test('repair plans without writes, refuses running services, and keeps a private copy of a changed binary', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t), path = join(f.bin, 'herdr');
+  writeFileSync(path, 'person edit');
+  const before = readFileSync(f.receiptPath, 'utf8');
+  const plan = planRepair(f.manifest, f.options);
+  assert.equal(plan.files.find(x => x.id === 'herdr').action, 'backup and replace changed');
+  assert.equal(readFileSync(path, 'utf8'), 'person edit');
+  assert.equal(readFileSync(f.receiptPath, 'utf8'), before);
+  await assert.rejects(applyRepair(f.manifest, { ...f.options, isRunning: id => id === 'herdr' }), /stop Herdr/);
+  assert.equal(readFileSync(path, 'utf8'), 'person edit');
+  const result = await applyRepair(f.manifest, f.options);
+  assert.equal(readFileSync(path, 'utf8'), 'restored');
+  assert.equal(readFileSync(join(result.backup, 'releases', 'old-release', 'bin', 'herdr'), 'utf8'), 'person edit');
+  assert.ok(existsSync(f.firstmate));
+});
+
+test('uninstall leaves the Firstmate home, preserves kit backups and refuses unsafe home removal', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t);
+  const plan = planUninstall(f.options);
+  assert.equal(plan.removeFirstmateHome, false);
+  assert.ok(existsSync(f.receiptPath));
+  assert.throws(() => planUninstall({ ...f.options, removeFirstmateHome: true, confirmHome: '/wrong' }), /type the exact/);
+  assert.equal(planUninstall({ ...f.options, removeFirstmateHome: true, confirmHome: f.firstmate, matesRunning: () => false }).removeFirstmateHome, true);
+  assert.throws(() => planUninstall({ ...f.options, removeFirstmateHome: true, confirmHome: f.firstmate, matesRunning: () => true }), /live second mates/);
+  writeFileSync(join(f.firstmate, 'README.md'), 'dirty');
+  assert.throws(() => planUninstall({ ...f.options, removeFirstmateHome: true, confirmHome: f.firstmate }), /uncommitted/);
+  writeFileSync(join(f.firstmate, 'README.md'), 'fixture\n');
+  writeFileSync(join(f.firstmate, 'README.md'), 'unpushed\n');
+  f.git('add', 'README.md'); f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'unpushed');
+  assert.throws(() => planUninstall({ ...f.options, removeFirstmateHome: true, confirmHome: f.firstmate }), /no upstream proves/);
+  mkdirSync(join(f.home, '.codex'));
+  writeFileSync(join(f.home, '.codex', 'config.toml'), '[features]\nhooks = true\nother = "keep"\n');
+  const receipt = JSON.parse(readFileSync(f.receiptPath));
+  receipt.phases.hooks = { state: 'complete', codexHooksPrevious: false, files: [], skills: [] };
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  await assert.rejects(applyUninstall({ ...f.options, isRunning: id => id === 'zoe-fleet-tower' }), /close the tower/);
+  assert.ok(existsSync(f.receiptPath));
+  const result = await applyUninstall(f.options);
+  assert.ok(existsSync(f.firstmate));
+  assert.equal(existsSync(f.receiptPath), false);
+  assert.equal(readFileSync(join(result.backup, 'releases', 'old-release', 'bin', 'herdr'), 'utf8'), 'original');
+  assert.match(readFileSync(join(f.home, '.codex', 'config.toml'), 'utf8'), /hooks = false\nother = "keep"/);
+  assert.ok(existsSync(result.record));
+});
+
+test('uninstall removes tagged hooks while retaining an unrelated hook', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t);
+  mkdirSync(join(f.home, '.claude'));
+  const settings = join(f.home, '.claude', 'settings.json');
+  writeFileSync(settings, `${JSON.stringify({ hooks: { SessionStart: [{ matcher: '', hooks: [
+    { type: 'command', command: `'${f.root}/releases/old-release/npm/node_modules/.bin/gh-axi' # agent-kit:gh-axi`, timeout: 10 },
+    { type: 'command', command: 'echo personal' },
+  ] }] } }, null, 2)}\n`);
+  const plan = planUninstall(f.options);
+  assert.deepEqual(plan.registration.files, [settings]);
+  await applyUninstall(f.options);
+  const after = JSON.parse(readFileSync(settings));
+  assert.deepEqual(after.hooks.SessionStart[0].hooks, [{ type: 'command', command: 'echo personal' }]);
+});
+
+async function stagedKit(_commit, _env, destination, release = 'new-release') {
+  mkdirSync(destination, { recursive: true });
+  cpSync(join(source, 'src'), join(destination, 'src'), { recursive: true });
+  cpSync(join(source, 'manifests'), join(destination, 'manifests'), { recursive: true });
+  const target = { ...bundled, release, tools: [] };
+  return target;
+}
+
+test('upgrade resolves each saved channel and rolls activated kit files back after a step failure', { skip: process.platform === 'win32' }, async t => {
+  for (const channel of ['releases', 'main']) {
+    const f = fixture(t, channel), commit = channel === 'main' ? 'b'.repeat(40) : 'a'.repeat(40), queried = [];
+    const fetchKit = async (_commit, _env, destination) => {
+      await stagedKit(_commit, _env, destination);
+      const target = structuredClone(f.manifest);
+      target.release = 'new-release';
+      target.tools.find(x => x.id === 'herdr').artifacts['darwin-arm64'].sha256 = sha('restored');
+      writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
+    };
+    const args = { ...f.options, resolveCommit: value => { queried.push(value); return commit; }, fetchKit };
+    const before = readFileSync(f.receiptPath, 'utf8');
+    const plan = await planUpgrade(args);
+    assert.deepEqual(queried, [channel]);
+    assert.equal(plan.commit, commit);
+    assert.equal(readFileSync(f.receiptPath, 'utf8'), before);
+    await assert.rejects(applyUpgrade(plan, { ...f.options, afterPhase: id => { if (id === 'herdr') throw new Error('injected failure'); } }), /injected failure/);
+    assert.equal(readFileSync(join(f.bin, 'herdr'), 'utf8'), 'original');
+    assert.equal(JSON.parse(readFileSync(f.receiptPath)).release, 'old-release');
+    assert.equal(existsSync(join(f.root, 'releases', 'new-release')), false);
+    assert.equal(existsSync(join(f.root, 'kit', commit)), false);
+  }
+});
+
+test('upgrade activates a reviewed kit and keeps the previous release', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t, 'main'), commit = 'c'.repeat(40);
+  const fetchKit = async (_commit, _env, destination) => {
+    await stagedKit(_commit, _env, destination);
+    const target = structuredClone(f.manifest);
+    target.release = 'new-release';
+    writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
+  };
+  const plan = await planUpgrade({ ...f.options, resolveCommit: () => commit, fetchKit });
+  const result = await applyUpgrade(plan, f.options);
+  assert.equal(result.apply, true);
+  assert.equal(JSON.parse(readFileSync(f.receiptPath)).release, 'new-release');
+  assert.equal(JSON.parse(readFileSync(f.receiptPath)).setup.kit.commit, commit);
+  assert.equal(readFileSync(join(f.bin, 'herdr'), 'utf8'), 'original');
+  assert.equal(readFileSync(join(f.root, 'releases', 'new-release', 'bin', 'herdr'), 'utf8'), 'restored');
+});
+
+test('CLI aliases and unattended flag use the same lifecycle command', () => {
+  assert.equal(parseArgs(['reinstall', '--root', '/tmp/kit']).command, 'repair');
+  assert.equal(parseArgs(['update', '--yes', '--root', '/tmp/kit']).command, 'upgrade');
+  assert.equal(parseArgs(['upgrade', '--yes', '--root', '/tmp/kit']).command, 'upgrade');
+  assert.equal(parseArgs(['uninstall', '--yes', '--root', '/tmp/kit']).command, 'uninstall');
+});
+
+test('reviewed release resolution asks the signed-in gh CLI for the saved channel and proves main ancestry', () => {
+  const calls = [], commit = 'd'.repeat(40);
+  const gh = (_file, args) => { calls.push(args); return args[1].includes('compare/') ? 'ahead' : commit; };
+  assert.equal(resolveReviewedCommit('releases', { gh }), commit);
+  assert.match(calls[0][1], /commits\?sha=main&path=manifests\/pilot-skeleton.json&per_page=1/);
+  calls.length = 0;
+  assert.equal(resolveReviewedCommit('main', { gh }), commit);
+  assert.equal(calls[0][1], 'repos/amelie-pierce/agent-kit/commits/main');
+  assert.throws(() => resolveReviewedCommit('releases', { gh: (_file, args) => args[1].includes('compare/') ? 'behind' : commit }), /not on main/);
+});
+
+test('Windows lifecycle handoff executes the installed kit inside a disposable WSL-style home', { skip: process.platform === 'win32' }, t => {
+  const base = mkdtempSync(join(tmpdir(), 'kit-wsl-lifecycle-'));
+  t.after(() => rmSync(base, { recursive: true, force: true }));
+  const commit = 'e'.repeat(40), root = join(base, 'Agentic', '.tools'), bin = join(root, 'kit', commit, 'bin');
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(root, 'receipt.json'), `${JSON.stringify({ setup: { kit: { commit } } })}\n`);
+  writeFileSync(join(bin, 'agent-kit.mjs'), 'console.log(JSON.stringify(process.argv.slice(2)))\n');
+  const inspected = { supported: true, ready: true, build: 'fixture', linuxArch: 'x64', prerequisites: [], steps: [], wsl: { target: { name: 'Ubuntu' } } };
+  const handoff = windowsLifecycle({ command: 'repair', installRoot: '~/Agentic/.tools', yes: true }, {}, inspected);
+  const result = spawnSync('bash', ['-c', handoff.argv[6], 'agent-kit-lifecycle', ...handoff.argv.slice(8)],
+    { env: { ...process.env, HOME: base }, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), ['repair', '--install-root', root, '--yes']);
+});

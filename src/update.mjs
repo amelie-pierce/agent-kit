@@ -67,9 +67,10 @@ export function processRunning(id, noMistakesBin) {
     if (/daemon running/i.test(daemon.stdout)) return true;
     if (!/daemon (?:stopped|not running)/i.test(daemon.stdout)) return true;
   }
-  const result = spawnSync('ps', ['-A', '-o', 'comm='], { encoding: 'utf8', timeout: 10000, maxBuffer: 1024 * 1024 });
+  const result = spawnSync('ps', ['-A', '-o', 'args='], { encoding: 'utf8', timeout: 10000, maxBuffer: 1024 * 1024 });
   if (result.status !== 0) return true;
-  return result.stdout.split('\n').some(line => line.trim().split('/').at(-1) === id);
+  const pattern = id === 'zoe-fleet-tower' ? /(?:^|[\s/])zoe-fleet-tower(?:\s|$)/ : new RegExp(`(?:^|[\\s/])${id}(?:\\s|$)`);
+  return result.stdout.split('\n').some(line => pattern.test(line.trim()));
 }
 export function formatUpdate(result) {
   const lines = [`Agent Kit update: ${result.fromRelease} -> ${result.toRelease}${result.apply ? ` (${result.status})` : ' (plan only)'}`];

@@ -51,16 +51,17 @@ export function validateManifest(manifest) {
 }
 
 export function parseArgs(argv, platform = process.platform) {
-  let command, json = false, harness = 'claude', withFigma = false, dryRun = false, handoff = false, yes = false, print = false, installRoot, firstmateHome, distro, root;
+  let command, json = false, harness = 'claude', withFigma = false, dryRun = false, handoff = false, yes = false, print = false, removeFirstmateHome = false, installRoot, firstmateHome, distro, root;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (['check', '--check', 'plan', 'install', 'doctor', 'update', '--update', 'secondmate-template'].includes(arg) && !command) command = arg === '--check' ? 'check' : arg === '--update' ? 'update' : arg;
+    if (['check', '--check', 'plan', 'install', 'doctor', 'update', '--update', 'upgrade', 'repair', 'reinstall', 'uninstall', 'secondmate-template'].includes(arg) && !command) command = arg === '--check' ? 'check' : arg === '--update' || arg === 'update' ? 'upgrade' : arg === 'reinstall' ? 'repair' : arg;
     else if (arg === '--json') json = true;
     else if (arg === '--harness' && parseHarness(argv[i + 1])) harness = parseHarness(argv[++i]);
     else if (arg === '--root' && argv[i + 1]) root = argv[++i];
     else if (arg === '--with-figma') withFigma = true;
     else if (arg === '--dry-run') dryRun = true;
     else if (arg === '--yes') yes = true;
+    else if (arg === '--remove-firstmate-home') removeFirstmateHome = true;
     else if (arg === '--print') print = true;
     else if (arg === '--install-root' && argv[i + 1]) installRoot = argv[++i];
     else if (arg === '--firstmate-home' && argv[i + 1]) firstmateHome = argv[++i];
@@ -68,21 +69,23 @@ export function parseArgs(argv, platform = process.platform) {
     else if (arg === '--distro' && /^[A-Za-z0-9._-]+$/.test(argv[i + 1] || '')) distro = argv[++i];
     else throw new Error(`unknown argument: ${arg}`);
   }
-  if (!command) throw new Error('usage: agent-kit <setup|check|plan|install|doctor|update|secondmate-template> [--json] [--harness claude|codex|claude,codex] [--with-figma] [--distro <name>] [--handoff]');
+  if (!command) throw new Error('usage: agent-kit <setup|check|plan|install|doctor|repair|upgrade|uninstall|secondmate-template> [--json] [--root <root>] [--yes]');
   if (root !== undefined) {
-    if (!['doctor', 'update'].includes(command)) throw new Error('--root applies only to doctor and update; use setup for a new root');
+    if (!['doctor', 'upgrade', 'repair', 'uninstall'].includes(command)) throw new Error('--root applies only to doctor and lifecycle commands; use setup for a new root');
     if (installRoot) throw new Error('--root conflicts with --install-root; pass one of them');
-    if (!isAbsolute(root)) throw new Error('--root must be absolute');
+    if (platform === 'win32') linuxPath(root, '--root');
+    else if (!isAbsolute(root)) throw new Error('--root must be absolute');
     installRoot = join(root, '.tools');
   }
   if (dryRun && command !== 'install') throw new Error('--dry-run applies only to install');
-  if (yes && command !== 'update') throw new Error('--yes applies only to update');
+  if (yes && !['upgrade', 'repair', 'uninstall'].includes(command)) throw new Error('--yes applies only to repair, upgrade and uninstall');
+  if (removeFirstmateHome && command !== 'uninstall') throw new Error('--remove-firstmate-home applies only to uninstall');
   if (print && command !== 'secondmate-template') throw new Error('--print applies only to secondmate-template');
   if (command === 'secondmate-template' && !print) throw new Error('secondmate-template requires --print');
-  if (handoff && (command !== 'install' || dryRun)) throw new Error('--handoff applies only to install without --dry-run');
+  if (handoff && (!['install', 'doctor', 'repair', 'upgrade', 'uninstall'].includes(command) || dryRun)) throw new Error('--handoff applies only to install, doctor and lifecycle commands without --dry-run');
   if ((handoff || distro) && platform !== 'win32') throw new Error('--handoff and --distro apply only on Windows');
   if (firstmateHome && !installRoot) throw new Error('--firstmate-home requires --install-root');
-  if (firstmateHome && ['doctor', 'update', 'secondmate-template'].includes(command)) throw new Error('--firstmate-home does not apply to this command');
+  if (firstmateHome && ['doctor', 'upgrade', 'repair', 'uninstall', 'secondmate-template'].includes(command)) throw new Error('--firstmate-home does not apply to this command');
   if (platform === 'win32') {
     if (installRoot) linuxPath(installRoot, '--install-root');
     if (firstmateHome) linuxPath(firstmateHome, '--firstmate-home');
@@ -90,7 +93,7 @@ export function parseArgs(argv, platform = process.platform) {
     if (installRoot && !isAbsolute(installRoot)) throw new Error('--install-root must be absolute');
     if (firstmateHome && !isAbsolute(firstmateHome)) throw new Error('--firstmate-home must be absolute');
   }
-  return { command: dryRun ? 'plan' : command, json, harness, withFigma, installRoot, firstmateHome, dryRun, handoff, distro, yes, print };
+  return { command: dryRun ? 'plan' : command, json, harness, withFigma, installRoot, firstmateHome, root, dryRun, handoff, distro, yes, print, removeFirstmateHome };
 }
 
 const loginSteps = {

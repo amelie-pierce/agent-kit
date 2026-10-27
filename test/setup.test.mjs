@@ -68,7 +68,7 @@ test('harness accepts claude, codex and both in either order', () => {
   assert.equal(parseHarness('gemini'), null);
   assert.equal(parseArgs(['plan', '--harness', 'claude,codex']).harness, 'both');
   assert.equal(parseArgs(['doctor', '--root', '/x/Agentic'], 'linux').installRoot, join('/x/Agentic', '.tools'));
-  assert.throws(() => parseArgs(['plan', '--root', '/x']), /only to doctor and update/);
+  assert.throws(() => parseArgs(['plan', '--root', '/x']), /only to doctor and lifecycle commands/);
   assert.throws(() => parseArgs(['doctor', '--root', '/x', '--install-root', '/y']), /conflicts/);
 });
 
