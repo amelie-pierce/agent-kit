@@ -10,7 +10,7 @@ Agent Kit is a Node CLI for per-person Firstmate and tool setup. It has read-onl
 
 ## Operating mode and authority
 
-Read this index before scanning the repository. Compile focused notes only when task work establishes new facts. Live code wins, then the manifest and schema, then this wiki. Start at `bin/agent-kit.mjs` for CLI dispatch, `src/kit.mjs` for validation and read-only result assembly, `src/install/macos.mjs` for the shared installation phases, `src/platforms/` for platform checks, `src/install/windows.mjs` and `windows/agent-kit.ps1` for the Windows handoff, and `manifests/` for pins and npm locks (bin/agent-kit.mjs:1-33; src/kit.mjs:11-37; src/install/macos.mjs:233-268; src/platforms/index.mjs:1-16).
+Read this index before scanning the repository. Compile focused notes only when task work establishes new facts. Live code wins, then the manifest and schema, then this wiki. Start at `bin/agent-kit.mjs` for CLI dispatch, `src/kit.mjs` for validation and read-only result assembly, `src/install/macos.mjs` for the shared installation phases, `src/platforms/` for platform checks, `src/install/windows.mjs` and `windows/agent-kit.ps1` for the Windows handoff, and `manifests/` for pins and npm locks (bin/agent-kit.mjs:1-49; src/kit.mjs:13-39; src/install/macos.mjs:233-268; src/platforms/index.mjs:1-14; src/install/windows.mjs; windows/agent-kit.ps1).
 
 | Area | Index |
 | --- | --- |
