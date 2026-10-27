@@ -6,7 +6,7 @@ date: 2026-10-27
 
 # Tower release install
 
-The manifest pins `zoe-fleet` to commit `fc45c4d9ea1d…`. Its macOS artifacts are `release-archive` assets from the `fleet-v0.2.0-fc45c4d9ea1d` pre-release, and its Linux artifacts are `source-archive` entries. A separate `zoe-fleet-runtime` tool pins the architecture-independent runtime archive for macOS only (manifests/pilot-skeleton.json:338; manifests/pilot-skeleton.json:409). The artifact `kind` field is optional, and an absent kind means a source archive (manifests/schema-v1.json:64; src/kit.mjs:34).
+The manifest pins `zoe-fleet` to commit `fc45c4d9ea1d…`. Its macOS artifacts are `release-archive` assets from the `fleet-v0.2.0-fc45c4d9ea1d` pre-release, and its Linux artifacts are `source-archive` entries. A separate `zoe-fleet-runtime` tool pins the architecture-independent runtime archive for macOS only (manifests/pilot-skeleton.json:206; manifests/pilot-skeleton.json:277). The artifact `kind` field is optional, and an absent kind means a source archive (manifests/schema-v1.json:64; src/kit.mjs:34).
 
 On macOS a `release-archive` tower takes the ordinary binary path into `releases/<release>/bin/zoe-fleet`. Cargo runs only for a source-archive target, which on Linux is the fallback (src/install/macos.mjs:18; src/install/macos.mjs:383-405). The runtime archive goes through a strict in-process tar reader. Pax headers that override paths are refused, and only regular files and directories are accepted. Required launcher files are checked before the tree is staged and recorded with a tree digest (src/install/macos.mjs:116-152; src/install/macos.mjs:418-429).
 
