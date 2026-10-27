@@ -288,6 +288,50 @@ test('a Firstmate pin change already applied through /updatefirstmate is not cal
   assert.equal(readFileSync(f.receiptPath, 'utf8'), before);
 });
 
+test('upgrade from macos-pilot-5 with only a Firstmate pin change asks for /updatefirstmate first, then applies', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t), oldPin = f.git('rev-parse', 'HEAD');
+  writeFileSync(join(f.firstmate, 'README.md'), 'firstmate update\n');
+  f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qam', 'firstmate update');
+  const newPin = f.git('rev-parse', 'HEAD');
+  f.git('checkout', '-q', '--detach', oldPin);
+  const receipt = JSON.parse(readFileSync(f.receiptPath));
+  receipt.release = 'macos-pilot-5';
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const fetchKit = async (_commit, _env, destination) => {
+    await stagedKit(_commit, _env, destination);
+    const target = structuredClone(f.manifest);
+    target.release = bundled.release;
+    target.tools.find(x => x.id === 'firstmate').version.value = newPin;
+    writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
+  };
+  const args = { ...f.options, resolveCommit: () => 'a'.repeat(40), fetchKit };
+  const before = readFileSync(f.receiptPath, 'utf8');
+  const plan = await planUpgrade(args);
+  t.after(() => rmSync(plan.stage, { recursive: true, force: true }));
+  assert.equal(plan.firstmatePinChange, true);
+  assert.equal(plan.firstmateReady, false);
+  assert.deepEqual(plan.changes.filter(x => x.from.version !== x.to.version).map(x => x.id), ['firstmate']);
+  const text = formatLifecycle(plan);
+  assert.match(text, new RegExp(`\\nRelease: macos-pilot-5 -> ${bundled.release}\\n`));
+  assert.match(text, new RegExp(`\\n- firstmate: ${oldPin} -> ${newPin}; `));
+  assert.match(text, /\nFirstmate pin: run \/updatefirstmate in the Firstmate home before applying\n/);
+  await assert.rejects(applyUpgrade(plan, f.options), new RegExp(`Firstmate pin changed; run /updatefirstmate from ${f.firstmate}, then rerun agent-kit upgrade`));
+  assert.equal(readFileSync(f.receiptPath, 'utf8'), before);
+  assert.equal(existsSync(join(f.root, 'releases', bundled.release)), false);
+  f.git('checkout', '-q', '--detach', newPin);
+  const ready = await planUpgrade(args);
+  assert.equal(ready.firstmateReady, true);
+  assert.match(formatLifecycle(ready), /\nFirstmate pin: guarded update already verified\n/);
+  const result = await applyUpgrade(ready, f.options);
+  assert.equal(result.status, 'upgraded');
+  assert.equal(result.components.find(x => x.id === 'firstmate').status, 'skipped');
+  const after = JSON.parse(readFileSync(f.receiptPath));
+  assert.equal(after.release, bundled.release);
+  assert.equal(after.phases.firstmate.version, newPin);
+  assert.equal(after.phases.herdr.version, '0.9.3');
+  assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate update\n');
+});
+
 test('upgrade refuses a missing or symlinked Firstmate home and never clones a replacement', { skip: process.platform === 'win32' }, async t => {
   for (const kind of ['missing', 'symlink']) {
     const f = fixture(t), moved = join(f.base, 'moved-firstmate');
