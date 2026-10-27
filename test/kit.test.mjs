@@ -397,6 +397,16 @@ test('optional figma version runs with disposable HOME and never writes the team
   }
 });
 
+test('codex version probe runs with disposable HOME and never writes the teammate HOME', { skip: process.platform === 'win32' }, t => {
+  const { home, bin, root } = tempFixture(t);
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\n/bin/mkdir -p "$HOME/.codex/tmp/arg0"\necho codex-cli 0.155.1\n', { mode: 0o755 });
+  const context = { env: { HOME: home, PATH: bin }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
+    applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']) };
+  const result = run(['check', '--json', '--harness', 'codex'], manifest, context);
+  assert.equal(result.result.platform.tools.find(x => x.id === 'codex').status, 'pass');
+  assert.deepEqual(readdirSync(home), []);
+});
+
 function installFixture(t) {
   const { root, home, bin } = tempFixture(t);
   const installRoot = join(root, 'kit');
