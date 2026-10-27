@@ -337,7 +337,8 @@ function applyGitIdentity(answer, env) {
 
 export function charterText(scope) {
   const template = readFileSync(new URL('../templates/secondmate/charter.md', import.meta.url), 'utf8');
-  return template.replace('<describe the work this mate owns>', scope).replace('<describe the projects and decisions this mate may handle>', scope);
+  // Firstmate wraps the charter under its own heading, so the template's title line is dropped.
+  return template.replace(/^# .*\n+/, '').replace('<describe the work this mate owns>', scope).replace('<describe the projects and decisions this mate may handle>', scope).trim();
 }
 function seedStarter(answer, paths, env, releaseBin) {
   const registry = join(paths.firstmateHome, 'data', 'secondmates.md');

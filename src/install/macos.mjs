@@ -208,7 +208,9 @@ async function attachPinnedGit(destination, tool, options) {
     ['init', '-q', destination],
     ['-C', destination, 'remote', 'add', 'origin', tool.approvedUpstream],
     ['-C', destination, '-c', 'credential.helper=', 'fetch', '--depth=1', 'origin', tool.version.value],
-    ['-C', destination, 'checkout', '--force', '--detach', tool.version.value],
+    // Firstmate reads the primary home's commit from its local default branch (bin/fm-ff-lib.sh
+    // primary_head_commit) to seed and sync second mates, so the fresh home is on main like a clone.
+    ['-C', destination, 'checkout', '--force', '-B', 'main', tool.version.value],
   ]) await exec('git', args, { env, timeout: 120000, maxBuffer: 65536 });
   const { stdout } = await exec('git', ['-C', destination, 'rev-parse', 'HEAD'], { env, timeout: 10000 });
   if (stdout.trim() !== tool.version.value) throw new Error('source commit mismatch');

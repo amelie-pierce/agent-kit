@@ -725,6 +725,8 @@ test('verified source archives create a fresh home and stage a tower build', asy
   assert.equal(result.firstmateHome, f.firstmateHome);
   assert.equal(JSON.parse(readFileSync(result.receipt)).phases.firstmate.path, f.firstmateHome);
   assert.equal(readFileSync(join(f.firstmateHome, 'README.md'), 'utf8'), 'tracked fixture\n');
+  // Firstmate seeds and syncs second mates from the primary home's local default branch.
+  assert.equal(spawnSync('git', ['-C', f.firstmateHome, 'symbolic-ref', '--short', 'HEAD'], { encoding: 'utf8' }).stdout.trim(), 'main');
   for (const dir of ['data', 'state', 'config', 'projects']) assert.deepEqual(readdirSync(join(f.firstmateHome, dir)), []);
   writeFileSync(join(f.firstmateHome, 'data', 'new-person-only'), 'private');
   const second = await installPlatform(f.fixtureManifest, f.options);
@@ -993,6 +995,8 @@ test('interrupted Firstmate staging is replaced on resume', async t => {
   assert.equal(result.components[0].status, 'installed');
   assert.equal(existsSync(stale), false);
   assert.equal(readFileSync(join(f.firstmateHome, 'README.md'), 'utf8'), 'tracked fixture\n');
+  // Firstmate seeds and syncs second mates from the primary home's local default branch.
+  assert.equal(spawnSync('git', ['-C', f.firstmateHome, 'symbolic-ref', '--short', 'HEAD'], { encoding: 'utf8' }).stdout.trim(), 'main');
   assert.deepEqual(readdirSync(f.root).filter(name => name.includes('agent-kit')), []);
 });
 

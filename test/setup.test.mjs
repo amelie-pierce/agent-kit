@@ -7,7 +7,7 @@ import { Readable, Writable } from 'node:stream';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { checkRoot, derivePaths, expandRoot, parseSetupArgs, resumeSummary, setup, wrapperScript } from '../src/setup.mjs';
+import { charterText, checkRoot, derivePaths, expandRoot, parseSetupArgs, resumeSummary, setup, wrapperScript } from '../src/setup.mjs';
 import { doctor } from '../src/doctor.mjs';
 import { parseHarness } from '../src/harness.mjs';
 import { parseArgs } from '../src/kit.mjs';
@@ -264,6 +264,7 @@ test('starter second mate runs Firstmate scaffold and seed with the scope, and n
   const calls = readFileSync(log, 'utf8').trim().split('\n');
   assert.deepEqual(calls.map(x => x.split('|')[0]), ['fm-brief.sh docs-mate --secondmate --no-projects', `fm-home-seed.sh docs-mate ${join(f.root, 'secondmates', 'docs-mate')} --no-projects`]);
   assert.ok(calls.every(x => x.split('|')[1] === 'Keep the docs tidy'));
+  assert.equal(charterText('Keep the docs tidy'), 'Responsibility: Keep the docs tidy\n\nScope: Keep the docs tidy\n\nThe teammate reviews this charter and supplies their own project list and permissions in Firstmate.');
   assert.match(c.text, /docs-mate seeded at .*launch it yourself .*fm-spawn\.sh docs-mate --secondmate/);
   const receipt = JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8'));
   assert.equal(receipt.setup.steps['starter-mate'].state, 'complete');
