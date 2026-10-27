@@ -1,0 +1,26 @@
+test/lifecycle.test.mjs
+  s_bb131acbaaa754::t_85aa45082133f7 291-334
+manifests/pilot-skeleton.json
+  s_bb131acbaaa754::t_122ad72521b7a8 3,79,91-92,97-98,103-104,109-110
+README.md
+  s_bb131acbaaa754::t_0adcfa7a646029 93,170,254,266,270-273,288
+_vaults/agent-kit/wiki/architecture/lifecycle.md
+  s_bb131acbaaa754::t_316b42f2fcacd5 18
+  s_bb131acbaaa754::t_75d2d7782d154a 19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ccdeddbd931d7812af382db0edbf68fd8fbc7bf9",
+  "prompts": {},
+  "sessions": {
+    "s_bb131acbaaa754": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "43df9452-8326-4d3b-8cda-181a90c31c43",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
