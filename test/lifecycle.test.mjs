@@ -232,6 +232,13 @@ test('upgrade and its update alias refuse a Firstmate home with local changes; r
     await assert.rejects(applyUpgrade(stale, f.options), offPin);
     assert.equal(readFileSync(f.receiptPath, 'utf8'), before);
     f.git('reset', '-q', '--hard', pin);
+    const upstream = bundled.tools.find(x => x.id === 'firstmate').approvedUpstream;
+    f.git('remote', 'set-url', 'origin', 'https://example.test/fork.git');
+    const wrongOrigin = new RegExp(`has an origin remote other than the approved upstream ${upstream.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}, or its Git state cannot be read\\. Set origin back to .* The kit will not reset`);
+    await assert.rejects(planUpgrade(args), wrongOrigin);
+    await assert.rejects(applyUpgrade(stale, f.options), wrongOrigin);
+    assert.equal(readFileSync(f.receiptPath, 'utf8'), before);
+    f.git('remote', 'set-url', 'origin', upstream);
     writeFileSync(join(f.firstmate, 'README.md'), 'person work\n');
     const repaired = await applyRepair(f.manifest, f.options);
     assert.equal(repaired.status, 'repaired');
