@@ -93,7 +93,7 @@ test('person-installed prerequisites pass at their floors and fail below them wi
   const applicationDirs = fakeApps(root, ['Terminal.app', 'Google Chrome.app']);
   for (const name of prereqBins) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
   const tools = ['node', 'git', 'github-cli', 'claude'].map(id => manifest.tools.find(x => x.id === id));
-  const outputs = { node: 'v24.15.0', git: 'git version 2.20.0 (Apple Git-154)', gh: 'gh version 2.0.0', claude: '2.0.0 (Claude Code)' };
+  const outputs = { node: 'v24.15.0', git: 'git version 2.20.0 (Apple Git-154)', gh: 'gh version 2.0.0', claude: '2.1.293 (Claude Code)' };
   for (const [gitOutput, expected] of [[outputs.git, 'pass'], ['git version 2.19.9', 'fail']]) {
     const context = { env: { HOME: home, PATH: bin, SHELL: join(bin, 'zsh') }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.21.0', applicationDirs,
       runCommand: path => ({ ...outputs, git: gitOutput })[basename(path)] ?? '/fake/CommandLineTools' };
@@ -114,7 +114,7 @@ test('correct macOS, headless Linux and WSL2 prerequisite checks are ready; opti
   const { home, bin, root } = tempFixture(t);
   for (const name of [...prereqBins, 'sh', 'sha256sum']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
   const tools = manifest.tools.filter(x => x.kind === 'prerequisite');
-  const outputs = { node: 'v24.15.0', git: 'git version 2.20.0', gh: 'gh version 2.0.0', claude: '2.0.0 (Claude Code)' };
+  const outputs = { node: 'v24.15.0', git: 'git version 2.20.0', gh: 'gh version 2.0.0', claude: '2.1.293 (Claude Code)' };
   const base = { arch: 'arm64', nodeVersion: '24.15.0', runCommand: path => outputs[basename(path)] || '/fake/CommandLineTools' };
   const mac = { ...base, platform: 'darwin', env: { HOME: home, PATH: bin, SHELL: join(bin, 'zsh') },
     applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']) };
@@ -399,7 +399,7 @@ test('optional figma version runs with disposable HOME and never writes the team
 
 test('codex version probe runs with disposable HOME and never writes the teammate HOME', { skip: process.platform === 'win32' }, t => {
   const { home, bin, root } = tempFixture(t);
-  writeFileSync(join(bin, 'codex'), '#!/bin/sh\n/bin/mkdir -p "$HOME/.codex/tmp/arg0"\necho codex-cli 0.155.1\n', { mode: 0o755 });
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\n/bin/mkdir -p "$HOME/.codex/tmp/arg0"\necho codex-cli 0.164.0\n', { mode: 0o755 });
   const context = { env: { HOME: home, PATH: bin }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
     applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']) };
   const result = run(['check', '--json', '--harness', 'codex'], manifest, context);

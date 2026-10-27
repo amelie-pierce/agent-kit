@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpath
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { applyStarter, effectivePlans, loadPlanTable, planStarter, readyPlans, renderStarter, starterRemovable, starterValidation } from '../src/dispatch.mjs';
+import { applyStarter, defaultMode, describeStarter, effectivePlans, fullWarnings, loadPlanTable, planIds, planStarter, renderStarter, starterAdvice, starterRemovable } from '../src/dispatch.mjs';
 import { doctor, formatDoctor } from '../src/doctor.mjs';
 import { applyRepair, applyUninstall, applyUpgrade, planRepair, planUninstall, planUpgrade } from '../src/lifecycle.mjs';
 
@@ -265,7 +265,7 @@ test('keys on a terminal writes starter rules when it sets the key, keeps them o
   const run = keysOnTty(f, [['Keep or add?', 'add\n'], ['hidden; press Enter', `${fakeKey}\r`]]);
   assert.equal(run.status, 0, run.stdout + run.stderr);
   assert.match(run.stdout, /TYPESAFE_API_KEY: set/);
-  assert.match(run.stdout, /Starter dispatch rules: wrote Firstmate's balanced rules for claude to .*config\/crew-dispatch\.json \(recommended/);
+  assert.match(run.stdout, /Starter dispatch rules: wrote Firstmate's balanced rules for claude to .*config\/crew-dispatch\.json \(Jev uses them/);
   assert.equal(readFileSync(f.rules, 'utf8'), renderStarter(template, 'claude'));
   const receipt = readFileSync(f.receiptPath, 'utf8');
   assert.deepEqual(JSON.parse(receipt).setup.dispatch.sha256, sha(readFileSync(f.rules)));
@@ -289,65 +289,127 @@ test('keys on a terminal keeps rules that already exist when it sets the key', {
   assert.equal(run.stdout.includes(fakeKey), false);
 });
 
-// A plan table with one approved row, in the shipped file's format; the shipped rows stay todo until the owner approves values.
-function planTable(t) {
-  const base = realpathSync(mkdtempSync(join(tmpdir(), 'kit-plans-')));
-  t.after(() => rmSync(base, { recursive: true, force: true }));
-  const table = structuredClone(JSON.parse(readFileSync(new URL('../manifests/plan-models.json', import.meta.url))));
-  Object.assign(table.harnesses.claude.plans.find(row => row.id === 'pro'), { status: 'ready', source: 'https://fixture.test/plans',
-    models: ['claude-small'], substitute: { 'claude-fixture': 'claude-small' }, validation: { model: 'claude-small', effort: 'medium' } });
-  const path = join(base, 'plan-models.json');
-  writeFileSync(path, JSON.stringify(table));
-  return loadPlanTable(path);
-}
+// Firstmate's template slots and their template profiles, as in bin/strategies/*.json at the pinned commit.
+const slots = {
+  mode: 'balanced', coordinator: { claude: { model: 'claude-opus-5-5', effort: 'high' }, codex: { model: 'gpt-6-sol', effort: 'high' } },
+  validation: { claude: { model: 'claude-opus-5-5', effort: 'high' }, codex: { model: 'gpt-6-sol', effort: 'high' } },
+  secondmates: { allowed: true, claude: { model: 'claude-opus-5-5', effort: 'medium' }, codex: { model: 'gpt-6-sol', effort: 'high' } },
+  dispatch: {
+    rules: [
+      { when: 'Exact Claude model', use: { harness: 'claude', model: 'claude-opus-5-5', effort: 'high' }, why: 'Honor the requested model.', strategy: 'claude-model-requested' },
+      { when: 'Exact Codex model', use: { harness: 'codex', model: 'gpt-6-sol', effort: 'high' }, strategy: 'codex-model-requested' },
+      { when: 'Codex worker', use: { harness: 'codex', model: 'gpt-6-sol', effort: 'high' }, strategy: 'codex-requested' },
+      { when: 'Claude worker', use: { harness: 'claude', model: 'claude-opus-5-5', effort: 'high' }, strategy: 'claude-requested' },
+      { when: 'Light', use: [{ harness: 'claude', model: 'claude-sonnet-5-5', effort: 'low', floor: { scope: 'all_models', min_percent: 20 } }, { harness: 'codex', model: 'gpt-6-luna', effort: 'medium' }], strategy: 'light' },
+      { when: 'Standard', use: [{ harness: 'claude', model: 'claude-opus-5-5', effort: 'medium', floor: { scope: 'all_models', min_percent: 10 } }, { harness: 'codex', model: 'gpt-6-sol', effort: 'medium' }], strategy: 'standard' },
+      { when: 'Hard', use: [{ harness: 'claude', model: 'claude-opus-5-5', effort: 'high' }, { harness: 'codex', model: 'gpt-6-sol', effort: 'high' }], strategy: 'hard' },
+    ],
+    default: [{ harness: 'claude', model: 'claude-opus-5-5', effort: 'medium' }, { harness: 'codex', model: 'gpt-6-sol', effort: 'medium' }],
+  },
+};
+const tier = (rules, slot) => rules.rules.find(r => r.strategy === slot).use;
 
-test('the shipped plan table offers only not-sure until the owner approves plan rows', () => {
+test('the plan table holds the approved plans under the ids Firstmate\'s fm-strategy.sh --plans uses', () => {
   const table = loadPlanTable();
-  for (const cli of ['claude', 'codex']) {
-    assert.deepEqual(readyPlans(table, cli).map(row => row.id), ['not-sure']);
-    assert.ok(table.harnesses[cli].plans.filter(row => row.id !== 'not-sure').every(row => row.status === 'todo' && row.models === null));
-  }
-  assert.equal(renderStarter(template, 'claude,codex', { claude: 'pro', codex: 'plus' }, table), renderStarter(template, 'claude,codex'), 'todo plans fall back to not-sure');
-  assert.deepEqual(effectivePlans('claude', { claude: 'pro' }, table), { claude: 'not-sure' });
+  assert.equal(table.status, 'approved');
+  assert.deepEqual(planIds(table, 'claude'), ['pro', 'max5x', 'max20x', 'team-standard', 'team-premium', 'enterprise-standard', 'enterprise-premium', 'api', 'not-sure']);
+  assert.deepEqual(planIds(table, 'codex'), ['plus', 'pro', 'business-standard', 'business-premium', 'enterprise-edu', 'api', 'not-sure']);
+  for (const [cli, profiles] of Object.entries({ claude: table.harnesses.claude.profiles, codex: table.harnesses.codex.profiles }))
+    for (const [name, profile] of Object.entries(profiles)) for (const [mode, roles] of Object.entries(profile.modes))
+      assert.equal(roles.validation.effort, 'high', `${cli} ${name} ${mode}: validation stays high on every plan`);
+  assert.equal(renderStarter(slots, 'claude,codex', { claude: 'not-sure', codex: 'not-sure' }, table, 'balanced'), renderStarter(slots, 'claude,codex'), 'skip keeps the template');
+  assert.deepEqual(effectivePlans('claude', { claude: 'unknown' }, table), { claude: 'not-sure' });
 });
 
-test('a ready plan row moves every profile to a model the plan can run, or drops it, and sets the validation model', t => {
-  const table = planTable(t);
-  const rules = JSON.parse(renderStarter(template, 'claude,codex', { claude: 'pro', codex: 'not-sure' }, table));
-  const claudeModels = [...rules.rules.flatMap(r => [r.use].flat()), ...rules.default].filter(p => p.harness === 'claude').map(p => p.model);
-  assert.ok(claudeModels.length && claudeModels.every(m => m === 'claude-small'), 'nothing routes to a model outside the plan');
-  assert.equal(rules.rules[0].use.model, 'claude-small', 'substituted, other fields kept');
-  assert.equal(rules.rules[0].use.effort, 'high');
-  assert.ok(rules.rules.some(r => r.strategy === 'codex-requested'), 'codex not-sure keeps the template');
-  assert.deepEqual(starterValidation({ validation: { claude: { model: 'claude-fixture', effort: 'high' }, codex: { model: 'codex-fixture', effort: 'high' } } }, 'claude,codex', { claude: 'pro' }, table),
-    [{ harness: 'claude', model: 'claude-small', effort: 'medium' }, { harness: 'codex', model: 'codex-fixture', effort: 'high' }]);
-  // Without a substitute the profile is dropped; a rule with no profile left goes with it.
-  const strict = structuredClone(table); strict.harnesses.claude.plans.find(row => row.id === 'pro').substitute = {};
-  const dropped = JSON.parse(renderStarter(template, 'claude', { claude: 'pro' }, strict));
-  assert.deepEqual(dropped.rules.map(r => r.strategy), ['light']);
-  assert.equal(dropped.default, undefined, 'an empty default is left out, which Firstmate accepts');
+test('Claude Pro lean: Haiku light, Sonnet standard, Opus hard, raised floors and the Fable credit note', () => {
+  const rules = JSON.parse(renderStarter(slots, 'claude', { claude: 'pro' }, loadPlanTable(), 'lean'));
+  assert.deepEqual(tier(rules, 'light'), [{ harness: 'claude', model: 'claude-haiku-5-5', effort: 'medium', floor: { scope: 'all_models', min_percent: 30 } }]);
+  assert.deepEqual(tier(rules, 'standard'), [{ harness: 'claude', model: 'claude-sonnet-5-5', effort: 'medium', floor: { scope: 'all_models', min_percent: 20 } }]);
+  assert.deepEqual(tier(rules, 'hard'), [{ harness: 'claude', model: 'claude-opus-5-5', effort: 'high' }]);
+  assert.deepEqual(tier(rules, 'claude-requested'), { harness: 'claude', model: 'claude-opus-5-5', effort: 'medium' });
+  assert.deepEqual(tier(rules, 'claude-model-requested'), { harness: 'claude', model: 'claude-opus-5-5', effort: 'high' });
+  assert.match(rules.rules[0].why, /^Honor the requested model\. On this plan a Fable request bills usage credits/);
+  assert.deepEqual(rules.default, [{ harness: 'claude', model: 'claude-sonnet-5-5', effort: 'medium' }], 'default is the standard profile without a floor');
+  const advice = starterAdvice(slots, 'claude', { claude: 'pro' }, loadPlanTable(), 'lean');
+  assert.deepEqual(advice, [{ harness: 'claude', coordinator: { model: 'claude-opus-5-5', effort: 'medium' }, validation: { model: 'claude-opus-5-5', effort: 'high' }, secondmates: 'off' }]);
 });
 
-test('a malformed ready plan row is refused', t => {
+test('Codex Plus balanced uses Terra for standard and Luna high for light with no Codex floors; Enterprise/Edu falls back to gpt-6-sol', () => {
+  const table = loadPlanTable();
+  const plus = JSON.parse(renderStarter(slots, 'codex', { codex: 'plus' }, table, 'balanced'));
+  assert.deepEqual(tier(plus, 'light'), [{ harness: 'codex', model: 'gpt-6-luna', effort: 'high' }]);
+  assert.deepEqual(tier(plus, 'standard'), [{ harness: 'codex', model: 'gpt-6.1-terra', effort: 'medium' }]);
+  assert.deepEqual(tier(plus, 'hard'), [{ harness: 'codex', model: 'gpt-6.1-sol', effort: 'high' }]);
+  assert.deepEqual(tier(plus, 'codex-requested'), { harness: 'codex', model: 'gpt-6.1-sol', effort: 'medium' });
+  assert.equal(starterAdvice(slots, 'codex', { codex: 'plus' }, table, 'balanced')[0].coordinator.effort, 'medium', 'Plus coordinator at medium');
+  const proFull = JSON.parse(renderStarter(slots, 'codex', { codex: 'pro' }, table, 'full'));
+  assert.deepEqual(tier(proFull, 'hard'), [{ harness: 'codex', model: 'gpt-6-astra', effort: 'medium' }]);
+  const edu = renderStarter(slots, 'codex', { codex: 'enterprise-edu' }, table, 'balanced');
+  assert.equal(edu.includes('gpt-6.1-sol'), false);
+  assert.ok(edu.includes('"gpt-6-sol"'));
+});
+
+test('a two-CLI home pairs both plan profiles per tier; API keys and Codex never get floors', () => {
+  const rules = JSON.parse(renderStarter(slots, 'claude,codex', { claude: 'api', codex: 'pro' }, loadPlanTable(), 'balanced'));
+  assert.deepEqual(tier(rules, 'light'), [{ harness: 'claude', model: 'claude-haiku-5-5', effort: 'medium' }, { harness: 'codex', model: 'gpt-6-luna', effort: 'high' }]);
+  assert.equal(JSON.stringify(rules).includes('floor'), false);
+  const mixed = JSON.parse(renderStarter(slots, 'claude,codex', { claude: 'max5x', codex: 'not-sure' }, loadPlanTable(), 'balanced'));
+  assert.deepEqual(tier(mixed, 'standard'), [{ harness: 'claude', model: 'claude-opus-5-5', effort: 'medium', floor: { scope: 'all_models', min_percent: 10 } }, slots.dispatch.rules[5].use[1]], 'skip keeps the template profile');
+});
+
+test('default mode follows the plans and full is warned about on small plans', () => {
+  const table = loadPlanTable();
+  assert.equal(defaultMode('claude', {}, table), 'balanced');
+  assert.equal(defaultMode('claude', { claude: 'max20x' }, table), 'balanced');
+  for (const plans of [{ claude: 'pro' }, { claude: 'api' }, { claude: 'max5x', codex: 'plus' }]) assert.equal(defaultMode('claude,codex', plans, table), 'lean');
+  assert.deepEqual(fullWarnings('claude,codex', { claude: 'team-standard', codex: 'business-standard' }, table), ['Team Standard seat', 'Business Standard seat']);
+  assert.deepEqual(fullWarnings('claude,codex', { claude: 'max5x', codex: 'pro' }, table), []);
+});
+
+test('a malformed plan profile is refused', t => {
   const base = realpathSync(mkdtempSync(join(tmpdir(), 'kit-plans-bad-')));
   t.after(() => rmSync(base, { recursive: true, force: true }));
   const table = JSON.parse(readFileSync(new URL('../manifests/plan-models.json', import.meta.url)));
-  Object.assign(table.harnesses.codex.plans.find(row => row.id === 'plus'), { status: 'ready', source: 'https://fixture.test', models: ['codex-small'], substitute: { x: 'codex-large' } });
+  delete table.harnesses.codex.profiles.plus.modes.lean.standard;
   writeFileSync(join(base, 't.json'), JSON.stringify(table));
-  assert.throws(() => loadPlanTable(join(base, 't.json')), /ready codex plan plus needs/);
+  assert.throws(() => loadPlanTable(join(base, 't.json')), /codex profile plus lean needs every role/);
 });
 
 test('changing the plan later refreshes unchanged kit rules and never rewrites rules you edited', posixOnly, async t => {
-  const f = firstmateHome(t), table = planTable(t);
-  const first = await applyStarter(planStarter(f.home, { harness: 'claude', table, create: true }));
-  const changed = await applyStarter(planStarter(f.home, { harness: 'claude', plans: { claude: 'pro' }, table, record: first.record, create: true }));
+  const f = firstmateHome(t);
+  writeFileSync(join(f.home, 'bin', 'strategies', 'balanced.json'), JSON.stringify(slots));
+  const first = await applyStarter(planStarter(f.home, { harness: 'claude', create: true }));
+  assert.equal(first.mode, 'balanced');
+  const changed = await applyStarter(planStarter(f.home, { harness: 'claude', plans: { claude: 'max5x' }, mode: 'balanced', record: first.record, create: true }));
   assert.equal(changed.action, 'refresh');
-  assert.deepEqual(changed.record.plans, { claude: 'pro' });
-  assert.equal(readFileSync(f.rules, 'utf8'), renderStarter(template, 'claude', { claude: 'pro' }, table));
+  assert.deepEqual(changed.record.plans, { claude: 'max5x' });
+  assert.equal(readFileSync(f.rules, 'utf8'), renderStarter(slots, 'claude', { claude: 'max5x' }, loadPlanTable(), 'balanced'));
   writeFileSync(f.rules, '{"rules":[{"when":"mine","use":{"harness":"claude"}}]}\n');
-  const kept = await applyStarter(planStarter(f.home, { harness: 'claude', plans: { claude: 'not-sure' }, table, record: changed.record, create: true }));
+  const kept = await applyStarter(planStarter(f.home, { harness: 'claude', plans: { claude: 'pro' }, mode: 'balanced', record: changed.record, create: true }));
   assert.equal(kept.action, 'keep');
   assert.equal(readFileSync(f.rules, 'utf8'), '{"rules":[{"when":"mine","use":{"harness":"claude"}}]}\n');
+});
+
+test('a Firstmate whose fm-strategy.sh takes --plans selects the strategy itself; the pinned one gets the bridge file', posixOnly, async t => {
+  const f = firstmateHome(t);
+  writeFileSync(join(f.home, 'bin', 'strategies', 'lean.json'), JSON.stringify(slots));
+  const log = join(f.base, 'argv');
+  writeFileSync(join(f.home, 'bin', 'fm-strategy.sh'), `#!/usr/bin/env bash\nif [ "$1" = --help ]; then echo 'Usage: fm-strategy.sh set <mode> [--providers <set>] [--plans claude=<plan>,codex=<plan>]'; exit 0; fi\necho "$@" > '${log}'\nmkdir -p "$FM_HOME/config"; echo mode=$2 > "$FM_HOME/config/strategy"\n`, { mode: 0o755 });
+  const plan = planStarter(f.home, { harness: 'both', plans: { claude: 'pro', codex: 'not-sure' }, mode: 'lean', create: true });
+  assert.equal(plan.action, 'strategy');
+  const result = await applyStarter(plan);
+  assert.equal(readFileSync(log, 'utf8'), 'set lean --providers claude,codex --plans claude=pro --yes\n');
+  assert.equal(result.record, null, 'Firstmate owns a strategy it selected');
+  assert.equal(existsSync(f.rules), false, 'the kit wrote no rules file itself');
+  assert.match(describeStarter(result), /selected Firstmate's lean strategy .* with bin\/fm-strategy\.sh set lean --providers claude,codex --plans claude=pro --yes/);
+
+  const bridge = firstmateHome(t);
+  writeFileSync(join(bridge.home, 'bin', 'strategies', 'lean.json'), JSON.stringify(slots));
+  writeFileSync(join(bridge.home, 'bin', 'fm-strategy.sh'), '#!/usr/bin/env bash\necho "Usage: fm-strategy.sh set <mode> [--providers <set>]"\n', { mode: 0o755 });
+  const written = await applyStarter(planStarter(bridge.home, { harness: 'claude', plans: { claude: 'pro' }, mode: 'lean', create: true }));
+  assert.equal(written.action, 'write');
+  assert.equal(readFileSync(bridge.rules, 'utf8'), renderStarter(slots, 'claude', { claude: 'pro' }, loadPlanTable(), 'lean'));
+  assert.equal(existsSync(join(bridge.home, 'config', 'strategy')), false);
 });
 
 test('doctor reports jev ready only with the key, rules and resolver tools, as a warning otherwise, and never prints the key', posixOnly, async t => {

@@ -1,29 +1,857 @@
 {
-  "schemaVersion": 1,
-  "status": "draft",
-  "note": "Rows with status todo await owner-approved values from each vendor's official plan pages; until then only not-sure is offered. A ready row lists the models the plan can run on that agent CLI (models), the replacement for each Firstmate template model outside that list (substitute), the official page the values come from (source), and optionally the validation model to set by hand in no-mistakes (validation). Profiles whose model is neither listed nor substituted are dropped.",
-  "base": "balanced",
+  "schemaVersion": 2,
+  "status": "approved",
+  "approval": "Owner approved 2026-10-27 (\"go with your recommendation\"): plan research report sections 5, 6.1 and 8, plan ids as confirmed for Firstmate's fm-strategy.sh --plans.",
+  "note": "Each plan row names a profile; a profile gives every role per Firstmate mode. Rules keep Firstmate's template rule text and slots; only the harness's profiles change. floors are Claude light/standard profile floors on the all_models scope; null means none (API keys, and Codex until its quota-axi scope is confirmed). A plan row's substitute map replaces models for workspaces that lack one (Enterprise/Edu without 6.1 Sol). not-sure keeps the template unchanged.",
   "harnesses": {
     "claude": {
       "label": "Claude",
       "plans": [
-        { "id": "not-sure", "label": "Not sure", "status": "ready", "note": "Firstmate's balanced starter rules, unchanged" },
-        { "id": "pro", "label": "Claude Pro", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null },
-        { "id": "max-5x", "label": "Claude Max 5x", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null },
-        { "id": "max-20x", "label": "Claude Max 20x", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null },
-        { "id": "team", "label": "Claude Team", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null },
-        { "id": "enterprise", "label": "Claude Enterprise", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null }
-      ]
+        {
+          "id": "pro",
+          "label": "Pro",
+          "profile": "pro",
+          "modes": {
+            "default": "lean",
+            "warnFull": true
+          }
+        },
+        {
+          "id": "max5x",
+          "label": "Max 5x",
+          "profile": "max5x",
+          "modes": {
+            "default": "balanced",
+            "warnFull": false
+          }
+        },
+        {
+          "id": "max20x",
+          "label": "Max 20x",
+          "profile": "max20x",
+          "modes": {
+            "default": "balanced",
+            "warnFull": false
+          }
+        },
+        {
+          "id": "team-standard",
+          "label": "Team Standard seat",
+          "profile": "pro",
+          "modes": {
+            "default": "lean",
+            "warnFull": true
+          }
+        },
+        {
+          "id": "team-premium",
+          "label": "Team Premium seat",
+          "profile": "max5x",
+          "modes": {
+            "default": "balanced",
+            "warnFull": false
+          }
+        },
+        {
+          "id": "enterprise-standard",
+          "label": "Enterprise standard seat",
+          "profile": "pro",
+          "modes": {
+            "default": "lean",
+            "warnFull": true
+          }
+        },
+        {
+          "id": "enterprise-premium",
+          "label": "Enterprise premium seat",
+          "profile": "max5x",
+          "modes": {
+            "default": "balanced",
+            "warnFull": false
+          }
+        },
+        {
+          "id": "api",
+          "label": "API key (also usage-based Enterprise)",
+          "profile": "api",
+          "modes": {
+            "default": "lean",
+            "warnFull": false
+          }
+        },
+        {
+          "id": "not-sure",
+          "label": "Skip / not sure",
+          "profile": null,
+          "modes": {
+            "default": "balanced",
+            "warnFull": false
+          }
+        }
+      ],
+      "profiles": {
+        "pro": {
+          "fableNote": "On this plan a Fable request bills usage credits; confirm it before dispatching.",
+          "modes": {
+            "lean": {
+              "coordinator": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "light": {
+                "model": "claude-haiku-5-5",
+                "effort": "medium"
+              },
+              "standard": {
+                "model": "claude-sonnet-5-5",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "validation": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "secondmates": null,
+              "floors": {
+                "light": 30,
+                "standard": 20
+              }
+            },
+            "balanced": {
+              "coordinator": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "light": {
+                "model": "claude-haiku-5-5",
+                "effort": "medium"
+              },
+              "standard": {
+                "model": "claude-sonnet-5-5",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "validation": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "secondmates": {
+                "model": "claude-sonnet-5-5",
+                "effort": "medium",
+                "recommend": "off"
+              },
+              "floors": {
+                "light": 30,
+                "standard": 20
+              }
+            },
+            "full": {
+              "coordinator": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "light": {
+                "model": "claude-sonnet-5-5",
+                "effort": "low"
+              },
+              "standard": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "validation": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "secondmates": {
+                "model": "claude-sonnet-5-5",
+                "effort": "medium"
+              },
+              "floors": {
+                "light": 30,
+                "standard": 20
+              }
+            }
+          }
+        },
+        "max5x": {
+          "fableNote": "On this plan Fable draws on its separate weekly Fable limit (at most 50% of the weekly limit).",
+          "modes": {
+            "lean": {
+              "coordinator": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "light": {
+                "model": "claude-sonnet-5-5",
+                "effort": "low"
+              },
+              "standard": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "validation": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "secondmates": null,
+              "floors": {
+                "light": 20,
+                "standard": 10
+              }
+            },
+            "balanced": {
+              "coordinator": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "light": {
+                "model": "claude-sonnet-5-5",
+                "effort": "low"
+              },
+              "standard": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "validation": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "secondmates": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "floors": {
+                "light": 20,
+                "standard": 10
+              }
+            },
+            "full": {
+              "coordinator": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "light": {
+                "model": "claude-sonnet-5-5",
+                "effort": "low"
+              },
+              "standard": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "validation": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "secondmates": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "floors": {
+                "light": 20,
+                "standard": 10
+              }
+            }
+          }
+        },
+        "max20x": {
+          "fableNote": "On this plan Fable draws on its separate weekly Fable limit (at most 50% of the weekly limit).",
+          "modes": {
+            "lean": {
+              "coordinator": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "light": {
+                "model": "claude-sonnet-5-5",
+                "effort": "low"
+              },
+              "standard": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "validation": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "secondmates": null,
+              "floors": {
+                "light": 15,
+                "standard": 5
+              }
+            },
+            "balanced": {
+              "coordinator": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "light": {
+                "model": "claude-sonnet-5-5",
+                "effort": "low"
+              },
+              "standard": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "validation": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "secondmates": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "floors": {
+                "light": 15,
+                "standard": 5
+              }
+            },
+            "full": {
+              "coordinator": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "light": {
+                "model": "claude-sonnet-5-5",
+                "effort": "low"
+              },
+              "standard": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "validation": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "secondmates": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "floors": {
+                "light": 15,
+                "standard": 5
+              }
+            }
+          }
+        },
+        "api": {
+          "modes": {
+            "lean": {
+              "coordinator": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "light": {
+                "model": "claude-haiku-5-5",
+                "effort": "medium"
+              },
+              "standard": {
+                "model": "claude-sonnet-5-5",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "validation": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "secondmates": null,
+              "floors": null
+            },
+            "balanced": {
+              "coordinator": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "light": {
+                "model": "claude-haiku-5-5",
+                "effort": "medium"
+              },
+              "standard": {
+                "model": "claude-sonnet-5-5",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "validation": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "secondmates": {
+                "model": "claude-sonnet-5-5",
+                "effort": "medium"
+              },
+              "floors": null
+            },
+            "full": {
+              "coordinator": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "light": {
+                "model": "claude-sonnet-5-5",
+                "effort": "low"
+              },
+              "standard": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "validation": {
+                "model": "claude-opus-5-5",
+                "effort": "high"
+              },
+              "secondmates": {
+                "model": "claude-opus-5-5",
+                "effort": "medium"
+              },
+              "floors": null
+            }
+          }
+        }
+      }
     },
     "codex": {
       "label": "Codex",
       "plans": [
-        { "id": "not-sure", "label": "Not sure", "status": "ready", "note": "Firstmate's balanced starter rules, unchanged" },
-        { "id": "plus", "label": "ChatGPT Plus", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null },
-        { "id": "pro", "label": "ChatGPT Pro", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null },
-        { "id": "business", "label": "ChatGPT Business", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null },
-        { "id": "enterprise", "label": "ChatGPT Enterprise", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null }
-      ]
+        {
+          "id": "plus",
+          "label": "ChatGPT Plus",
+          "profile": "plus",
+          "modes": {
+            "default": "lean",
+            "warnFull": true
+          }
+        },
+        {
+          "id": "pro",
+          "label": "ChatGPT Pro ($100/$200/$500)",
+          "profile": "pro",
+          "modes": {
+            "default": "balanced",
+            "warnFull": false
+          }
+        },
+        {
+          "id": "business-standard",
+          "label": "Business Standard seat",
+          "profile": "plus",
+          "modes": {
+            "default": "lean",
+            "warnFull": true
+          }
+        },
+        {
+          "id": "business-premium",
+          "label": "Business Premium seat",
+          "profile": "pro",
+          "modes": {
+            "default": "balanced",
+            "warnFull": false
+          }
+        },
+        {
+          "id": "enterprise-edu",
+          "label": "Enterprise / Edu",
+          "profile": "pro",
+          "modes": {
+            "default": "balanced",
+            "warnFull": false
+          },
+          "substitute": {
+            "gpt-6.1-sol": "gpt-6-sol"
+          }
+        },
+        {
+          "id": "api",
+          "label": "API key",
+          "profile": "api",
+          "modes": {
+            "default": "lean",
+            "warnFull": false
+          }
+        },
+        {
+          "id": "not-sure",
+          "label": "Skip / not sure",
+          "profile": null,
+          "modes": {
+            "default": "balanced",
+            "warnFull": false
+          }
+        }
+      ],
+      "profiles": {
+        "plus": {
+          "modes": {
+            "lean": {
+              "coordinator": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "light": {
+                "model": "gpt-6-luna",
+                "effort": "high"
+              },
+              "standard": {
+                "model": "gpt-6.1-terra",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "validation": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "secondmates": null,
+              "floors": null
+            },
+            "balanced": {
+              "coordinator": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "light": {
+                "model": "gpt-6-luna",
+                "effort": "high"
+              },
+              "standard": {
+                "model": "gpt-6.1-terra",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "validation": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "secondmates": {
+                "recommend": "off"
+              },
+              "floors": null
+            },
+            "full": {
+              "coordinator": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "light": {
+                "model": "gpt-6-luna",
+                "effort": "high"
+              },
+              "standard": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "validation": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "secondmates": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "floors": null
+            }
+          }
+        },
+        "pro": {
+          "modes": {
+            "lean": {
+              "coordinator": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "light": {
+                "model": "gpt-6-luna",
+                "effort": "high"
+              },
+              "standard": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "validation": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "secondmates": null,
+              "floors": null
+            },
+            "balanced": {
+              "coordinator": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "light": {
+                "model": "gpt-6-luna",
+                "effort": "high"
+              },
+              "standard": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "validation": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "secondmates": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "floors": null
+            },
+            "full": {
+              "coordinator": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "light": {
+                "model": "gpt-6-luna",
+                "effort": "high"
+              },
+              "standard": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "gpt-6-astra",
+                "effort": "medium"
+              },
+              "requested": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "validation": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "secondmates": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "floors": null
+            }
+          }
+        },
+        "api": {
+          "modes": {
+            "lean": {
+              "coordinator": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "light": {
+                "model": "gpt-6-luna",
+                "effort": "high"
+              },
+              "standard": {
+                "model": "gpt-6.1-terra",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "validation": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "secondmates": null,
+              "floors": null
+            },
+            "balanced": {
+              "coordinator": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "light": {
+                "model": "gpt-6-luna",
+                "effort": "high"
+              },
+              "standard": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "requested": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "validation": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "secondmates": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "floors": null
+            },
+            "full": {
+              "coordinator": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "light": {
+                "model": "gpt-6-luna",
+                "effort": "high"
+              },
+              "standard": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "hard": {
+                "model": "gpt-6-astra",
+                "effort": "medium"
+              },
+              "requested": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "validation": {
+                "model": "gpt-6.1-sol",
+                "effort": "high"
+              },
+              "secondmates": {
+                "model": "gpt-6.1-sol",
+                "effort": "medium"
+              },
+              "floors": null
+            }
+          }
+        }
+      }
     }
   }
 }

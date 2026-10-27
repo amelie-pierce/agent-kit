@@ -13,7 +13,7 @@ import { setup, windowsSetup } from '../src/setup.mjs';
 import { applyRepair, applyUninstall, applyUpgrade, formatLifecycle, planRepair, planUninstall, planUpgrade } from '../src/lifecycle.mjs';
 import { atomicJson, lock } from '../src/install/macos.mjs';
 import { hiddenKey, keyStatus, writeKey } from '../src/keys.mjs';
-import { applyStarter, describeStarter, harnessOf, planStarter, plansOf, starterFile } from '../src/dispatch.mjs';
+import { applyStarter, describeStarter, harnessOf, modeOf, planStarter, plansOf, starterFile } from '../src/dispatch.mjs';
 
 async function ask(question) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -77,7 +77,7 @@ try {
         currentReceipt.setup ||= {}; currentReceipt.setup.keys = { TYPESAFE_API_KEY: set };
         if (set) {
           // A newly set key gets Firstmate's starter rules unless the person or a strategy already owns the routing.
-          starter = await applyStarter(planStarter(firstmateHome, { harness: harnessOf(currentReceipt), plans: plansOf(currentReceipt), record: currentReceipt.setup.dispatch, create: true, restore: true }));
+          starter = await applyStarter(planStarter(firstmateHome, { harness: harnessOf(currentReceipt), plans: plansOf(currentReceipt), mode: modeOf(currentReceipt), record: currentReceipt.setup.dispatch, create: true, restore: true }));
           if (starter.record) currentReceipt.setup.dispatch = starter.record;
           else delete currentReceipt.setup.dispatch;
         }

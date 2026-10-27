@@ -204,7 +204,7 @@ test('setup writes Firstmate\'s balanced starter rules only once the key is set 
   const c = ttyCtx(f, ['--root', f.root], [[/Add optional TYPESAFE_API_KEY[^\n]*$/, 'y\n'], [/TYPESAFE_API_KEY \(hidden[^\n]*$/, `${key}\r`], [/Write these changes now[^\n]*$/, 'y\n']]);
   c.installPlatform = install;
   assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
-  assert.match(c.text, /Starter dispatch rules: will write Firstmate's balanced rules for codex to [^\n]*crew-dispatch\.json \(recommended\)/);
+  assert.match(c.text, /Starter dispatch rules: will write Firstmate's balanced rules for codex to [^\n]*crew-dispatch\.json/);
   assert.match(c.text, /Starter dispatch rules: wrote Firstmate's balanced rules for codex/);
   assert.deepEqual(JSON.parse(readFileSync(rules, 'utf8')), { rules: [{ ...template.dispatch.rules[0], use: [template.dispatch.rules[0].use[1]] }], default: template.dispatch.default });
   assert.deepEqual(readdirSync(join(f.root, 'firstmate', 'config')), ['crew-dispatch.json']);
@@ -222,30 +222,33 @@ test('setup writes Firstmate\'s balanced starter rules only once the key is set 
   assert.equal(JSON.parse(readFileSync(receiptPath, 'utf8')).setup.dispatch, undefined);
 });
 
-test('the plan question is asked per agent CLI from ready table rows, saved by name and changed with --reconfigure', posixOnly, async t => {
+test('the plan and mode questions use the approved plan ids, warn before full on a small plan, and change with --reconfigure', posixOnly, async t => {
   const f = fixture(t);
-  const tableFile = join(f.base, 'plans.json'), table = JSON.parse(readFileSync(join(kitRoot, 'manifests', 'plan-models.json'), 'utf8'));
-  Object.assign(table.harnesses.codex.plans.find(row => row.id === 'plus'), { status: 'ready', source: 'https://fixture.test', models: ['codex-small'] });
-  writeFileSync(tableFile, JSON.stringify(table));
-  const { loadPlanTable } = await import('../src/dispatch.mjs');
-  const planTable = loadPlanTable(tableFile);
   const c = ttyCtx(f, ['--root', f.root, '--no-tower', '--no-global-hooks', '--no-figma', '--github-owner', 'my-org', '--no-starter-mate', '--channel', 'releases'],
-    [[/2b\. Codex plan \(shapes starter dispatch rules\): not-sure, plus[^\n]*$/, 'plus\n'], [/Keep it as it is[^\n]*$/, 'y\n'], [/Add optional TYPESAFE_API_KEY[^\n]*$/, 'n\n'], [/Write these changes now[^\n]*$/, 'y\n']]);
-  c.planTable = planTable;
+    [[/2b\. Codex subscription plan, for starter dispatch rules: plus, pro, business-standard, business-premium, enterprise-edu, api or skip \[skip\][^\n]*$/, 'plus\n'],
+      [/2c\. Starter routing mode used once TYPESAFE_API_KEY is set: lean, balanced or full \[lean\][^\n]*$/, 'full\n'],
+      [/Warning: full on ChatGPT Plus can reach the five-hour limit first, then the weekly limit\. Use full anyway[^\n]*$/, 'n\n'],
+      [/Keep it as it is[^\n]*$/, 'y\n'], [/Add optional TYPESAFE_API_KEY[^\n]*$/, 'n\n'], [/Write these changes now[^\n]*$/, 'y\n']]);
   assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
-  assert.match(c.text, /2\. Agent CLIs: codex \(plan: codex plus\)/);
-  const receiptPath = join(f.root, '.tools', 'receipt.json');
-  assert.deepEqual(JSON.parse(readFileSync(receiptPath, 'utf8')).setup.answers.plans, { codex: 'plus' });
-  const rerun = f.ctx(['--yes', '--root', f.root]); rerun.installPlatform = keyInstall; rerun.planTable = planTable;
+  assert.match(c.text, /2\. Agent CLIs: codex \(plan: codex plus; starter routing mode: lean\)/);
+  const receiptPath = join(f.root, '.tools', 'receipt.json'), saved = () => JSON.parse(readFileSync(receiptPath, 'utf8')).setup.answers;
+  assert.deepEqual([saved().plans, saved().dispatchMode], [{ codex: 'plus' }, 'lean']);
+  const rerun = f.ctx(['--yes', '--root', f.root]); rerun.installPlatform = keyInstall;
   assert.equal(await setup(f.fixtureManifest, rerun), 0, rerun.text);
-  assert.deepEqual(JSON.parse(readFileSync(receiptPath, 'utf8')).setup.answers.plans, { codex: 'plus' }, 'saved plan reused');
-  const flagged = f.ctx(['--yes', '--reconfigure', '--root', f.root, '--codex-plan', 'not-sure']); flagged.installPlatform = keyInstall; flagged.planTable = planTable;
+  assert.deepEqual([saved().plans, saved().dispatchMode], [{ codex: 'plus' }, 'lean'], 'saved answers reused');
+  const flagged = f.ctx(['--yes', '--reconfigure', '--root', f.root, '--codex-plan', 'pro']); flagged.installPlatform = keyInstall;
   assert.equal(await setup(f.fixtureManifest, flagged), 0, flagged.text);
-  assert.deepEqual(JSON.parse(readFileSync(receiptPath, 'utf8')).setup.answers.plans, { codex: 'not-sure' });
-  for (const [argv, message] of [[['--codex-plan', 'pro'], /--codex-plan must be one of: not-sure, plus/], [['--claude-plan', 'not-sure'], /--claude-plan needs claude among the agent CLIs/]]) {
-    const bad = f.ctx(['--yes', '--dry-run', '--root', f.root, ...argv]); bad.planTable = planTable;
-    await assert.rejects(setup(f.fixtureManifest, bad), message);
-  }
+  assert.deepEqual([saved().plans, saved().dispatchMode], [{ codex: 'pro' }, 'balanced'], 'a new plan takes its default mode');
+  const full = f.ctx(['--yes', '--root', f.root, '--codex-plan', 'business-standard', '--dispatch-mode', 'full']); full.installPlatform = keyInstall;
+  assert.equal(await setup(f.fixtureManifest, full), 0, full.text);
+  assert.match(full.text, /Warning: full on Business Standard seat can reach the five-hour limit first/);
+  assert.equal(saved().dispatchMode, 'full');
+  const skip = f.ctx(['--yes', '--root', f.root, '--codex-plan', 'skip']); skip.installPlatform = keyInstall;
+  assert.equal(await setup(f.fixtureManifest, skip), 0, skip.text);
+  assert.deepEqual(saved().plans, { codex: 'not-sure' });
+  for (const [argv, message] of [[['--codex-plan', 'max5x'], /--codex-plan must be one of: plus, pro, business-standard, business-premium, enterprise-edu, api or skip/],
+    [['--claude-plan', 'pro'], /--claude-plan needs claude among the agent CLIs/], [['--dispatch-mode', 'turbo'], /--dispatch-mode must be lean, balanced or full/]])
+    await assert.rejects(setup(f.fixtureManifest, f.ctx(['--yes', '--dry-run', '--root', f.root, ...argv])), message);
 });
 
 test('a terminal dry run never asks for the key and shows only its current status', posixOnly, async t => {
@@ -292,7 +295,7 @@ test('the add-later key hint keeps a custom install root and pastes as shell arg
 test('scripted answers drive every prompt; nothing is written before yes; answers are saved without secrets', posixOnly, async t => {
   const f = fixture(t);
   const kit = kitCheckout(t, f.base);
-  const answers = [f.root, 'y', 'n', 'n', 'y', 'my-org', 'n', 'Pat Example', 'pat@example.test', 'y', 'n', 'main'];
+  const answers = [f.root, 'y', '', '', 'n', 'n', 'y', 'my-org', 'n', 'Pat Example', 'pat@example.test', 'y', 'n', 'main'];
   const declined = f.ctx(['--kit-dir', kit.dir, '--kit-commit', kit.commit], [...answers, 'n', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, declined), 1);
   assert.match(declined.text, /Cancelled; nothing was written/);
@@ -306,7 +309,7 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
     assert.ok(c.text.includes(prompt), prompt);
   const receipt = JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8'));
   assert.equal(statSync(join(f.root, '.tools', 'receipt.json')).mode & 0o777, 0o600);
-  assert.deepEqual(receipt.setup.answers, { root: f.root, harness: 'codex', plans: { codex: 'not-sure' }, figma: false, tower: false, globalHooks: true, githubOwner: 'my-org',
+  assert.deepEqual(receipt.setup.answers, { root: f.root, harness: 'codex', plans: { codex: 'not-sure' }, dispatchMode: 'balanced', figma: false, tower: false, globalHooks: true, githubOwner: 'my-org',
     gitIdentity: { action: 'set', name: 'Pat Example', email: 'pat@example.test' }, starterMate: { create: false }, channel: 'main' });
   assert.deepEqual(receipt.setup.paths, { root: f.root, installRoot: join(f.root, '.tools'), firstmateHome: join(f.root, 'firstmate'), treehouseRoot: f.root, towerState: join(f.root, '.zoe-fleet') });
   assert.deepEqual(Object.values(receipt.setup.steps).map(x => x.state), ['complete', 'complete', 'complete', 'complete', 'not-selected', 'complete', 'complete']);
@@ -335,7 +338,7 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   assert.equal(await setup(f.fixtureManifest, override), 0, override.text);
   assert.match(override.text, /9\. Update channel: releases \(from --channel; your saved answer was main\)/);
   // --reconfigure asks again.
-  const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, 'n', 'n', 'n', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
+  const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, '', '', 'n', 'n', 'n', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, reconfigure), 0, reconfigure.text);
   assert.match(reconfigure.text, /3\. Figma support: check/);
 });

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 
 // End-to-end proof that typing a key into `agent-kit keys` is the only step Jev routing needs: the kit writes
-// the key and its starter rules into a copy of the pinned Firstmate, and that Firstmate's own
+// the key and its plan-fitted starter rules (Claude Pro, lean) into a copy of the pinned Firstmate, and that Firstmate's own
 // bin/fm-dispatch-resolve.sh then returns a clear profile from those rules. curl and quota-axi are stubs on
 // PATH, so nothing reaches typesafe.ai and the key is an obvious placeholder.
 // AGENT_KIT_FIRSTMATE_SRC may name an already extracted pinned Firstmate; otherwise the pinned archive is
@@ -43,7 +43,7 @@ try {
   const gitEnv = { HOME: home, PATH: process.env.PATH, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
   assert.equal(run('git', ['init', '-q', firstmate], { env: gitEnv }).status, 0);
   writeFileSync(join(tools, 'receipt.json'), `${JSON.stringify({ schemaVersion: 1, release: manifest.release, phases: {},
-    setup: { answers: { harness: 'claude' }, paths: { root, installRoot: tools, firstmateHome: firstmate } } })}\n`, { mode: 0o600 });
+    setup: { answers: { harness: 'claude', plans: { claude: 'pro' }, dispatchMode: 'lean' }, paths: { root, installRoot: tools, firstmateHome: firstmate } } })}\n`, { mode: 0o600 });
 
   // The one step: agent-kit keys on a terminal, key typed at the hidden prompt. Replies reach python on stdin.
   const driver = `
@@ -69,12 +69,15 @@ sys.exit(os.waitstatus_to_exitcode(status))
   const keys = run('python3', ['-c', driver], { input: JSON.stringify({ argv: [process.execPath, join(kit, 'bin', 'agent-kit.mjs'), 'keys', '--install-root', tools],
     env: gitEnv, replies: [['Keep or add?', 'add\n'], ['hidden; press Enter', `${placeholder}\r`]] }) });
   assert.equal(keys.status, 0, keys.stdout + keys.stderr);
-  assert.match(keys.stdout, /Starter dispatch rules: wrote Firstmate's balanced rules for claude/);
+  assert.match(keys.stdout, /Starter dispatch rules: wrote Firstmate's lean rules for claude fitted to your plan \(claude pro\)/);
+  // The pinned Firstmate has no fm-strategy.sh --plans yet, so this is the kit's bridge file.
+  assert.equal(existsSync(join(firstmate, 'config', 'strategy')), false);
   assert.equal((keys.stdout + keys.stderr).includes(placeholder), false, 'keys never shows the value');
   const rules = JSON.parse(readFileSync(join(firstmate, 'config', 'crew-dispatch.json'), 'utf8'));
   const pick = rules.rules.findIndex(rule => rule.strategy === 'standard');
   assert.ok(pick >= 0, 'balanced rules include the standard tier');
   const expected = [rules.rules[pick].use].flat()[0];
+  assert.deepEqual(expected, { harness: 'claude', model: 'claude-sonnet-5-5', effort: 'medium', floor: { scope: 'all_models', min_percent: 20 } }, 'Claude Pro lean standard tier');
 
   // Stubs: curl answers as typesafe.ai would and records whether the key arrived on fd 3; quota-axi reports room.
   const stubs = join(base, 'stubs'); mkdirSync(stubs);
