@@ -376,6 +376,54 @@ test('upgrade from macos-pilot-6 to pilot-9 plans and applies without a release 
   assert.equal(readFileSync(envPath, 'utf8'), 'TYPESAFE_API_KEY=fixture-secret-123\n');
 });
 
+test('regression: after a failed upgrade every kit launcher still points at the kit copy that exists; after success all point at the new copy', { skip: process.platform === 'win32' }, async t => {
+  const { placeKitExtras } = await import('../src/shortcuts.mjs');
+  const kitCopy = destination => { for (const dir of ['bin', 'src', 'templates', 'manifests']) cpSync(join(source, dir), join(destination, dir), { recursive: true }); };
+  const kitRefs = root => text => [...text.matchAll(new RegExp(`${join(root, 'kit')}/[^/'"\\s]+`, 'g'))].map(m => m[0]);
+  for (const outcome of ['failure', 'success']) {
+    const f = fixture(t), oldCommit = 'd'.repeat(40), newCommit = 'e'.repeat(40), oldKit = join(f.root, 'kit', oldCommit), tools = join(f.base, 'tools');
+    mkdirSync(tools); writeFileSync(join(tools, 'python3'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+    const env = { ...f.options.env, PATH: `${tools}:${f.options.env.PATH}` }, options = { ...f.options, env, herdrCheck: () => ({ ok: true }) };
+    kitCopy(oldKit);
+    const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+    receipt.setup.answers.globalHooks = true; receipt.setup.kit = { commit: oldCommit, path: oldKit };
+    const placed = await placeKitExtras(receipt, f.root, { env, home: f.home, check: () => ({ ok: true }), isRunning: stopped });
+    receipt.setup.shortcuts = placed.record;
+    writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+    const launchers = Object.keys(placed.record.files).map(file => join(f.root, file));
+    assert.ok(launchers.length >= 4, 'the old kit placed its launchers');
+    const before = Object.fromEntries(launchers.map(path => [path, readFileSync(path, 'utf8')]));
+    const fetchKit = async (_commit, _env, destination) => {
+      kitCopy(destination);
+      const target = structuredClone(f.manifest);
+      target.release = 'new-release';
+      if (outcome === 'failure') target.tools.find(x => x.id === 'herdr').artifacts['darwin-arm64'].sha256 = sha('restored');
+      writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
+    };
+    const plan = await planUpgrade({ ...options, resolveCommit: () => newCommit, fetchKit });
+    if (outcome === 'failure') {
+      await assert.rejects(applyUpgrade(plan, { ...options, afterPhase: id => { if (id === 'herdr') throw new Error('injected failure'); } }), /injected failure/);
+      for (const path of launchers) {
+        assert.equal(readFileSync(path, 'utf8'), before[path], `${path} keeps its previous bytes`);
+        for (const ref of kitRefs(f.root)(before[path])) assert.ok(existsSync(ref), `${path} points at ${ref}, which exists`);
+      }
+      assert.equal(existsSync(join(f.root, 'kit', newCommit)), false);
+      assert.equal(JSON.parse(readFileSync(f.receiptPath, 'utf8')).setup.kit.path, oldKit);
+    } else {
+      const result = await applyUpgrade(plan, options);
+      assert.equal(result.status, 'upgraded');
+      const after = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+      assert.equal(after.setup.kit.path, join(f.root, 'kit', newCommit));
+      for (const path of launchers) {
+        const refs = kitRefs(f.root)(readFileSync(path, 'utf8'));
+        for (const ref of refs) { assert.equal(ref, join(f.root, 'kit', newCommit), `${path} points at the new kit copy`); assert.ok(existsSync(ref)); }
+      }
+      assert.ok(launchers.some(path => kitRefs(f.root)(readFileSync(path, 'utf8')).length), 'launchers name the kit copy');
+    }
+    assert.equal(existsSync(join(f.root, 'kit-extras')), false, 'no second kit copy');
+  }
+});
+
 test('upgrade refuses a missing or symlinked Firstmate home and never clones a replacement', { skip: process.platform === 'win32' }, async t => {
   for (const kind of ['missing', 'symlink']) {
     const f = fixture(t), moved = join(f.base, 'moved-firstmate');

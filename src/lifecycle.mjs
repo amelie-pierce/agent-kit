@@ -356,7 +356,7 @@ export function planUninstall({ installRoot, home, env = process.env, isRunning 
   const wrapper = receipt.phases['treehouse-root'];
   const wrapperPath = wrapper ? phaseOwned(root, 'treehouse-root', wrapper) : null;
   return { command: 'uninstall', root, firstmate, removeFirstmateHome, removeEnv, envPath, running,
-    kitPaths: ['kit', 'kit-extras', 'releases', 'npm-cache', 'cargo-home', 'empty-user.npmrc', 'empty-global.npmrc', 'receipt.json'].map(name => join(root, name)).filter(path => !!stat(path)),
+    kitPaths: ['kit', 'releases', 'npm-cache', 'cargo-home', 'empty-user.npmrc', 'empty-global.npmrc', 'receipt.json'].map(name => join(root, name)).filter(path => !!stat(path)),
     registration: { files: registration.files.filter(x => x.changes.length).map(x => x.path), skills: registration.skills.map(x => x.path),
       kept: registration.files.filter(x => x.note).map(x => `${x.path}: ${x.note}`) },
     tower: tower?.path && digest(tower.path) === tower.ownedSha256 ? { path: tower.path, action: 'remove unchanged kit config' } : { path: tower?.path || null, action: 'keep changed or absent config' },
@@ -395,7 +395,7 @@ export async function applyUninstall(options = {}) {
     env: { ...(options.env || process.env), HOME: options.home }, herdr: receipt.phases.herdr?.path ? join(root, receipt.phases.herdr.path) : null });
   await removeShortcuts(root, planRemoveShortcuts(root, shortcuts, plan.removeFirstmateHome ? null : plan.firstmate));
   removeClaudePlugins(shortcuts?.claudePlugins, { claude: shortcuts?.realClaude, env: options.env || process.env, home: options.home, run: options.runClaude });
-  for (const name of ['kit', 'kit-extras', 'releases', 'npm-cache', 'cargo-home', 'empty-user.npmrc', 'empty-global.npmrc']) {
+  for (const name of ['kit', 'releases', 'npm-cache', 'cargo-home', 'empty-user.npmrc', 'empty-global.npmrc']) {
     const path = join(root, name);
     if (stat(path)) await rename(path, join(backup, name));
   }
@@ -485,6 +485,7 @@ export async function applyUpgrade(plan, options = {}) {
     const wrapper = receipt.phases['treehouse-root']; if (wrapper) capture(phaseOwned(root, 'treehouse-root', wrapper));
     if (!stat(kitTarget)) { await mkdir(dirname(kitTarget), { recursive: true, mode: 0o700 }); await rename(plan.kit, kitTarget); }
     const target = await import(pathToFileURL(join(kitTarget, 'src', 'update.mjs')).href);
+    for (const path of target.extrasPaths({ ...options, installRoot: root }, receipt)) capture(path);
     const result = await target.applyUpdate(plan.manifest, { ...options, installRoot: root, home: options.home, platform: options.platform || process.platform,
       arch: options.arch || process.arch, reviewed: true, isRunning: () => false, deferExtras: true });
     if (unresolved(result.components, plan.manifest, options.platform || process.platform, options.arch || process.arch, false).failed.length) throw new Error('upgrade has unresolved components; prior kit files restored');

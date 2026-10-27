@@ -370,20 +370,3 @@ test('regression: on a fresh install the kit keys and plugin-keys blocks are wri
   const left = existsSync(f.configPath) ? readFileSync(f.configPath, 'utf8') : '';
   assert.doesNotMatch(left, /agent-kit keys|agent-kit layout|furkankly\.zoetrope keys/, 'uninstall leaves none of the kit blocks');
 });
-
-test('regression: launchers placed under an older kit\'s upgrade keep working after that upgrade rolls back and deletes the new kit copy', posixOnly, async t => {
-  const { durableKit } = await import('../src/update.mjs');
-  const base = realpathSync(mkdtempSync(join(tmpdir(), 'kit-durable-')));
-  t.after(() => rmSync(base, { recursive: true, force: true }));
-  const root = join(base, '.tools'), kitCopy = join(root, 'kit', 'abc123');
-  mkdirSync(join(kitCopy, 'bin'), { recursive: true }); mkdirSync(join(kitCopy, 'templates', 'shortcuts'), { recursive: true }); mkdirSync(join(kitCopy, '.git'));
-  writeFileSync(join(kitCopy, 'bin', 'agent-kit.mjs'), '// kit\n');
-  writeFileSync(join(kitCopy, 'templates', 'shortcuts', 'open_firstmate.py'), '# launcher\n');
-  const durable = durableKit(root, kitCopy);
-  assert.equal(durable, join(root, 'kit-extras', 'abc123'));
-  rmSync(join(root, 'kit'), { recursive: true, force: true }); // what the older kit's rollback does
-  assert.ok(existsSync(join(durable, 'templates', 'shortcuts', 'open_firstmate.py')), 'the launcher target still exists');
-  assert.equal(existsSync(join(durable, '.git')), false, 'the copy carries no git metadata');
-  assert.equal(durableKit(root, '/elsewhere/kit'), '/elsewhere/kit', 'a kit outside the install root is used as it is');
-  const { planUninstall } = await import('../src/lifecycle.mjs');
-});
