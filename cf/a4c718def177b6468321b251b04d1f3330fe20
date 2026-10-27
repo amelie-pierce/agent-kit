@@ -1,0 +1,29 @@
+test/setup.test.mjs
+  s_a347dce94d9447::t_a73402ea74abfa 10,267
+src/install/macos.mjs
+  s_a347dce94d9447::t_1cead9c4ee8b38 211-213
+test/kit.test.mjs
+  s_a347dce94d9447::t_a73402ea74abfa 728-729,998-999
+src/setup.mjs
+  s_a347dce94d9447::t_a73402ea74abfa 340-341
+README.md
+  s_a347dce94d9447::t_2efc3b7d29722c 183
+_vaults/agent-kit/wiki/architecture/macos-install.md
+  s_a347dce94d9447::t_16ff979418c8d7 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cfa4c718def177b6468321b251b04d1f3330fe20",
+  "prompts": {},
+  "sessions": {
+    "s_a347dce94d9447": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55ba425b-57e2-426a-baa5-31202fea1507",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
