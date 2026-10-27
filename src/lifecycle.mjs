@@ -14,6 +14,7 @@ import { envManaged, keyStatus } from './keys.mjs';
 import { applyStarter, harnessOf, modeOf, planStarter, plansOf, starterRemovable } from './dispatch.mjs';
 import { herdrConfigPath, placeKitExtras, planRemoveShortcuts, removeShortcuts } from './shortcuts.mjs';
 import { planRemovePlugin, removePlugin } from './herdr-plugin.mjs';
+import { removeClaudePlugins } from './claude-plugins.mjs';
 
 const repo = 'amelie-pierce/agent-kit';
 const sha = data => createHash('sha256').update(data).digest('hex');
@@ -393,6 +394,7 @@ export async function applyUninstall(options = {}) {
   await removePlugin(planRemovePlugin(root, shortcuts?.plugin, shortcuts?.keys?.path || herdrConfigPath(options.env || process.env, options.home)), {
     env: { ...(options.env || process.env), HOME: options.home }, herdr: receipt.phases.herdr?.path ? join(root, receipt.phases.herdr.path) : null });
   await removeShortcuts(root, planRemoveShortcuts(root, shortcuts, plan.removeFirstmateHome ? null : plan.firstmate));
+  removeClaudePlugins(shortcuts?.claudePlugins, { claude: shortcuts?.realClaude, env: options.env || process.env, home: options.home, run: options.runClaude });
   for (const name of ['kit', 'releases', 'npm-cache', 'cargo-home', 'empty-user.npmrc', 'empty-global.npmrc']) {
     const path = join(root, name);
     if (stat(path)) await rename(path, join(backup, name));

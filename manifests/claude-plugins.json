@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "note": "Claude Code plugins the kit installs with the person's own claude CLI when Claude is chosen. Each marketplace is fetched from its own repository at a pinned commit (the git commit is its content digest); nothing is vendored here.",
+  "marketplaces": [
+    {
+      "name": "openai-codex",
+      "repo": "openai/codex-plugin-cc",
+      "commit": "db52e28f4d9ded852ab3942cea316258ae4ef346",
+      "license": "Apache-2.0",
+      "plugins": [{ "name": "codex", "when": "claude" }]
+    },
+    {
+      "name": "cc-gemini-plugin",
+      "repo": "thepushkarp/cc-gemini-plugin",
+      "commit": "dd745eabf0764bfcab0b33df4a8d7155265fa68b",
+      "license": "MIT (stated in its README; the repository has no LICENSE file)",
+      "plugins": [{ "name": "cc-gemini-plugin", "when": "claude" }]
+    },
+    {
+      "name": "amelie-pierce",
+      "repo": "amelie-pierce/figma-cli",
+      "commit": "cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942",
+      "license": "MIT",
+      "plugins": [{ "name": "figma-cli", "when": "claude+figma" }]
+    },
+    {
+      "name": "claude-plugins-official",
+      "repo": "anthropics/claude-plugins-official",
+      "commit": "41f619d61b999adec1a1c8deb97d1a5b6ac35bb6",
+      "license": "Apache-2.0",
+      "plugins": []
+    }
+  ],
+  "patches": [
+    {
+      "id": "codex-companion-session-end-timeout",
+      "plugin": "codex@openai-codex",
+      "file": "hooks/hooks.json",
+      "sha256": "6ba33b3f6a75ba4271a76160b0465e7050a607a02e1ec212a7c0f3b9cd3cb35a",
+      "description": "Shorten the Codex Companion SessionEnd hook timeout from 5 to 3 seconds, as on the owner's setup.",
+      "event": "SessionEnd",
+      "from": 5,
+      "to": 3
+    }
+  ]
+}

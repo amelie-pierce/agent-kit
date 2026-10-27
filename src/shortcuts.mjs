@@ -5,6 +5,7 @@ import { chmod, mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
 import { findOnPath } from './platforms/macos.mjs';
 import { applyPlugin, describePlugin, planPlugin } from './herdr-plugin.mjs';
+import { claudePluginsHealth, placeClaudePlugins } from './claude-plugins.mjs';
 
 // Keyboard shortcuts for a teammate's Firstmate: kit-owned launchers in <root>/.tools/bin (open-firstmate runs
 // the kit's templates/shortcuts/open_firstmate.py, fm-mate runs `agent-kit mate`) with paths from the receipt,
@@ -395,7 +396,8 @@ export function describeShortcuts(result) {
 // the launchers and the kit keys block. Setup step 4, repair and the new kit's applyUpdate all run this, so a
 // normal install and an upgrade from an earlier release place the same pieces. kitPath names the installed kit
 // copy when the receipt does not yet (during an upgrade). Returns the record for receipt.setup.shortcuts.
-export async function placeKitExtras(receipt, root, { env = process.env, home = env.HOME, repair = false, kitPath = null, check, isRunning } = {}) {
+export async function placeKitExtras(receipt, root, options = {}) {
+  const { env = process.env, home = env.HOME, repair = false, kitPath = null, check, isRunning } = options;
   if (receipt.setup?.answers?.globalHooks === false) return { action: 'not-selected', lines: [], record: receipt.setup?.shortcuts || null };
   const prior = receipt.setup?.shortcuts || null, configPath = prior?.keys?.path || herdrConfigPath(env, home);
   const plugin = await applyPlugin(planPlugin(receipt, root, { env, home, configPath, record: prior?.plugin || null, repair, isRunning }), { env });
@@ -414,8 +416,10 @@ export async function placeKitExtras(receipt, root, { env = process.env, home = 
   const autostart = await applyAutostart(autostartPlan, root);
   if (autostartPlan.action !== 'none') lines.push(autostartPlan.action === 'skip' || autostartPlan.action === 'keep' ? `Fleet autostart hook: ${autostartPlan.detail}`
     : `Fleet autostart hook (${autostartPlan.path}): ${{ add: 'added', refresh: 'refreshed', verify: 'present', remove: 'removed' }[autostartPlan.action]}`);
+  const claudePlugins = await placeClaudePlugins(receipt.setup?.answers || {}, { claude: result.inputs.realClaude, env, home, record: prior?.claudePlugins || null, run: options.runClaude });
+  lines.push(...claudePlugins.lines);
   return { action: result.action, detail: result.detail, keys: result.keys, lines,
-    record: { ...result.record, plugin: record.plugin, autostart: autostartPlan.action === 'skip' ? prior?.autostart || null : autostart,
+    record: { ...result.record, plugin: record.plugin, claudePlugins: claudePlugins.record, autostart: autostartPlan.action === 'skip' ? prior?.autostart || null : autostart,
       layout: layout === 'keep' || layout?.error ? prior?.layout || null : layout, captainHelp: help.record } };
 }
 
@@ -618,6 +622,7 @@ export function shortcutsHealth(receipt, root) {
     row('fleet-autostart', ok, ok ? `marker-owned SessionStart entry in ${path}` : `Fleet autostart entry missing from ${path}; agent-kit repair restores it`);
   }
   if (record.captainHelp?.path) row('captain-help', existsSync(record.captainHelp.path), existsSync(record.captainHelp.path) ? `${record.captainHelp.path} (print it with fm-help)` : `${record.captainHelp.path} is missing`);
+  checks.push(...claudePluginsHealth(record.claudePlugins, process.env, process.env.HOME));
   if (receipt.setup?.answers?.codexFullAccess !== undefined) checks.push({ id: 'codex-full-access', status: 'pass', detail: `codex full-access launch: ${receipt.setup.answers.codexFullAccess ? 'on' : 'off'}` });
   return checks;
 }
