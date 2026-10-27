@@ -1,0 +1,21 @@
+_vaults/agent-kit/wiki/architecture/single-installer.md
+  s_cb390c4619898c::t_1722e04257c634 13
+_vaults/agent-kit/wiki/architecture/linux-install.md
+  s_cb390c4619898c::t_1722e04257c634 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dfd5620eae355429d17e3e34659e8ed7cb10f701",
+  "prompts": {},
+  "sessions": {
+    "s_cb390c4619898c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14a3ea0d-f777-423f-91b6-2f06433b6527",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
