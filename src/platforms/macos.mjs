@@ -60,10 +60,11 @@ function inspectBrowser(dirs) {
   return { id: 'browser', status: other.length ? 'unknown' : 'fail', detail: other.length ? `Google Chrome absent; found ${other[0]}` : 'no browser found' };
 }
 
-// figma-cli may initialize HOME even for --version, and Codex can leave ~/.codex/tmp behind when the probe
-// times out. Give those probes disposable state so check and plan never write into the teammate HOME.
+// Version commands may write into HOME (figma-cli initializes it, Codex can leave ~/.codex/tmp behind, gh 2.102+
+// records a device id in ~/.local/state/gh). Every probe gets disposable state so check and plan never write into
+// the teammate HOME.
 function probeHome(tool, context, probe) {
-  const home = ['figma-cli', 'codex'].includes(tool.id) && !context.runCommand ? mkdtempSync(join(tmpdir(), `agent-kit-${tool.id}-version-`)) : null;
+  const home = context.runCommand ? null : mkdtempSync(join(tmpdir(), `agent-kit-${tool.id}-version-`));
   try { probe(home); } finally { if (home) rmSync(home, { recursive: true, force: true }); }
 }
 

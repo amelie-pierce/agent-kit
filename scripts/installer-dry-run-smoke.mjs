@@ -34,7 +34,9 @@ if (process.platform === 'win32') {
   try {
     const home = join(base, 'home'), root = join(base, 'Agentic');
     mkdirSync(home);
-    const result = spawn('bash', ['install.sh', '--dry-run', '--yes', '--kit-dir', '.', '--root', root], { ...process.env, HOME: home, XDG_CONFIG_HOME: '', XDG_STATE_HOME: '' });
+    // gh 2.102+ records a telemetry device id in ~/.local/state/gh on every call, including the sign-in checks that
+    // must use the person's own gh state. That is gh's state, not the kit's, so it is switched off for this check.
+    const result = spawn('bash', ['install.sh', '--dry-run', '--yes', '--kit-dir', '.', '--root', root], { ...process.env, HOME: home, XDG_CONFIG_HOME: '', XDG_STATE_HOME: '', GH_TELEMETRY: 'false' });
     process.stdout.write(result.stdout);
     process.stderr.write(result.stderr);
     assert.ok([0, 1].includes(result.status), `install.sh --dry-run exited ${result.status}`);

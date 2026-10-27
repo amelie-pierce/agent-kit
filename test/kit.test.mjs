@@ -407,6 +407,18 @@ test('codex version probe runs with disposable HOME and never writes the teammat
   assert.deepEqual(readdirSync(home), []);
 });
 
+test('prerequisite version probes such as gh run with disposable HOME and never write the teammate HOME', { skip: process.platform === 'win32' }, t => {
+  const { home, bin, root } = tempFixture(t);
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\n/bin/mkdir -p "$HOME/.local/state/gh"\necho > "$HOME/.local/state/gh/device-id"\necho gh version 2.102.0\n', { mode: 0o755 });
+  const context = { env: { HOME: home, PATH: bin }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
+    applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']) };
+  for (const command of ['check', 'plan']) {
+    const result = run([command, '--json'], manifest, context);
+    assert.equal(result.result.platform.prerequisites.find(x => x.id === 'github-cli').status, 'pass');
+    assert.deepEqual(readdirSync(home), []);
+  }
+});
+
 function installFixture(t) {
   const { root, home, bin } = tempFixture(t);
   const installRoot = join(root, 'kit');
