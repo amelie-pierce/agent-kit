@@ -4,6 +4,9 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs, run, validateManifest } from '../src/kit.mjs';
 import { formatInstall, installPlatform } from '../src/install/macos.mjs';
 import { formatWindows, windowsHandoff } from '../src/install/windows.mjs';
+import { doctor, formatDoctor } from '../src/doctor.mjs';
+import { applyUpdate, formatUpdate, planUpdate, reviewedCheckout } from '../src/update.mjs';
+import { secondmateTemplate } from '../src/secondmate.mjs';
 
 const manifestPath = fileURLToPath(new URL('../manifests/pilot-skeleton.json', import.meta.url));
 try {
@@ -16,7 +19,24 @@ try {
     arch: process.arch,
     nodeVersion: process.versions.node,
   };
-  if (options.command === 'install') {
+  if (options.command === 'doctor') {
+    validateManifest(manifest);
+    if (context.platform === 'win32') throw new Error('run doctor inside the WSL2 distribution');
+    const result = doctor(manifest, { installRoot: options.installRoot, home: process.env.HOME, env: process.env, nodeVersion: context.nodeVersion });
+    process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatDoctor(result));
+    process.exitCode = result.exitCode;
+  } else if (options.command === 'update') {
+    validateManifest(manifest);
+    if (context.platform === 'win32') throw new Error('run update inside the WSL2 distribution');
+    const args = { installRoot: options.installRoot, home: process.env.HOME, env: process.env, platform: context.platform, arch: context.arch,
+      harness: options.harness, withFigma: options.withFigma, nodeVersion: context.nodeVersion, reviewed: reviewedCheckout() };
+    const result = options.yes ? await applyUpdate(manifest, args) : planUpdate(manifest, args);
+    process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatUpdate(result));
+    process.exitCode = result.exitCode || 0;
+  } else if (options.command === 'secondmate-template') {
+    const result = secondmateTemplate();
+    process.stdout.write(options.json ? `${JSON.stringify({ command: 'secondmate-template', template: result }, null, 2)}\n` : result);
+  } else if (options.command === 'install') {
     validateManifest(manifest);
     if (!options.installRoot || !options.firstmateHome) throw new Error(context.platform === 'win32'
       ? 'install requires --install-root and --firstmate-home (Linux paths inside WSL, such as ~/.agent-kit and ~/firstmate)'
