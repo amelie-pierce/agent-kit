@@ -1,0 +1,28 @@
+src/shortcuts.mjs
+  s_acd09e1cfaf11b::t_1ba20425e76fe1 504-506
+test/doctor-update.test.mjs
+  s_acd09e1cfaf11b::t_9ff0c64cf931c8 182-191
+test/extras.test.mjs
+  s_acd09e1cfaf11b::t_92af1e8658cd57 1-244,246-263
+  s_acd09e1cfaf11b::t_1ba20425e76fe1 245
+manifests/claude-plugins.json
+  s_acd09e1cfaf11b::t_5b29ffe485d43b 3,50-51,56-57,77-78,83-84,89-90,100-101
+test/kit.test.mjs
+  s_acd09e1cfaf11b::t_198f393de3a88e 1233-1277
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5cb41fc006b10c3f51c671b6be8b80af866adf7f",
+  "prompts": {},
+  "sessions": {
+    "s_acd09e1cfaf11b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a5482aa-55d9-4866-b542-09bfa9383265",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
