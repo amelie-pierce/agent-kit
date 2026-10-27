@@ -345,6 +345,36 @@ test('upgrade from macos-pilot-5 with only a Firstmate pin change asks for /upda
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate update\n');
 });
 
+test('upgrade from macos-pilot-6 to pilot-7 plans and applies without a release prefix assumption', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t), commit = '7'.repeat(40);
+  assert.equal(bundled.release, 'pilot-7');
+  renameSync(join(f.root, 'releases', 'old-release'), join(f.root, 'releases', 'macos-pilot-6'));
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.release = 'macos-pilot-6';
+  receipt.phases.herdr.path = 'releases/macos-pilot-6/bin/herdr';
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const envPath = join(f.firstmate, '.env');
+  writeFileSync(envPath, 'TYPESAFE_API_KEY=fixture-secret-123\n', { mode: 0o600 });
+  const fetchKit = async (_commit, _env, destination) => {
+    await stagedKit(_commit, _env, destination);
+    const target = structuredClone(f.manifest);
+    target.release = bundled.release;
+    writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
+  };
+  const plan = await planUpgrade({ ...f.options, resolveCommit: () => commit, fetchKit });
+  t.after(() => rmSync(plan.stage, { recursive: true, force: true }));
+  assert.equal(plan.fromRelease, 'macos-pilot-6');
+  assert.equal(plan.toRelease, 'pilot-7');
+  assert.equal(plan.firstmatePinChange, false);
+  assert.match(formatLifecycle(plan), /\nRelease: macos-pilot-6 -> pilot-7\n/);
+  const result = await applyUpgrade(plan, f.options);
+  assert.equal(result.status, 'upgraded');
+  assert.equal(JSON.parse(readFileSync(f.receiptPath, 'utf8')).release, 'pilot-7');
+  assert.equal(readFileSync(join(f.root, 'releases', 'pilot-7', 'bin', 'herdr'), 'utf8'), 'restored');
+  assert.equal(readFileSync(join(f.root, 'releases', 'macos-pilot-6', 'bin', 'herdr'), 'utf8'), 'original');
+  assert.equal(readFileSync(envPath, 'utf8'), 'TYPESAFE_API_KEY=fixture-secret-123\n');
+});
+
 test('upgrade refuses a missing or symlinked Firstmate home and never clones a replacement', { skip: process.platform === 'win32' }, async t => {
   for (const kind of ['missing', 'symlink']) {
     const f = fixture(t), moved = join(f.base, 'moved-firstmate');
