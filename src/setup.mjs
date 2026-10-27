@@ -14,7 +14,7 @@ import { findOnPath } from './platforms/macos.mjs';
 import { linuxIdentity } from './platforms/linux.mjs';
 import { kitCommit, kitUpstream, linuxPath, powershellCommand, windowsNextSteps } from './install/windows.mjs';
 import { inspectWindows } from './platforms/windows.mjs';
-import { hiddenKey, keyStatus, readKeyFile, validateTypesafeKey, writeKey } from './keys.mjs';
+import { hiddenKey, keyStatus, writeKey } from './keys.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
 export const defaultRoot = '~/Agentic';
@@ -29,9 +29,9 @@ export const steps = [
   ['doctor', 'health check'],
 ];
 const valueFlags = ['--root', '--install-root', '--firstmate-home', '--harness', '--github-owner', '--git-name', '--git-email', '--starter-mate', '--starter-scope',
-  '--channel', '--kit-dir', '--kit-commit', '--distro', '--typesafe-key-file'];
+  '--channel', '--kit-dir', '--kit-commit', '--distro'];
 const booleanFlags = ['--with-figma', '--no-figma', '--with-tower', '--no-tower', '--global-hooks', '--no-global-hooks', '--no-starter-mate', '--yes', '--reconfigure',
-  '--dry-run', '--handoff', '--allow-existing-root', '--typesafe-key-env'];
+  '--dry-run', '--handoff', '--allow-existing-root'];
 const oneLine = (value, flag, max) => {
   if (typeof value !== 'string' || !value.trim() || value.length > max || /[\0-\x1f\x7f]/.test(value)) throw new Error(`${flag} must be one line of at most ${max} characters`);
   return value.trim();
@@ -60,7 +60,6 @@ export function parseSetupArgs(argv) {
     if (flags[a] !== undefined && flags[b] !== undefined) throw new Error(`--${a} and --${b} conflict`);
   if (flags['starter-scope'] !== undefined && flags['no-starter-mate']) throw new Error('--starter-scope conflicts with --no-starter-mate');
   if (flags.handoff && flags['dry-run']) throw new Error('--handoff applies only without --dry-run');
-  if (flags['typesafe-key-file'] && flags['typesafe-key-env']) throw new Error('--typesafe-key-file and --typesafe-key-env conflict');
   if (flags['kit-commit'] !== undefined && !/^[a-f0-9]{40}$/.test(flags['kit-commit'])) throw new Error('--kit-commit must be a full commit SHA');
   if (flags.harness !== undefined) flags.harness = validators.harness(flags.harness);
   if (flags['github-owner'] !== undefined) validators.githubOwner(flags['github-owner']);
@@ -263,6 +262,7 @@ export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, chan
     `  7. Git identity: ${g.action === 'set' ? `set user.name "${g.name}" and user.email "${g.email}" with git config --global` : `keep (${gitCurrent.name || 'no name'} <${gitCurrent.email || 'no email'}>)`}${gitStale ? `; your saved "${gitStale.name}" <${gitStale.email}> was not applied because git's value changed since (pass --git-name and --git-email, or --reconfigure, to change it)` : ''}`,
     `  8. Starter second mate: ${answers.starterMate.create ? `${answers.starterMate.id}: ${answers.starterMate.scope}` : 'no'}`, `  9. Update channel: ${answers.channel}${channelOverride ? ` (from --channel; your saved answer was ${channelOverride})` : ''}`,
     `  10. Optional TYPESAFE_API_KEY: ${keyPlan.status} (Firstmate home .env; without it Jev routing is off and normal dispatch rules apply)`,
+    ...(keyPlan.status === 'will set' ? [] : [`      Add, change or remove it later from your own terminal with the hidden prompt: bash install.sh --reconfigure keys --root ${paths.root}`]),
     'Derived paths:', `  Firstmate home: ${paths.firstmateHome}`, `  Kit install root: ${paths.installRoot} (private receipt ${join(paths.installRoot, 'receipt.json')})`,
     `  Kit source: ${kit.commit ? `${paths.kit} at ${kit.commit}` : 'this checkout (not recorded)'}`,
     `  Treehouse pool: ${paths.treehousePool} through the kit wrapper ${paths.wrapper}`,
@@ -411,15 +411,10 @@ export async function setup(manifest, ctx) {
     const { answers, current: gitCurrent, gitStale, channelOverride } = await collectAnswers(flags, receipt?.setup?.answers || {}, { ...ctx, env }, io || { confirm: async (_q, d) => d }, paths);
     const wasSet = keyStatus(paths.firstmateHome);
     let keyValue = null;
-    if (flags['typesafe-key-file']) keyValue = readKeyFile(flags['typesafe-key-file']);
-    else if (flags['typesafe-key-env']) keyValue = validateTypesafeKey(ctx.env.TYPESAFE_API_KEY);
-    else if (!wasSet && io && ctx.input.isTTY && await io.confirm('10. Add optional TYPESAFE_API_KEY from https://console.typesafe.ai/keys now? Enabling Jev sends screened task text to typesafe.ai', false)) {
+    if (!wasSet && io && ctx.input.isTTY && await io.confirm('10. Add optional TYPESAFE_API_KEY from https://console.typesafe.ai/keys now? Enabling Jev sends screened task text to typesafe.ai', false)) {
       io.close(); io = null;
       keyValue = await hiddenKey(ctx.input, output);
       io = prompter(ctx.input, output);
-    }
-    if (keyValue && wasSet) {
-      if (!io || !(await io.confirm('Replace the existing TYPESAFE_API_KEY', false))) keyValue = null;
     }
     const keyPlan = { value: keyValue, status: keyValue ? 'will set' : wasSet ? 'set' : 'not set' };
     const options = { command: 'plan', harness: answers.harness, withFigma: answers.figma, withTower: answers.tower, globalHooks: answers.globalHooks,

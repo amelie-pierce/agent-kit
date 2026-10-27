@@ -30,9 +30,7 @@ Usage: bash install.sh [--dry-run] [--yes] [--root <folder>] [--channel releases
   --channel <name>   releases (default: the newest reviewed release) or main
   --commit <sha>     use this reviewed commit of the kit
   --kit-dir <dir>    use a local clean kit checkout instead of fetching one
-  --reconfigure keys  update the optional TYPESAFE_API_KEY in the installed Firstmate home
-  --typesafe-key-file <file>  read the key from a private file, never argv
-  --typesafe-key-env          read the key from TYPESAFE_API_KEY in the environment
+  --reconfigure keys  update the optional TYPESAFE_API_KEY in the installed Firstmate home (hidden prompt)
 
 Setup flags: --harness claude|codex|claude,codex, --no-figma, --no-tower, --no-global-hooks,
   --github-owner <name>, --git-name <name>, --git-email <email>, --starter-mate <name>,
@@ -40,7 +38,7 @@ Setup flags: --harness claude|codex|claude,codex, --no-figma, --no-tower, --no-g
 EOF
 }
 
-commit='' kit_dir='' channel='' dry_run=0 yes=0 root='' install_root='' reconfigure_keys=0 key_file='' key_env=0
+commit='' kit_dir='' channel='' dry_run=0 yes=0 root='' install_root='' reconfigure_keys=0
 pass=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -54,15 +52,11 @@ while [ "$#" -gt 0 ]; do
     --yes) yes=1 ;;
     --reconfigure)
       if [ "${2:-}" = keys ]; then reconfigure_keys=1; shift 2; continue; fi ;;
-    --typesafe-key-file) [ "$#" -ge 2 ] || die '--typesafe-key-file needs a path'; key_file=$2 ;;
-    --typesafe-key-env) key_env=1 ;;
     --kit-commit) die '--kit-commit is set by install.sh; use --commit' ;;
   esac
   pass+=("$1")
   shift
 done
-typesafe_key_value=${TYPESAFE_API_KEY-}
-unset TYPESAFE_API_KEY
 case "$channel" in ''|releases|main) ;; *) die '--channel must be releases or main' ;; esac
 if [ -n "$commit" ] && ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then die '--commit must be a full 40-character commit SHA'; fi
 
@@ -114,12 +108,10 @@ if [ "$reconfigure_keys" = 1 ]; then
   [ -n "$kit_commit" ] || die 'receipt has no installed kit commit'
   kit_bin="${install_root:-$root_path/.tools}/kit/$kit_commit/bin/agent-kit.mjs"
   [ -f "$kit_bin" ] || die 'installed kit command is missing; run agent-kit repair'
+  [ -f "${kit_bin%/bin/agent-kit.mjs}/src/keys.mjs" ] || die "the installed kit predates the keys command; upgrade it first with: node \"$kit_bin\" upgrade --root \"$root_path\" (or rerun bash install.sh), then rerun --reconfigure keys"
   key_args=()
-  [ -z "$key_file" ] || key_args+=(--typesafe-key-file "$key_file")
-  [ "$key_env" = 0 ] || key_args+=(--typesafe-key-env)
   [ "$yes" = 0 ] || key_args+=(--yes)
-  if [ "$key_env" = 1 ]; then TYPESAFE_API_KEY="$typesafe_key_value" exec node "$kit_bin" keys --install-root "${install_root:-$root_path/.tools}" "${key_args[@]}"; fi
-  exec node "$kit_bin" keys --install-root "${install_root:-$root_path/.tools}" "${key_args[@]}"
+  exec node "$kit_bin" keys --install-root "${install_root:-$root_path/.tools}" ${key_args[@]+"${key_args[@]}"}
 fi
 if [ "$root_given" = 0 ] && [ "$yes" = 0 ] && [ ! -f "$receipt" ]; then
   for attempt in 1 2 3 4; do
@@ -240,11 +232,7 @@ fi
 set +e
 root_arg=()
 [ "$root_given" = 1 ] || root_arg=(--root "$root_path")
-if [ "$key_env" = 1 ]; then
-  TYPESAFE_API_KEY="$typesafe_key_value" node "$kit/bin/agent-kit.mjs" setup --kit-dir "$kit" --kit-commit "$commit" ${root_arg[@]+"${root_arg[@]}"} ${pass[@]+"${pass[@]}"}
-else
-  node "$kit/bin/agent-kit.mjs" setup --kit-dir "$kit" --kit-commit "$commit" ${root_arg[@]+"${root_arg[@]}"} ${pass[@]+"${pass[@]}"}
-fi
+node "$kit/bin/agent-kit.mjs" setup --kit-dir "$kit" --kit-commit "$commit" ${root_arg[@]+"${root_arg[@]}"} ${pass[@]+"${pass[@]}"}
 status=$?
 set -e
 exit "$status"

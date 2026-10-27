@@ -12,7 +12,7 @@ import { secondmateTemplate } from '../src/secondmate.mjs';
 import { setup, windowsSetup } from '../src/setup.mjs';
 import { applyRepair, applyUninstall, applyUpgrade, formatLifecycle, planRepair, planUninstall, planUpgrade } from '../src/lifecycle.mjs';
 import { atomicJson, lock } from '../src/install/macos.mjs';
-import { hiddenKey, keyStatus, readKeyFile, validateTypesafeKey, writeKey } from '../src/keys.mjs';
+import { hiddenKey, keyStatus, writeKey } from '../src/keys.mjs';
 
 async function ask(question) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -54,19 +54,16 @@ try {
     let set = keyStatus(firstmateHome);
     process.stdout.write(`TYPESAFE_API_KEY: ${set ? 'set' : 'not set'}\nWithout it Jev routing is off and Firstmate uses normal dispatch rules. Enabling it sends screened task text to typesafe.ai.\n`);
     let action = 'keep', value = null;
-    if (options.keyFile || options.keyEnv) {
-      value = options.keyFile ? readKeyFile(options.keyFile) : validateTypesafeKey(process.env.TYPESAFE_API_KEY);
-      action = 'set';
-    } else if (process.stdin.isTTY && !options.yes) {
+    if (!process.stdin.isTTY || options.yes) {
+      process.stdout.write('Left unchanged. To add, change or remove it, run this command from your own terminal without --yes and type the key at the hidden prompt.\n');
+    } else {
       const choice = (await ask(set ? 'Keep, change or remove? [keep]: ' : 'Keep or add? [keep]: ')).toLowerCase();
       if (choice === 'add' || choice === 'change') { action = 'set'; value = await hiddenKey(process.stdin, process.stdout); if (!value) action = 'keep'; }
       else if (choice === 'remove' && set) action = 'remove';
       else if (choice !== '' && choice !== 'keep') throw new Error('choose keep, add/change or remove');
     }
-    if (action === 'set' && set && (!process.stdin.isTTY || !['y', 'yes'].includes((await ask('Replace the existing key? (y/N): ')).toLowerCase()))) action = 'keep';
-    if (action === 'remove') {
-      if (!process.stdin.isTTY || await ask('Type REMOVE TYPESAFE_API_KEY to confirm: ') !== 'REMOVE TYPESAFE_API_KEY') action = 'keep';
-    }
+    if (action === 'set' && set && !['y', 'yes'].includes((await ask('Replace the existing key? (y/N): ')).toLowerCase())) action = 'keep';
+    if (action === 'remove' && await ask('Type REMOVE TYPESAFE_API_KEY to confirm: ') !== 'REMOVE TYPESAFE_API_KEY') action = 'keep';
     if (action !== 'keep') {
       const unlock = await lock(options.installRoot, '.setup.lock');
       try {

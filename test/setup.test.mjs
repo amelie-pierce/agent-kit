@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Readable, Writable } from 'node:stream';
+import { PassThrough, Readable, Writable } from 'node:stream';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -140,11 +140,9 @@ test('--yes --dry-run without a terminal uses the defaults, prints the summary a
   assert.equal(f.downloads.length, 0);
 });
 
-test('setup writes only the optional key to the new Firstmate .env and records a boolean', posixOnly, async t => {
+test('setup writes only the optional key typed at the hidden prompt and records a boolean', posixOnly, async t => {
   const f = fixture(t), key = 'fixture-typesafe-key-123';
-  const c = f.ctx(['--yes', '--root', f.root, '--typesafe-key-env', '--no-tower', '--no-global-hooks']);
-  c.env.TYPESAFE_API_KEY = key;
-  c.installPlatform = async (_manifest, options) => {
+  const installPlatform = async (_manifest, options) => {
     assert.equal(options.env.TYPESAFE_API_KEY, undefined, 'install child environment is sanitized');
     mkdirSync(options.firstmateHome, { recursive: true });
     writeFileSync(join(options.firstmateHome, '.gitignore'), '.env\n');
@@ -152,8 +150,25 @@ test('setup writes only the optional key to the new Firstmate .env and records a
     assert.equal(git.status, 0, git.stderr);
     return { status: 'partial', components: [], bin: null, towerParity: 'unavailable', loginSteps: [] };
   };
-  assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+  const unattended = f.ctx(['--yes', '--root', f.root, '--no-tower', '--no-global-hooks']);
+  unattended.env = { ...f.env, TYPESAFE_API_KEY: key };
+  unattended.installPlatform = installPlatform;
+  assert.equal(await setup(f.fixtureManifest, unattended), 0, unattended.text);
   const envPath = join(f.root, 'firstmate', '.env');
+  assert.equal(existsSync(envPath), false, '--yes leaves the key unset even with the variable in the environment');
+  assert.match(unattended.text, /10\. Optional TYPESAFE_API_KEY: not set[^\n]*\n\s+Add, change or remove it later [^\n]*bash install\.sh --reconfigure keys --root /);
+
+  const input = new PassThrough(); input.isTTY = true; input.setRawMode = () => {};
+  const replies = [[/Add optional TYPESAFE_API_KEY[^\n]*$/, 'y\n'], [/TYPESAFE_API_KEY \(hidden[^\n]*$/, `${key}\r`], [/Write these changes now[^\n]*$/, 'y\n']];
+  const chunks = [];
+  const c = { ...f.ctx(['--root', f.root]), input, installPlatform, output: new Writable({ write(chunk, _enc, done) {
+    chunks.push(chunk.toString());
+    const next = replies[0];
+    if (next && next[0].test(chunks.join(''))) { replies.shift(); setImmediate(() => input.write(next[1])); }
+    done();
+  } }) };
+  Object.defineProperty(c, 'text', { get: () => chunks.join('') });
+  assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
   assert.equal(readFileSync(envPath, 'utf8'), `TYPESAFE_API_KEY=${key}\n`);
   assert.equal(statSync(envPath).mode & 0o777, 0o600);
   const receipt = readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8');
@@ -161,6 +176,7 @@ test('setup writes only the optional key to the new Firstmate .env and records a
   assert.equal(receipt.includes(key), false);
   assert.equal(c.text.includes(key), false);
   assert.match(c.text, /TYPESAFE_API_KEY: will set/);
+  assert.throws(() => parseSetupArgs(['--typesafe-key-env']), /unknown|not/i);
 });
 
 test('scripted answers drive every prompt; nothing is written before yes; answers are saved without secrets', posixOnly, async t => {

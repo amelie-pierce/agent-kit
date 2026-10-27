@@ -51,7 +51,7 @@ Two locations stay outside the root by their own design, and the summary says so
 
 ### Questions
 
-Every question shows its default and has a matching flag. The sole optional secret question uses hidden terminal input. The installer never asks for vendor login credentials, version pins, timezone or locale.
+Every question shows its default and, except the key, has a matching flag. The sole optional secret question uses hidden terminal input. The installer never asks for vendor login credentials, version pins, timezone or locale.
 
 | # | Question | Default | Flag |
 | --- | --- | --- | --- |
@@ -64,7 +64,7 @@ Every question shows its default and has a matching flag. The sole optional secr
 | 7 | Git name and email; an existing value changes only after an explicit yes, with `git config --global` | keep | `--git-name <name>`, `--git-email <email>` |
 | 8 | Starter second mate, with a name and a one-line scope | no | `--starter-mate <name>`, `--starter-scope <text>` (`--no-starter-mate`) |
 | 9 | Update channel | reviewed releases | `--channel releases` or `main` |
-| 10 | Optional typesafe.ai dispatch key | skip | `--typesafe-key-file <private-file>` or `--typesafe-key-env` |
+| 10 | Optional typesafe.ai dispatch key, typed at a hidden prompt | skip | none; the value is never a flag (later: `--reconfigure keys`) |
 
 With `both` agent CLIs, the kit installs the Codex CLI, checks the Claude CLI, and registers hooks for both. `--yes` runs unattended: no questions, saved answers and flags first, then the defaults. Without a terminal and without `--yes`, answers are read line by line from standard input.
 
@@ -72,9 +72,9 @@ With `both` agent CLIs, the kit installs the Codex CLI, checks the Claude CLI, a
 
 The kit requires **no `.env` keys** for basic Firstmate dispatch. `TYPESAFE_API_KEY` is the only optional key it offers to configure. Get your own key from the [TypeSafe API keys page](https://console.typesafe.ai/keys). It belongs in `<root>/firstmate/.env` (or the chosen `--firstmate-home`), which the pinned Firstmate home ignores in Git. Enabling it sends each job's screened task text to typesafe.ai for Jev typed dispatch. Without it, Jev routing is off and Firstmate uses its normal dispatch rules. The kit does not test the key against the vendor: the vendor does not document a zero-cost validation call. Invalid-looking or empty keys are rejected locally.
 
-At question 10, the default is **skip**. Input in a terminal is hidden; the summary and receipt show only `set`, `not set` or `will set`. For unattended setup, `--yes` leaves the key unchanged unless you explicitly supply `--typesafe-key-env` (reading `TYPESAFE_API_KEY` from the environment) or `--typesafe-key-file <path>` (a private file). Never put the value in a command argument. An existing key is kept unless you confirm replacement in a terminal. The kit writes `.env` with an atomic rename and mode 0600, preserving unrelated lines and comments.
+At question 10, the default is **skip**. Input in a terminal is hidden; the summary and receipt show only `set`, `not set` or `will set`. The hidden prompt is the only way to enter the key: there is no flag, file or environment variable for it, so the value never appears in a command argument or shell history. With `--yes` or without a terminal, the key is left unchanged and the summary says how to add it later. A rerun keeps an existing key; change it with the key-update command below. The kit writes `.env` with an atomic rename and mode 0600, preserving unrelated lines and comments.
 
-Add, change or remove the key later by running `node bin/agent-kit.mjs keys --root /your/Agentic` from your own terminal, or `bash install.sh --reconfigure keys --root /your/Agentic`. An agent can guide you through that command; type the key in your own terminal. Pasting it into agent chat exposes it to the agent session and transcript. The command shows `set` or `not set`, asks before replacement or removal, and changes only this key and the receipt's key-set flag. Relay (`FMX_PAIRING_TOKEN`, `FMX_RELAY_URL`) and mail (`FM_MAIL_*`) are advanced Firstmate facilities that the kit does not set up. Claude, Codex and GitHub credentials remain in their vendor sign-in flows, never in this `.env`.
+Add, change or remove the key later by running `bash install.sh --reconfigure keys --root /your/Agentic` (or `node bin/agent-kit.mjs keys --root /your/Agentic`) from your own terminal. If you installed before this key command existed, upgrade first with `node /your/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs upgrade --root /your/Agentic` or rerun `bash install.sh`; `--reconfigure keys` says so when the installed kit is too old. An agent can guide you through that command; type the key in your own terminal. Pasting it into agent chat exposes it to the agent session and transcript. The command shows `set` or `not set`, asks before replacement or removal, and changes only this key and the receipt's key-set flag. Relay (`FMX_PAIRING_TOKEN`, `FMX_RELAY_URL`) and mail (`FM_MAIL_*`) are advanced Firstmate facilities that the kit does not set up. Claude, Codex and GitHub credentials remain in their vendor sign-in flows, never in this `.env`.
 
 ### Summary screen
 
@@ -142,7 +142,6 @@ When you ask for one, setup fills the inert starter charter (`templates/secondma
 | `--yes` | unattended; no questions |
 | `--reconfigure` | ask every question again |
 | `--reconfigure keys` (install.sh) | run only the installed key-update command, without a fresh kit fetch |
-| `--typesafe-key-file <file>`, `--typesafe-key-env` | supply the optional key without putting its value on argv; existing values still need terminal confirmation |
 | `--allow-existing-root` | accept a root that holds other files or another Firstmate home, after you checked it |
 | `--install-root <dir>`, `--firstmate-home <dir>` | override one derived path; each is checked against `--root` (it cannot be the root itself, overlap `.treehouse` or `.zoe-fleet`, or contain the other) and against the paths recorded in the receipt |
 | `--commit <sha>` | use this reviewed commit (install.sh and install.ps1) |

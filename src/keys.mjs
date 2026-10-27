@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { readFileSync, lstatSync } from 'node:fs';
 import { chmod, open, rename, rm } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { Writable } from 'node:stream';
 
@@ -30,13 +30,6 @@ export function keyStatus(firstmateHome) {
     value = line.slice(line.indexOf('=') + 1).trim().replace(/^(?:"([^"]*)"|'([^']*)')$/, (_m, a, b) => a ?? b);
   }
   return value.length > 0;
-}
-
-export function readKeyFile(path) {
-  const full = resolve(path);
-  const st = safeFile(full);
-  if (!st || st.size > 1024 || (st.mode & 0o077)) throw new Error('key file must be a plain private file with no group or other access, at most 1024 bytes');
-  return validateTypesafeKey(readFileSync(full, 'utf8').replace(/\r?\n$/, ''));
 }
 
 function ignored(firstmateHome) {
@@ -85,7 +78,7 @@ export async function writeKey(firstmateHome, action, value) {
 }
 
 export async function hiddenKey(input, output) {
-  if (!input?.isTTY) throw new Error('hidden key entry requires a terminal; use --typesafe-key-file or --typesafe-key-env');
+  if (!input?.isTTY) throw new Error('hidden key entry requires a terminal');
   output.write('TYPESAFE_API_KEY (hidden; press Enter to cancel): ');
   const sink = new Writable({ write(_chunk, _encoding, done) { done(); } });
   const rl = createInterface({ input, output: sink, terminal: true });
