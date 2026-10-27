@@ -83,13 +83,19 @@ function servicePlan(receipt, root, isRunning) {
     ['zoe-fleet-tower', 'close the tower through its own operator workflow']];
   return checks.filter(([id]) => isRunning(id, bin)).map(([id, step]) => ({ id, step }));
 }
-function unresolved(components, manifest, platform, arch) {
+function unresolved(components, manifest, platform, arch, reportFirstmate) {
   const key = `${platform}-${arch}`;
   const unreviewed = id => { const tool = manifest.tools.find(x => x.id === id); return !!tool && (tool.version.status !== 'verified' || tool.artifacts?.[key]?.status !== 'verified'); };
   const firstmateOk = components.some(x => x.id === 'firstmate' && ['installed', 'skipped'].includes(x.status));
-  const reported = x => x.id === 'firstmate' || (!firstmateOk && ((x.id === 'zoe-fleet-tower' && x.status === 'unverified') || (x.id === 'hooks' && x.status === 'deferred')));
+  const reported = x => reportFirstmate && (x.id === 'firstmate' || (!firstmateOk && ((x.id === 'zoe-fleet-tower' && x.status === 'unverified') || (x.id === 'hooks' && x.status === 'deferred'))));
   const open = components.filter(x => ['conflict', 'deferred', 'unverified'].includes(x.status) && !(x.status === 'unverified' && unreviewed(x.id)));
   return { failed: open.filter(x => !reported(x)), nextSteps: open.filter(reported).map(x => `${x.id}: ${x.reason}`) };
+}
+function assertFirstmateClean(receipt, manifest) {
+  const tool = manifest.tools.find(x => x.id === 'firstmate'), path = receipt.phases.firstmate?.path;
+  if (!tool || typeof path !== 'string' || !isAbsolute(path) || !stat(path)?.isDirectory() || stat(path).isSymbolicLink()) return;
+  if ([receipt.phases.firstmate.version, tool.version.value].some(pin => pin && gitCheck(path, pin, tool.approvedUpstream))) return;
+  throw new Error(`Firstmate home ${path} has local changes; the kit will not reset it. Commit or revert those changes, then rerun agent-kit upgrade.`);
 }
 function assertStopped(running) {
   if (running.length) throw new Error(`kit services are running: ${running.map(x => `${x.id}: ${x.step}`).join('; ')}`);
@@ -237,7 +243,7 @@ export async function applyRepair(manifest, options = {}) {
     const result = await installPlatform(manifest, { ...options, home: options.home, installRoot: plan.root, firstmateHome: homeOf(current),
       harness: answer.harness || 'claude', withFigma: answer.figma || false, withTower: answer.tower !== false, globalHooks: answer.globalHooks !== false,
       towerState: receipt.setup?.paths?.towerState });
-    const { failed, nextSteps } = unresolved(result.components, manifest, options.platform || process.platform, options.arch || process.arch);
+    const { failed, nextSteps } = unresolved(result.components, manifest, options.platform || process.platform, options.arch || process.arch, true);
     if (failed.length) throw new Error('repair has unresolved kit components');
     const wrapper = current.phases['treehouse-root'];
     if (wrapper) {
@@ -358,6 +364,7 @@ export async function planUpgrade({ installRoot, home, env = process.env, platfo
     const manifest = JSON.parse(readFileSync(join(kit, 'manifests', 'pilot-skeleton.json'), 'utf8'));
     const target = await import(pathToFileURL(join(kit, 'src', 'update.mjs')).href);
     const targetSetup = await import(pathToFileURL(join(kit, 'src', 'setup.mjs')).href);
+    assertFirstmateClean(receipt, manifest);
     const diff = target.planUpdate(manifest, { installRoot: root, home, env, platform, arch, nodeVersion, reviewed: true });
     const firstmateTool = manifest.tools.find(x => x.id === 'firstmate');
     const firstmatePinChange = !!firstmateTool && firstmateTool.version.value !== receipt.phases.firstmate?.version;
@@ -379,6 +386,7 @@ export async function applyUpgrade(plan, options = {}) {
     throw new Error(`Firstmate pin changed; run /updatefirstmate from ${plan.firstmate}, then rerun agent-kit upgrade`);
   const root = plan.root, { receipt } = receiptAt(root), old = structuredClone(receipt), kitTarget = join(root, 'kit', plan.commit);
   assertStopped(servicePlan(receipt, root, options.isRunning || processRunning));
+  assertFirstmateClean(receipt, plan.manifest);
   if (receipt.release !== plan.fromRelease || (receipt.setup?.kit?.commit || null) !== plan.fromCommit || (receipt.setup?.answers?.channel || 'releases') !== plan.channel)
     throw new Error('kit receipt changed since the upgrade plan; rerun upgrade');
   if (plan.answers) { receipt.setup ||= {}; receipt.setup.answers = plan.answers; }
@@ -403,8 +411,7 @@ export async function applyUpgrade(plan, options = {}) {
     const target = await import(pathToFileURL(join(kitTarget, 'src', 'update.mjs')).href);
     const result = await target.applyUpdate(plan.manifest, { ...options, installRoot: root, home: options.home, platform: options.platform || process.platform,
       arch: options.arch || process.arch, reviewed: true, isRunning: () => false });
-    const { failed, nextSteps } = unresolved(result.components, plan.manifest, options.platform || process.platform, options.arch || process.arch);
-    if (failed.length) throw new Error('upgrade has unresolved components; prior kit files restored');
+    if (unresolved(result.components, plan.manifest, options.platform || process.platform, options.arch || process.arch, false).failed.length) throw new Error('upgrade has unresolved components; prior kit files restored');
     const updated = receiptAt(root).receipt;
     const updatedWrapper = updated.phases['treehouse-root'];
     if (updatedWrapper && updated.phases.treehouse) {
@@ -416,9 +423,7 @@ export async function applyUpgrade(plan, options = {}) {
     }
     updated.setup ||= {}; updated.setup.kit = { commit: plan.commit, path: kitTarget };
     await atomicJson(join(root, 'receipt.json'), updated);
-    const pending = !!updated.pendingUpdate || updated.release !== plan.toRelease;
-    if (pending) nextSteps.push(`release ${plan.toRelease} is pending; rerun agent-kit upgrade after the steps above`);
-    return { ...plan, apply: true, status: pending ? 'partial' : 'upgraded', components: result.components, nextSteps };
+    return { ...plan, apply: true, status: 'upgraded', components: result.components };
   } catch (error) {
     await atomicJson(join(root, 'receipt.json'), old);
     for (const item of oldGlobal.reverse()) {
