@@ -1,7 +1,7 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { cpSync, readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { isAbsolute, join, resolve, sep } from 'node:path';
+import { basename, isAbsolute, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { doctor, firstmateIssue, gitCheck } from './doctor.mjs';
 import { atomicJson, installPlatform, npmGroup, selected } from './install/macos.mjs';
@@ -64,20 +64,29 @@ export async function applyUpdate(manifest, options) {
   // The kit's launchers, Herdr keys and session-graph plugin arrive with an upgrade too, placed by this (the new)
   // kit from its own installed copy. An upgrade defers them until it can no longer roll back.
   const shortcuts = options.deferExtras || result.components.some(x => ['conflict', 'deferred'].includes(x.status)) ? null
-    : await placeUpdateExtras(options, plan.firstmateHome, plan.noMistakesBin);
+    : await placeUpdateExtras({ ...options, durable: true }, plan.firstmateHome, plan.noMistakesBin);
   return { ...plan, apply: true, status: result.status, exitCode: result.exitCode, components: result.components, shortcuts,
     previousRelease: plan.fromRelease, nextSteps: result.components.filter(x => ['conflict', 'deferred'].includes(x.status)).map(x => `${x.id}: ${x.reason}`),
     note: 'Previous release binaries remain in their versioned directory. User state rollback is not promised.' };
 }
 // The kit extras and, for a home that now takes fm-strategy.sh --plans, the person's strategy; a problem with
 // them never fails the update. Returns the lines to report.
+// An older kit's upgrade calls applyUpdate without deferring the extras and may still roll back afterwards,
+// deleting <root>/kit/<commit>. Launchers placed then point at a copy that rollback never removes.
+export function durableKit(root, kitPath) {
+  if (!kitPath.startsWith(join(root, 'kit') + sep)) return kitPath;
+  const target = join(root, 'kit-extras', basename(kitPath));
+  if (!existsSync(join(target, 'bin', 'agent-kit.mjs'))) cpSync(kitPath, target, { recursive: true, filter: source => basename(source) !== '.git' });
+  return target;
+}
 export async function placeUpdateExtras(options, firstmateHome, noMistakesBin = null) {
-  const root = resolve(options.installRoot), receiptPath = join(root, 'receipt.json'), kitPath = fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/]$/, '');
+  const root = resolve(options.installRoot), receiptPath = join(root, 'receipt.json'), ownKit = fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/]$/, '');
+  const kitPath = options.durable ? durableKit(root, ownKit) : ownKit;
   let shortcuts = null;
   try {
     const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
     const extras = await placeKitExtras(receipt, root, { env: options.env || process.env, home: options.home, check: options.herdrCheck,
-      kitPath: kitPath.startsWith(join(root, 'kit') + sep) ? kitPath : null, isRunning: options.isRunning || (id => processRunning(id, noMistakesBin)) });
+      kitPath: kitPath.startsWith(join(root, 'kit') + sep) || kitPath.startsWith(join(root, 'kit-extras') + sep) ? kitPath : null, isRunning: options.isRunning || (id => processRunning(id, noMistakesBin)) });
     if (extras.action !== 'not-selected') {
       const current = JSON.parse(readFileSync(receiptPath, 'utf8'));
       current.setup ||= {}; current.setup.shortcuts = extras.record;
