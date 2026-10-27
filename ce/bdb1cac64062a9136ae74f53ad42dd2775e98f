@@ -1,0 +1,27 @@
+test/windows.test.mjs
+  s_4826c386e70af1::t_0dd774df384157 9,20-42,52-56,74-82,85,89-105,129,139-140,146,155,208-215,277
+README.md
+  s_4826c386e70af1::t_82a27cfd0df9b2 52,54
+_vaults/agent-kit/wiki/architecture/windows-entry.md
+  s_4826c386e70af1::t_2f1a2404ba5c25 9
+  s_4826c386e70af1::t_56b98f909419ea 11-13,17
+src/platforms/windows.mjs
+  s_4826c386e70af1::t_7b0c1cf5cd1f64 35-48,140-142,145,168-169
+  s_4826c386e70af1::t_5e41a73377e683 112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cebdb1cac64062a9136ae74f53ad42dd2775e98f",
+  "prompts": {},
+  "sessions": {
+    "s_4826c386e70af1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "188c1f83-df1c-4b7b-a9b4-b41b7f02c794",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
