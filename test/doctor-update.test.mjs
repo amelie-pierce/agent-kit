@@ -179,3 +179,13 @@ test('starter output is inert and contains no owner paths or origins', () => {
   assert.equal(parseArgs(['--update', '--install-root', '/tmp/kit']).command, 'upgrade');
   assert.throws(() => parseArgs(['update', '--yes', '--install-root', '/tmp/kit', '--firstmate-home', '/tmp/home']), /does not apply|requires|unknown/);
 });
+
+test('an upgrade places the kit launchers, Herdr pieces and plugins from the new kit, as setup does', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t);
+  // Without python3 or the kit copy this fixture cannot write launchers, so the upgrade reports why, and the receipt keeps the result.
+  const applied = await applyUpdate(f.manifest, { ...f.options, herdrCheck: () => ({ ok: true }) });
+  assert.ok(Array.isArray(applied.shortcuts), 'applyUpdate ran the extras step');
+  assert.match(applied.shortcuts.join('\n'), /Herdr shortcuts: not set up; needs /);
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  assert.ok('shortcuts' in receipt.setup, 'the upgrade recorded the extras result in the receipt');
+});

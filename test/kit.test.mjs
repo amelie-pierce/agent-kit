@@ -1230,3 +1230,48 @@ test('npm phase is not installed while a locked tool version is unverified', asy
   assert.deepEqual(result.components, [{ id: 'npm', status: 'unverified', reason: 'lavish-axi: approval pending' }]);
   assert.equal(existsSync(join(f.installRoot, 'releases', 'fixture-1', 'npm')), false);
 });
+
+test('with Figma, the npm-figma lock installs figma-cli from its pinned codeload commit and figma-cli registers its own skills', async t => {
+  const f = installFixture(t);
+  f.fixtureManifest.tools = [structuredClone(manifest.tools.find(x => x.id === 'figma-cli'))];
+  const lock = JSON.parse(readFileSync(new URL('../manifests/npm-figma/package-lock.json', import.meta.url)));
+  assert.equal(lock.packages['node_modules/@amelie-pierce/figma-cli'].resolved, 'https://codeload.github.com/amelie-pierce/figma-cli/tar.gz/cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942');
+  assert.ok(Object.entries(lock.packages).filter(([name]) => name && name !== 'node_modules/@amelie-pierce/figma-cli').every(([, item]) => item.resolved.startsWith('https://registry.npmjs.org/') && item.integrity));
+  f.options.runNpm = async stage => { mkdirSync(join(stage, 'node_modules', '.bin'), { recursive: true }); writeFileSync(join(stage, 'node_modules', '.bin', 'figma-cli'), 'fixture', { mode: 0o755 }); };
+  const asked = [];
+  f.options.runFigma = async args => { asked.push(args.join(' ')); return { stdout: JSON.stringify({ ready: true, results: [{ agent: args[3], name: 'figma-make-team', path: join(f.home, args[3] === 'claude' ? '.claude' : '.agents', 'skills', 'figma-make-team'), status: 'installed' }] }) }; };
+  const result = await installPlatform(f.fixtureManifest, { ...f.options, withFigma: true, harness: 'both' });
+  assert.deepEqual(result.components.map(x => [x.id, x.status]), [['npm-figma', 'installed'], ['figma-skills', 'installed']]);
+  assert.deepEqual(asked, ['skills install --agent claude', 'skills install --agent codex']);
+  assert.equal(result.figmaBin, join(f.installRoot, 'releases', 'fixture-1', 'npm-figma', 'node_modules', '.bin'));
+  assert.equal(JSON.parse(readFileSync(result.receipt)).phases['npm-figma'].skills.length, 2);
+  const none = await installPlatform(f.fixtureManifest, { ...f.options, withFigma: false });
+  assert.ok(!none.components.some(x => x.id === 'npm-figma'), 'without Figma there is nothing to install');
+});
+
+test('a Herdr plugin installs only its subtree from the pinned source archive and refuses links in it', async t => {
+  const f = installFixture(t);
+  const repo = join(f.root, 'zoetrope-src');
+  mkdirSync(join(repo, 'herdr-plugin', 'herdr'), { recursive: true }); mkdirSync(join(repo, 'src'));
+  writeFileSync(join(repo, 'src', 'main.rs'), 'fn main() {}\n');
+  writeFileSync(join(repo, 'herdr-plugin', 'herdr-plugin.toml'), 'id = "furkankly.zoetrope"\n');
+  for (const name of ['keys.sh', 'open.sh', 'pane.sh', 'resolve.sh']) writeFileSync(join(repo, 'herdr-plugin', 'herdr', name), '#!/bin/sh\n', { mode: 0o755 });
+  const archive = join(f.root, 'zoetrope.tar.gz');
+  assert.equal(spawnSync('tar', ['-czf', archive, '-C', f.root, 'zoetrope-src']).status, 0);
+  const tool = structuredClone(manifest.tools.find(x => x.id === 'zoetrope-herdr-plugin'));
+  tool.artifacts['darwin-arm64'] = { url: 'https://fixture.test/zoetrope.tar.gz', sha256: createHash('sha256').update(readFileSync(archive)).digest('hex'), kind: 'source-archive', status: 'verified', reason: '' };
+  f.fixtureManifest.tools = [tool];
+  f.options.fetchArtifact = async (_url, destination) => copyFileSync(archive, destination);
+  const result = await installPlatform(f.fixtureManifest, f.options);
+  assert.equal(result.components[0].status, 'installed');
+  const installed = join(f.installRoot, 'releases', 'fixture-1', 'zoetrope-herdr-plugin');
+  assert.deepEqual(readdirSync(installed).sort(), ['herdr', 'herdr-plugin.toml'], 'only herdr-plugin/, never the rest of the repository');
+  const linked = installFixture(t);
+  symlinkSync('/etc/hosts', join(repo, 'herdr-plugin', 'herdr', 'link.sh'));
+  const bad = join(linked.root, 'bad.tar.gz');
+  assert.equal(spawnSync('tar', ['-czf', bad, '-C', f.root, 'zoetrope-src']).status, 0);
+  tool.artifacts['darwin-arm64'].sha256 = createHash('sha256').update(readFileSync(bad)).digest('hex');
+  linked.fixtureManifest.tools = [tool];
+  linked.options.fetchArtifact = async (_url, destination) => copyFileSync(bad, destination);
+  await assert.rejects(installPlatform(linked.fixtureManifest, linked.options), /plugin archive holds a link or special file under herdr-plugin/);
+});

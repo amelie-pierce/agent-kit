@@ -501,7 +501,9 @@ export function splitLayout(text) {
   const lines = text.split('\n'), begin = lines.indexOf(layoutBegin), end = lines.indexOf(layoutEnd);
   if (begin === -1 && end === -1) return { rest: text, block: null };
   if (begin === -1 || end < begin || lines.lastIndexOf(layoutBegin) !== begin || lines.lastIndexOf(layoutEnd) !== end) return { rest: text, block: null, malformed: true };
-  return { rest: [...lines.slice(0, begin), ...lines.slice(end + 1)].join('\n'), block: lines.slice(begin, end + 1).join('\n') };
+  // The block was inserted with a blank line on each side; drop one so removal restores the file exactly.
+  const after = begin > 0 && lines[begin - 1] === '' && lines[end + 1] === '' ? end + 2 : end + 1;
+  return { rest: [...lines.slice(0, begin), ...lines.slice(after)].join('\n'), block: lines.slice(begin, end + 1).join('\n') };
 }
 // What the person's file already defines: table names (and their parents) and root-level keys.
 function definedNames(rest) {
