@@ -1,6 +1,8 @@
-import { join, isAbsolute, posix } from 'node:path';
+import { realpathSync } from 'node:fs';
+import { basename, dirname, join, isAbsolute, posix, resolve } from 'node:path';
 import { inspectPlatform } from './platforms/index.mjs';
 import { previewHooks, publicHookChanges } from './install/hooks.mjs';
+import { towerPaths } from './install/macos.mjs';
 import { defaultLinuxFirstmateHome, defaultLinuxRoot, describeStep, linuxPath, windowsHandoff, windowsNextSteps } from './install/windows.mjs';
 
 function compareVersions(actual, minimum) {
@@ -29,6 +31,7 @@ export function validateManifest(manifest) {
       if (!/^(darwin|linux|windows)-(arm64|x64)$/.test(target)) throw new Error(`invalid target for ${tool.id}`);
       if (!['verified', 'unverified'].includes(artifact.status) || (artifact.url !== null && !artifact.url?.startsWith('https://')) || (artifact.sha256 !== null && !/^[a-f0-9]{64}$/i.test(artifact.sha256 || ''))) throw new Error(`invalid artifact for ${tool.id}`);
       if (artifact.status === 'verified' && (!artifact.url || !artifact.sha256)) throw new Error(`verified artifact incomplete for ${tool.id}`);
+      if (artifact.kind !== undefined && !['release-archive', 'source-archive'].includes(artifact.kind)) throw new Error(`invalid artifact kind for ${tool.id}`);
     }
     const d = tool.detection;
     const validDetection = d?.kind === 'git-head' ? d.command === 'git' && JSON.stringify(d.args) === '["rev-parse","HEAD"]' : d?.kind === 'command' && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(d.command || '') && (JSON.stringify(d.args) === '["--version"]' || JSON.stringify(d.args) === '["-version"]')
@@ -115,6 +118,9 @@ function human(result) {
     for (const change of result.plan.globalHookChanges) lines.push(`- ${change.path}: ${JSON.stringify(change.changes)}`);
     if (result.platform.platform === 'windows') lines.push('- previewed inside WSL by the Linux installer before it applies them');
     else if (!result.plan.globalHookChanges.length) lines.push(result.issues.some(x => x.id === 'hooks') ? '- refused; see the hooks conflict below' : '- none');
+    lines.push('Tower launcher configuration (written by the runtime launcher setup; never launched):');
+    const tower = result.plan.towerConfig;
+    lines.push(tower ? `- ${tower.config}: FM_HOME ${tower.firstmateHome}; fleet state ${tower.state} (new or empty)` : '- none on this platform');
     lines.push('Codex reviews new or changed hooks interactively; approve them yourself after installation.');
     lines.push('Personal login steps:');
     for (const step of result.plan.loginSteps) lines.push(`- ${step}`);
@@ -136,16 +142,24 @@ function human(result) {
 const pathJoin = context => context.platform === 'win32' ? posix.join : join;
 const firstmateLocation = (context, options) => options.firstmateHome || (context.platform === 'win32' ? defaultLinuxFirstmateHome : join(context.env.HOME, 'firstmate'));
 
-function plannedLocation(tool, context, options, release) {
+function plannedLocation(tool, context, options, release, artifact) {
   const join = pathJoin(context);
   const root = options.installRoot || (context.platform === 'win32' ? defaultLinuxRoot : join(context.env.HOME, '.agent-kit'));
   const versioned = join(root, 'releases', release);
   if (tool.id === 'firstmate') return firstmateLocation(context, options);
-  if (tool.id === 'zoe-fleet') return join(versioned, 'zoetrope', 'bin', 'zoe-fleet');
+  if (tool.id === 'zoe-fleet') return artifact?.kind === 'release-archive' ? join(versioned, 'bin', 'zoe-fleet') : join(versioned, 'zoetrope', 'bin', 'zoe-fleet');
+  if (tool.id === 'zoe-fleet-runtime') return join(versioned, 'zoe-fleet-runtime');
   if (['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint'].includes(tool.id)) return join(versioned, 'bin', tool.id);
   if (['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi'].includes(tool.id)) return join(versioned, 'npm', 'node_modules', '.bin', tool.id);
   if (tool.id === 'codex') return join(versioned, 'npm-codex', 'node_modules', '.bin', 'codex');
   return 'UNVERIFIED: no install adapter';
+}
+
+function canonicalPath(path) {
+  try { return realpathSync(path); } catch (error) {
+    if (error.code !== 'ENOENT' || dirname(path) === path) throw error;
+    return join(canonicalPath(dirname(path)), basename(path));
+  }
 }
 
 export function run(argv, manifest, context) {
@@ -163,11 +177,21 @@ export function run(argv, manifest, context) {
       evaluation.issues.push({ status: 'conflict', id: 'hooks', reason: error.message });
     }
   }
+  let towerConfig = null;
+  const runtime = evaluation.selected.find(tool => tool.id === 'zoe-fleet-runtime');
+  if (options.command === 'plan' && evaluation.platform.supported && !windows && runtime?.artifacts[evaluation.target]?.status === 'verified') {
+    try {
+      const firstmateHome = canonicalPath(resolve(firstmateLocation(context, options)));
+      towerConfig = { firstmateHome, ...towerPaths(context.env, context.env.HOME, firstmateHome) };
+    } catch (error) {
+      evaluation.issues.push({ status: 'conflict', id: 'zoe-fleet-tower', reason: error.message });
+    }
+  }
   const plan = options.command === 'plan' ? {
     tools: evaluation.selected.map(tool => {
       const artifact = tool.artifacts[evaluation.target];
       return { id: tool.id, name: tool.name, version: tool.version.value, versionStatus: tool.version.status,
-        origin: tool.approvedUpstream, installLocation: plannedLocation(tool, context, options, manifest.release),
+        origin: tool.approvedUpstream, installLocation: plannedLocation(tool, context, options, manifest.release, artifact),
         artifactUrl: artifact?.url || null, sha256: artifact?.sha256 || null, classification: tool.classification };
     }),
     optionalComponents: evaluation.optional.map(tool => ({ id: tool.id, name: tool.name, status: 'optional, not selected',
@@ -177,6 +201,7 @@ export function run(argv, manifest, context) {
       { owner: 'firstmate', action: 'include Codex hooks with pinned source', path: pathJoin(context)(firstmateLocation(context, options), '.codex/hooks.json') },
     ],
     globalHookChanges,
+    towerConfig,
     ...(windows && evaluation.platform.supported ? (({ status, command, commit, message }) => ({ handoff: { status, command: command || null, commit: commit || null, message },
       nextSteps: windowsNextSteps(evaluation.platform.wsl?.target?.name) }))(windowsHandoff({ ...options, handoff: false }, context, evaluation.platform)) : {}),
     loginSteps: evaluation.selected.filter(tool => tool.classification === 'per-user-login').map(tool => loginSteps[tool.id]).filter(Boolean),

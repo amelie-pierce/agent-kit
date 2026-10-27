@@ -28,7 +28,7 @@ try {
       else if (!options.json) process.stderr.write(formatWindows(result));
       process.exitCode = result.exitCode;
     } else {
-      const result = await installPlatform(manifest, { platform: context.platform, arch: context.arch, home: process.env.HOME,
+      const result = await installPlatform(manifest, { platform: context.platform, arch: context.arch, home: process.env.HOME, env: process.env,
         installRoot: options.installRoot, firstmateHome: options.firstmateHome, harness: options.harness, withFigma: options.withFigma, nodeVersion: context.nodeVersion,
         onHooksPreview: changes => {
           process.stderr.write('Global hook and skill changes before apply (kit-owned entries only):\n');

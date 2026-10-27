@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, rmSync, readFileSync, copyFileSync, existsSync, readlinkSync, realpathSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, rmSync, readFileSync, copyFileSync, existsSync, readlinkSync, realpathSync, symlinkSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +33,19 @@ function tempFixture(t) {
 
 test('bundled manifest keeps verified source commits and macOS/Linux digests', () => {
   validateManifest(manifest);
+  const tower = manifest.tools.find(x => x.id === 'zoe-fleet'), runtime = manifest.tools.find(x => x.id === 'zoe-fleet-runtime');
+  assert.equal(tower.version.value, 'e81530fac3d7754df134dd3c8e995e29bb40104c');
+  assert.deepEqual(['darwin-arm64', 'darwin-x64', 'linux-arm64', 'linux-x64'].map(target => tower.artifacts[target].kind), ['release-archive', 'release-archive', 'source-archive', 'source-archive']);
+  assert.equal(tower.artifacts['darwin-arm64'].sha256, '87ead8bd844f2554c3fd5fe4ce738da7ec4165bda4bd8454febabf484c59c0cd');
+  assert.equal(tower.artifacts['darwin-x64'].sha256, '164155b32f4ab94cf3fac17660ddac07db6309043d42d58e5df304540d63e269');
+  for (const target of ['darwin-arm64', 'darwin-x64']) {
+    assert.match(tower.artifacts[target].url, /^https:\/\/github\.com\/pikenguyen227\/zoetrope\/releases\/download\/fleet-v0\.2\.0-e81530fac3d7\//);
+    assert.equal(runtime.artifacts[target].sha256, '2cdd16315f8e00603e97520c89294ffd8823bd3758f0a88b2a0ab9a8022280c1');
+  }
+  assert.deepEqual(['linux-arm64', 'linux-x64'].map(target => runtime.artifacts[target].status), ['unverified', 'unverified']);
+  const badKind = structuredClone(tower);
+  badKind.artifacts['darwin-arm64'].kind = 'installer';
+  assert.throws(() => validateManifest({ ...manifest, tools: [badKind] }), /invalid artifact kind/);
   assert.match(manifest.tools.find(x => x.id === 'firstmate').version.value, /^[a-f0-9]{40}$/);
   assert.match(manifest.tools.find(x => x.id === 'zoe-fleet').version.value, /^[a-f0-9]{40}$/);
   assert.ok(['firstmate', 'zoe-fleet', 'herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint'].every(id =>
@@ -260,7 +273,15 @@ test('install dry-run plans the selected root and stays read-only', t => {
   assert.equal(result.result.command, 'plan');
   assert.equal(result.result.readOnly, true);
   assert.equal(result.result.plan.tools.find(x => x.id === 'firstmate').installLocation, firstmateHome);
-  assert.equal(result.result.plan.tools.find(x => x.id === 'zoe-fleet').installLocation, join(installRoot, 'releases', manifest.release, 'zoetrope', 'bin', 'zoe-fleet'));
+  assert.equal(result.result.plan.tools.find(x => x.id === 'zoe-fleet').installLocation, join(installRoot, 'releases', manifest.release, 'bin', 'zoe-fleet'));
+  assert.equal(result.result.plan.tools.find(x => x.id === 'zoe-fleet-runtime').installLocation, join(installRoot, 'releases', manifest.release, 'zoe-fleet-runtime'));
+  const digest = createHash('sha256').update(firstmateHome).digest('hex').slice(0, 12);
+  assert.deepEqual(result.result.plan.towerConfig, { firstmateHome, config: join(home, '.config', 'zoe-fleet', 'config'), state: join(home, '.local', 'state', 'zoe-fleet', digest) });
+  assert.match(run(['install', '--dry-run', '--install-root', installRoot, '--firstmate-home', firstmateHome], manifest, context).output, /Tower launcher configuration .*\n- .*zoe-fleet[\\/]config: FM_HOME /);
+  const linux = run(['plan', '--json', '--install-root', installRoot, '--firstmate-home', firstmateHome], manifest, { ...context, platform: 'linux', arch: 'x64', libc: 'glibc', osRelease: 'ID=ubuntu\n', procVersion: 'Linux' });
+  assert.equal(linux.result.plan.tools.find(x => x.id === 'zoe-fleet').installLocation, join(installRoot, 'releases', manifest.release, 'zoetrope', 'bin', 'zoe-fleet'));
+  assert.equal(linux.result.plan.towerConfig, null);
+  assert.ok(linux.result.issues.some(x => x.id === 'zoe-fleet-runtime' && /no Linux tower release/.test(x.reason)));
   assert.deepEqual(readdirSync(home), []);
   assert.equal(existsSync(installRoot), false);
 });
@@ -578,13 +599,15 @@ function firstmateFixture(t) {
   const repo = join(f.root, 'firstmate-upstream');
   mkdirSync(repo);
   writeFileSync(join(repo, 'README.md'), 'tracked fixture\n');
+  mkdirSync(join(repo, 'bin'));
+  writeFileSync(join(repo, 'bin', 'fm-fleet-snapshot.sh'), '#!/bin/sh\n', { mode: 0o755 });
   const git = (...args) => {
     const result = spawnSync('git', args, { cwd: repo, encoding: 'utf8', env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' } });
     assert.equal(result.status, 0, result.stderr);
     return result.stdout.trim();
   };
   git('init', '-q');
-  git('add', 'README.md');
+  git('add', 'README.md', 'bin/fm-fleet-snapshot.sh');
   git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'fixture');
   const archive = join(f.root, 'source.tar.gz');
   git('archive', '--format=tar.gz', '--prefix=snapshot/', '-o', archive, 'HEAD');
@@ -622,6 +645,249 @@ test('verified source archives create a fresh home and stage a tower build', asy
   writeFileSync(join(f.firstmateHome, 'data', 'new-person-only'), 'private');
   const second = await installPlatform(f.fixtureManifest, f.options);
   assert.deepEqual(second.components.map(x => x.status), ['skipped', 'skipped']);
+});
+
+// A launcher whose setup writes the same data-only config as the Zoetrope runtime's zoe-fleet-tower.
+const fixtureLauncher = `#!/usr/bin/env bash
+set -euo pipefail
+[ "\${1:-}" = setup ] || exit 2
+shift
+nm=''
+while [ "$#" -gt 0 ]; do
+  case "$1" in --home) h=$2 ;; --bin) b=$2 ;; --state) s=$2 ;; --no-mistakes) nm=$2 ;; *) exit 2 ;; esac
+  shift 2
+done
+[ -x "$h/bin/fm-fleet-snapshot.sh" ] || exit 1
+umask 077
+mkdir -p "$s" "$s/telemetry"
+d="\${XDG_CONFIG_HOME:-$HOME/.config}/zoe-fleet"
+mkdir -p "$d"
+printf 'FM_HOME=%s\\nZOE_FLEET_BIN=%s\\nZOE_FLEET_STATE_DIR=%s\\nZOE_NO_MISTAKES_BIN=%s\\n' "$h" "$b" "$(cd "$s" && pwd -P)" "$nm" > "$d/config"
+`;
+
+function towerFixture(t, { runtimeFiles } = {}) {
+  const f = firstmateFixture(t);
+  const pack = (name, files) => {
+    const dir = join(f.root, `${name}-tree`), archive = join(f.root, `${name}.tar.gz`);
+    for (const [path, [body, mode = 0o644]] of Object.entries(files)) {
+      mkdirSync(dirname(join(dir, path)), { recursive: true });
+      writeFileSync(join(dir, path), body, { mode });
+    }
+    assert.equal(spawnSync('tar', ['-czf', archive, '-C', dir, ...readdirSync(dir)]).status, 0);
+    return archive;
+  };
+  const archives = {
+    'https://fixture.test/zoe-fleet.tar.gz': pack('tower', { 'zoe-fleet': ['fixture tower binary', 0o755], LICENSE: ['MIT'], NOTICE: ['notice'], 'BUILD.txt': ['version=0.2.0'] }),
+    'https://fixture.test/runtime.tar.gz': pack('runtime', runtimeFiles || { 'bin/zoe-fleet-tower': [fixtureLauncher, 0o755], 'scripts/fleet-config.sh': [''], 'scripts/firstmate-fleet.py': [''],
+      'fleet-plugin/herdr-plugin.toml': [''], 'fleet-plugin/open.sh': [''], 'docs/FLEET-PACKAGING.md': [''], LICENSE: ['MIT'] }),
+  };
+  const firstmateArchive = join(f.root, 'source.tar.gz');
+  const verified = (tool, url, kind) => {
+    tool.artifacts['darwin-arm64'] = { url, sha256: createHash('sha256').update(readFileSync(archives[url])).digest('hex'), kind, status: 'verified', reason: '' };
+    return tool;
+  };
+  f.fixtureManifest.tools.push(verified(structuredClone(manifest.tools.find(x => x.id === 'zoe-fleet')), 'https://fixture.test/zoe-fleet.tar.gz', 'release-archive'),
+    verified(structuredClone(manifest.tools.find(x => x.id === 'zoe-fleet-runtime')), 'https://fixture.test/runtime.tar.gz', 'release-archive'));
+  f.options.fetchArtifact = async (url, destination) => { f.downloads.push(url); copyFileSync(archives[url] || firstmateArchive, destination); };
+  f.options.runCargo = async () => assert.fail('cargo must not run when a release archive is pinned');
+  const kitPath = (...parts) => join(f.installRoot, 'releases', 'fixture-1', ...parts);
+  const digest = createHash('sha256').update(f.firstmateHome).digest('hex').slice(0, 12);
+  return { ...f, kitPath, digest };
+}
+
+test('a tower download network failure leaves the tower partial and later phases complete', { skip: process.platform === 'win32' }, async t => {
+  const f = towerFixture(t);
+  const herdr = structuredClone(manifest.tools.find(x => x.id === 'herdr'));
+  herdr.artifacts['darwin-arm64'] = { url: 'https://fixture.test/herdr', sha256: createHash('sha256').update(readFileSync(f.artifact)).digest('hex'), status: 'verified', reason: '' };
+  f.fixtureManifest.tools.push(herdr);
+  const fetchArtifact = f.options.fetchArtifact;
+  f.options.fetchArtifact = async (url, destination) => {
+    if (url.endsWith('zoe-fleet.tar.gz')) { writeFileSync(destination, 'partial'); throw Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }); }
+    if (url.endsWith('/herdr')) return copyFileSync(f.artifact, destination);
+    return fetchArtifact(url, destination);
+  };
+  const result = await installPlatform(f.fixtureManifest, f.options);
+  assert.deepEqual(result.components.map(x => [x.id, x.status]), [['firstmate', 'installed'], ['zoe-fleet', 'unverified'], ['zoe-fleet-runtime', 'installed'], ['herdr', 'installed'], ['zoe-fleet-tower', 'unverified']]);
+  assert.equal(result.components[1].reason, 'tower download unavailable: ECONNRESET');
+  assert.equal(result.towerParity, 'unavailable');
+  assert.equal(result.status, 'partial');
+  assert.deepEqual(readdirSync(f.kitPath('staging')).filter(name => name.startsWith('zoe-fleet-') && !name.startsWith('zoe-fleet-runtime-')), []);
+  assert.equal(existsSync(f.kitPath('bin', 'zoe-fleet')), false);
+});
+
+test('a tower checksum mismatch still stops the install', { skip: process.platform === 'win32' }, async t => {
+  const f = towerFixture(t);
+  f.fixtureManifest.tools.find(x => x.id === 'zoe-fleet').artifacts['darwin-arm64'].sha256 = '0'.repeat(64);
+  await assert.rejects(installPlatform(f.fixtureManifest, f.options), /SHA-256 mismatch for zoe-fleet/);
+  assert.equal(existsSync(f.kitPath('bin', 'zoe-fleet')), false);
+});
+
+test('macOS release archives install the tower and configure its launcher without a source build',{ skip: process.platform === 'win32' }, async t => {
+  const f = towerFixture(t);
+  const ids = ['firstmate', 'zoe-fleet', 'zoe-fleet-runtime', 'zoe-fleet-tower'];
+  const result = await installPlatform(f.fixtureManifest, f.options);
+  assert.deepEqual(ids.map(id => result.components.find(x => x.id === id)?.status), Array(4).fill('installed'));
+  assert.equal(result.status, 'partial');
+  assert.equal(result.towerParity, 'installed from verified release; hands-on acceptance pending (Zoetrope Phase B)');
+  assert.equal(result.towerLauncher, f.kitPath('zoe-fleet-runtime', 'bin', 'zoe-fleet-tower'));
+  assert.match(formatInstall(result), /Tower parity: installed from verified release; hands-on acceptance pending.*\nTower launcher: /);
+  assert.equal(readFileSync(f.kitPath('bin', 'zoe-fleet'), 'utf8'), 'fixture tower binary');
+  assert.equal(existsSync(f.kitPath('zoetrope')), false);
+  const state = join(f.home, '.local', 'state', 'zoe-fleet', f.digest), configPath = join(f.home, '.config', 'zoe-fleet', 'config');
+  const config = readFileSync(configPath, 'utf8');
+  assert.equal(config, `FM_HOME=${f.firstmateHome}\nZOE_FLEET_BIN=${f.kitPath('bin', 'zoe-fleet')}\nZOE_FLEET_STATE_DIR=${state}\nZOE_NO_MISTAKES_BIN=\n`);
+  if (!f.root.startsWith(homedir())) assert.ok(!config.includes(homedir()));
+  assert.deepEqual(readdirSync(state), ['telemetry']);
+  const receipt = JSON.parse(readFileSync(result.receipt));
+  assert.equal(receipt.phases['zoe-fleet-runtime'].artifactSha256, f.fixtureManifest.tools[2].artifacts['darwin-arm64'].sha256);
+  assert.deepEqual([receipt.phases['zoe-fleet-tower'].path, receipt.phases['zoe-fleet-tower'].state], [configPath, 'complete']);
+  assert.deepEqual(readdirSync(f.kitPath('staging')).filter(name => !name.endsWith('.artifact')), []);
+
+  const downloads = f.downloads.length;
+  const second = await installPlatform(f.fixtureManifest, f.options);
+  assert.deepEqual(ids.map(id => second.components.find(x => x.id === id)?.status), Array(4).fill('skipped'));
+  assert.equal(f.downloads.length, downloads);
+  assert.equal(second.towerParity, result.towerParity);
+
+  writeFileSync(configPath, `FM_HOME=${f.root}\n`);
+  const edited = await installPlatform(f.fixtureManifest, f.options);
+  assert.match(edited.components.find(x => x.id === 'zoe-fleet-tower').reason, /not the kit-owned launcher config; left unchanged/);
+  assert.equal(edited.towerLauncher, null);
+  assert.equal(readFileSync(configPath, 'utf8'), `FM_HOME=${f.root}\n`);
+});
+
+test('existing launcher config or used fleet state is left untouched', { skip: process.platform === 'win32' }, async t => {
+  const f = towerFixture(t);
+  const configPath = join(f.home, '.config', 'zoe-fleet', 'config');
+  mkdirSync(dirname(configPath), { recursive: true });
+  writeFileSync(configPath, 'FM_HOME=/someone/else\n');
+  const owned = await installPlatform(f.fixtureManifest, f.options);
+  assert.equal(owned.components.find(x => x.id === 'zoe-fleet-tower').status, 'conflict');
+  assert.equal(owned.components.find(x => x.id === 'zoe-fleet-runtime').status, 'installed');
+  assert.equal(owned.towerParity, 'release binary installed; fleet runtime or launcher configuration incomplete');
+  assert.equal(readFileSync(configPath, 'utf8'), 'FM_HOME=/someone/else\n');
+
+  const xdgConfig = join(f.root, 'xdg-config'), xdgState = join(f.root, 'xdg-state');
+  const options = { ...f.options, env: { XDG_CONFIG_HOME: xdgConfig, XDG_STATE_HOME: xdgState } };
+  mkdirSync(join(xdgState, 'zoe-fleet', f.digest), { recursive: true });
+  writeFileSync(join(xdgState, 'zoe-fleet', f.digest, 'fleet.json'), '{}');
+  const used = await installPlatform(f.fixtureManifest, options);
+  assert.match(used.components.find(x => x.id === 'zoe-fleet-tower').reason, /not a new empty directory; left unchanged/);
+  assert.equal(existsSync(join(xdgConfig, 'zoe-fleet', 'config')), false);
+  rmSync(join(xdgState, 'zoe-fleet', f.digest, 'fleet.json'));
+  const fresh = await installPlatform(f.fixtureManifest, options);
+  assert.equal(fresh.components.find(x => x.id === 'zoe-fleet-tower').status, 'installed');
+  assert.match(readFileSync(join(xdgConfig, 'zoe-fleet', 'config'), 'utf8'), new RegExp(`ZOE_FLEET_STATE_DIR=${join(xdgState, 'zoe-fleet', f.digest)}\n`));
+  const relative = await installPlatform(f.fixtureManifest, { ...options, env: { XDG_CONFIG_HOME: 'relative' } });
+  assert.match(relative.components.find(x => x.id === 'zoe-fleet-tower').reason, /XDG_CONFIG_HOME must be an absolute path/);
+});
+
+test('failed launcher setup removes only the fleet state it created so a rerun succeeds', { skip: process.platform === 'win32' }, async t => {
+  const failing = fixtureLauncher.replace('mkdir -p "$s" "$s/telemetry"\n', 'mkdir -p "$s" "$s/telemetry"\nif [ -e "$h.fail" ]; then rm "$h.fail"; exit 1; fi\n');
+  const f = towerFixture(t, { runtimeFiles: { 'bin/zoe-fleet-tower': [failing, 0o755], 'scripts/fleet-config.sh': [''], 'scripts/firstmate-fleet.py': [''],
+    'fleet-plugin/herdr-plugin.toml': [''], 'fleet-plugin/open.sh': [''], 'docs/FLEET-PACKAGING.md': [''], LICENSE: ['MIT'] } });
+  const state = join(f.home, '.local', 'state', 'zoe-fleet', f.digest);
+  writeFileSync(`${f.firstmateHome}.fail`, '');
+  const failed = await installPlatform(f.fixtureManifest, f.options);
+  assert.equal(failed.components.find(x => x.id === 'zoe-fleet-tower').status, 'conflict');
+  assert.equal(existsSync(state), false);
+  assert.equal(JSON.parse(readFileSync(failed.receipt)).phases['zoe-fleet-tower'], undefined);
+  const rerun = await installPlatform(f.fixtureManifest, f.options);
+  assert.equal(rerun.components.find(x => x.id === 'zoe-fleet-tower').status, 'installed');
+  assert.deepEqual(readdirSync(state), ['telemetry']);
+
+  const xdgState = join(f.root, 'xdg-state'), kept = join(xdgState, 'zoe-fleet', f.digest);
+  mkdirSync(kept, { recursive: true });
+  writeFileSync(`${f.firstmateHome}.fail`, '');
+  const preexisting = await installPlatform(f.fixtureManifest, { ...f.options, env: { XDG_CONFIG_HOME: join(f.root, 'xdg-config'), XDG_STATE_HOME: xdgState } });
+  assert.equal(preexisting.components.find(x => x.id === 'zoe-fleet-tower').status, 'conflict');
+  assert.deepEqual(readdirSync(kept), ['telemetry']);
+});
+
+test('plan canonicalizes a Firstmate home under a symlinked parent like install does', { skip: process.platform === 'win32' }, t => {
+  const { home, root } = tempFixture(t);
+  mkdirSync(join(root, 'real'));
+  symlinkSync(join(root, 'real'), join(root, 'link'));
+  const context = { platform: 'darwin', arch: 'arm64', env: { HOME: home, PATH: '' }, nodeVersion: '24.15.0', applicationDirs: [] };
+  const result = run(['plan', '--json', '--install-root', join(root, 'kit'), '--firstmate-home', join(root, 'link', 'fm')], manifest, context);
+  const firstmateHome = join(root, 'real', 'fm');
+  const digest = createHash('sha256').update(firstmateHome).digest('hex').slice(0, 12);
+  assert.deepEqual(result.result.plan.towerConfig, { firstmateHome, config: join(home, '.config', 'zoe-fleet', 'config'), state: join(home, '.local', 'state', 'zoe-fleet', digest) });
+  assert.equal(existsSync(firstmateHome), false);
+});
+
+test('runtime archive with a link or without its launcher is refused',{ skip: process.platform === 'win32' }, async t => {
+  const f = towerFixture(t, { runtimeFiles: { 'scripts/fleet-config.sh': [''], LICENSE: ['MIT'] } });
+  await assert.rejects(installPlatform(f.fixtureManifest, f.options), /fleet runtime archive lacks bin\/zoe-fleet-tower/);
+  assert.equal(existsSync(f.kitPath('zoe-fleet-runtime')), false);
+  assert.deepEqual(readdirSync(f.kitPath('staging')).filter(name => name.startsWith('zoe-fleet-runtime-') && !name.endsWith('.artifact')), []);
+
+  const linked = towerFixture(t);
+  const tree = join(linked.root, 'linked-tree'), archive = join(linked.root, 'linked.tar.gz');
+  mkdirSync(join(tree, 'bin'), { recursive: true });
+  symlinkSync('/etc/hosts', join(tree, 'bin', 'zoe-fleet-tower'));
+  assert.equal(spawnSync('tar', ['-czf', archive, '-C', tree, 'bin']).status, 0);
+  linked.fixtureManifest.tools[2].artifacts['darwin-arm64'].sha256 = createHash('sha256').update(readFileSync(archive)).digest('hex');
+  linked.options.fetchArtifact = async (url, destination) => copyFileSync(url.endsWith('runtime.tar.gz') ? archive : url.endsWith('zoe-fleet.tar.gz') ? join(linked.root, 'tower.tar.gz') : join(linked.root, 'source.tar.gz'), destination);
+  await assert.rejects(installPlatform(linked.fixtureManifest, linked.options), /unsupported runtime archive member: bin\/zoe-fleet-tower/);
+  assert.equal(existsSync(linked.kitPath('zoe-fleet-runtime')), false);
+});
+
+test('Linux keeps the source-built tower and has no fleet runtime pin', { skip: process.platform === 'win32' }, async t => {
+  const f = firstmateFixture(t);
+  f.fixtureManifest.tools[0].artifacts['linux-arm64'] = { ...f.fixtureManifest.tools[0].artifacts['darwin-arm64'] };
+  const tower = f.tool('zoe-fleet');
+  tower.artifacts['linux-arm64'] = { ...tower.artifacts['darwin-arm64'], kind: 'source-archive' };
+  f.fixtureManifest.tools.push(tower, structuredClone(manifest.tools.find(x => x.id === 'zoe-fleet-runtime')));
+  let builds = 0;
+  f.options = { ...f.options, platform: 'linux', libc: 'glibc', env: {}, runCargo: async (_stage, target) => {
+    builds++;
+    mkdirSync(join(target, 'release'), { recursive: true });
+    writeFileSync(join(target, 'release', 'zoe'), 'fixture tower', { mode: 0o755 });
+  } };
+  const result = await installPlatform(f.fixtureManifest, f.options);
+  assert.equal(builds, 1);
+  assert.deepEqual(result.components.map(x => [x.id, x.status]), [['firstmate', 'installed'], ['zoe-fleet', 'installed'], ['zoe-fleet-runtime', 'unverified']]);
+  assert.match(result.components[2].reason, /no Linux tower release/);
+  assert.equal(result.towerParity, 'packaged but fleet manifest and launcher unverified');
+  assert.equal(result.towerLauncher, null);
+  assert.equal(existsSync(join(f.home, '.config')), false);
+});
+
+test('Linux rerun over an older source-built tower reports a tower conflict and completes other phases', { skip: process.platform === 'win32' }, async t => {
+  const f = firstmateFixture(t);
+  f.fixtureManifest.tools[0].artifacts['linux-arm64'] = { ...f.fixtureManifest.tools[0].artifacts['darwin-arm64'] };
+  const tower = f.tool('zoe-fleet');
+  tower.artifacts['linux-arm64'] = { ...tower.artifacts['darwin-arm64'], kind: 'source-archive' };
+  tower.version.value = 'a8c495a887ed78308f7c682c5d194835e7094b05';
+  const axi = ['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi'];
+  f.fixtureManifest.tools.push(tower, ...axi.map(id => structuredClone(manifest.tools.find(x => x.id === id))));
+  let builds = 0;
+  f.options = { ...f.options, platform: 'linux', libc: 'glibc', env: {}, runCargo: async (_stage, target) => {
+    builds++;
+    mkdirSync(join(target, 'release'), { recursive: true });
+    writeFileSync(join(target, 'release', 'zoe'), 'fixture tower', { mode: 0o755 });
+  }, runNpm: async stage => {
+    const bins = join(stage, 'node_modules', '.bin');
+    mkdirSync(bins, { recursive: true });
+    for (const id of axi) {
+      const skill = id === 'lavish-axi' ? 'lavish' : id;
+      mkdirSync(join(stage, 'node_modules', id, 'skills', skill), { recursive: true });
+      writeFileSync(join(stage, 'node_modules', id, 'skills', skill, 'SKILL.md'), `---\nname: ${skill}\ndescription: fixture\n---\n`);
+      writeFileSync(join(bins, id), 'fixture', { mode: 0o755 });
+    }
+  } };
+  const first = await installPlatform(f.fixtureManifest, f.options);
+  assert.deepEqual(first.components.map(x => [x.id, x.status]), [['firstmate', 'installed'], ['zoe-fleet', 'installed'], ['npm', 'installed'], ['hooks', 'installed']]);
+  tower.version.value = manifest.tools.find(x => x.id === 'zoe-fleet').version.value;
+  const second = await installPlatform(f.fixtureManifest, f.options);
+  assert.equal(builds, 1);
+  assert.deepEqual(second.components.map(x => [x.id, x.status]), [['firstmate', 'skipped'], ['zoe-fleet', 'conflict'], ['npm', 'skipped'], ['hooks', 'skipped']]);
+  assert.equal(second.components[1].reason, 'older tower build present; an explicit update is needed (planned)');
+  assert.equal(second.towerParity, 'conflict: older tower build present; an explicit update is needed (planned)');
+  assert.equal(second.status, 'partial');
+  assert.deepEqual(readdirSync(join(f.installRoot, 'releases', f.fixtureManifest.release, 'staging')).filter(name => !name.endsWith('.artifact')), []);
+  assert.equal(JSON.parse(readFileSync(second.receipt)).phases['zoe-fleet'].version, 'a8c495a887ed78308f7c682c5d194835e7094b05');
 });
 
 test('Firstmate rerun skips after untracked local settings appear', async t => {

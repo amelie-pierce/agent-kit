@@ -341,9 +341,9 @@
       "classification": "shareable",
       "version": {
         "kind": "git-commit",
-        "value": "a8c495a887ed78308f7c682c5d194835e7094b05",
+        "value": "e81530fac3d7754df134dd3c8e995e29bb40104c",
         "status": "verified",
-        "reason": "Commit verified on approved upstream."
+        "reason": "Commit verified on approved upstream; release tag fleet-v0.2.0-e81530fac3d7 resolves to it."
       },
       "approvedUpstream": "https://github.com/pikenguyen227/zoetrope",
       "license": {
@@ -353,28 +353,32 @@
       "runtimeMinimum": null,
       "artifacts": {
         "darwin-arm64": {
-          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/a8c495a887ed78308f7c682c5d194835e7094b05",
-          "sha256": "fca7c36b0b1682d0611bf3e9add9407c269af79163d85d046bd34ae927ececfe",
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-e81530fac3d7/zoe-fleet-0.2.0-e81530fac3d7-aarch64-apple-darwin.tar.gz",
+          "sha256": "87ead8bd844f2554c3fd5fe4ce738da7ec4165bda4bd8454febabf484c59c0cd",
+          "kind": "release-archive",
           "status": "verified",
-          "reason": "SHA-256 computed from the pinned GitHub source archive."
+          "reason": "SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
         },
         "darwin-x64": {
-          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/a8c495a887ed78308f7c682c5d194835e7094b05",
-          "sha256": "fca7c36b0b1682d0611bf3e9add9407c269af79163d85d046bd34ae927ececfe",
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-e81530fac3d7/zoe-fleet-0.2.0-e81530fac3d7-x86_64-apple-darwin.tar.gz",
+          "sha256": "164155b32f4ab94cf3fac17660ddac07db6309043d42d58e5df304540d63e269",
+          "kind": "release-archive",
           "status": "verified",
-          "reason": "SHA-256 computed from the pinned GitHub source archive."
+          "reason": "SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
         },
         "linux-arm64": {
-          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/a8c495a887ed78308f7c682c5d194835e7094b05",
-          "sha256": "fca7c36b0b1682d0611bf3e9add9407c269af79163d85d046bd34ae927ececfe",
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/e81530fac3d7754df134dd3c8e995e29bb40104c",
+          "sha256": "f5619a635a8e6c168abad3cb088f0d0032980c6d1694feb86e345407c6c0cb95",
+          "kind": "source-archive",
           "status": "verified",
-          "reason": "SHA-256 of pinned source archive, shared across supported hosts."
+          "reason": "fleet-v0.2.0-e81530fac3d7 has no Linux asset; SHA-256 of the pinned source archive for the cargo build fallback."
         },
         "linux-x64": {
-          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/a8c495a887ed78308f7c682c5d194835e7094b05",
-          "sha256": "fca7c36b0b1682d0611bf3e9add9407c269af79163d85d046bd34ae927ececfe",
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/e81530fac3d7754df134dd3c8e995e29bb40104c",
+          "sha256": "f5619a635a8e6c168abad3cb088f0d0032980c6d1694feb86e345407c6c0cb95",
+          "kind": "source-archive",
           "status": "verified",
-          "reason": "SHA-256 of pinned source archive, shared across supported hosts."
+          "reason": "fleet-v0.2.0-e81530fac3d7 has no Linux asset; SHA-256 of the pinned source archive for the cargo build fallback."
         },
         "windows-arm64": {
           "url": null,
@@ -399,6 +403,72 @@
           "rev-parse",
           "HEAD"
         ]
+      }
+    },
+    {
+      "id": "zoe-fleet-runtime",
+      "name": "Zoe fleet runtime",
+      "profile": "core",
+      "classification": "shareable",
+      "version": {
+        "kind": "release",
+        "value": "fleet-v0.2.0-e81530fac3d7",
+        "status": "verified",
+        "reason": "Release fleet-v0.2.0-e81530fac3d7 at commit e81530fac3d7754df134dd3c8e995e29bb40104c; maintainers' automated acceptance passed, hands-on acceptance is pending."
+      },
+      "approvedUpstream": "https://github.com/pikenguyen227/zoetrope",
+      "license": {
+        "name": "MIT",
+        "reference": "https://github.com/pikenguyen227/zoetrope/blob/main/LICENSE"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-e81530fac3d7/zoetrope-fleet-runtime-0.2.0-e81530fac3d7.tar.gz",
+          "sha256": "2cdd16315f8e00603e97520c89294ffd8823bd3758f0a88b2a0ab9a8022280c1",
+          "kind": "release-archive",
+          "status": "verified",
+          "reason": "SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
+        },
+        "darwin-x64": {
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-e81530fac3d7/zoetrope-fleet-runtime-0.2.0-e81530fac3d7.tar.gz",
+          "sha256": "2cdd16315f8e00603e97520c89294ffd8823bd3758f0a88b2a0ab9a8022280c1",
+          "kind": "release-archive",
+          "status": "verified",
+          "reason": "SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "fleet-v0.2.0-e81530fac3d7 has no Linux tower release; Linux keeps the source-built tower without the fleet runtime."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "fleet-v0.2.0-e81530fac3d7 has no Linux tower release; Linux keeps the source-built tower without the fleet runtime."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/zoe-fleet-runtime"
+      },
+      "detection": {
+        "kind": "presence",
+        "command": "zoe-fleet-tower",
+        "args": []
       }
     },
     {

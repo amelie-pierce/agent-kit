@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFile, writeFile, mkdir, open, rename, rm, lstat, readdir, chmod, readlink } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, open, rename, rm, lstat, readdir, chmod, readlink, realpath } from 'node:fs/promises';
 import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
@@ -12,6 +12,10 @@ const exec = promisify(execFile);
 const npmIds = new Set(['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi', 'codex']);
 const binaryIds = new Set(['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint']);
 const sourceIds = new Set(['firstmate', 'zoe-fleet']);
+const runtimeIds = new Set(['zoe-fleet-runtime']);
+// Files the Zoetrope runtime's launcher contract needs (its docs/FLEET-PACKAGING.md).
+const runtimeLayout = ['bin/zoe-fleet-tower', 'scripts/fleet-config.sh', 'scripts/firstmate-fleet.py', 'fleet-plugin/herdr-plugin.toml', 'fleet-plugin/open.sh', 'docs/FLEET-PACKAGING.md', 'LICENSE'];
+const towerRelease = (tool, artifact) => tool.id === 'zoe-fleet' && artifact.kind === 'release-archive';
 const login = {
   'github-cli': 'Run gh auth login (https://cli.github.com/manual/gh_auth_login).',
   'gh-axi': 'Use your own GitHub CLI sign-in: gh auth login (https://cli.github.com/manual/gh_auth_login).',
@@ -108,6 +112,44 @@ function tarBinary(buffer, binary) {
   }
   if (!match) throw new Error(`${binary} absent from archive`);
   return match;
+}
+function tarTree(buffer) {
+  const tar = gunzipSync(buffer, { maxOutputLength: 300 * 1024 * 1024 });
+  const members = [];
+  let offset = 0;
+  while (offset + 512 <= tar.length) {
+    const h = tar.subarray(offset, offset + 512);
+    if (h.every(byte => byte === 0)) break;
+    const field = (start, end) => h.subarray(start, end).toString().replace(/\0.*$/s, '');
+    const size = Number.parseInt(field(124, 136).trim() || '0', 8);
+    const type = String.fromCharCode(h[156]);
+    if (!Number.isSafeInteger(size) || size < 0 || offset + 512 + size > tar.length) throw new Error('invalid tar member');
+    const body = tar.subarray(offset + 512, offset + 512 + size);
+    offset += 512 + Math.ceil(size / 512) * 512;
+    if (type === 'x' || type === 'g') {
+      if (/^\d+ (path|linkpath|size)=/m.test(body.toString('latin1'))) throw new Error('runtime archive overrides a member path');
+      continue;
+    }
+    const name = [field(345, 500), field(0, 100)].filter(Boolean).join('/').replace(/^\.\//, '').replace(/\/$/, '');
+    if (type === '5' && (name === '' || name === '.')) continue;
+    if (!name || name.startsWith('/') || name.includes('\\') || name.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('unsafe runtime archive member');
+    if (type === '5') members.push({ name, directory: true });
+    else if (type === '0' || type === '\0') members.push({ name, mode: Number.parseInt(field(100, 108).trim() || '0', 8) & 0o111 ? 0o755 : 0o644, data: Buffer.from(body) });
+    else throw new Error(`unsupported runtime archive member: ${name}`);
+  }
+  return members;
+}
+async function unpackRuntime(archive, destination) {
+  for (const member of tarTree(await readFile(archive))) {
+    const path = join(destination, ...member.name.split('/'));
+    if (member.directory) { await mkdir(path, { recursive: true, mode: 0o700 }); continue; }
+    await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+    await writeFile(path, member.data, { mode: member.mode, flag: 'wx' });
+    await chmod(path, member.mode);
+  }
+  for (const file of runtimeLayout) {
+    if (!(await exists(join(destination, ...file.split('/'))))?.isFile()) throw new Error(`fleet runtime archive lacks ${file}; its launcher contract is not met`);
+  }
 }
 async function unpackTrackedSource(archive, destination, freshHome = false) {
   const { stdout } = await exec('tar', ['-tzf', archive], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 30000 });
@@ -233,11 +275,68 @@ async function npmPhase(root, release, group, manifest, receipt, save, options) 
   return { id, status: 'installed', reason: 'npm ci from committed integrity lock; scripts disabled', packages };
 }
 
+// Mirrors the runtime launcher's lookup: XDG config and a per-home state directory named by the
+// first 12 hex digits of SHA-256 over the resolved Firstmate home path.
+export function towerPaths(env, home, firstmateHome) {
+  const base = (key, ...fallback) => {
+    if (!env[key]) return join(home, ...fallback);
+    if (!isAbsolute(env[key])) throw new Error(`${key} must be an absolute path`);
+    return env[key];
+  };
+  return { config: join(base('XDG_CONFIG_HOME', '.config'), 'zoe-fleet', 'config'),
+    state: join(base('XDG_STATE_HOME', '.local', 'state'), 'zoe-fleet', sha(firstmateHome).slice(0, 12)) };
+}
+// The shipped launcher's own setup writes the config into a kit staging directory; the kit then
+// checks that it names only this person's Firstmate home, kit-owned binaries and fresh fleet state.
+async function towerPhase(root, release, firstmateHome, receipt, save, options) {
+  const id = 'zoe-fleet-tower', entry = receipt.phases[id];
+  const home = await realpath(firstmateHome);
+  if (!(await exists(join(home, 'bin', 'fm-fleet-snapshot.sh')))?.isFile()) return { id, status: 'conflict', reason: 'Firstmate home lacks bin/fm-fleet-snapshot.sh; launcher not configured' };
+  const { config, state } = towerPaths(options.env || {}, options.home, home);
+  const current = await exists(config);
+  if (current) {
+    if (entry?.path === config && current.isFile() && await hashFile(config) === entry.ownedSha256) {
+      if (entry.state === 'pending') { entry.state = 'complete'; await save(); }
+      return { id, status: 'skipped', reason: 'receipt and owned launcher config match' };
+    }
+    return { id, status: 'conflict', reason: `${config} exists and is not the kit-owned launcher config; left unchanged` };
+  }
+  if (entry?.fleetState !== state && !(await newDirectory(state))) return { id, status: 'conflict', reason: `fleet state ${state} is not a new empty directory; left unchanged` };
+  const bin = ownedPath(root, 'releases', release, 'bin', 'zoe-fleet'), noMistakes = ownedPath(root, 'releases', release, 'bin', 'no-mistakes');
+  const launcher = ownedPath(root, 'releases', release, 'zoe-fleet-runtime', 'bin', 'zoe-fleet-tower');
+  const stage = ownedPath(root, 'releases', release, 'staging', `zoe-fleet-config-${randomUUID()}`);
+  const created = !(await exists(state));
+  let recorded = false;
+  await mkdir(stage, { recursive: true, mode: 0o700 });
+  try {
+    const args = [launcher, 'setup', '--home', home, '--bin', bin, '--state', state, ...(await exists(noMistakes) ? ['--no-mistakes', noMistakes] : [])];
+    await exec('bash', args, { env: { ...toolEnv(options.home, root), XDG_CONFIG_HOME: stage }, timeout: 30000, maxBuffer: 65536 });
+    const body = await readFile(join(stage, 'zoe-fleet', 'config'));
+    const realState = await realpath(state);
+    const allowed = { FM_HOME: [home], ZOE_FLEET_BIN: [bin], ZOE_FLEET_STATE_DIR: [realState], ZOE_NO_MISTAKES_BIN: ['', noMistakes] };
+    const lines = body.toString('utf8').split('\n').filter(Boolean).map(line => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]);
+    if (!lines.length || lines.some(([key, value]) => !allowed[key]?.includes(value)) || !lines.some(([key]) => key === 'FM_HOME')) throw new Error('launcher setup wrote an unexpected config');
+    receipt.phases[id] = { state: 'pending', version: receipt.phases['zoe-fleet-runtime']?.version, path: config, ownedSha256: sha(body), fleetState: state };
+    await save();
+    recorded = true;
+    await mkdir(dirname(config), { recursive: true, mode: 0o700 });
+    const staged = `${config}.${randomUUID()}.tmp`;
+    await writeFile(staged, body, { mode: 0o600, flag: 'wx' });
+    await rename(staged, config);
+    receipt.phases[id].state = 'complete';
+    await save();
+    return { id, status: 'installed', reason: `launcher configured for ${home} with private fleet state ${realState}` };
+  } finally {
+    await rm(stage, { recursive: true, force: true });
+    if (created && !recorded && (await exists(state))?.isDirectory() && (await readdir(state, { recursive: true, withFileTypes: true })).every(x => x.isDirectory())) await rm(state, { recursive: true });
+  }
+}
+
 export async function installPlatform(manifest, options = {}) {
   const platform = options.platform || process.platform, arch = options.arch || process.arch;
   const linux = platform === 'linux' ? linuxIdentity({ env: options.env || process.env, procVersion: options.procVersion, osRelease: options.osRelease, libc: options.libc }) : null;
   if (!['darwin', 'linux'].includes(platform) || !['arm64', 'x64'].includes(arch) || (linux && (linux.libc !== 'glibc' || (linux.wsl && !linux.wsl2)))) return { status: 'unsupported', exitCode: 2, components: [], message: `unsupported install target ${platform}/${arch}${linux ? ` (${linux.libc}${linux.wsl && !linux.wsl2 ? ', WSL1' : ''})` : ''}`,
-    bin: null, npmBin: null, codexBin: null, firstmateHome: null, towerParity: 'unavailable', loginSteps: [] };
+    bin: null, npmBin: null, codexBin: null, firstmateHome: null, towerParity: 'unavailable', towerLauncher: null, loginSteps: [] };
   const nodeVersion = options.nodeVersion || process.versions.node;
   const actual = nodeVersion.split('.').map(Number), minimum = manifest.nodeMinimum.split('.').map(Number);
   if (actual.some((part, index) => part !== minimum[index] && actual.slice(0, index).every((x, i) => x === minimum[i]) && part < minimum[index])) throw new Error(`Node ${manifest.nodeMinimum} or newer required`);
@@ -267,7 +366,7 @@ export async function installPlatform(manifest, options = {}) {
         components.push({ id: tool.id, status: 'unverified', reason: a?.reason || tool.version.reason || `no verified ${platform} artifact` });
         continue;
       }
-      if (!binaryIds.has(tool.id) && !sourceIds.has(tool.id)) {
+      if (!binaryIds.has(tool.id) && !sourceIds.has(tool.id) && !runtimeIds.has(tool.id)) {
         components.push({ id: tool.id, status: 'unverified', reason: 'no reviewed install adapter' });
         continue;
       }
@@ -281,17 +380,28 @@ export async function installPlatform(manifest, options = {}) {
         components.push({ id: tool.id, status: 'skipped', reason: 'receipt and owned files match' });
         continue;
       }
+      const sourceTower = ownedPath(root, 'releases', release, 'zoetrope');
+      if (tool.id === 'zoe-fleet' && !towerRelease(tool, a) && await exists(sourceTower)) {
+        const older = receipt.phases[tool.id]?.path === relative(root, sourceTower) && receipt.phases[tool.id].version !== tool.version.value;
+        components.push({ id: tool.id, status: 'conflict', reason: older ? 'older tower build present; an explicit update is needed (planned)' : 'zoetrope build exists without matching receipt; left unchanged' });
+        continue;
+      }
       const filename = `${tool.id}-${a.sha256}.artifact`;
       const artifactPath = ownedPath(root, 'releases', release, 'staging', filename);
       if (await exists(artifactPath)) {
         if (await hashFile(artifactPath) !== a.sha256) throw new Error(`SHA-256 mismatch for staged ${tool.id}`);
       } else {
         const pending = `${artifactPath}.${randomUUID()}.part`;
-        await (options.fetchArtifact || download)(a.url, pending);
+        try { await (options.fetchArtifact || download)(a.url, pending); } catch (error) {
+          await rm(pending, { force: true });
+          if (!['zoe-fleet', 'zoe-fleet-runtime'].includes(tool.id)) throw error;
+          components.push({ id: tool.id, status: 'unverified', reason: `tower download unavailable: ${error.code || error.message}` });
+          continue;
+        }
         if (await hashFile(pending) !== a.sha256) throw new Error(`SHA-256 mismatch for ${tool.id}`);
         await rename(pending, artifactPath);
       }
-      if (binaryIds.has(tool.id)) {
+      if (binaryIds.has(tool.id) || towerRelease(tool, a)) {
         const destination = ownedPath(root, 'releases', release, 'bin', tool.id);
         if (await exists(destination)) throw new Error(`${tool.id} exists without a matching receipt`);
         await mkdir(dirname(destination), { recursive: true, mode: 0o700 });
@@ -304,7 +414,19 @@ export async function installPlatform(manifest, options = {}) {
         await rename(staged, destination);
         receipt.phases[tool.id].state = 'complete';
         await save();
-        components.push({ id: tool.id, status: 'installed', reason: 'verified artifact activated' });
+        components.push({ id: tool.id, status: 'installed', reason: towerRelease(tool, a) ? 'verified release binary activated; no source build' : 'verified artifact activated' });
+      } else if (runtimeIds.has(tool.id)) {
+        const destination = ownedPath(root, 'releases', release, tool.id);
+        if (await exists(destination)) throw new Error(`${tool.id} exists without a matching receipt`);
+        const stage = ownedPath(root, 'releases', release, 'staging', `${tool.id}-${randomUUID()}`);
+        await mkdir(stage, { recursive: true, mode: 0o700 });
+        try { await unpackRuntime(artifactPath, stage); } catch (error) { await rm(stage, { recursive: true, force: true }); throw error; }
+        receipt.phases[tool.id] = { state: 'pending', version: tool.version.value, artifactSha256: a.sha256, path: relative(root, destination), ownedSha256: await hashTree(stage) };
+        await save();
+        await rename(stage, destination);
+        receipt.phases[tool.id].state = 'complete';
+        await save();
+        components.push({ id: tool.id, status: 'installed', reason: 'verified fleet runtime archive activated' });
       } else if (tool.id === 'firstmate') {
         const destination = firstmateHome;
         if (!(await newDirectory(destination))) throw new Error('Firstmate home already exists without a matching receipt; refusing to inherit it');
@@ -326,15 +448,13 @@ export async function installPlatform(manifest, options = {}) {
       } else {
         const cargo = options.cargoCommand || 'cargo';
         const stage = ownedPath(root, 'releases', release, 'staging', `zoetrope-${randomUUID()}`);
-        await mkdir(stage, { recursive: true, mode: 0o700 });
-        await unpackTrackedSource(artifactPath, stage);
-        const destSource = ownedPath(root, 'releases', release, 'zoetrope');
-        if (await exists(destSource)) throw new Error('zoetrope build exists without matching receipt');
         const target = ownedPath(root, 'releases', release, 'staging', `cargo-target-${randomUUID()}`);
-        const cargoHomeState = await exists(join(root, 'cargo-home'));
-        if (cargoHomeState && !cargoHomeState.isDirectory()) throw new Error('kit cargo home is not a directory');
         let built = false;
         try {
+          await mkdir(stage, { recursive: true, mode: 0o700 });
+          await unpackTrackedSource(artifactPath, stage);
+          const cargoHomeState = await exists(join(root, 'cargo-home'));
+          if (cargoHomeState && !cargoHomeState.isDirectory()) throw new Error('kit cargo home is not a directory');
           await (options.runCargo || (async () => exec(cargo, ['build', '--locked', '--release', '--bin', 'zoe'], {
             cwd: stage, env: { ...toolEnv(options.home, root), CARGO_HOME: join(root, 'cargo-home'), CARGO_TARGET_DIR: target },
             timeout: 900000, maxBuffer: 65536,
@@ -343,11 +463,11 @@ export async function installPlatform(manifest, options = {}) {
           const stagedBinary = join(stage, 'bin', 'zoe-fleet');
           await mkdir(dirname(stagedBinary), { recursive: true, mode: 0o700 });
           await writeFile(stagedBinary, binary, { mode: 0o755 });
-          await mkdir(dirname(destSource), { recursive: true, mode: 0o700 });
+          await mkdir(dirname(sourceTower), { recursive: true, mode: 0o700 });
           const digest = await hashTree(stage);
-          receipt.phases[tool.id] = { state: 'pending', version: tool.version.value, artifactSha256: a.sha256, path: relative(root, destSource), ownedSha256: digest };
+          receipt.phases[tool.id] = { state: 'pending', version: tool.version.value, artifactSha256: a.sha256, path: relative(root, sourceTower), ownedSha256: digest };
           await save();
-          await rename(stage, destSource);
+          await rename(stage, sourceTower);
           receipt.phases[tool.id].state = 'complete';
           await save();
           components.push({ id: tool.id, status: 'installed', reason: 'pinned source built with cargo --locked' });
@@ -357,6 +477,17 @@ export async function installPlatform(manifest, options = {}) {
         } finally { await rm(target, { recursive: true, force: true }); if (!built) await rm(stage, { recursive: true, force: true }); }
       }
       await options.afterPhase?.(tool.id);
+    }
+    const ok = id => components.some(x => x.id === id && ['installed', 'skipped'].includes(x.status));
+    const towerBinary = ownedPath(root, 'releases', release, 'bin', 'zoe-fleet');
+    const towerReleased = ok('zoe-fleet') && receipt.phases['zoe-fleet']?.path === relative(root, towerBinary);
+    if (ok('zoe-fleet-runtime')) {
+      if (!towerReleased || !ok('firstmate')) components.push({ id: 'zoe-fleet-tower', status: 'unverified', reason: 'launcher not configured: needs the Firstmate home and the zoe-fleet release binary installed' });
+      else {
+        try { components.push(await towerPhase(root, release, firstmateHome, receipt, save, options)); } catch (error) {
+          components.push({ id: 'zoe-fleet-tower', status: 'conflict', reason: `launcher not configured: ${error.message.split('\n')[0]}` });
+        }
+      }
     }
     const coreNpm = selected(manifest, options.harness || 'claude', !!options.withFigma).some(t => npmIds.has(t.id) && t.id !== 'codex');
     if (coreNpm) components.push(await npmPhase(root, release, 'npm', manifest, receipt, save, options));
@@ -373,19 +504,24 @@ export async function installPlatform(manifest, options = {}) {
         components.push({ id: 'hooks', status: 'conflict', reason: error.message });
       }
     }
-    const towerBuilt = components.some(x => x.id === 'zoe-fleet' && ['installed', 'skipped'].includes(x.status));
-    const towerParity = towerBuilt ? 'packaged but fleet manifest and launcher unverified' : 'unavailable';
+    const towerLauncher = ok('zoe-fleet-tower') ? ownedPath(root, 'releases', release, 'zoe-fleet-runtime', 'bin', 'zoe-fleet-tower') : null;
+    const towerConflict = components.find(x => x.id === 'zoe-fleet' && x.status === 'conflict');
+    const towerParity = towerConflict ? `conflict: ${towerConflict.reason}` : towerReleased && towerLauncher ? 'installed from verified release; hands-on acceptance pending (Zoetrope Phase B)'
+      : towerReleased ? 'release binary installed; fleet runtime or launcher configuration incomplete'
+        : ok('zoe-fleet') ? 'packaged but fleet manifest and launcher unverified' : 'unavailable';
+    // A selected tower keeps the result partial until hands-on acceptance establishes full parity.
     const incomplete = components.some(x => ['unverified', 'conflict'].includes(x.status)) || selected(manifest, options.harness || 'claude', !!options.withFigma).some(x => x.id === 'zoe-fleet');
     return { status: incomplete ? 'partial' : 'installed', exitCode: incomplete ? 1 : 0, components,
       receipt: receiptPath, bin: join(root, 'releases', release, 'bin'),
       npmBin: coreNpm ? join(root, 'releases', release, 'npm', 'node_modules', '.bin') : null,
       codexBin: (options.harness || 'claude') === 'codex' ? join(root, 'releases', release, 'npm-codex', 'node_modules', '.bin') : null,
       firstmateHome: components.some(x => x.id === 'firstmate' && ['installed', 'skipped'].includes(x.status)) ? firstmateHome : null,
-      towerParity, hookChanges,
+      towerParity, towerLauncher, hookChanges,
       loginSteps: selected(manifest, options.harness || 'claude', !!options.withFigma).map(t => login[t.id]).filter(Boolean),
       nextSteps: [
         'Codex reviews new or changed hooks interactively; review and approve them yourself when prompted.',
         'no-mistakes init installs its user-level skill when you initialize your own repository.',
+        ...(towerLauncher ? [`Run ${towerLauncher} doctor, then open from a Herdr pane; open links the Herdr plugin. The kit does neither.`] : []),
         ...(linux?.wsl2 ? ['Use Windows Terminal and a browser on the Windows side; run agent tools inside your WSL2 Linux distro.'] : [])] };
   } finally { await unlock(); }
 }
@@ -397,6 +533,6 @@ export function formatInstall(result) {
     `Kit binaries: ${result.bin || 'none'}`, ...(result.npmBin ? [`npm binaries: ${result.npmBin}`] : []),
     ...(result.codexBin ? [`Codex binaries: ${result.codexBin}`] : []),
     ...(result.firstmateHome ? [`Fresh Firstmate home: ${result.firstmateHome}`] : []),
-    `Tower parity: ${result.towerParity}`, ...result.loginSteps.map(x => `Sign in yourself: ${x}`), ...(result.nextSteps || []).map(x => `Next step: ${x}`),
+    `Tower parity: ${result.towerParity}`, ...(result.towerLauncher ? [`Tower launcher: ${result.towerLauncher}`] : []), ...result.loginSteps.map(x => `Sign in yourself: ${x}`), ...(result.nextSteps || []).map(x => `Next step: ${x}`),
   ].join('\n') + '\n';
 }
