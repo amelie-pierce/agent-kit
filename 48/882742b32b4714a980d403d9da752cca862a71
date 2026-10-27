@@ -1,0 +1,19 @@
+test/keys.test.mjs
+  s_b4d6e7644cbcbd::t_732f8e727cb98a 13-14,27,60,91,103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "48882742b32b4714a980d403d9da752cca862a71",
+  "prompts": {},
+  "sessions": {
+    "s_b4d6e7644cbcbd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a01883d7-8f78-4aed-838e-34b215d51baa",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
