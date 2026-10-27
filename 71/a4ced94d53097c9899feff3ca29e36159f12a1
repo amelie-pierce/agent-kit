@@ -1,0 +1,23 @@
+src/install/windows.mjs
+  s_121f7b3e508922::t_2d1277aa6acb23 70-71,75
+test/windows.test.mjs
+  s_121f7b3e508922::t_dcdd8f010b6398 216,219,269-272,281-282
+README.md
+  s_121f7b3e508922::t_2d1277aa6acb23 77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "71a4ced94d53097c9899feff3ca29e36159f12a1",
+  "prompts": {},
+  "sessions": {
+    "s_121f7b3e508922": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9b7a82f6-076c-4045-b162-2dd6acf7fb50",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
