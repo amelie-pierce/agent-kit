@@ -1,0 +1,22 @@
+README.md
+  s_bdf83d923b1769::t_05752fb5cf9ab0 43,306
+docs/windows-pilot-check.md
+  s_bdf83d923b1769::t_f975e98eace8c7 115
+  s_bdf83d923b1769::t_05752fb5cf9ab0 7-9,15,20,22,27,82,111,122-139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4b532654e02da976713fb19d3035f511605b89ff",
+  "prompts": {},
+  "sessions": {
+    "s_bdf83d923b1769": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d9d32f42-90a0-48b4-9c2b-ee0d3e1cd28e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
