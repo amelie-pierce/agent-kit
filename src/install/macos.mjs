@@ -10,6 +10,7 @@ import { linuxIdentity } from '../platforms/linux.mjs';
 
 const exec = promisify(execFile);
 const npmIds = new Set(['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi', 'codex']);
+export const npmGroup = id => id === 'codex' ? 'npm-codex' : npmIds.has(id) ? 'npm' : null;
 const binaryIds = new Set(['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint']);
 const sourceIds = new Set(['firstmate', 'zoe-fleet']);
 const runtimeIds = new Set(['zoe-fleet-runtime']);
@@ -211,10 +212,11 @@ async function attachPinnedGit(destination, tool, options) {
   const { stdout } = await exec('git', ['-C', destination, 'rev-parse', 'HEAD'], { env, timeout: 10000 });
   if (stdout.trim() !== tool.version.value) throw new Error('source commit mismatch');
 }
-async function checkReceipt(root, receipt, id, version, artifactSha, options) {
+async function checkReceipt(root, receipt, id, version, artifactSha, options = {}) {
   const entry = receipt.phases[id];
   if (!entry || entry.version !== version || entry.artifactSha256 !== artifactSha) return false;
   if (id === 'firstmate') return checkFirstmate(entry, version, options);
+  if (options.update && !entry.path?.startsWith(`releases/${receipt.pendingUpdate || receipt.release}/`)) return false;
   const path = join(root, entry.path);
   if (!resolve(path).startsWith(`${resolve(root)}${sep}`) || entry.path.split(sep).includes('..')) throw new Error(`unsafe receipt path for ${id}`);
   const st = await exists(path);
@@ -244,7 +246,7 @@ async function npmPhase(root, release, group, manifest, receipt, save, options) 
     if (name && (!item.integrity || !item.resolved?.startsWith('https://registry.npmjs.org/'))) throw new Error(`unreviewed npm lock entry: ${name}`);
   }
   const id = group, lockSha = sha(lockData), target = ownedPath(root, 'releases', release, group);
-  if (await checkReceipt(root, receipt, id, locked.version, lockSha)) {
+  if (await checkReceipt(root, receipt, id, locked.version, lockSha, options)) {
     if (receipt.phases[id].state === 'pending') { receipt.phases[id].state = 'complete'; await save(); }
     return { id, status: 'skipped', reason: 'receipt and owned files match', packages };
   }
@@ -296,10 +298,13 @@ async function towerPhase(root, release, firstmateHome, receipt, save, options) 
   const current = await exists(config);
   if (current) {
     if (entry?.path === config && current.isFile() && await hashFile(config) === entry.ownedSha256) {
-      if (entry.state === 'pending') { entry.state = 'complete'; await save(); }
-      return { id, status: 'skipped', reason: 'receipt and owned launcher config match' };
+      if (!options.update || !receipt.pendingUpdate) {
+        if (entry.state === 'pending') { entry.state = 'complete'; await save(); }
+        return { id, status: 'skipped', reason: 'receipt and owned launcher config match' };
+      }
+    } else {
+      return { id, status: 'conflict', reason: `${config} exists and is not the kit-owned launcher config; left unchanged` };
     }
-    return { id, status: 'conflict', reason: `${config} exists and is not the kit-owned launcher config; left unchanged` };
   }
   if (entry?.fleetState !== state && !(await newDirectory(state))) return { id, status: 'conflict', reason: `fleet state ${state} is not a new empty directory; left unchanged` };
   const bin = ownedPath(root, 'releases', release, 'bin', 'zoe-fleet'), noMistakes = ownedPath(root, 'releases', release, 'bin', 'no-mistakes');
@@ -352,11 +357,12 @@ export async function installPlatform(manifest, options = {}) {
   try {
     const receiptPath = join(root, 'receipt.json');
     let receipt = await exists(receiptPath) ? JSON.parse(await readFile(receiptPath, 'utf8')) : { schemaVersion: 1, release, phases: {} };
-    if (receipt.schemaVersion !== 1 || receipt.release !== release || !receipt.phases || Array.isArray(receipt.phases)) throw new Error('incompatible receipt; refusing overwrite');
+    if (receipt.schemaVersion !== 1 || (!options.update && (receipt.release !== release || receipt.pendingUpdate)) || (options.update && receipt.pendingUpdate && receipt.pendingUpdate !== release) || !receipt.phases || Array.isArray(receipt.phases)) throw new Error('incompatible receipt; refusing overwrite');
     const recordedHome = receipt.phases.firstmate?.path;
     if (recordedHome && recordedHome !== firstmateHome) throw new Error(`--firstmate-home differs from the Firstmate home recorded in the receipt (${recordedHome}); refusing to move it`);
     if (!recordedHome && !(await newDirectory(firstmateHome))) throw new Error('--firstmate-home must be a new or empty directory; refusing to inherit it');
     const save = () => atomicJson(receiptPath, receipt);
+    if (options.update && receipt.release !== release) { receipt.pendingUpdate = release; await save(); }
     const components = [], targetKey = `${platform}-${arch}`;
     await mkdir(join(root, 'releases', release, 'staging'), { recursive: true, mode: 0o700 });
     for (const tool of selected(manifest, options.harness || 'claude', !!options.withFigma)) {
@@ -370,6 +376,15 @@ export async function installPlatform(manifest, options = {}) {
         components.push({ id: tool.id, status: 'unverified', reason: 'no reviewed install adapter' });
         continue;
       }
+      if (options.update && tool.id === 'firstmate' && receipt.phases.firstmate?.version !== tool.version.value) {
+        const verified = await checkFirstmate({ path: firstmateHome }, tool.version.value, options);
+        if (verified === true) {
+          receipt.phases.firstmate = { ...receipt.phases.firstmate, state: 'complete', version: tool.version.value, artifactSha256: a.sha256 };
+          await save();
+          components.push({ id: tool.id, status: 'skipped', reason: 'guarded Firstmate update already reached reviewed commit' });
+        } else components.push({ id: tool.id, status: 'conflict', reason: `run /updatefirstmate from ${firstmateHome}, then rerun agent-kit update --yes; Firstmate must reach ${tool.version.value} without dirty or diverged tracked files` });
+        continue;
+      }
       const match = await checkReceipt(root, receipt, tool.id, tool.version.value, a.sha256, options);
       if (match.conflict) {
         components.push({ id: tool.id, status: 'conflict', reason: match.conflict });
@@ -378,6 +393,10 @@ export async function installPlatform(manifest, options = {}) {
       if (match) {
         if (receipt.phases[tool.id].state === 'pending') { receipt.phases[tool.id].state = 'complete'; await save(); }
         components.push({ id: tool.id, status: 'skipped', reason: 'receipt and owned files match' });
+        continue;
+      }
+      if (options.update && (binaryIds.has(tool.id) || tool.id === 'zoe-fleet') && await options.isRunning?.(tool.id)) {
+        components.push({ id: tool.id, status: 'deferred', reason: `${tool.id} is running; stop it through its own operator workflow, then rerun agent-kit update --yes` });
         continue;
       }
       const sourceTower = ownedPath(root, 'releases', release, 'zoetrope');
@@ -398,7 +417,7 @@ export async function installPlatform(manifest, options = {}) {
           components.push({ id: tool.id, status: 'unverified', reason: `tower download unavailable: ${error.code || error.message}` });
           continue;
         }
-        if (await hashFile(pending) !== a.sha256) throw new Error(`SHA-256 mismatch for ${tool.id}`);
+        if (await hashFile(pending) !== a.sha256) { await rm(pending, { force: true }); throw new Error(`SHA-256 mismatch for ${tool.id}`); }
         await rename(pending, artifactPath);
       }
       if (binaryIds.has(tool.id) || towerRelease(tool, a)) {
@@ -481,7 +500,9 @@ export async function installPlatform(manifest, options = {}) {
     const ok = id => components.some(x => x.id === id && ['installed', 'skipped'].includes(x.status));
     const towerBinary = ownedPath(root, 'releases', release, 'bin', 'zoe-fleet');
     const towerReleased = ok('zoe-fleet') && receipt.phases['zoe-fleet']?.path === relative(root, towerBinary);
-    if (ok('zoe-fleet-runtime')) {
+    if (options.update && receipt.pendingUpdate && components.some(x => x.id === 'zoe-fleet' && x.status === 'deferred')) {
+      components.push({ id: 'zoe-fleet-tower', status: 'deferred', reason: 'tower launcher config waits for the running tower to stop; rerun agent-kit update --yes' });
+    } else if (ok('zoe-fleet-runtime')) {
       if (!towerReleased || !ok('firstmate')) components.push({ id: 'zoe-fleet-tower', status: 'unverified', reason: 'launcher not configured: needs the Firstmate home and the zoe-fleet release binary installed' });
       else {
         try { components.push(await towerPhase(root, release, firstmateHome, receipt, save, options)); } catch (error) {
@@ -494,7 +515,9 @@ export async function installPlatform(manifest, options = {}) {
     if ((options.harness || 'claude') === 'codex') components.push(await npmPhase(root, release, 'npm-codex', manifest, receipt, save, options));
     const shouldRegister = selected(manifest, options.harness || 'claude', !!options.withFigma).some(t => npmIds.has(t.id) && t.id !== 'codex') || receipt.phases.hooks;
     let hookChanges = [];
-    if (shouldRegister && (components.some(x => x.id === 'npm' && ['installed', 'skipped'].includes(x.status)) || (!coreNpm && receipt.phases.hooks))) {
+    if (options.update && components.some(x => x.status === 'deferred' || x.status === 'conflict')) {
+      components.push({ id: 'hooks', status: 'deferred', reason: 'kit hook activation waits for all dependent components; rerun agent-kit update --yes after conflicts clear' });
+    } else if (shouldRegister && (components.some(x => x.id === 'npm' && ['installed', 'skipped'].includes(x.status)) || (!coreNpm && receipt.phases.hooks))) {
       try {
         const preview = previewHooks(manifest, { home: options.home, installRoot: root });
         hookChanges = publicHookChanges(preview);
@@ -510,7 +533,12 @@ export async function installPlatform(manifest, options = {}) {
       : towerReleased ? 'release binary installed; fleet runtime or launcher configuration incomplete'
         : ok('zoe-fleet') ? 'packaged but fleet manifest and launcher unverified' : 'unavailable';
     // A selected tower keeps the result partial until hands-on acceptance establishes full parity.
-    const incomplete = components.some(x => ['unverified', 'conflict'].includes(x.status)) || selected(manifest, options.harness || 'claude', !!options.withFigma).some(x => x.id === 'zoe-fleet');
+    if (options.update && !components.some(x => ['conflict', 'deferred'].includes(x.status))) {
+      receipt.release = release;
+      delete receipt.pendingUpdate;
+      await save();
+    }
+    const incomplete = components.some(x => ['unverified', 'conflict', 'deferred'].includes(x.status)) || selected(manifest, options.harness || 'claude', !!options.withFigma).some(x => x.id === 'zoe-fleet');
     return { status: incomplete ? 'partial' : 'installed', exitCode: incomplete ? 1 : 0, components,
       receipt: receiptPath, bin: join(root, 'releases', release, 'bin'),
       npmBin: coreNpm ? join(root, 'releases', release, 'npm', 'node_modules', '.bin') : null,

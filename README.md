@@ -14,6 +14,27 @@ node bin/agent-kit.mjs install --dry-run --install-root /your/new/kit-root --fir
 
 `install --dry-run` is exactly `plan`: it makes no changes. `check` and `plan` only inspect and print. They do not probe authentication, run Firstmate bootstrap, or invoke Herdr lifecycle commands. `--json` is available for all commands. `check` is still the initial read-only presence check, not an installed-state doctor for an arbitrary custom root. Linux checks report distro, libc, WSL2, required commands, shell, writable root, PATH conflicts, and a terminal emulator and browser found on PATH (`google-chrome`, `google-chrome-stable`, `chromium`, `chromium-browser` or `firefox`). A missing browser is a warning because chrome-devtools-axi and Lavish need one; a missing terminal emulator is unknown because a TTY or SSH session also works. Under WSL2 both are reported unknown: they are on the Windows side and not checked from Linux. Nothing is launched. On every platform, terminal and browser results are advisories: `check` and `plan` list them separately (`advisories` in `--json`) and they do not count toward the gap count or exit code, so a WSL2 or headless SSH host can report ready when every required item passes. Windows checks are described under [Windows personal devices](#windows-personal-devices).
 
+## Doctor
+
+After an install, run `node bin/agent-kit.mjs doctor --install-root /your/kit-root` (add `--json` for machine-readable results). Doctor reads the kit receipt and owned paths, checks the pinned Firstmate commit and tracked files, kit file digests, launcher and receipt permissions, hook ownership markers, required platform prerequisites, Node floor, and whether another executable shadows a kit binary on PATH. It resolves PATH entries by file path and never runs them. Each component reports installed, verified digest, configured, authenticated, and live-tested states. Authentication and live testing remain **unknown**: doctor does not inspect sign-in stores, start services, or probe a live fleet. A failed check exits nonzero. This command changes no files.
+
+## Reviewed updates
+
+Fetch a newer kit release yourself, then use its clean checkout at a commit reachable from `origin/main`. Its bundled manifest and committed npm locks are the update authority. Preview installed and proposed version/digest values before applying:
+
+```sh
+node bin/agent-kit.mjs update --install-root /your/kit-root
+node bin/agent-kit.mjs update --yes --install-root /your/kit-root
+```
+
+The default command only prints a plan. `--yes` uses the existing staging, SHA-256 verification, ownership receipt and atomic activation paths. It installs binaries under the new versioned release and leaves the previous release in place for binary rollback; it does **not** promise rollback of user state or global configuration. A modified owned file or a dirty/diverged Firstmate checkout is a conflict. A Firstmate pin change waits for you to run `/updatefirstmate` from your own Firstmate, then rerun `agent-kit update --yes` so the kit can verify the reviewed commit. A running Herdr, no-mistakes or tower binary is deferred; stop it through its own operator workflow and rerun the update. The kit never restarts shared daemons. Hooks and skill links wait until dependent components are ready. A partial update records its target in the private receipt, so a normal `install` cannot silently finish it.
+
+The `macos-pilot-2` manifest has the same tool pins and digests as `macos-pilot-1`; its new release directory lets a receipt-recorded older Linux tower build be staged from the reviewed source commit while retaining the older build for rollback. On Windows, run these commands inside the WSL2 distribution after fetching the reviewed kit there.
+
+## Create your first second mate
+
+`node bin/agent-kit.mjs secondmate-template --print` prints an inert charter with responsibility and scope placeholders and the exact local Firstmate scaffold, seed, and spawn commands. Review and fill the charter in your own Firstmate checkout. The example uses `--no-projects`; substitute your own registered projects when appropriate. The kit only prints this material: it never clones projects, selects an account pin, seeds a home, or launches a mate.
+
 ## macOS and Linux install
 
 Choose a new kit root and a Firstmate home path of your own, **outside** that root (for example `~/.agent-kit` and `~/firstmate`). The Firstmate home must be a new or empty directory. The installer refuses your home directory itself, system locations, a path inside an existing Firstmate home or git checkout, and an existing non-empty directory. The chosen path is recorded in the receipt, and a rerun with a different `--firstmate-home` is refused. Firstmate is staged in a hidden `.<name>.agent-kit-staging` sibling of that path so activation is an atomic rename; an interrupted stage is replaced on the next run.
@@ -87,7 +108,9 @@ Afterwards, open Windows Terminal with your distribution's profile and run Herdr
 
 In the manifest, `verified` means the artifact's identity and integrity were checked against the approved upstream: a source commit, a published SHA-256 digest, or registry integrity in a committed npm lock. It does not mean owner approval, and no pin field claims it. The owner approves a release by merging the PR that changes the manifest. `install` installs only `verified` pins. Unverified pins are reported and skipped.
 
-Versions for owner approval in the `macos-pilot-1` release:
+Versions for owner approval in the `macos-pilot-2` release (tool pins and digests unchanged from `macos-pilot-1`):
+
+The new release label is `macos-pilot-2`. The update path may write the private `receipt.json` (0600), kit-owned `releases/<release>/` files, and previously approved global hook/skill files and Zoe launcher config (0600). These are the user-level files covered by this PR; no new tool or account pin is added.
 
 | Tool | Version | Source |
 | --- | --- | --- |
@@ -111,7 +134,7 @@ Versions for owner approval in the `macos-pilot-1` release:
 
 `npm test` runs local `node:test` fixtures without network. They cover Windows preflight from mocked UTF-16 and UTF-8 `wsl.exe` output (no WSL, WSL1 default, WSL2 without a distribution, WSL2 ready, Arm64), handoff command construction and the handoff script in a fake Linux HOME, a no-op second run, interrupted resume, checksum refusal, unsupported OS/architecture/libc/WSL1, Linux and WSL2 artifact selection, fresh source staging and build packaging, macOS tower installation from fixture release and runtime archives with launcher configuration in a fake HOME (no cargo, no-op rerun, config and state conflicts, XDG paths, refused runtime links and missing launcher, cleanup of fleet state after a failed setup, a tower download network failure versus a checksum mismatch, and a `plan` preview under a symlinked parent), the Linux source-build fallback and its rerun over an older source-built tower, Firstmate reruns after local untracked settings, tracked-file conflicts, Firstmate home path refusals, and global hook/skill merge behavior in a fake HOME. The `windows-latest` CI job runs a read-only smoke of `check`, `plan`, `install --dry-run` and the PowerShell bootstrap under Windows PowerShell and pwsh. The Ubuntu CI smoke uses real downloads in a disposable HOME, verifies staged SHA-256 digests and a no-op rerun, and checks an unrelated HOME file. macOS smoke tests previously downloaded and verified the pinned release assets, Firstmate source archive, and npm lock groups in isolated locations. For this tower pin, each release asset was downloaded once and checked against both the given SHA-256 values and the release `SHA256SUMS`. A disposable-HOME macOS run then installed Firstmate, `zoe-fleet` and the runtime from the real assets and ran the shipped launcher `setup`; its rerun was a no-op. No agent or service is started.
 
-Hands-on tower acceptance (Zoetrope Phase B: one person opens the tower from a Herdr pane and spawns one second mate) is still pending; the maintainers' automated Phase A passed against these assets with Firstmate pin `3cebfb5e`. A real Windows device with WSL2 is not yet acceptance tested; see the Windows list above. Linux arm64 has fixture coverage but no real arm64 runner in this PR. [Zoetrope packaging follow-ups](docs/zoetrope-followups.md) record which packaging items this release closes and what remains. Other follow-ups: `doctor` and explicit reviewed updates; a starter second-mate template; a Linux tower release; and an end-to-end personal tower pilot. Windows v1 remains WSL2, with no native or Git Bash installation path.
+Hands-on tower acceptance (Zoetrope Phase B: one person opens the tower from a Herdr pane and spawns one second mate) is still pending; the maintainers' automated Phase A passed against these assets with Firstmate pin `3cebfb5e`. A real Windows device with WSL2 is not yet acceptance tested; see the Windows list above. Linux arm64 has fixture coverage but no real arm64 runner in this PR. [Zoetrope packaging follow-ups](docs/zoetrope-followups.md) record which packaging items this release closes and what remains. Other follow-ups: a Linux tower release and an end-to-end personal tower pilot. Windows v1 remains WSL2, with no native or Git Bash installation path.
 
 ## Never ship
 

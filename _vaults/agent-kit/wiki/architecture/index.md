@@ -12,3 +12,4 @@ date: 2026-10-26
 - [Tower release install](tower-release.md) — macOS release archives, runtime launcher configuration and acceptance-pending parity.
 - [Global registration](global-registration.md) — owned hook and skill merge, preview and trust boundary.
 - [Windows entry and WSL2 handoff](windows-entry.md) — PowerShell bootstrap, read-only WSL preflight, guided steps and the pinned handoff into Linux.
+- [Doctor and reviewed updates](doctor-update.md) — receipt health, versioned update staging, deferred activation and template boundary.
