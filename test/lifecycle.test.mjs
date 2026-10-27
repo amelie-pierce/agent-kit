@@ -107,6 +107,46 @@ test('uninstall removes tagged hooks while retaining an unrelated hook', { skip:
   assert.deepEqual(after.hooks.SessionStart[0].hooks, [{ type: 'command', command: 'echo personal' }]);
 });
 
+test('repair reports a changed Firstmate home and manifest-unverified tools while restoring kit files', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t), path = join(f.bin, 'herdr');
+  const runtime = structuredClone(bundled.tools.find(x => x.id === 'zoe-fleet-runtime'));
+  runtime.artifacts['darwin-arm64'] = { ...runtime.artifacts['darwin-arm64'], status: 'unverified', reason: 'no reviewed artifact for this platform' };
+  const manifest = { ...f.manifest, tools: [...f.manifest.tools, runtime] };
+  const receipt = JSON.parse(readFileSync(f.receiptPath));
+  receipt.setup.answers.tower = true;
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  writeFileSync(join(f.firstmate, 'README.md'), 'person work\n');
+  writeFileSync(path, 'person edit');
+  const result = await applyRepair(manifest, f.options);
+  assert.equal(result.status, 'repaired');
+  assert.equal(result.components.find(x => x.id === 'zoe-fleet-runtime').status, 'unverified');
+  assert.equal(readFileSync(path, 'utf8'), 'restored');
+  assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'person work\n');
+});
+
+test('uninstall keeps a Codex hooks setting the person changed and still removes kit registrations', { skip: process.platform === 'win32' }, async t => {
+  for (const config of ['[features]\nhooks = false\n', '[features]\nother = "keep"\n', '[features]\nhooks = true\nhooks = true\n']) {
+    const f = fixture(t);
+    mkdirSync(join(f.home, '.codex')); mkdirSync(join(f.home, '.claude'));
+    const toml = join(f.home, '.codex', 'config.toml'), settings = join(f.home, '.claude', 'settings.json');
+    writeFileSync(toml, config);
+    writeFileSync(settings, `${JSON.stringify({ hooks: { SessionStart: [{ matcher: '', hooks: [
+      { type: 'command', command: `'${f.root}/releases/old-release/npm/node_modules/.bin/gh-axi' # agent-kit:gh-axi`, timeout: 10 },
+    ] }] } }, null, 2)}\n`);
+    const receipt = JSON.parse(readFileSync(f.receiptPath));
+    receipt.phases.hooks = { state: 'complete', codexHooksPrevious: null, files: [], skills: [] };
+    writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+    const plan = planUninstall(f.options);
+    assert.deepEqual(plan.registration.files, [settings]);
+    assert.equal(plan.registration.kept.length, 1);
+    assert.match(plan.registration.kept[0], /config\.toml: .*left unchanged/);
+    await applyUninstall(f.options);
+    assert.equal(readFileSync(toml, 'utf8'), config);
+    assert.doesNotMatch(readFileSync(settings, 'utf8'), /agent-kit:gh-axi/);
+    assert.equal(existsSync(f.receiptPath), false);
+  }
+});
+
 async function stagedKit(_commit, _env, destination, release = 'new-release') {
   mkdirSync(destination, { recursive: true });
   cpSync(join(source, 'src'), join(destination, 'src'), { recursive: true });
@@ -148,8 +188,13 @@ test('upgrade activates a reviewed kit and keeps the previous release', { skip: 
     writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
   };
   const plan = await planUpgrade({ ...f.options, resolveCommit: () => commit, fetchKit });
-  const result = await applyUpgrade(plan, f.options);
+  plan.answers = { channel: 'main', harness: 'claude', tower: false, globalHooks: false, figma: false, starterMate: false };
+  const seen = [];
+  const result = await applyUpgrade(plan, { ...f.options, afterPhase: () => seen.push(JSON.parse(readFileSync(f.receiptPath)).setup.answers) });
   assert.equal(result.apply, true);
+  assert.ok(seen.length);
+  for (const answers of seen) assert.deepEqual(answers, plan.answers);
+  assert.deepEqual(JSON.parse(readFileSync(f.receiptPath)).setup.answers, plan.answers);
   assert.equal(JSON.parse(readFileSync(f.receiptPath)).release, 'new-release');
   assert.equal(JSON.parse(readFileSync(f.receiptPath)).setup.kit.commit, commit);
   assert.equal(readFileSync(join(f.bin, 'herdr'), 'utf8'), 'original');
@@ -161,6 +206,10 @@ test('CLI aliases and unattended flag use the same lifecycle command', () => {
   assert.equal(parseArgs(['update', '--yes', '--root', '/tmp/kit']).command, 'upgrade');
   assert.equal(parseArgs(['upgrade', '--yes', '--root', '/tmp/kit']).command, 'upgrade');
   assert.equal(parseArgs(['uninstall', '--yes', '--root', '/tmp/kit']).command, 'uninstall');
+  assert.equal(parseArgs(['repair', '--root', '~/Agentic'], 'win32').installRoot, '~/Agentic/.tools');
+  assert.equal(parseArgs(['uninstall', '--root', '~/Agentic', '--handoff'], 'win32').handoff, true);
+  assert.throws(() => parseArgs(['doctor', '--handoff'], 'win32'), /--handoff applies only to install and lifecycle/);
+  assert.throws(() => parseArgs(['doctor', '--root', '~/Agentic'], 'win32'), /--root must be absolute/);
 });
 
 test('reviewed release resolution asks the signed-in gh CLI for the saved channel and proves main ancestry', () => {
