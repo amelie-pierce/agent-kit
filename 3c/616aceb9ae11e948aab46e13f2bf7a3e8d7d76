@@ -1,0 +1,72 @@
+_vaults/agent-kit/wiki/architecture/index.md
+  s_33ee2f272dfd1f::t_339c7a079cd4a6 15
+src/doctor.mjs
+  s_33ee2f272dfd1f::t_02c683304c29d4 122-133
+  s_33ee2f272dfd1f::t_80c6f56dc42415 136
+  s_33ee2f272dfd1f::t_e6e4da3d5e1552 148-149,151
+  s_33ee2f272dfd1f::t_4ee27c9eb623cb 1,3-5,8-31,33-37,41-42,44-46,54-59,61-62,64,71-73,75,77-78,80,82-86,88-89,94-97,100-102,106-108,115-116,120-121,134-135,137-142,144,157-159,161-162
+  s_33ee2f272dfd1f::t_07840a3d5881c5 2
+  s_33ee2f272dfd1f::t_f6924d97911710 74,79,81,143,145-147,150,152-156,160
+  s_33ee2f272dfd1f::t_4c159fd4f85436 103-105,117-119
+  s_33ee2f272dfd1f::t_0ba3a40e41dd35 43,47-53,63
+  s_33ee2f272dfd1f::t_a83ca0f7d114f1 32,38-40,98-99,109-113
+  s_33ee2f272dfd1f::t_aaddc22078f33c 6-7,66-68,87,90-93
+  s_33ee2f272dfd1f::t_692aa73fdb3492 60,65
+  s_33ee2f272dfd1f::t_ec50c5bc47d6a4 69-70
+  s_33ee2f272dfd1f::t_f2ab42046ee277 76,114
+src/kit.mjs
+  s_33ee2f272dfd1f::t_1e2c6e92bb12a1 45
+  s_33ee2f272dfd1f::t_8909bb2ab7f44c 48,53-54,61,63-65,77
+  s_33ee2f272dfd1f::t_c5d24c2114faa3 69
+bin/agent-kit.mjs
+  s_33ee2f272dfd1f::t_8eb2c852637f4a 24
+  s_33ee2f272dfd1f::t_be3e114ba0702f 7-9,22-23,25-39
+_vaults/agent-kit/wiki/architecture/doctor-update.md
+  s_33ee2f272dfd1f::t_339c7a079cd4a6 1-8,10,12-13
+  s_33ee2f272dfd1f::t_713b76ae796e3f 9,11
+src/install/macos.mjs
+  s_33ee2f272dfd1f::t_2603aa8eb78263 218,359,364,378-386,399-400,504,517-519,535-540
+  s_33ee2f272dfd1f::t_eb431e78400905 397-398
+  s_33ee2f272dfd1f::t_ae2d062b8fb943 248
+  s_33ee2f272dfd1f::t_25d7a50b9903f7 214
+  s_33ee2f272dfd1f::t_8d8bca27f777d6 300-305,502-503
+  s_33ee2f272dfd1f::t_1d08a41bf11ea2 419
+src/secondmate.mjs
+  s_33ee2f272dfd1f::t_5a42f2b66447e5 6-10
+  s_33ee2f272dfd1f::t_21fab0f610f63e 1-5,11
+README.md
+  s_33ee2f272dfd1f::t_d6600c00e2a2ef 111-113,137
+  s_33ee2f272dfd1f::t_04cbe310f7a516 17-37
+test/doctor-update.test.mjs
+  s_33ee2f272dfd1f::t_094b3acb8da683 1-27,29-67,69-91,114-121,123-124
+  s_33ee2f272dfd1f::t_ae028226210d21 68
+  s_33ee2f272dfd1f::t_e5535a911b732d 92-113
+  s_33ee2f272dfd1f::t_798ddf68d42c2c 28
+  s_33ee2f272dfd1f::t_bc829eba044146 122
+src/update.mjs
+  s_33ee2f272dfd1f::t_83df8001b03a43 28,35,46,53
+  s_33ee2f272dfd1f::t_fa115e006256b2 60-65
+  s_33ee2f272dfd1f::t_48874e60bda4a9 1-14,17-27,29-30,33-34,36-45,47-52,54-59,66-78
+  s_33ee2f272dfd1f::t_ee870df81108d3 15-16
+  s_33ee2f272dfd1f::t_31a54dff6f457b 31-32
+templates/secondmate/charter.md
+  s_33ee2f272dfd1f::t_21fab0f610f63e 1-7
+manifests/pilot-skeleton.json
+  s_33ee2f272dfd1f::t_22aa35ff3f0d89 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3c616aceb9ae11e948aab46e13f2bf7a3e8d7d76",
+  "prompts": {},
+  "sessions": {
+    "s_33ee2f272dfd1f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17b46-16cd-79e2-ab2d-e3817ef3f2af",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
