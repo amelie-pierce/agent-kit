@@ -1,0 +1,25 @@
+manifests/claude-plugins.json
+  s_acd09e1cfaf11b::t_57f49de988839b 3,10-15,22-27,34-39,46-122
+src/dispatch.mjs
+  s_acd09e1cfaf11b::t_56a98351e9a668 4,111-132,203,266-269
+test/setup.test.mjs
+  s_acd09e1cfaf11b::t_e260dad388e549 10,224-225
+test/dispatch.test.mjs
+  s_acd09e1cfaf11b::t_bb5ba389fbd186 9,63,198,269,386,413,517-518
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "75461a50c248d44ffb818f9a3ee6f61e9835587d",
+  "prompts": {},
+  "sessions": {
+    "s_acd09e1cfaf11b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a5482aa-55d9-4866-b542-09bfa9383265",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
