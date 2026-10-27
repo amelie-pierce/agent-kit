@@ -1,6 +1,7 @@
-import { join, isAbsolute } from 'node:path';
+import { join, isAbsolute, posix } from 'node:path';
 import { inspectPlatform } from './platforms/index.mjs';
 import { previewHooks, publicHookChanges } from './install/hooks.mjs';
+import { defaultLinuxFirstmateHome, defaultLinuxRoot, describeStep, linuxPath, windowsHandoff, windowsNextSteps } from './install/windows.mjs';
 
 function compareVersions(actual, minimum) {
   const a = actual.split('.').map(Number);
@@ -37,8 +38,8 @@ export function validateManifest(manifest) {
   return manifest;
 }
 
-export function parseArgs(argv) {
-  let command, json = false, harness = 'claude', withFigma = false, dryRun = false, installRoot, firstmateHome;
+export function parseArgs(argv, platform = process.platform) {
+  let command, json = false, harness = 'claude', withFigma = false, dryRun = false, handoff = false, installRoot, firstmateHome, distro;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (['check', '--check', 'plan', 'install'].includes(arg) && !command) command = arg === '--check' ? 'check' : arg;
@@ -48,14 +49,23 @@ export function parseArgs(argv) {
     else if (arg === '--dry-run') dryRun = true;
     else if (arg === '--install-root' && argv[i + 1]) installRoot = argv[++i];
     else if (arg === '--firstmate-home' && argv[i + 1]) firstmateHome = argv[++i];
+    else if (arg === '--handoff') handoff = true;
+    else if (arg === '--distro' && /^[A-Za-z0-9._-]+$/.test(argv[i + 1] || '')) distro = argv[++i];
     else throw new Error(`unknown argument: ${arg}`);
   }
-  if (!command) throw new Error('usage: agent-kit <check|plan|install> [--json] [--harness claude|codex] [--with-figma]');
+  if (!command) throw new Error('usage: agent-kit <check|plan|install> [--json] [--harness claude|codex] [--with-figma] [--distro <name>] [--handoff]');
   if (dryRun && command !== 'install') throw new Error('--dry-run applies only to install');
+  if (handoff && (command !== 'install' || dryRun)) throw new Error('--handoff applies only to install without --dry-run');
+  if ((handoff || distro) && platform !== 'win32') throw new Error('--handoff and --distro apply only on Windows');
   if (firstmateHome && !installRoot) throw new Error('--firstmate-home requires --install-root');
-  if (installRoot && !isAbsolute(installRoot)) throw new Error('--install-root must be absolute');
-  if (firstmateHome && !isAbsolute(firstmateHome)) throw new Error('--firstmate-home must be absolute');
-  return { command: dryRun ? 'plan' : command, json, harness, withFigma, installRoot, firstmateHome, dryRun };
+  if (platform === 'win32') {
+    if (installRoot) linuxPath(installRoot, '--install-root');
+    if (firstmateHome) linuxPath(firstmateHome, '--firstmate-home');
+  } else {
+    if (installRoot && !isAbsolute(installRoot)) throw new Error('--install-root must be absolute');
+    if (firstmateHome && !isAbsolute(firstmateHome)) throw new Error('--firstmate-home must be absolute');
+  }
+  return { command: dryRun ? 'plan' : command, json, harness, withFigma, installRoot, firstmateHome, dryRun, handoff, distro };
 }
 
 const loginSteps = {
@@ -69,11 +79,11 @@ const loginSteps = {
   'figma-cli': 'Sign in directly with Figma and grant OS permissions yourself.',
 };
 
-const advisoryPrerequisites = ['terminal', 'browser'];
+const advisoryPrerequisites = ['terminal', 'browser', 'virtualization'];
 
 function evaluate(manifest, context, options) {
   const selected = manifest.tools.filter(tool => tool.classification !== 'never-ship' && (tool.profile === 'core' || tool.profile === options.harness || (options.withFigma && tool.profile === 'figma')));
-  const platform = inspectPlatform(context, manifest, selected);
+  const platform = inspectPlatform(context, manifest, selected, options);
   const issues = [];
   const advisories = [];
   if (compareVersions(context.nodeVersion, manifest.nodeMinimum) < 0) issues.push({ status: 'fail', id: 'node-runtime', reason: `Node ${manifest.nodeMinimum} or newer required` });
@@ -81,7 +91,7 @@ function evaluate(manifest, context, options) {
   for (const prereq of platform.prerequisites) if (prereq.status !== 'pass') (advisoryPrerequisites.includes(prereq.id) ? advisories : issues).push({ status: prereq.status, id: prereq.id, reason: prereq.detail });
   for (const result of platform.tools) if (result.status !== 'pass') issues.push({ status: result.status, id: result.id, reason: result.reason });
   for (const conflict of platform.pathConflicts) issues.push({ status: 'fail', id: conflict.id, reason: 'multiple executable paths; PATH precedence needs review' });
-  const target = `${platform.platform === 'wsl2' ? 'linux' : platform.platform}-${context.arch}`;
+  const target = platform.artifactTarget || `${platform.platform === 'wsl2' ? 'linux' : platform.platform}-${context.arch}`;
   for (const tool of selected) {
     if (tool.version.status !== 'verified' && !issues.some(x => x.id === tool.id && x.reason === tool.version.reason)) issues.push({ status: 'unknown', id: tool.id, reason: tool.version.reason });
     const artifact = tool.artifacts[target];
@@ -103,7 +113,8 @@ function human(result) {
     for (const change of result.plan.hookChanges) lines.push(`- ${change.action}: ${change.path}`);
     lines.push('Global hook and skill changes (kit-owned entries only):');
     for (const change of result.plan.globalHookChanges) lines.push(`- ${change.path}: ${JSON.stringify(change.changes)}`);
-    if (!result.plan.globalHookChanges.length) lines.push(result.issues.some(x => x.id === 'hooks') ? '- refused; see the hooks conflict below' : '- none');
+    if (result.platform.platform === 'windows') lines.push('- previewed inside WSL by the Linux installer before it applies them');
+    else if (!result.plan.globalHookChanges.length) lines.push(result.issues.some(x => x.id === 'hooks') ? '- refused; see the hooks conflict below' : '- none');
     lines.push('Codex reviews new or changed hooks interactively; approve them yourself after installation.');
     lines.push('Personal login steps:');
     for (const step of result.plan.loginSteps) lines.push(`- ${step}`);
@@ -112,15 +123,22 @@ function human(result) {
     for (const tool of result.platform.tools) lines.push(`${tool.status.toUpperCase()} ${tool.id}: ${tool.reason}${tool.detected ? ` (${tool.detected})` : ''}`);
   }
   for (const issue of result.issues) lines.push(`${issue.status.toUpperCase()} ${issue.id}: ${issue.reason}`);
+  if (result.platform.steps?.length) lines.push('Windows steps you run yourself (the kit never enables features, elevates or restarts Windows):');
+  for (const step of result.platform.steps || []) lines.push(`- ${describeStep(step)}`);
+  if (result.plan?.handoff) lines.push(`WSL handoff: ${result.plan.handoff.message}`, ...(result.plan.handoff.command ? [`  ${result.plan.handoff.command}`] : []));
+  for (const step of result.plan?.nextSteps || []) lines.push(`Next step: ${step}`);
   if (result.advisories.length) lines.push('Advisories (do not block readiness):');
   for (const advisory of result.advisories) lines.push(`- ${advisory.status.toUpperCase()} ${advisory.id}: ${advisory.reason}`);
   return lines.join('\n') + '\n';
 }
 
-const firstmateLocation = (context, options) => options.firstmateHome || join(context.env.HOME, 'firstmate');
+// Windows plans describe the Linux side of the WSL handoff, so their paths are POSIX paths inside WSL.
+const pathJoin = context => context.platform === 'win32' ? posix.join : join;
+const firstmateLocation = (context, options) => options.firstmateHome || (context.platform === 'win32' ? defaultLinuxFirstmateHome : join(context.env.HOME, 'firstmate'));
 
 function plannedLocation(tool, context, options, release) {
-  const root = options.installRoot || join(context.env.HOME, '.agent-kit');
+  const join = pathJoin(context);
+  const root = options.installRoot || (context.platform === 'win32' ? defaultLinuxRoot : join(context.env.HOME, '.agent-kit'));
   const versioned = join(root, 'releases', release);
   if (tool.id === 'firstmate') return firstmateLocation(context, options);
   if (tool.id === 'zoe-fleet') return join(versioned, 'zoetrope', 'bin', 'zoe-fleet');
@@ -132,12 +150,13 @@ function plannedLocation(tool, context, options, release) {
 
 export function run(argv, manifest, context) {
   validateManifest(manifest);
-  const options = parseArgs(argv);
+  const options = parseArgs(argv, context.platform);
   if (options.command === 'install') throw new Error('install is asynchronous; use the CLI install entry point');
-  if (!context.env.HOME) throw new Error('HOME must be set');
+  const windows = context.platform === 'win32';
+  if (!windows && !context.env.HOME) throw new Error('HOME must be set');
   const evaluation = evaluate(manifest, { ...context, installRoot: options.installRoot }, options);
   let globalHookChanges = [];
-  if (options.command === 'plan' && evaluation.platform.supported) {
+  if (options.command === 'plan' && evaluation.platform.supported && !windows) {
     try {
       globalHookChanges = publicHookChanges(previewHooks(manifest, { home: context.env.HOME, installRoot: options.installRoot || join(context.env.HOME, '.agent-kit') }));
     } catch (error) {
@@ -154,10 +173,12 @@ export function run(argv, manifest, context) {
     optionalComponents: evaluation.optional.map(tool => ({ id: tool.id, name: tool.name, status: 'optional, not selected',
       version: tool.version.value, versionStatus: tool.version.status, origin: tool.approvedUpstream })),
     hookChanges: [
-      { owner: 'firstmate', action: 'include Claude hooks with pinned source', path: join(firstmateLocation(context, options), '.claude/settings.json') },
-      { owner: 'firstmate', action: 'include Codex hooks with pinned source', path: join(firstmateLocation(context, options), '.codex/hooks.json') },
+      { owner: 'firstmate', action: 'include Claude hooks with pinned source', path: pathJoin(context)(firstmateLocation(context, options), '.claude/settings.json') },
+      { owner: 'firstmate', action: 'include Codex hooks with pinned source', path: pathJoin(context)(firstmateLocation(context, options), '.codex/hooks.json') },
     ],
     globalHookChanges,
+    ...(windows && evaluation.platform.supported ? (({ status, command, commit, message }) => ({ handoff: { status, command: command || null, commit: commit || null, message },
+      nextSteps: windowsNextSteps(evaluation.platform.wsl?.target?.name) }))(windowsHandoff({ ...options, handoff: false }, context, evaluation.platform)) : {}),
     loginSteps: evaluation.selected.filter(tool => tool.classification === 'per-user-login').map(tool => loginSteps[tool.id]).filter(Boolean),
   } : undefined;
   const result = { command: options.command, release: manifest.release, harness: options.harness, withFigma: options.withFigma,

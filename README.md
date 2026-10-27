@@ -1,6 +1,6 @@
 # Agent Kit
 
-Agent Kit is a per-person setup for Firstmate, Herdr, the custom Zoe fleet tower, Treehouse, agent CLIs, and source-owned skills. This release supports **macOS and Linux installation**; the Linux path also runs inside WSL2. It reports a partial result until every selected component and the tower's fleet manifest/launcher integration are verified. It never starts services or signs in for anyone.
+Agent Kit is a per-person setup for Firstmate, Herdr, the custom Zoe fleet tower, Treehouse, agent CLIs, and source-owned skills. This release supports **macOS and Linux installation**; the Linux path also runs inside WSL2, and a [Windows entry](#windows-personal-devices) checks WSL2 and hands off to it. It reports a partial result until every selected component and the tower's fleet manifest/launcher integration are verified. It never starts services or signs in for anyone.
 
 ## Read-only commands
 
@@ -12,7 +12,7 @@ node bin/agent-kit.mjs plan --harness codex --with-figma
 node bin/agent-kit.mjs install --dry-run --install-root /your/new/kit-root --firstmate-home /your/new/firstmate
 ```
 
-`install --dry-run` is exactly `plan`: it makes no changes. `check` and `plan` only inspect and print. They do not probe authentication, run Firstmate bootstrap, or invoke Herdr lifecycle commands. `--json` is available for all commands. `check` is still the initial read-only presence check, not an installed-state doctor for an arbitrary custom root. Linux checks report distro, libc, WSL2, required commands, shell, writable root, PATH conflicts, and a terminal emulator and browser found on PATH (`google-chrome`, `google-chrome-stable`, `chromium`, `chromium-browser` or `firefox`). A missing browser is a warning because chrome-devtools-axi and Lavish need one; a missing terminal emulator is unknown because a TTY or SSH session also works. Under WSL2 both are reported unknown: they are on the Windows side and not checked from Linux. Nothing is launched. On every platform, terminal and browser results are advisories: `check` and `plan` list them separately (`advisories` in `--json`) and they do not count toward the gap count or exit code, so a WSL2 or headless SSH host can report ready when every required item passes. Native Windows preflight is a later PR.
+`install --dry-run` is exactly `plan`: it makes no changes. `check` and `plan` only inspect and print. They do not probe authentication, run Firstmate bootstrap, or invoke Herdr lifecycle commands. `--json` is available for all commands. `check` is still the initial read-only presence check, not an installed-state doctor for an arbitrary custom root. Linux checks report distro, libc, WSL2, required commands, shell, writable root, PATH conflicts, and a terminal emulator and browser found on PATH (`google-chrome`, `google-chrome-stable`, `chromium`, `chromium-browser` or `firefox`). A missing browser is a warning because chrome-devtools-axi and Lavish need one; a missing terminal emulator is unknown because a TTY or SSH session also works. Under WSL2 both are reported unknown: they are on the Windows side and not checked from Linux. Nothing is launched. On every platform, terminal and browser results are advisories: `check` and `plan` list them separately (`advisories` in `--json`) and they do not count toward the gap count or exit code, so a WSL2 or headless SSH host can report ready when every required item passes. Windows checks are described under [Windows personal devices](#windows-personal-devices).
 
 ## macOS and Linux install
 
@@ -38,6 +38,49 @@ After installation, each person uses the printed vendor commands and documentati
 
 The result prints kit and npm binary directories; add them to your own shell PATH if you want their commands available by name. The installer does not edit shell startup files or launch the fresh Firstmate home.
 
+## Windows personal devices
+
+On Windows the full stack runs inside WSL2 through the Linux installer above. There is no native Windows or Git Bash installation. The Windows side only checks readiness, prints the steps you run yourself, and hands off into your WSL2 distribution. It never enables Windows features, asks for administrator rights, restarts Windows, or installs Node.
+
+From a normal (not administrator) PowerShell window in a git clone of this repository:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\agent-kit.ps1 check
+powershell -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\agent-kit.ps1 install --install-root '~/.agent-kit' --firstmate-home '~/firstmate'
+```
+
+`-ExecutionPolicy RemoteSigned` applies only to that PowerShell process; it lets your local clone run and still blocks unsigned scripts marked as downloaded from the internet. `windows\agent-kit.ps1` prints what it will do, checks for Node.js at the `engines` floor in `package.json` and, if Node is missing or older, prints the [official download](https://nodejs.org/en/download) and `winget install --exact --id OpenJS.NodeJS.LTS` instead of installing it. It then runs `node bin\agent-kit.mjs` with your arguments (`check` when none are given). `-DryRun` is the bootstrap's no-change preview: it turns `install` into `install --dry-run` and refuses `--handoff`.
+
+`check` and `plan` on Windows report the Windows version and build (WSL2 needs Windows 10 version 2004, build 19041, or Windows 11), the native architecture (x64 or Arm64; Node running under x64 emulation on an Arm64 PC still plans `linux-arm64`), and WSL state. They query the WSL service registration, then `wsl --status` and `wsl --list` (`--quiet` for names, `--running --quiet` for running ones, `--verbose` for each distribution's WSL version and the `*` default marker), decoding their UTF-16 or UTF-8 output. Localized headers and state words are never parsed, so the result is the same in any Windows display language. `wsl.exe` is not run at all when the WSL service is absent. `docker-desktop` distributions are ignored, and `--distro <name>` picks a distribution other than the default. Windows Terminal (`wt.exe`) and a Windows browser (Chrome passes; Edge or Firefox are reported unknown) are advisories, and a missing WSL adds a firmware virtualization hint. Each missing step is printed with the exact command:
+
+| State | Command you run yourself |
+| --- | --- |
+| No WSL | `wsl --install -d Ubuntu` in an administrator PowerShell, then restart Windows and open Ubuntu once to create your Linux user |
+| WSL2 platform missing | `wsl --install --no-distribution` in an administrator PowerShell, then restart Windows |
+| WSL1 default | `wsl --set-default-version 2` |
+| WSL1 distribution | `wsl --set-version <distro> 2` |
+| No distribution | `wsl --install -d Ubuntu`, then open it once |
+| Windows too old | Update through Settings > Windows Update |
+
+`plan` lists the `linux-<arch>` artifacts and Linux-side paths that will be used inside WSL. Global hook and skill changes are previewed by the Linux installer inside WSL before it applies them.
+
+**Handoff.** On Windows, `--install-root` and `--firstmate-home` are Linux paths inside WSL: absolute, or starting with `~/`, using letters, digits, `.`, `_`, `-` and `/`. Windows paths and `/mnt/...` drive mounts are refused so Windows and Linux files and credential stores stay separate. Quote `~` paths in PowerShell. When WSL2 and a distribution are ready, `install` prints one `wsl.exe -d <distro> --exec bash -l -c '...'` command; `install --handoff` runs it. The command fetches this checkout's exact commit of `github.com/amelie-pierce/agent-kit` into `<install-root>/kit/<commit>` inside WSL, checks that commit, and runs the Linux `install` with your harness and Figma choice. The handoff therefore needs a clean git checkout on Windows. Inside WSL, install git and Node.js 24.15.0 or newer so `node` is on PATH for login shells, and sign in to GitHub yourself so git can fetch the private repository. Logins happen inside WSL, or in the Windows browser when a vendor's sign-in flow opens it.
+
+Afterwards, open Windows Terminal with your distribution's profile and run Herdr, the tower and the agent CLIs in that WSL shell. chrome-devtools-axi and Lavish open the browser on the Windows side.
+
+**Needs a real Windows machine (owner acceptance).** CI covers mocked `wsl.exe` fixtures and a read-only `check`/`plan`/`install --dry-run` and bootstrap smoke on the GitHub `windows-latest` runner. It never enables WSL. These remain untested until a person runs them on a real device:
+
+- on a PC without WSL, `check` printing the administrator `wsl --install -d Ubuntu` and restart steps without running them; then enabling WSL2 with that command, the restart, and first-run Linux user creation;
+- `wsl --set-default-version 2` and `wsl --set-version` on a WSL1 setup, and non-English `wsl --status` output (the default version then reads as unknown);
+- with a running WSL2 Ubuntu and non-English (for example German) `wsl.exe` output, `check` and `plan` reporting ready and `install` printing the pinned `wsl.exe` handoff command with Linux paths;
+- `install` refusing `--install-root /mnt/c/kit` and `C:\kit`, so Windows and Linux files stay separate;
+- on a real Windows PC with WSL2, a repeated-slash `/mnt` install root such as `//mnt/c/kit` being refused, with nothing written to C:;
+- the preflight under Windows PowerShell 5.1 and pwsh leaving your user profile folder unchanged (CI checks this on the `windows-latest` runner only);
+- `install --handoff` end to end on a real WSL2 distribution: argument passing through `wsl.exe --exec`, fetching the pinned kit commit of the private repository inside WSL, and the Linux install;
+- the Windows browser opened from WSL by chrome-devtools-axi, Lavish and vendor sign-in flows;
+- Herdr and the Zoe tower running under Windows Terminal in the WSL shell;
+- a clean Windows 11 first run through Windows PowerShell 5.1, and an Arm64 PC.
+
 ## Pins and approval
 
 In the manifest, `verified` means the artifact's identity and integrity were checked against the approved upstream: a source commit, a published SHA-256 digest, or registry integrity in a committed npm lock. It does not mean owner approval, and no pin field claims it. The owner approves a release by merging the PR that changes the manifest. `install` installs only `verified` pins. Unverified pins are reported and skipped.
@@ -62,9 +105,9 @@ Versions for owner approval in the `macos-pilot-1` release:
 
 ## Verification and next work
 
-`npm test` runs local `node:test` fixtures without network. They cover a no-op second run, interrupted resume, checksum refusal, unsupported OS/architecture/libc/WSL1, Linux and WSL2 artifact selection, fresh source staging and build packaging, Firstmate reruns after local untracked settings, tracked-file conflicts, Firstmate home path refusals, and global hook/skill merge behavior in a fake HOME. The Ubuntu CI smoke uses real downloads in a disposable HOME, verifies staged SHA-256 digests and a no-op rerun, and checks an unrelated HOME file. macOS smoke tests previously downloaded and verified the pinned release assets, Firstmate source archive, and npm lock groups in isolated locations. No agent or service is started.
+`npm test` runs local `node:test` fixtures without network. They cover Windows preflight from mocked UTF-16 and UTF-8 `wsl.exe` output (no WSL, WSL1 default, WSL2 without a distribution, WSL2 ready, Arm64), handoff command construction and the handoff script in a fake Linux HOME, a no-op second run, interrupted resume, checksum refusal, unsupported OS/architecture/libc/WSL1, Linux and WSL2 artifact selection, fresh source staging and build packaging, Firstmate reruns after local untracked settings, tracked-file conflicts, Firstmate home path refusals, and global hook/skill merge behavior in a fake HOME. The `windows-latest` CI job runs a read-only smoke of `check`, `plan`, `install --dry-run` and the PowerShell bootstrap under Windows PowerShell and pwsh. The Ubuntu CI smoke uses real downloads in a disposable HOME, verifies staged SHA-256 digests and a no-op rerun, and checks an unrelated HOME file. macOS smoke tests previously downloaded and verified the pinned release assets, Firstmate source archive, and npm lock groups in isolated locations. No agent or service is started.
 
-The real Zoetrope tower runtime and a real WSL2 device are not yet acceptance tested. Linux arm64 has fixture coverage but no real arm64 runner in this PR. [Zoetrope packaging follow-ups](docs/zoetrope-followups.md) record the fleet-manifest, launcher and acceptance needs. Other follow-ups: native Windows preflight for the WSL2 handoff; `doctor` and explicit reviewed updates; a starter second-mate template; Zoetrope packaging; and an end-to-end personal tower pilot. Windows v1 remains WSL2, with no native or Git Bash installation path.
+The real Zoetrope tower runtime and a real Windows device with WSL2 are not yet acceptance tested; see the Windows list above. Linux arm64 has fixture coverage but no real arm64 runner in this PR. [Zoetrope packaging follow-ups](docs/zoetrope-followups.md) record the fleet-manifest, launcher and acceptance needs. Other follow-ups: `doctor` and explicit reviewed updates; a starter second-mate template; Zoetrope packaging; and an end-to-end personal tower pilot. Windows v1 remains WSL2, with no native or Git Bash installation path.
 
 ## Never ship
 

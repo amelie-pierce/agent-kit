@@ -109,21 +109,6 @@ test('source commit detection does not walk up into an enclosing HOME repository
   assert.equal(result.detected, undefined);
 });
 
-test('Windows stub remains read only and unsupported', t => {
-  const { home, bin } = tempFixture(t);
-  for (const [platform, env, expected] of [['win32', { HOME: home, PATH: bin }, 'PowerShell/Node preflight']]) {
-    const result = run(['plan', '--json', '--harness', 'codex'], manifest, { platform, arch: 'x64', env, nodeVersion: '24.15.0' });
-    assert.equal(result.exitCode, 1);
-    assert.match(result.output, new RegExp(expected));
-    assert.equal(result.result.platform.tools.length, 0);
-    assert.ok(result.result.plan.tools.some(x => x.id === 'codex'));
-    assert.ok(!result.result.plan.tools.some(x => x.id === 'claude'));
-    assert.equal(result.result.plan.hookChanges.length, 2);
-    assert.equal(result.result.plan.globalHookChanges.length, 0);
-  }
-  assert.deepEqual(readdirSync(home), []);
-});
-
 test('Linux and WSL2 inspect distro, libc, tools, paths and select Linux artifacts', { skip: process.platform === 'win32' }, t => {
   const { home, bin, root } = tempFixture(t);
   for (const name of ['git', 'curl', 'tar', 'unzip', 'bash', 'sh', 'sha256sum', 'herdr']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
@@ -251,7 +236,7 @@ test('macOS preflight reports shell, install root, unzip, terminal and browser r
 
 test('plan lists unselected Figma and harness as optional components', t => {
   const { home, bin } = tempFixture(t);
-  const context = { platform: 'win32', arch: 'x64', env: { HOME: home, PATH: bin }, nodeVersion: '24.15.0' };
+  const context = { platform: 'linux', arch: 'x64', env: { HOME: home, PATH: bin }, nodeVersion: '24.15.0', libc: 'glibc', procVersion: '', osRelease: '' };
   const claude = run(['plan', '--json'], manifest, context);
   const optional = claude.result.plan.optionalComponents;
   assert.deepEqual(optional.map(x => x.id).sort(), ['codex', 'figma-cli']);
