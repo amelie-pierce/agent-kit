@@ -62,6 +62,26 @@ test('doctor verifies receipt, digest, path precedence, modes and unknown auth/l
   assert.equal(doctor(f.manifest, f.options).checks.find(x => x.id === 'receipt-mode').status, 'fail');
 });
 
+test('doctor checks person-installed floors and links without requiring optional Figma', { skip: process.platform === 'win32' }, t => {
+  const f = fixture(t), bin = join(f.base, 'bin');
+  mkdirSync(bin);
+  for (const [name, version] of Object.entries({ node: 'v24.15.0', git: 'git version 2.20.0', gh: 'gh version 2.0.0', claude: '2.0.0 (Claude Code)' }))
+    writeFileSync(join(bin, name), `#!/bin/sh\necho '${version}'\n`, { mode: 0o755 });
+  const manifest = { ...f.manifest, tools: [...bundled.tools.filter(x => x.kind === 'prerequisite'), ...f.manifest.tools] };
+  const options = { ...f.options, env: { HOME: f.home, PATH: `${bin}:/usr/bin:/bin`, SHELL: '/bin/bash' } };
+  const checks = doctor(manifest, options).checks;
+  assert.equal(checks.find(x => x.id === 'prerequisite-github-cli').status, 'pass');
+  assert.equal(checks.find(x => x.id === 'prerequisite-figma-cli').status, 'warn');
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\necho "gh version 1.9.9"\n', { mode: 0o755 });
+  const old = doctor(manifest, options);
+  assert.equal(old.exitCode, 1);
+  assert.match(old.checks.find(x => x.id === 'prerequisite-github-cli').detail, /https:\/\/github.com\/cli\/cli#installation/);
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.phases['npm-codex'] = { path: 'releases/new-release/npm-codex' };
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  assert.equal(doctor(manifest, options).checks.some(x => x.id === 'prerequisite-claude'), false);
+});
+
 test('update plan is read-only; apply keeps prior binary and updates receipt after verified activation', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t);
   const before = readFileSync(f.receiptPath, 'utf8');

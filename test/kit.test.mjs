@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const manifest = JSON.parse(readFileSync(join(root, 'manifests/pilot-skeleton.json'), 'utf8'));
 
-const prereqBins = ['node', 'brew', 'xcode-select', 'bash', 'zsh', 'curl', 'jq', 'python3', 'tar', 'unzip', 'shasum'];
+const prereqBins = ['node', 'git', 'gh', 'claude', 'brew', 'xcode-select', 'bash', 'zsh', 'curl', 'jq', 'python3', 'tar', 'unzip', 'shasum'];
 
 function fakeApps(root, names) {
   const dir = join(root, 'Applications');
@@ -57,20 +57,20 @@ test('macOS check uses fake HOME and PATH, detects versions and path precedence'
   const second = join(root, 'second-bin');
   mkdirSync(second);
   for (const name of prereqBins) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
-  writeFileSync(join(second, 'node'), 'fixture', { mode: 0o755 });
-  const tool = structuredClone(manifest.tools.find(x => x.id === 'node'));
-  tool.version.status = 'verified';
-  tool.artifacts['darwin-arm64'] = { url: 'https://example.test/node.tgz', sha256: 'a'.repeat(64), status: 'verified', reason: '' };
+  writeFileSync(join(second, 'herdr'), 'fixture', { mode: 0o755 });
+  const tool = structuredClone(manifest.tools.find(x => x.id === 'herdr'));
+  writeFileSync(join(bin, 'herdr'), 'fixture', { mode: 0o755 });
+  tool.artifacts['darwin-arm64'] = { url: 'https://example.test/herdr.tgz', sha256: 'a'.repeat(64), status: 'verified', reason: '' };
   const fixtureManifest = { ...manifest, tools: [tool] };
   const context = { env: { HOME: home, PATH: `${bin}${process.platform === 'win32' ? ';' : ':'}${second}`, SHELL: join(bin, 'zsh') }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
     applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']),
-    runCommand: (path, args) => basename(path) === 'xcode-select' ? '/fake/CommandLineTools' : 'v24.15.0' };
+    runCommand: (path, args) => basename(path) === 'xcode-select' ? '/fake/CommandLineTools' : 'herdr 0.9.3' };
   const result = run(['check', '--json'], fixtureManifest, context);
   assert.equal(result.exitCode, 1);
   assert.equal(result.result.platform.tools[0].status, 'pass');
   assert.equal(result.result.platform.pathConflicts.length, 1);
   assert.ok(result.result.issues.some(x => x.reason.includes('PATH precedence')));
-  rmSync(join(second, 'node'));
+  rmSync(join(second, 'herdr'));
   const clean = run(['check', '--json'], fixtureManifest, context);
   assert.equal(clean.exitCode, 0);
   assert.deepEqual(readdirSync(home), []);
@@ -88,23 +88,85 @@ test('unknown pins remain unknown even when the command is present', { skip: pro
   assert.deepEqual(readdirSync(home), []);
 });
 
-test('unverified observed versions are unknown, never pass or fail', { skip: process.platform === 'win32' }, t => {
+test('person-installed prerequisites pass at their floors and fail below them with install docs', { skip: process.platform === 'win32' }, t => {
   const { home, bin, root } = tempFixture(t);
   const applicationDirs = fakeApps(root, ['Terminal.app', 'Google Chrome.app']);
-  for (const name of prereqBins.concat('git')) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
-  const tools = ['node', 'git'].map(id => manifest.tools.find(x => x.id === id));
-  assert.ok(tools.every(x => x.version.status === 'unverified'));
-  const outputs = { node: 'v24.21.0', git: 'git version 2.39.5 (Apple Git-154)' };
-  for (const [gitOutput, detected] of [[outputs.git, '2.39.5'], [`git version ${tools[1].version.value}`, tools[1].version.value]]) {
-    const context = { env: { HOME: home, PATH: bin }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.21.0', applicationDirs,
+  for (const name of prereqBins) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
+  const tools = ['node', 'git', 'github-cli', 'claude'].map(id => manifest.tools.find(x => x.id === id));
+  const outputs = { node: 'v24.15.0', git: 'git version 2.20.0 (Apple Git-154)', gh: 'gh version 2.0.0', claude: '2.0.0 (Claude Code)' };
+  for (const [gitOutput, expected] of [[outputs.git, 'pass'], ['git version 2.19.9', 'fail']]) {
+    const context = { env: { HOME: home, PATH: bin, SHELL: join(bin, 'zsh') }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.21.0', applicationDirs,
       runCommand: path => ({ ...outputs, git: gitOutput })[basename(path)] ?? '/fake/CommandLineTools' };
     const result = run(['check', '--json'], { ...manifest, tools }, context).result;
-    for (const id of ['node', 'git']) assert.equal(result.platform.tools.find(x => x.id === id).status, 'unknown');
-    assert.equal(result.platform.tools.find(x => x.id === 'git').detected, detected);
-    assert.equal(result.platform.tools.find(x => x.id === 'node').detected, '24.21.0');
+    assert.equal(result.platform.prerequisites.find(x => x.id === 'git').status, expected);
+    assert.equal(result.platform.prerequisites.find(x => x.id === 'node').status, 'pass');
     assert.ok(!result.issues.some(x => x.id === 'node-runtime'));
-    assert.ok(!result.issues.some(x => x.status === 'fail'));
+    if (expected === 'fail') assert.match(result.issues.find(x => x.id === 'git').reason, /https:\/\/git-scm.com\/downloads/);
+    else assert.equal(result.summary, 'ready');
   }
+  const oldRuntime = run(['check', '--json'], { ...manifest, tools }, { env: { HOME: home, PATH: bin, SHELL: join(bin, 'zsh') },
+    platform: 'darwin', arch: 'arm64', nodeVersion: '24.14.0', applicationDirs,
+    runCommand: path => outputs[basename(path)] ?? '/fake/CommandLineTools' }).result;
+  assert.match(oldRuntime.issues.find(x => x.id === 'node-runtime').reason, /https:\/\/nodejs.org\/en\/download/);
+});
+
+test('correct macOS, headless Linux and WSL2 prerequisite checks are ready; optional Figma is advisory', { skip: process.platform === 'win32' }, t => {
+  const { home, bin, root } = tempFixture(t);
+  for (const name of [...prereqBins, 'sh', 'sha256sum']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
+  const tools = manifest.tools.filter(x => x.kind === 'prerequisite');
+  const outputs = { node: 'v24.15.0', git: 'git version 2.20.0', gh: 'gh version 2.0.0', claude: '2.0.0 (Claude Code)' };
+  const base = { arch: 'arm64', nodeVersion: '24.15.0', runCommand: path => outputs[basename(path)] || '/fake/CommandLineTools' };
+  const mac = { ...base, platform: 'darwin', env: { HOME: home, PATH: bin, SHELL: join(bin, 'zsh') },
+    applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']) };
+  const linux = { ...base, platform: 'linux', libc: 'glibc', osRelease: 'ID=ubuntu\n', procVersion: 'Linux version 6.8',
+    env: { HOME: home, PATH: bin, SHELL: join(bin, 'bash') } };
+  for (const context of [mac, linux, { ...linux, env: { ...linux.env, WSL_DISTRO_NAME: 'Ubuntu', WSL_INTEROP: '/run/WSL/1_interop' } }]) {
+    for (const command of ['check', 'plan']) {
+      const result = run([command, '--json'], { ...manifest, tools }, context);
+      assert.deepEqual([result.result.summary, result.exitCode], ['ready', 0], JSON.stringify(result.result.issues));
+      assert.equal(result.result.issues.length, 0);
+      assert.ok(result.result.advisories.some(x => x.id === 'figma-cli' && /figma-cli absent.*https:\/\//.test(x.reason)));
+    }
+  }
+  assert.deepEqual(readdirSync(home), []);
+});
+
+test('full reviewed manifest can report ready on macOS, Linux and WSL2 fixture machines', { skip: process.platform === 'win32' }, t => {
+  const { home, bin, root } = tempFixture(t);
+  const names = new Set([...prereqBins, 'sh', 'sha256sum', 'zoe-fleet-tower',
+    ...manifest.tools.filter(x => x.kind !== 'prerequisite' && ['core', 'claude'].includes(x.profile)).map(x => x.detection.command)]);
+  for (const name of names) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
+  for (const tool of manifest.tools.filter(x => x.detection.kind === 'git-head')) {
+    mkdirSync(join(home, tool.installLocation.relativePath, '.git'), { recursive: true });
+  }
+  const versions = Object.fromEntries(manifest.tools.filter(x => x.detection.kind === 'command').map(x => [x.detection.command, x.kind === 'prerequisite' ? x.minVersion : x.version.value]));
+  const runCommand = (path, args, cwd) => {
+    if (basename(path) === 'xcode-select') return '/fake/CommandLineTools';
+    if (basename(path) === 'git' && args[0] === 'rev-parse') return manifest.tools.find(x => x.installLocation?.relativePath.endsWith(`/${basename(cwd)}`)).version.value;
+    return `${basename(path)} ${versions[basename(path)]}`;
+  };
+  const base = { arch: 'arm64', nodeVersion: '24.15.0', runCommand };
+  const mac = { ...base, platform: 'darwin', env: { HOME: home, PATH: bin, SHELL: join(bin, 'zsh') },
+    applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']) };
+  const linux = { ...base, platform: 'linux', libc: 'glibc', osRelease: 'ID=ubuntu\n', procVersion: 'Linux version 6.8',
+    env: { HOME: home, PATH: bin, SHELL: join(bin, 'bash') } };
+  for (const context of [mac, linux, { ...linux, env: { ...linux.env, WSL_DISTRO_NAME: 'Ubuntu', WSL_INTEROP: '/run/WSL/1_interop' } }]) {
+    for (const command of ['check', 'plan']) {
+      const result = run([command, '--json'], manifest, context);
+      assert.deepEqual([result.result.summary, result.exitCode], ['ready', 0], JSON.stringify(result.result.issues));
+      assert.ok(result.result.advisories.some(x => x.id === 'zoe-fleet-runtime'));
+    }
+  }
+});
+
+test('missing required prerequisite fails with its vendor install link', { skip: process.platform === 'win32' }, t => {
+  const { home, bin, root } = tempFixture(t);
+  for (const name of prereqBins.filter(x => x !== 'gh')) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
+  const context = { env: { HOME: home, PATH: bin, SHELL: join(bin, 'zsh') }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
+    applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']), runCommand: path => basename(path) === 'xcode-select' ? '/fake/CommandLineTools' : '2.20.0' };
+  const result = run(['check', '--json'], { ...manifest, tools: [manifest.tools.find(x => x.id === 'github-cli')] }, context);
+  assert.equal(result.exitCode, 1);
+  assert.match(result.result.issues.find(x => x.id === 'github-cli').reason, /https:\/\/github.com\/cli\/cli#installation/);
 });
 
 test('source commit detection does not walk up into an enclosing HOME repository', { skip: process.platform === 'win32' }, t => {
@@ -247,19 +309,22 @@ test('macOS preflight reports shell, install root, unzip, terminal and browser r
   assert.deepEqual(readdirSync(join(home, '.agent-kit')), []);
 });
 
-test('plan lists unselected Figma and harness as optional components', t => {
+test('plan lists the unselected harness and reports Figma as an optional prerequisite', t => {
   const { home, bin } = tempFixture(t);
   const context = { platform: 'linux', arch: 'x64', env: { HOME: home, PATH: bin }, nodeVersion: '24.15.0', libc: 'glibc', procVersion: '', osRelease: '' };
   const claude = run(['plan', '--json'], manifest, context);
   const optional = claude.result.plan.optionalComponents;
-  assert.deepEqual(optional.map(x => x.id).sort(), ['codex', 'figma-cli']);
+  assert.deepEqual(optional.map(x => x.id).sort(), ['codex']);
   const codex = optional.find(x => x.id === 'codex');
   const lock = manifest.tools.find(x => x.id === 'codex');
   assert.equal(codex.status, 'optional, not selected');
   assert.equal(codex.version, lock.version.value);
   assert.equal(codex.origin, lock.approvedUpstream);
+  assert.ok(claude.result.plan.loginSteps.some(x => x.includes('GitHub CLI')));
+  assert.ok(claude.result.plan.loginSteps.some(x => x.includes('Claude Code')));
   const selected = run(['plan', '--json', '--harness', 'codex', '--with-figma'], manifest, context);
-  assert.deepEqual(selected.result.plan.optionalComponents.map(x => x.id), ['claude']);
+  assert.deepEqual(selected.result.plan.optionalComponents.map(x => x.id), []);
+  assert.equal(selected.result.platform.prerequisites.find(x => x.id === 'figma-cli').required, false);
   const text = run(['plan'], manifest, context).output;
   assert.match(text, new RegExp(`- ${lock.name}: optional, not selected; ${lock.version.value.replace(/\./g, '\\.')} from ${lock.approvedUpstream}`));
   assert.deepEqual(readdirSync(home), []);
@@ -281,7 +346,7 @@ test('install dry-run plans the selected root and stays read-only', t => {
   const linux = run(['plan', '--json', '--install-root', installRoot, '--firstmate-home', firstmateHome], manifest, { ...context, platform: 'linux', arch: 'x64', libc: 'glibc', osRelease: 'ID=ubuntu\n', procVersion: 'Linux' });
   assert.equal(linux.result.plan.tools.find(x => x.id === 'zoe-fleet').installLocation, join(installRoot, 'releases', manifest.release, 'zoetrope', 'bin', 'zoe-fleet'));
   assert.equal(linux.result.plan.towerConfig, null);
-  assert.ok(linux.result.issues.some(x => x.id === 'zoe-fleet-runtime' && /no Linux tower release/.test(x.reason)));
+  assert.ok(linux.result.advisories.some(x => x.id === 'zoe-fleet-runtime' && /no Linux tower release/.test(x.reason)));
   assert.deepEqual(readdirSync(home), []);
   assert.equal(existsSync(installRoot), false);
 });
@@ -291,8 +356,17 @@ test('unsafe manifest detection and install paths are rejected', () => {
   badCommand.tools[0].detection.args = ['--eval', 'unsafe'];
   assert.throws(() => validateManifest(badCommand), /unsafe detection/);
   const badPath = structuredClone(manifest);
-  badPath.tools[0].installLocation.relativePath = '../private';
+  badPath.tools.find(x => x.id === 'firstmate').installLocation.relativePath = '../private';
   assert.throws(() => validateManifest(badPath), /unsafe install location/);
+  const fakePin = structuredClone(manifest);
+  fakePin.tools.find(x => x.id === 'git').artifacts = { 'darwin-arm64': { status: 'unverified' } };
+  assert.throws(() => validateManifest(fakePin), /invalid prerequisite/);
+  const missingDocs = structuredClone(manifest);
+  missingDocs.tools.find(x => x.id === 'github-cli').installDocs = 'http://invalid.example';
+  assert.throws(() => validateManifest(missingDocs), /invalid prerequisite/);
+  const mismatchedNode = structuredClone(manifest);
+  mismatchedNode.tools.find(x => x.id === 'node').minVersion = '24.14.0';
+  assert.throws(() => validateManifest(mismatchedNode), /Node prerequisite and runtime minimum disagree/);
 });
 
 test('CLI writes no files under a temporary HOME in check or plan', t => {
@@ -308,7 +382,7 @@ test('CLI writes no files under a temporary HOME in check or plan', t => {
   }
 });
 
-test('--with-figma does not run figma-cli, which writes into HOME', { skip: process.platform === 'win32' }, t => {
+test('optional figma version runs with disposable HOME and never writes the teammate HOME', { skip: process.platform === 'win32' }, t => {
   const { home, bin, root } = tempFixture(t);
   writeFileSync(join(bin, 'figma-cli'), '#!/bin/sh\n/bin/mkdir -p "$HOME/.figma-cli/plugins"\necho 2.2.5-make.2\n', { mode: 0o755 });
   const context = { env: { HOME: home, PATH: bin }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
@@ -317,8 +391,8 @@ test('--with-figma does not run figma-cli, which writes into HOME', { skip: proc
     const result = run([command, '--json', '--with-figma'], manifest, context);
     assert.equal(result.exitCode, 1);
     assert.deepEqual(readdirSync(home), []);
-    const figma = result.result.platform.tools.find(x => x.id === 'figma-cli');
-    assert.equal(figma.status, 'unknown');
+    const figma = result.result.platform.prerequisites.find(x => x.id === 'figma-cli');
+    assert.equal(figma.status, 'pass');
     assert.deepEqual(figma.paths, [join(bin, 'figma-cli')]);
   }
 });
@@ -351,6 +425,16 @@ test('macOS install verifies ownership and a second run is a no-op', async t => 
   const receipt = JSON.parse(readFileSync(first.receipt));
   assert.equal(receipt.phases.herdr.state, 'complete');
   assert.equal(receipt.phases.herdr.artifactSha256, f.fixtureManifest.tools[0].artifacts['darwin-arm64'].sha256);
+});
+
+test('install never stages person-installed prerequisites', async t => {
+  const f = installFixture(t);
+  f.fixtureManifest.tools.push(...manifest.tools.filter(x => x.kind === 'prerequisite'));
+  const result = await installPlatform(f.fixtureManifest, f.options);
+  assert.deepEqual(result.components.map(x => x.id), ['herdr']);
+  const receipt = JSON.parse(readFileSync(result.receipt));
+  for (const id of ['node', 'git', 'github-cli', 'claude', 'figma-cli']) assert.equal(receipt.phases[id], undefined);
+  assert.equal(f.downloads.length, 1);
 });
 
 test('interrupted install resumes completed phases', async t => {

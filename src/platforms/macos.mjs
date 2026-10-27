@@ -1,6 +1,7 @@
-import { accessSync, constants, statSync } from 'node:fs';
+import { accessSync, constants, mkdtempSync, rmSync, statSync } from 'node:fs';
 import { basename, delimiter, dirname, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 
 function isExecutable(path) {
   try { accessSync(path, constants.X_OK); return true; } catch { return false; }
@@ -74,6 +75,27 @@ export function inspectCommand(tool, context) {
   return { id: tool.id, status: matches ? 'pass' : 'fail', reason: matches ? 'version matches' : `expected ${version}`, paths, detected };
 }
 
+export function inspectPrerequisite(tool, context) {
+  const { command, args } = tool.detection;
+  const paths = findOnPath(command, context.env.PATH);
+  const prefix = `requires ${command} ${tool.minVersion} or newer; install it yourself: ${tool.installDocs}`;
+  if (!paths.length) return { id: tool.id, kind: 'prerequisite', required: tool.required, status: 'fail', detail: `${command} absent from PATH; ${prefix}`, paths: [] };
+  // figma-cli may initialize HOME even for --version. Give that probe disposable state.
+  const isolatedHome = tool.id === 'figma-cli' && !context.runCommand ? mkdtempSync(join(tmpdir(), 'agent-kit-figma-version-')) : null;
+  let output;
+  try { output = safeRun(paths[0], args, context, undefined, isolatedHome ? { HOME: isolatedHome } : {}); }
+  finally { if (isolatedHome) rmSync(isolatedHome, { recursive: true, force: true }); }
+  const detected = typeof output === 'string' ? output.match(/\d+\.\d+\.\d+/)?.[0] : null;
+  const meets = detected && (() => {
+    const actual = detected.split('.').map(Number), minimum = tool.minVersion.split('.').map(Number);
+    for (let i = 0; i < 3; i++) if (actual[i] !== minimum[i]) return actual[i] > minimum[i];
+    return true;
+  })();
+  return { id: tool.id, kind: 'prerequisite', required: tool.required, status: meets ? 'pass' : 'fail',
+    detail: meets ? `${command} ${detected} meets ${tool.minVersion}` : `${detected ? `${command} ${detected} is too old` : `${command} version could not be read`}; ${prefix}`,
+    detected, paths };
+}
+
 export function inspectSource(tool, context) {
   const directory = join(context.env.HOME || '', tool.installLocation.relativePath);
   const git = findOnPath('git', context.env.PATH)[0];
@@ -109,8 +131,9 @@ export function inspectMacOS(context, manifest, selectedTools) {
       const found = findOnPath(name, path);
       return { id: name, status: found.length ? 'pass' : 'fail', detail: found[0] || `${name} absent from PATH` };
     }),
+    ...selectedTools.filter(tool => tool.kind === 'prerequisite').map(tool => inspectPrerequisite(tool, context)),
   ];
-  const tools = selectedTools.map(tool => tool.detection.kind === 'git-head' ? inspectSource(tool, context) : inspectCommand(tool, context));
+  const tools = selectedTools.filter(tool => tool.kind !== 'prerequisite').map(tool => tool.detection.kind === 'git-head' ? inspectSource(tool, context) : inspectCommand(tool, context));
   const pathConflicts = tools.filter(tool => tool.paths.length > 1).map(tool => ({ id: tool.id, paths: tool.paths }));
   return { platform: 'darwin', arch: context.arch, supported: true, prerequisites, tools, pathConflicts };
 }

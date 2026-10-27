@@ -15,12 +15,16 @@
   "$defs": {
     "tool": {
       "type": "object", "additionalProperties": false,
-      "required": ["id", "name", "profile", "classification", "version", "approvedUpstream", "license", "runtimeMinimum", "artifacts", "installLocation", "detection"],
+      "required": ["id", "name", "profile", "classification", "approvedUpstream", "license", "detection"],
       "properties": {
+        "kind": { "const": "prerequisite" },
         "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
         "name": { "type": "string", "minLength": 1 },
         "profile": { "enum": ["core", "claude", "codex", "figma"] },
         "classification": { "enum": ["shareable", "per-user-login", "never-ship"] },
+        "minVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "required": { "type": "boolean" },
+        "installDocs": { "type": "string", "pattern": "^https://" },
         "version": { "$ref": "#/$defs/version" },
         "approvedUpstream": { "type": "string", "pattern": "^https://" },
         "license": { "$ref": "#/$defs/license" },
@@ -33,7 +37,10 @@
         },
         "installLocation": { "$ref": "#/$defs/location" },
         "detection": { "$ref": "#/$defs/detection" }
-      }
+      },
+      "if": { "required": ["kind"], "properties": { "kind": { "const": "prerequisite" } } },
+      "then": { "required": ["minVersion", "required", "installDocs"], "properties": { "detection": { "properties": { "kind": { "const": "command" }, "args": { "const": ["--version"] } } } }, "not": { "anyOf": [{ "required": ["version"] }, { "required": ["artifacts"] }, { "required": ["installLocation"] }, { "required": ["runtimeMinimum"] }] } },
+      "else": { "required": ["version", "runtimeMinimum", "artifacts", "installLocation"], "not": { "anyOf": [{ "required": ["minVersion"] }, { "required": ["required"] }, { "required": ["installDocs"] }] } }
     },
     "version": {
       "type": "object", "additionalProperties": false,

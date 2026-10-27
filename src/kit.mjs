@@ -2,7 +2,7 @@ import { realpathSync } from 'node:fs';
 import { basename, dirname, join, isAbsolute, posix, resolve } from 'node:path';
 import { inspectPlatform } from './platforms/index.mjs';
 import { previewHooks, publicHookChanges } from './install/hooks.mjs';
-import { towerPaths } from './install/macos.mjs';
+import { npmGroup, towerPaths } from './install/macos.mjs';
 import { defaultLinuxFirstmateHome, defaultLinuxRoot, describeStep, linuxPath, windowsHandoff, windowsNextSteps } from './install/windows.mjs';
 
 function compareVersions(actual, minimum) {
@@ -20,6 +20,12 @@ export function validateManifest(manifest) {
     ids.add(tool.id);
     if (!['core', 'claude', 'codex', 'figma'].includes(tool.profile) || !['shareable', 'per-user-login', 'never-ship'].includes(tool.classification)) throw new Error(`invalid profile or classification for ${tool.id}`);
     if (!tool.approvedUpstream?.startsWith('https://') || !tool.license?.reference?.startsWith('https://')) throw new Error(`invalid upstream or license for ${tool.id}`);
+    if (tool.kind === 'prerequisite') {
+      if (!/^\d+\.\d+\.\d+$/.test(tool.minVersion || '') || typeof tool.required !== 'boolean' || !tool.installDocs?.startsWith('https://') || tool.version !== undefined || tool.runtimeMinimum !== undefined || tool.artifacts !== undefined || tool.installLocation !== undefined) throw new Error(`invalid prerequisite for ${tool.id}`);
+      if (tool.detection?.kind !== 'command' || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(tool.detection.command || '') || JSON.stringify(tool.detection.args) !== '["--version"]') throw new Error(`unsafe detection command for ${tool.id}`);
+      continue;
+    }
+    if (tool.kind !== undefined) throw new Error(`invalid kind for ${tool.id}`);
     if (!['release', 'git-commit'].includes(tool.version?.kind) || !['verified', 'unverified'].includes(tool.version?.status)) throw new Error(`invalid version for ${tool.id}`);
     if (tool.version.value !== null && typeof tool.version.value !== 'string') throw new Error(`invalid version for ${tool.id}`);
     if (tool.version.status === 'verified' && !tool.version.value) throw new Error(`verified version missing for ${tool.id}`);
@@ -38,6 +44,8 @@ export function validateManifest(manifest) {
       || d?.kind === 'presence' && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(d.command || '') && JSON.stringify(d.args) === '[]';
     if (!validDetection) throw new Error(`unsafe detection command for ${tool.id}`);
   }
+  const nodePrerequisite = manifest.tools.find(tool => tool.id === 'node' && tool.kind === 'prerequisite');
+  if (nodePrerequisite && nodePrerequisite.minVersion !== manifest.nodeMinimum) throw new Error('Node prerequisite and runtime minimum disagree');
   return manifest;
 }
 
@@ -78,7 +86,7 @@ export function parseArgs(argv, platform = process.platform) {
 }
 
 const loginSteps = {
-  'github-cli': 'Sign in yourself with GitHub CLI after installation; the kit never runs or captures login.',
+  'github-cli': 'Install GitHub CLI from its vendor, then sign in yourself; the kit never runs or captures login.',
   'gh-axi': 'Use your own GitHub CLI sign-in for gh-axi.',
   'chrome-devtools-axi': 'Sign in to sites in your own browser when needed.',
   'quota-axi': 'Sign in directly with each provider before using quota-axi.',
@@ -91,31 +99,37 @@ const loginSteps = {
 const advisoryPrerequisites = ['terminal', 'browser', 'virtualization'];
 
 function evaluate(manifest, context, options) {
-  const selected = manifest.tools.filter(tool => tool.classification !== 'never-ship' && (tool.profile === 'core' || tool.profile === options.harness || (options.withFigma && tool.profile === 'figma')));
-  const platform = inspectPlatform(context, manifest, selected, options);
+  const relevant = manifest.tools.filter(tool => tool.classification !== 'never-ship' && (tool.kind === 'prerequisite' && tool.profile === 'figma' || tool.profile === 'core' || tool.profile === options.harness || (options.withFigma && tool.profile === 'figma')));
+  const selected = relevant.filter(tool => tool.kind !== 'prerequisite');
+  const platform = inspectPlatform(context, manifest, relevant, options);
   const issues = [];
   const advisories = [];
-  if (compareVersions(context.nodeVersion, manifest.nodeMinimum) < 0) issues.push({ status: 'fail', id: 'node-runtime', reason: `Node ${manifest.nodeMinimum} or newer required` });
+  if (compareVersions(context.nodeVersion, manifest.nodeMinimum) < 0) issues.push({ status: 'fail', id: 'node-runtime', reason: `Node ${manifest.nodeMinimum} or newer required; install it yourself: ${manifest.tools.find(x => x.id === 'node')?.installDocs || 'https://nodejs.org/en/download'}` });
   if (!platform.supported) issues.push({ status: 'fail', id: 'platform', reason: platform.message });
-  for (const prereq of platform.prerequisites) if (prereq.status !== 'pass') (advisoryPrerequisites.includes(prereq.id) ? advisories : issues).push({ status: prereq.status, id: prereq.id, reason: prereq.detail });
-  for (const result of platform.tools) if (result.status !== 'pass') issues.push({ status: result.status, id: result.id, reason: result.reason });
+  for (const prereq of platform.prerequisites) if (prereq.status !== 'pass') (advisoryPrerequisites.includes(prereq.id) || prereq.required === false ? advisories : issues).push({ status: prereq.status, id: prereq.id, reason: prereq.detail });
+  for (const result of platform.tools) if (result.status !== 'pass')
+    (result.id === 'zoe-fleet-runtime' && (result.status === 'unknown' || ['linux', 'wsl2'].includes(platform.platform)) ? advisories : issues).push({ status: result.status, id: result.id, reason: result.reason });
   for (const conflict of platform.pathConflicts) issues.push({ status: 'fail', id: conflict.id, reason: 'multiple executable paths; PATH precedence needs review' });
   const target = platform.artifactTarget || `${platform.platform === 'wsl2' ? 'linux' : platform.platform}-${context.arch}`;
   for (const tool of selected) {
     if (tool.version.status !== 'verified' && !issues.some(x => x.id === tool.id && x.reason === tool.version.reason)) issues.push({ status: 'unknown', id: tool.id, reason: tool.version.reason });
     const artifact = tool.artifacts[target];
-    if (!artifact || artifact.status !== 'verified') issues.push({ status: 'unknown', id: tool.id, reason: artifact?.reason || `artifact for ${target} is not reviewed` });
+    if (!npmGroup(tool.id) && (!artifact || artifact.status !== 'verified')) (tool.id === 'zoe-fleet-runtime' && ['linux', 'wsl2'].includes(platform.platform) ? advisories : issues).push({ status: 'unknown', id: tool.id, reason: artifact?.reason || `artifact for ${target} is not reviewed` });
   }
-  const optional = manifest.tools.filter(tool => tool.classification !== 'never-ship' && !selected.includes(tool));
-  return { selected, optional, platform, issues, advisories, target };
+  const optional = manifest.tools.filter(tool => tool.kind !== 'prerequisite' && tool.classification !== 'never-ship' && !selected.includes(tool));
+  return { relevant, selected, optional, platform, issues, advisories, target };
 }
 
 function human(result) {
   const lines = [`Agent Kit ${result.command}: ${result.summary}`, `Platform: ${result.platform.platform}/${result.platform.arch}; harness: ${result.harness}`];
   if (result.platform.message) lines.push(result.platform.message);
   if (result.command === 'plan') {
+    lines.push('Person-installed prerequisites (the kit does not install these):');
+    for (const prereq of result.platform.prerequisites.filter(x => x.kind === 'prerequisite')) lines.push(`- ${prereq.id}: ${prereq.status}; ${prereq.detail}`);
     lines.push('Proposed locations and origins (no changes made):');
-    for (const item of result.plan.tools) lines.push(`- ${item.name}: ${item.version || 'UNVERIFIED COMMIT'} from ${item.origin}; ${item.installLocation}; artifact ${item.artifactUrl || 'UNVERIFIED'}; SHA-256 ${item.sha256 || 'UNVERIFIED'}`);
+    for (const item of result.plan.tools) lines.push(item.lockGroup
+      ? `- ${item.name}: ${item.version} from ${item.origin}; ${item.installLocation}; registry integrity in manifests/${item.lockGroup}/package-lock.json`
+      : `- ${item.name}: ${item.version || 'UNVERIFIED COMMIT'} from ${item.origin}; ${item.installLocation}; artifact ${item.artifactUrl || 'UNVERIFIED'}; SHA-256 ${item.sha256 || 'UNVERIFIED'}`);
     lines.push('Optional components (not selected):');
     for (const item of result.plan.optionalComponents) lines.push(`- ${item.name}: ${item.status}; ${item.version || 'UNVERIFIED COMMIT'} from ${item.origin}`);
     lines.push('Proposed source-owned hook files (no changes made):');
@@ -196,7 +210,7 @@ export function run(argv, manifest, context) {
   const plan = options.command === 'plan' ? {
     tools: evaluation.selected.map(tool => {
       const artifact = tool.artifacts[evaluation.target];
-      return { id: tool.id, name: tool.name, version: tool.version.value, versionStatus: tool.version.status,
+      return { id: tool.id, name: tool.name, version: tool.version.value, versionStatus: tool.version.status, lockGroup: npmGroup(tool.id),
         origin: tool.approvedUpstream, installLocation: plannedLocation(tool, context, options, manifest.release, artifact),
         artifactUrl: artifact?.url || null, sha256: artifact?.sha256 || null, classification: tool.classification };
     }),
@@ -210,7 +224,7 @@ export function run(argv, manifest, context) {
     towerConfig,
     ...(windows && evaluation.platform.supported ? (({ status, command, commit, message }) => ({ handoff: { status, command: command || null, commit: commit || null, message },
       nextSteps: windowsNextSteps(evaluation.platform.wsl?.target?.name) }))(windowsHandoff({ ...options, handoff: false }, context, evaluation.platform)) : {}),
-    loginSteps: evaluation.selected.filter(tool => tool.classification === 'per-user-login').map(tool => loginSteps[tool.id]).filter(Boolean),
+    loginSteps: evaluation.relevant.filter(tool => tool.classification === 'per-user-login' && (tool.profile !== 'figma' || options.withFigma)).map(tool => loginSteps[tool.id]).filter(Boolean),
   } : undefined;
   const result = { command: options.command, release: manifest.release, harness: options.harness, withFigma: options.withFigma,
     platform: evaluation.platform, plan, issues: evaluation.issues, advisories: evaluation.advisories,

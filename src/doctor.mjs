@@ -5,7 +5,6 @@ import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep 
 import { previewHooks } from './install/hooks.mjs';
 import { npmGroup, towerPaths } from './install/macos.mjs';
 import { inspectPlatform } from './platforms/index.mjs';
-import { findOnPath } from './platforms/macos.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
 const status = (id, state, detail) => ({ id, status: state, detail });
@@ -62,13 +61,17 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
   if (!installRoot || !isAbsolute(installRoot)) throw new Error('doctor requires an absolute --install-root');
   const root = resolve(installRoot), checks = [];
   if (existsSync(root) && (!lstatSync(root).isDirectory() || lstatSync(root).isSymbolicLink())) throw new Error('doctor requires a plain kit root directory');
-  checks.push(status('node', versionAtLeast(nodeVersion, manifest.nodeMinimum) ? 'pass' : 'fail', `requires Node ${manifest.nodeMinimum} or newer`));
-  const platform = inspectPlatform({ env, platform: platformName, arch, nodeVersion, installRoot: root }, manifest, []);
-  for (const prerequisite of platform.prerequisites || []) if (!['terminal', 'browser', 'virtualization'].includes(prerequisite.id))
-    checks.push(status(`prerequisite-${prerequisite.id}`, prerequisite.status === 'pass' ? 'pass' : prerequisite.status === 'fail' ? 'fail' : 'unknown', prerequisite.detail));
-  for (const tool of manifest.tools) if (tool.profile === 'core' && tool.version.status === 'unverified' && tool.detection.kind === 'command' && !findOnPath(tool.detection.command, env.PATH).length)
-    checks.push(status(`prerequisite-tool-${tool.id}`, 'fail', `${tool.detection.command} absent from PATH`));
+  checks.push(status('node', versionAtLeast(nodeVersion, manifest.nodeMinimum) ? 'pass' : 'fail', `requires Node ${manifest.nodeMinimum} or newer; install it yourself: ${manifest.tools.find(x => x.id === 'node')?.installDocs || 'https://nodejs.org/en/download'}`));
   const receiptPath = join(root, 'receipt.json'), receiptFile = safeFile(receiptPath);
+  let recordedHarness = 'claude';
+  if (receiptFile) {
+    try { if (JSON.parse(readFileSync(receiptPath, 'utf8')).phases?.['npm-codex']) recordedHarness = 'codex'; }
+    catch { /* The receipt validation below reports malformed JSON. */ }
+  }
+  const platform = inspectPlatform({ env, platform: platformName, arch, nodeVersion, installRoot: root }, manifest,
+    manifest.tools.filter(tool => tool.kind === 'prerequisite' && (tool.profile === 'core' || tool.profile === recordedHarness || tool.profile === 'figma')));
+  for (const prerequisite of platform.prerequisites || []) if (!['terminal', 'browser', 'virtualization'].includes(prerequisite.id))
+    checks.push(status(`prerequisite-${prerequisite.id}`, prerequisite.required === false && prerequisite.status !== 'pass' ? 'warn' : prerequisite.status, prerequisite.detail));
   if (!receiptFile) {
     checks.push(status('receipt', 'fail', 'kit receipt missing or not a plain file'));
     return doctorResult(checks, null, manifest, null, root);
@@ -105,8 +108,8 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
     catch { checks.push(status(id, 'fail', 'kit-owned content cannot be verified')); continue; }
     checks.push(status(id, digest === entry.ownedSha256 ? 'pass' : 'fail', digest === entry.ownedSha256 ? `installed ${entry.version || ''}; owned digest verified` : 'kit-owned digest differs from receipt'));
     const tool = byId.get(id);
-    if (tool && tool.version.value !== entry.version) checks.push(status(`${id}-pin`, 'unknown', `installed ${entry.version}; reviewed checkout pins ${tool.version.value || 'unverified'}`));
-    if (tool) checks.push(status(`${id}-origin`, entry.artifactSha256 === tool.artifacts[`${platformName}-${arch}`]?.sha256 ? 'pass' : 'unknown', 'artifact digest compared with reviewed manifest origin'));
+    if (tool?.kind !== 'prerequisite' && tool && tool.version.value !== entry.version) checks.push(status(`${id}-pin`, 'unknown', `installed ${entry.version}; reviewed checkout pins ${tool.version.value || 'unverified'}`));
+    if (tool?.kind !== 'prerequisite' && tool) checks.push(status(`${id}-origin`, entry.artifactSha256 === tool.artifacts[`${platformName}-${arch}`]?.sha256 ? 'pass' : 'unknown', 'artifact digest compared with reviewed manifest origin'));
     if (id === 'npm' || id === 'npm-codex') {
       const lock = readFileSync(new URL(`../manifests/${id}/package-lock.json`, import.meta.url));
       checks.push(status(`${id}-origin`, entry.artifactSha256 === sha(lock) ? 'pass' : 'unknown', 'npm lock digest compared with reviewed registry origin'));
@@ -144,7 +147,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
 }
 function doctorResult(checks, release, manifest, receipt, root) {
   const find = id => checks.find(x => x.id === id)?.status || 'unknown';
-  const components = manifest.tools.filter(t => t.classification !== 'never-ship').map(tool => {
+  const components = manifest.tools.filter(t => t.kind !== 'prerequisite' && t.classification !== 'never-ship').map(tool => {
     const phaseId = npmGroup(tool.id) || tool.id;
     const entry = receipt?.phases?.[phaseId], path = entry && phasePath(root, phaseId, entry);
     const installed = path && existsSync(path) ? 'pass' : 'unknown';
