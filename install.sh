@@ -37,7 +37,7 @@ Setup flags: --harness claude|codex|claude,codex, --no-figma, --no-tower, --no-g
 EOF
 }
 
-commit='' kit_dir='' channel=releases dry_run=0
+commit='' kit_dir='' channel='' dry_run=0 root=${HOME:-}/Agentic install_root=''
 pass=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -45,13 +45,15 @@ while [ "$#" -gt 0 ]; do
     --commit) [ "$#" -ge 2 ] || die '--commit needs a value'; commit=$2; shift 2; continue ;;
     --kit-dir) [ "$#" -ge 2 ] || die '--kit-dir needs a value'; kit_dir=$2; shift 2; continue ;;
     --channel) [ "$#" -ge 2 ] || die '--channel needs a value'; channel=$2 ;;
+    --root) [ "$#" -ge 2 ] || die '--root needs a value'; root=$2 ;;
+    --install-root) [ "$#" -ge 2 ] || die '--install-root needs a value'; install_root=$2 ;;
     --dry-run) dry_run=1 ;;
     --kit-commit) die '--kit-commit is set by install.sh; use --commit' ;;
   esac
   pass+=("$1")
   shift
 done
-case "$channel" in releases|main) ;; *) die '--channel must be releases or main' ;; esac
+case "$channel" in ''|releases|main) ;; *) die '--channel must be releases or main' ;; esac
 if [ -n "$commit" ] && ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then die '--commit must be a full 40-character commit SHA'; fi
 
 say 'Agent Kit installer. This script will:'
@@ -140,6 +142,16 @@ if [ -n "$kit_dir" ]; then
   say "Using the local kit checkout $kit at $commit."
 else
   if [ -z "$commit" ]; then
+    if [ -z "$channel" ]; then
+      case "$root" in \~) root=$HOME ;; \~/*) root=$HOME/${root#\~/} ;; esac
+      receipt=${install_root:-$root/.tools}/receipt.json
+      if [ -f "$receipt" ]; then
+        # A rerun keeps the update channel saved in this install's receipt; an explicit --channel wins.
+        channel=$(node -e 'try { const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).setup?.answers?.channel; if (c === "releases" || c === "main") process.stdout.write(c); } catch {}' "$receipt" || true)
+        [ -z "$channel" ] || say "Using the $channel channel saved in $receipt."
+      fi
+    fi
+    channel=${channel:-releases}
     if [ "$channel" = releases ]; then
       # The owner approves a release by merging the PR that changes the manifest.
       commit=$(gh api "repos/$REPO/commits?sha=main&path=manifests/pilot-skeleton.json&per_page=1" --jq '.[0].sha') || die 'cannot read the newest reviewed release from GitHub'
@@ -150,7 +162,7 @@ else
   [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || die "GitHub returned an unexpected commit: $commit"
   relation=$(gh api "repos/$REPO/compare/$commit...main" --jq '.status') || die "cannot compare $commit with main on GitHub"
   case "$relation" in ahead|identical) ;; *) die "commit $commit is not on main, so it is not a reviewed kit commit" ;; esac
-  say "Fetching the reviewed kit at $commit ($channel channel) with your own GitHub CLI sign-in."
+  say "Fetching the reviewed kit at $commit (${channel:-releases} channel) with your own GitHub CLI sign-in."
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/agent-kit.XXXXXX")
   kit=$tmp/kit
   git_clean init -q "$kit"

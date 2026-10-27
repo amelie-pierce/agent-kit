@@ -38,6 +38,7 @@ case "$*" in
 esac
 exit 0`);
   stub('node', `[ "$1" = --version ] && { echo "\${NODE_VERSION:-v24.15.0}"; exit 0; }
+[ "$1" = -e ] && exec '${process.execPath}' "$@"
 for arg in "$@"; do printf 'node-arg:%s\\n' "$arg" >> '${log}'; done
 [ -d "$4" ] && printf 'kit-present\\n' >> '${log}'
 exit "\${NODE_EXIT:-0}"`);
@@ -129,6 +130,33 @@ test('install.sh main channel, an exact commit, refusals and the setup exit code
   assert.match(f.run(['--commit', 'abc']).stderr, /full 40-character commit SHA/);
   assert.match(f.run(['--channel', 'nightly']).stderr, /releases or main/);
   assert.match(f.run(['--kit-commit', release]).stderr, /use --commit/);
+});
+
+test('install.sh reuses the update channel saved in the receipt at the chosen or default root; --channel wins', posixOnly, t => {
+  const f = fixture(t);
+  const save = (dir, channel) => { mkdirSync(dir, { recursive: true }); writeFileSync(join(dir, 'receipt.json'), JSON.stringify({ setup: { answers: { channel } } })); };
+  save(join(f.home, 'Agentic', '.tools'), 'main');
+  const fetched = result => result.calls.find(x => x.includes(' fetch ')).split(' ').pop();
+  const byDefault = f.run(['--yes'], { HEAD_COMMIT: main });
+  assert.equal(byDefault.status, 0, byDefault.stderr);
+  assert.match(byDefault.stderr, /Using the main channel saved in .*Agentic\/\.tools\/receipt\.json/);
+  assert.equal(fetched(byDefault), main);
+  assert.ok(!byDefault.nodeArgs.includes('--channel'), 'setup reuses the saved answer itself');
+  const explicit = f.run(['--yes', '--channel', 'releases']);
+  assert.equal(fetched(explicit), release);
+  assert.doesNotMatch(explicit.stderr, /saved in/);
+
+  const chosen = join(f.base, 'Chosen');
+  save(join(chosen, '.tools'), 'releases');
+  const atRoot = f.run(['--yes', '--root', chosen]);
+  assert.match(atRoot.stderr, /Using the releases channel saved in/);
+  assert.equal(fetched(atRoot), release);
+  save(join(f.base, 'kit-tools'), 'main');
+  assert.equal(fetched(f.run(['--yes', '--root', chosen, '--install-root', join(f.base, 'kit-tools')], { HEAD_COMMIT: main })), main);
+  writeFileSync(join(chosen, '.tools', 'receipt.json'), 'not json');
+  const unreadable = f.run(['--yes', '--root', chosen]);
+  assert.equal(unreadable.status, 0, unreadable.stderr);
+  assert.equal(fetched(unreadable), release, 'an unreadable receipt falls back to releases; setup reports the receipt itself');
 });
 
 test('install.sh --kit-dir uses a local clean checkout; a dry run continues before sign-in', posixOnly, t => {

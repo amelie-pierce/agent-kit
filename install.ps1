@@ -27,7 +27,7 @@ function Invoke-Native([string]$File, [string[]]$Arguments) {
 
 if ([Environment]::OSVersion.Platform -ne 'Win32NT') { Stop-Kit 'install.ps1 is for Windows. On macOS or Linux run: bash install.sh' }
 
-$dryRun = $false; $channel = 'releases'; $commit = ''; $kitDir = ''
+$dryRun = $false; $channel = ''; $commit = ''; $kitDir = ''; $root = '~/Agentic'; $installRoot = ''; $distro = ''
 $pass = @()
 for ($i = 0; $i -lt $args.Count; $i++) {
   $arg = "$($args[$i])"
@@ -41,11 +41,15 @@ for ($i = 0; $i -lt $args.Count; $i++) {
     $pass += @($arg, $value)
     continue
   }
+  if ($arg -in @('--root', '--install-root', '--distro') -and $i + 1 -lt $args.Count) {
+    $value = "$($args[$i + 1])"
+    if ($arg -eq '--root') { $root = $value } elseif ($arg -eq '--install-root') { $installRoot = $value } else { $distro = $value }
+  }
   if ($arg -eq '--kit-commit') { Stop-Kit '--kit-commit is set by the installer; use --commit' }
   if ($arg -eq '--handoff') { continue }
   $pass += $arg
 }
-if ($channel -notin @('releases', 'main')) { Stop-Kit '--channel must be releases or main' }
+if ($channel -notin @('', 'releases', 'main')) { Stop-Kit '--channel must be releases or main' }
 if ($commit -and $commit -notmatch '^[0-9a-f]{40}$') { Stop-Kit '--commit must be a full 40-character commit SHA' }
 
 Say 'Agent Kit installer for Windows. This script will:'
@@ -88,6 +92,19 @@ try {
     Say "Using the local kit checkout $kit."
   } else {
     if (-not $commit) {
+      $wsl = Join-Path $env:SystemRoot 'System32\wsl.exe'
+      if (-not $channel -and (Test-Path -LiteralPath $wsl)) {
+        # A rerun keeps the update channel saved in the receipt inside WSL; an explicit --channel wins.
+        $base = if ($installRoot) { $installRoot } elseif ($root -eq '~') { '.' } elseif ($root.StartsWith('~/')) { $root.Substring(2) } else { $root }
+        $receipt = if ($installRoot) { "$base/receipt.json" } else { "$base/.tools/receipt.json" }
+        $target = if ($distro) { @('-d', $distro) } else { @() }
+        $read = Invoke-Native $wsl ($target + @('--exec', 'sh', '-c', 'set -f; IFS=; cd || exit 1; cat -- $1', 'agent-kit', $receipt))
+        if ($read.Code -eq 0) {
+          try { $saved = "$(($read.Out | ConvertFrom-Json).setup.answers.channel)" } catch { $saved = '' }
+          if ($saved -in @('releases', 'main')) { $channel = $saved; Say "Using the $channel channel saved in $receipt inside WSL." }
+        }
+      }
+      if (-not $channel) { $channel = 'releases' }
       $query = if ($channel -eq 'releases') { @('api', "repos/$Repo/commits?sha=main&path=manifests/pilot-skeleton.json&per_page=1", '--jq', '.[0].sha') }
         else { @('api', "repos/$Repo/commits/main", '--jq', '.sha') }
       $commit = (Invoke-Native 'gh' $query).Out
@@ -95,7 +112,7 @@ try {
     if ($commit -notmatch '^[0-9a-f]{40}$') { Stop-Kit "cannot read the reviewed kit commit from GitHub (got '$commit')" }
     $relation = (Invoke-Native 'gh' @('api', "repos/$Repo/compare/$commit...main", '--jq', '.status')).Out
     if ($relation -notin @('ahead', 'identical')) { Stop-Kit "commit $commit is not on main, so it is not a reviewed kit commit" }
-    Say "Fetching the reviewed kit at $commit ($channel channel) with your own GitHub CLI sign-in."
+    Say "Fetching the reviewed kit at $commit ($(if ($channel) { $channel } else { 'releases' }) channel) with your own GitHub CLI sign-in."
     $tmp = Join-Path ([IO.Path]::GetTempPath()) ("agent-kit-" + [Guid]::NewGuid().ToString('N'))
     $kit = Join-Path $tmp 'kit'
     $env:GIT_TERMINAL_PROMPT = '0'

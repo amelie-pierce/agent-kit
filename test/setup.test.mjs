@@ -217,6 +217,29 @@ test('a failed step stops safely; the rerun prints the resume summary, re-verifi
   assert.equal(health.checks.find(x => x.id === 'treehouse-path').status, 'pass', 'the kit wrapper counts as the kit treehouse');
 });
 
+test('a saved git identity is not re-applied once you changed it: asked again, or kept under --yes', posixOnly, async t => {
+  const f = fixture(t);
+  const first = f.ctx(['--yes', '--root', f.root, '--no-tower', '--git-name', 'Pat Example', '--git-email', 'pat@example.test']);
+  assert.equal(await setup(f.fixtureManifest, first), 0, first.text);
+  const gitconfig = () => readFileSync(join(f.home, '.gitconfig'), 'utf8');
+  assert.match(gitconfig(), /name = Pat Example/);
+  const set = (key, value) => assert.equal(spawnSync('git', ['config', '--global', key, value], { env: f.env }).status, 0);
+  set('user.name', 'Sam Changed'); set('user.email', 'sam@example.test');
+
+  const asked = f.ctx(['--dry-run'], [f.root, 'y', ''].join('\n'));
+  assert.equal(await setup(f.fixtureManifest, asked), 0, asked.text);
+  assert.match(asked.text, /Your git identity changed since you saved "Pat Example" <pat@example\.test>, so it is asked again/);
+  assert.match(asked.text, /7\. Git identity is Sam Changed <sam@example\.test>\. Keep it as it is/);
+  assert.match(asked.text, /7\. Git identity: keep \(Sam Changed <sam@example\.test>\)\n/);
+
+  const unattended = f.ctx(['--yes', '--root', f.root]);
+  assert.equal(await setup(f.fixtureManifest, unattended), 0, unattended.text);
+  assert.match(unattended.text, /7\. Git identity: keep \(Sam Changed <sam@example\.test>\); your saved "Pat Example" <pat@example\.test> was not applied because git's value changed since/);
+  assert.match(gitconfig(), /name = Sam Changed/);
+  assert.match(gitconfig(), /email = sam@example\.test/);
+  assert.deepEqual(JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8')).setup.answers.gitIdentity, { action: 'keep' });
+});
+
 test('unattended root confirmation needs --allow-existing-root; a changed recorded root is refused', posixOnly, async t => {
   const f = fixture(t);
   mkdirSync(f.root); writeFileSync(join(f.root, 'notes.txt'), 'mine');
