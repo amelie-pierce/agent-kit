@@ -15,6 +15,9 @@ export const npmGroup = id => id === 'codex' ? 'npm-codex' : npmIds.has(id) ? 'n
 const binaryIds = new Set(['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint']);
 const sourceIds = new Set(['firstmate', 'zoe-fleet']);
 const runtimeIds = new Set(['zoe-fleet-runtime']);
+// The Zoetrope session-graph Herdr plugin: only herdr-plugin/ of the pinned source archive is installed.
+const pluginIds = new Set(['zoetrope-herdr-plugin']);
+const pluginLayout = ['herdr-plugin.toml', 'herdr/keys.sh', 'herdr/open.sh', 'herdr/pane.sh', 'herdr/resolve.sh'];
 // Files the Zoetrope runtime's launcher contract needs (its docs/FLEET-PACKAGING.md).
 const runtimeLayout = ['bin/zoe-fleet-tower', 'scripts/fleet-config.sh', 'scripts/firstmate-fleet.py', 'fleet-plugin/herdr-plugin.toml', 'fleet-plugin/open.sh', 'docs/FLEET-PACKAGING.md', 'LICENSE'];
 const towerRelease = (tool, artifact) => tool.id === 'zoe-fleet' && artifact.kind === 'release-archive';
@@ -154,6 +157,17 @@ async function unpackRuntime(archive, destination) {
   for (const file of runtimeLayout) {
     if (!(await exists(join(destination, ...file.split('/'))))?.isFile()) throw new Error(`fleet runtime archive lacks ${file}; its launcher contract is not met`);
   }
+}
+// Extracts the archive's <top>/herdr-plugin/ subtree only, refusing anything but regular files and directories.
+async function unpackPlugin(archive, destination) {
+  const { stdout } = await exec('tar', ['-tvzf', archive], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 60000 });
+  const { stdout: names } = await exec('tar', ['-tzf', archive], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 60000 });
+  const list = names.split('\n').filter(Boolean), top = list[0]?.split('/')[0];
+  if (!top || list.some(name => name.startsWith('/') || name.split('/').includes('..') || name.split('/')[0] !== top)) throw new Error('unsafe plugin source archive path');
+  const lines = stdout.split('\n').filter(Boolean), subtree = `${top}/herdr-plugin/`;
+  if (lines.some((line, i) => list[i]?.startsWith(subtree) && !/^[-d]/.test(line))) throw new Error('plugin archive holds a link or special file under herdr-plugin/');
+  await exec('tar', ['-xzf', archive, '-C', destination, '--strip-components=2', `${top}/herdr-plugin`], { maxBuffer: 65536, timeout: 120000 });
+  for (const file of pluginLayout) if (!(await exists(join(destination, ...file.split('/'))))?.isFile()) throw new Error(`plugin archive lacks herdr-plugin/${file}`);
 }
 async function unpackTrackedSource(archive, destination, freshHome = false) {
   const { stdout } = await exec('tar', ['-tzf', archive], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 30000 });
@@ -386,7 +400,7 @@ export async function installPlatform(manifest, options = {}) {
         components.push({ id: tool.id, status: 'unverified', reason: `refused: ${glibcGap}` });
         continue;
       }
-      if (!binaryIds.has(tool.id) && !sourceIds.has(tool.id) && !runtimeIds.has(tool.id)) {
+      if (!binaryIds.has(tool.id) && !sourceIds.has(tool.id) && !runtimeIds.has(tool.id) && !pluginIds.has(tool.id)) {
         components.push({ id: tool.id, status: 'unverified', reason: 'no reviewed install adapter' });
         continue;
       }
@@ -427,7 +441,7 @@ export async function installPlatform(manifest, options = {}) {
         const pending = `${artifactPath}.${randomUUID()}.part`;
         try { await (options.fetchArtifact || download)(a.url, pending); } catch (error) {
           await rm(pending, { force: true });
-          if (!['zoe-fleet', 'zoe-fleet-runtime'].includes(tool.id)) throw error;
+          if (!['zoe-fleet', 'zoe-fleet-runtime', 'zoetrope-herdr-plugin'].includes(tool.id)) throw error;
           components.push({ id: tool.id, status: 'unverified', reason: `tower download unavailable: ${error.code || error.message}` });
           continue;
         }
@@ -464,6 +478,18 @@ export async function installPlatform(manifest, options = {}) {
         receipt.phases[tool.id].state = 'complete';
         await save();
         components.push({ id: tool.id, status: 'installed', reason: 'verified fleet runtime archive activated' });
+      } else if (pluginIds.has(tool.id)) {
+        const destination = ownedPath(root, 'releases', release, tool.id);
+        if (await exists(destination)) throw new Error(`${tool.id} exists without a matching receipt`);
+        const stage = ownedPath(root, 'releases', release, 'staging', `${tool.id}-${randomUUID()}`);
+        await mkdir(stage, { recursive: true, mode: 0o700 });
+        try { await unpackPlugin(artifactPath, stage); } catch (error) { await rm(stage, { recursive: true, force: true }); throw error; }
+        receipt.phases[tool.id] = { state: 'pending', version: tool.version.value, artifactSha256: a.sha256, path: relative(root, destination), ownedSha256: await hashTree(stage) };
+        await save();
+        await rename(stage, destination);
+        receipt.phases[tool.id].state = 'complete';
+        await save();
+        components.push({ id: tool.id, status: 'installed', reason: 'verified herdr-plugin/ from the pinned Zoetrope commit; registered with Herdr by setup' });
       } else if (tool.id === 'firstmate') {
         const destination = firstmateHome;
         if (!(await newDirectory(destination))) throw new Error('Firstmate home already exists without a matching receipt; refusing to inherit it');

@@ -112,6 +112,8 @@ const loginSteps = {
 };
 
 const advisoryPrerequisites = ['terminal', 'browser', 'virtualization'];
+// The runtime and the session-graph plugin are installed with the tower, never found on PATH beforehand.
+const towerAdvisories = new Set(['zoe-fleet-runtime', 'zoetrope-herdr-plugin']);
 
 function evaluate(manifest, context, options) {
   const relevant = manifest.tools.filter(tool => tool.classification !== 'never-ship' && (options.withTower !== false || !towerIds.has(tool.id))
@@ -124,7 +126,7 @@ function evaluate(manifest, context, options) {
   if (!platform.supported) issues.push({ status: 'fail', id: 'platform', reason: platform.message });
   for (const prereq of platform.prerequisites) if (prereq.status !== 'pass') (advisoryPrerequisites.includes(prereq.id) || prereq.required === false ? advisories : issues).push({ status: prereq.status, id: prereq.id, reason: prereq.detail });
   for (const result of platform.tools) if (result.status !== 'pass')
-    (result.id === 'zoe-fleet-runtime' && (result.status === 'unknown' || ['linux', 'wsl2'].includes(platform.platform)) ? advisories : issues).push({ status: result.status, id: result.id, reason: result.reason });
+    (towerAdvisories.has(result.id) && (result.status === 'unknown' || ['linux', 'wsl2'].includes(platform.platform)) ? advisories : issues).push({ status: result.status, id: result.id, reason: result.reason });
   for (const conflict of platform.pathConflicts) issues.push({ status: 'fail', id: conflict.id, reason: 'multiple executable paths; PATH precedence needs review' });
   const target = platform.artifactTarget || `${platform.platform}-${context.arch}`;
   for (const tool of selected) {
@@ -132,7 +134,7 @@ function evaluate(manifest, context, options) {
     const artifact = artifactFor(tool, target);
     const glibcGap = tool.id === 'zoe-fleet' && platform.platform === 'wsl2' && artifact?.kind === 'release-archive' && towerGlibcGap(platform);
     if (glibcGap) issues.push({ status: 'fail', id: tool.id, reason: glibcGap });
-    if (!npmGroup(tool.id) && (!artifact || artifact.status !== 'verified')) (tool.id === 'zoe-fleet-runtime' && ['linux', 'wsl2'].includes(platform.platform) ? advisories : issues).push({ status: 'unknown', id: tool.id, reason: artifact?.reason || `artifact for ${target} is not reviewed` });
+    if (!npmGroup(tool.id) && (!artifact || artifact.status !== 'verified')) (towerAdvisories.has(tool.id) && ['linux', 'wsl2'].includes(platform.platform) ? advisories : issues).push({ status: 'unknown', id: tool.id, reason: artifact?.reason || `artifact for ${target} is not reviewed` });
   }
   const optional = manifest.tools.filter(tool => tool.kind !== 'prerequisite' && tool.classification !== 'never-ship' && !selected.includes(tool) && (options.withTower !== false || !towerIds.has(tool.id)));
   return { relevant, selected, optional, platform, issues, advisories, target };
@@ -192,6 +194,7 @@ function plannedLocation(tool, context, options, release, artifact) {
   if (tool.id === 'firstmate') return firstmateLocation(context, options);
   if (tool.id === 'zoe-fleet') return artifact?.kind === 'release-archive' ? join(versioned, 'bin', 'zoe-fleet') : join(versioned, 'zoetrope', 'bin', 'zoe-fleet');
   if (tool.id === 'zoe-fleet-runtime') return join(versioned, 'zoe-fleet-runtime');
+  if (tool.id === 'zoetrope-herdr-plugin') return join(versioned, 'zoetrope-herdr-plugin');
   if (['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint'].includes(tool.id)) return join(versioned, 'bin', tool.id);
   if (['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi'].includes(tool.id)) return join(versioned, 'npm', 'node_modules', '.bin', tool.id);
   if (tool.id === 'codex') return join(versioned, 'npm-codex', 'node_modules', '.bin', 'codex');

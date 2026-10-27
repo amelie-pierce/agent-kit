@@ -51,7 +51,7 @@ test('bundled manifest keeps verified source commits and macOS/Linux digests', (
     assert.match(tower.artifacts[target].url, /^https:\/\/github\.com\/pikenguyen227\/zoetrope\/releases\/download\/fleet-v0\.2\.0-fc45c4d9ea1d-linux\//);
     assert.deepEqual(runtime.artifacts[target], { ...runtime.artifacts['darwin-arm64'], reason: runtime.artifacts[target].reason });
   }
-  assert.ok(manifest.tools.filter(x => x.artifacts && !['zoe-fleet', 'zoe-fleet-runtime'].includes(x.id)).every(x => !Object.keys(x.artifacts).some(target => target.startsWith('wsl2-'))));
+  assert.ok(manifest.tools.filter(x => x.artifacts && !['zoe-fleet', 'zoe-fleet-runtime', 'zoetrope-herdr-plugin'].includes(x.id)).every(x => !Object.keys(x.artifacts).some(target => target.startsWith('wsl2-'))));
   const badKind = structuredClone(tower);
   badKind.artifacts['darwin-arm64'].kind = 'installer';
   assert.throws(() => validateManifest({ ...manifest, tools: [badKind] }), /invalid artifact kind/);

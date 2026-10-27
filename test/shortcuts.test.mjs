@@ -39,10 +39,11 @@ function fixture(t, { harness = 'both', tower = true, config = null } = {}) {
   const run = async (options = {}) => {
     const r = readReceipt();
     const result = await applyShortcuts(planShortcuts(r, root, { env, home, record: r.setup.shortcuts || null, ...options }), root, { env, check: options.check || ok });
+    if (result.action !== 'skip') assert.equal(result.record.node, process.execPath);
     const next = readReceipt(); if (result.action !== 'skip') next.setup.shortcuts = result.record; writeFileSync(join(root, 'receipt.json'), `${JSON.stringify(next)}\n`, { mode: 0o600 });
     return result;
   };
-  return { base, home, root, firstmate, configPath, env, readReceipt, run, launcher: join(root, 'bin', 'open-firstmate') };
+  return { base, home, root, firstmate, configPath, env, readReceipt, run, launcher: join(root, 'bin', 'open-firstmate'), mate: join(root, 'bin', 'fm-mate') };
 }
 
 test('the keys block binds only free keys, keeps your own bindings and is fenced by agent-kit markers', posixOnly, async t => {
@@ -58,6 +59,7 @@ test('the keys block binds only free keys, keeps your own bindings and is fenced
   assert.ok(block.startsWith(keysBegin) && block.endsWith(keysEnd));
   assert.match(block, /key = "prefix\+shift\+f"\ntype = "popup"\ncommand = "'[^']+\/open-firstmate' codex"/);
   assert.match(block, /key = "prefix\+shift\+m"\ntype = "popup"\ncommand = "'[^']+\/open-firstmate' mates"/);
+  assert.doesNotMatch(block, /prefix\+shift\+c/, 'no graph key until the kit registered the session-graph plugin');
   assert.doesNotMatch(block, /prefix\+n"|key = "prefix\+f"/);
   assert.equal(f.readReceipt().setup.shortcuts.keys.blockSha256, sha(block));
   assert.match(describeShortcuts(result).join('\n'), /bound prefix\+shift\+f, prefix\+shift\+m; skipped prefix\+f: already bound in .*; reload Herdr with prefix\+shift\+r/);
@@ -73,16 +75,16 @@ test('the keys block binds only free keys, keeps your own bindings and is fenced
   assert.equal(text.split(keysBegin).length, 2);
 });
 
-test('only the chosen agent CLIs and an installed tower get keys; Herdr defaults the kit would replace are named', posixOnly, async t => {
+test('only the chosen agent CLIs get coordinator keys; Herdr defaults the kit would replace are named', posixOnly, async t => {
   const f = fixture(t, { harness: 'codex', tower: false });
   const result = await f.run();
-  assert.deepEqual(result.keys.bound, ['prefix+shift+f']);
+  assert.deepEqual(result.keys.bound, ['prefix+shift+f', 'prefix+shift+m']);
   assert.equal(result.keys.created, true);
   assert.deepEqual(Object.keys(result.record.agents), ['codex']);
   // None of the kit keys is a Herdr 0.9.3 default; a key that were one is reported as an override.
   assert.deepEqual(previewKeys(f.configPath, kitKeys), []);
-  assert.deepEqual(previewKeys(f.configPath, [{ key: 'prefix+n', purpose: 'open the tower Team tab for your second mates' }]),
-    ["Ctrl+B n will open the tower Team tab for your second mates instead of Herdr's next-tab"]);
+  assert.deepEqual(previewKeys(f.configPath, [{ key: 'prefix+n', purpose: 'create a second mate in the Mates tab' }]),
+    ["Ctrl+B n will create a second mate in the Mates tab instead of Herdr's next-tab"]);
   writeFileSync(f.configPath, 'next_tab = "prefix+right"\n');
   assert.deepEqual(previewKeys(f.configPath, [{ key: 'prefix+n', purpose: 'x' }]), [], 'a default you moved is no longer replaced');
 });
@@ -115,10 +117,10 @@ test('repair restores a removed block and a changed launcher; setup and upgrade 
   assert.equal(readFileSync(f.configPath, 'utf8'), '[keys]\n');
   assert.ok(f.readReceipt().setup.shortcuts.keys.blockSha256, 'the record survives for repair');
   writeFileSync(f.launcher, '#!/bin/sh\necho changed\n');
-  assert.equal((await f.run()).launcher.action, 'keep');
+  assert.equal((await f.run()).launchers[0].action, 'keep');
   const repaired = await f.run({ repair: true });
   assert.equal(repaired.keys.action, 'add');
-  assert.equal(repaired.launcher.action, 'replace');
+  assert.deepEqual(repaired.launchers.map(l => l.action), ['replace', 'verify']);
   assert.equal(readFileSync(f.configPath, 'utf8'), text);
   assert.ok(readdirSync(join(f.root, 'backups', 'shortcuts')).some(name => name.endsWith('open-firstmate')), 'the changed launcher was backed up');
 });
@@ -127,11 +129,12 @@ test('uninstall removes only the unchanged kit block and launcher, and a file th
   const f = fixture(t, { config: '# mine\n[keys]\nprefix = "ctrl+a"\n' });
   await f.run();
   const plan = planRemoveShortcuts(f.root, f.readReceipt().setup.shortcuts);
-  assert.equal(plan.launcher.action, 'remove unchanged kit launcher');
+  assert.deepEqual(plan.launchers.map(l => [l.path, l.action]), [[f.launcher, 'remove unchanged kit launcher'], [f.mate, 'remove unchanged kit launcher']]);
   assert.equal(plan.keys.action, 'remove the unchanged agent-kit keys block');
   await removeShortcuts(f.root, plan);
   assert.equal(readFileSync(f.configPath, 'utf8'), '# mine\n[keys]\nprefix = "ctrl+a"\n');
   assert.equal(existsSync(f.launcher), false);
+  assert.equal(existsSync(f.mate), false);
 
   const created = fixture(t);
   await created.run();
@@ -147,9 +150,10 @@ test('the launcher wrapper carries receipt paths only and needs python3, the pin
   assert.equal(body, launcherScript(result.inputs));
   assert.match(body, new RegExp(`OPEN_FIRSTMATE_HERDR='${join(f.root, 'releases', 'r', 'bin', 'herdr')}'`));
   assert.match(body, new RegExp(`OPEN_FIRSTMATE_CODEX='${join(f.root, 'releases', 'r', 'npm-codex', 'node_modules', '.bin', 'codex')}'`));
-  assert.match(body, new RegExp(`OPEN_FIRSTMATE_TOWER='${join(f.root, 'releases', 'r', 'zoe-fleet-runtime', 'bin', 'zoe-fleet-tower')}'`));
+  assert.match(body, new RegExp(`OPEN_FIRSTMATE_MATE='${f.mate}'`));
+  assert.equal(readFileSync(f.mate, 'utf8'), `#!/bin/sh\n# agent-kit:fm-mate - create, list or retire a second mate with Firstmate's own secondmate commands.\n# Written by Agent Kit from its receipt; repair rewrites it.\nexec '${process.execPath}' '${join(kit, 'bin', 'agent-kit.mjs')}' mate --install-root '${f.root}' "$@"\n`);
   assert.match(body, new RegExp(`exec '${join(f.base, 'bin', 'python3')}' '${join(kit, 'templates', 'shortcuts', 'open_firstmate.py')}'`));
-  assert.equal(f.readReceipt().setup.shortcuts.launcherSha256, sha(body));
+  assert.deepEqual(f.readReceipt().setup.shortcuts.files, { 'bin/open-firstmate': sha(body), 'bin/fm-mate': sha(readFileSync(f.mate)) });
   const none = fixture(t);
   const r = none.readReceipt(); delete r.phases.herdr;
   assert.match(planShortcuts(r, none.root, { env: { HOME: none.home, PATH: '/nonexistent' }, home: none.home }).detail, /^needs the pinned Herdr, python3 on PATH$/);
@@ -214,26 +218,31 @@ test('open-firstmate creates the Control Tower, starts the agent in an idle capt
   assert.match(outside.stderr, /Run open-firstmate inside Herdr/);
 });
 
-test('open-firstmate mates runs the tower launcher\'s own open with the pinned Herdr, and says when there is no tower', posixOnly, async t => {
-  const f = fixture(t);
+test('open-firstmate mates opens the Mates tab and runs fm-mate there, never typing into a busy tab', posixOnly, async t => {
+  const f = fixture(t, { tower: false });
   await f.run();
-  const tower = join(f.root, 'releases', 'r', 'zoe-fleet-runtime', 'bin', 'zoe-fleet-tower');
-  writeFileSync(tower, `#!/bin/sh\necho "tower $* herdr=$HERDR_BIN_PATH"\n`, { mode: 0o755 });
+  const calls = stubHerdr(f, { workspaces: [{ workspace_id: 'w1', label: 'Control Tower' }], tabs: [{ tab_id: 'w1:t1', label: 'Captain (Claude)' }], panes: [], process: {} });
   const mates = launch(f, 'mates');
   assert.equal(mates.status, 0, mates.stderr);
-  assert.equal(mates.stdout.trim(), `tower open herdr=${join(f.root, 'releases', 'r', 'bin', 'herdr')}`);
-  const without = fixture(t, { tower: false });
-  await without.run();
-  const refused = launch(without, 'mates');
-  assert.equal(refused.status, 1);
-  assert.match(refused.stderr, /fleet tower is not installed/);
+  assert.match(mates.stdout, /Opened Mates and started mates there/);
+  assert.deepEqual(calls().slice(-2), [`tab create --workspace w1 --cwd ${f.firstmate} --label Mates --focus`, `pane run w1:p9 cd ${f.firstmate} && ${f.mate}`]);
+  const busy = fixture(t);
+  await busy.run();
+  const busyCalls = stubHerdr(busy, { workspaces: [{ workspace_id: 'w1', label: 'Control Tower' }], tabs: [{ tab_id: 'w1:t2', label: 'Mates' }],
+    panes: [{ pane_id: 'w1:p2', tab_id: 'w1:t2', agent: null }], process: { 'w1:p2': { shell_pid: 7, foreground_processes: [{ pid: 7, name: 'zsh' }, { pid: 8, name: 'node' }] } } });
+  const focused = launch(busy, 'mates');
+  assert.equal(focused.status, 0, focused.stderr);
+  assert.match(focused.stdout, /Focused Mates; it is already running something/);
+  assert.ok(!busyCalls().some(call => call.startsWith('pane run')));
 });
 
 test('agent-kit uninstall plans and removes the kit shortcuts and leaves the rest of the Herdr config', posixOnly, async t => {
   const f = fixture(t, { config: '# mine\n' });
   await f.run();
   const plan = planUninstall({ installRoot: f.root, home: f.home, env: f.env, isRunning: () => false });
-  assert.deepEqual(plan.shortcuts, { launcher: { path: f.launcher, action: 'remove unchanged kit launcher' }, keys: { path: f.configPath, action: 'remove the unchanged agent-kit keys block' } });
+  assert.deepEqual(plan.shortcuts, { launchers: [{ path: f.launcher, action: 'remove unchanged kit launcher' }, { path: f.mate, action: 'remove unchanged kit launcher' }],
+    keys: { path: f.configPath, action: 'remove the unchanged agent-kit keys block' } });
+  assert.equal(plan.plugin, null, 'no session-graph plugin was registered here');
   await applyUninstall({ installRoot: f.root, home: f.home, env: f.env, isRunning: () => false });
   assert.equal(readFileSync(f.configPath, 'utf8'), '# mine\n');
   assert.equal(existsSync(f.launcher), false);

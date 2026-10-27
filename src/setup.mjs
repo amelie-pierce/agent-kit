@@ -15,7 +15,8 @@ import { linuxIdentity } from './platforms/linux.mjs';
 import { kitCommit, kitUpstream, linuxPath, powershellCommand, windowsNextSteps } from './install/windows.mjs';
 import { inspectWindows } from './platforms/windows.mjs';
 import { envManaged, hiddenKey, keyStatus, writeKey } from './keys.mjs';
-import { applyShortcuts, describeShortcuts, herdrConfigPath, kitKeys, planShortcuts, previewKeys } from './shortcuts.mjs';
+import { herdrConfigPath, kitKeys, placeKitExtras, previewKeys } from './shortcuts.mjs';
+import { processRunning } from './update.mjs';
 import { applyStarter, defaultMode, describeStarter, fullWarnings, loadPlanTable, modes, planIds, planStarter, previewStarter, providersOf } from './dispatch.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
@@ -386,14 +387,14 @@ export function nextSteps({ answers, paths, install, kit, shortcuts }) {
 
 // The open-firstmate launcher and the Herdr keys block go with the global registrations question, since
 // the keys block is a user-level file outside the root.
-async function placeShortcuts(answers, paths, receiptPath, release, { env, home, check }, output) {
+async function placeShortcuts(answers, paths, receiptPath, release, { env, home, check, isRunning }, output) {
   if (!answers.globalHooks) return { state: 'not-selected', detail: 'global hooks and skills not selected; Herdr config left unchanged' };
   const receipt = await readReceipt(receiptPath);
-  const result = await applyShortcuts(planShortcuts(receipt, paths.installRoot, { env, home, record: receipt.setup?.shortcuts || null }), paths.installRoot, { env, ...(check ? { check } : {}) });
-  for (const line of describeShortcuts(result)) output.write(`  ${line}\n`);
-  if (result.action === 'skip') return { state: 'complete', detail: `not set up: ${result.detail}` };
+  const result = await placeKitExtras(receipt, paths.installRoot, { env, home, kitPath: receipt.setup?.kit?.path || null, check, isRunning });
+  for (const line of result.lines) output.write(`  ${line}\n`);
   await updateReceipt(receiptPath, release, r => { r.setup.shortcuts = result.record; });
-  return { state: 'complete', detail: result.keys.bound?.length ? `keys ${result.keys.bound.join(', ')}` : 'launcher only' };
+  if (result.action === 'skip') return { state: 'complete', detail: `not set up: ${result.detail}` };
+  return { state: 'complete', detail: result.keys.bound?.length ? `keys ${result.keys.bound.join(', ')}` : 'launchers only' };
 }
 
 function applyGitIdentity(answer, env) {
@@ -549,7 +550,7 @@ export async function setup(manifest, ctx) {
       });
       receipt = await readReceipt(receiptPath);
       await stepRun(2, () => placeWrapper(paths, receipt, receiptPath, manifest.release));
-      await stepRun(3, () => placeShortcuts(answers, paths, receiptPath, manifest.release, { env, home, check: ctx.herdrCheck }, output));
+      await stepRun(3, () => placeShortcuts(answers, paths, receiptPath, manifest.release, { env, home, check: ctx.herdrCheck, isRunning: ctx.isRunning || processRunning }, output));
       await stepRun(4, async () => applyGitIdentity(answers.gitIdentity, env));
       await stepRun(5, async () => answers.starterMate.create ? seedStarter(answers.starterMate, paths, env, install.bin) : { state: 'not-selected' });
       await stepRun(6, async () => {

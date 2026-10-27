@@ -368,6 +368,86 @@
       }
     },
     {
+      "id": "zoetrope-herdr-plugin",
+      "name": "Zoetrope Herdr session-graph plugin",
+      "profile": "core",
+      "classification": "shareable",
+      "version": {
+        "kind": "git-commit",
+        "value": "fc45c4d9ea1de0af27092f26eaa8f5008881f01e",
+        "status": "verified",
+        "reason": "The herdr-plugin/ directory (plugin id furkankly.zoetrope) at the tower's reviewed commit; it drives zoe, which the kit provides from the pinned zoe-fleet binary built from the same commit."
+      },
+      "approvedUpstream": "https://github.com/pikenguyen227/zoetrope",
+      "license": {
+        "name": "MIT",
+        "reference": "https://github.com/pikenguyen227/zoetrope/blob/main/LICENSE"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/fc45c4d9ea1de0af27092f26eaa8f5008881f01e",
+          "sha256": "249efdac00b2acbaff71739e942be03c4fa0479aa69a90d597539e5679271fb7",
+          "kind": "source-archive",
+          "status": "verified",
+          "reason": "SHA-256 reproduced from two downloads of the codeload archive at the tower's commit; only herdr-plugin/ is installed."
+        },
+        "darwin-x64": {
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/fc45c4d9ea1de0af27092f26eaa8f5008881f01e",
+          "sha256": "249efdac00b2acbaff71739e942be03c4fa0479aa69a90d597539e5679271fb7",
+          "kind": "source-archive",
+          "status": "verified",
+          "reason": "SHA-256 reproduced from two downloads of the codeload archive at the tower's commit; only herdr-plugin/ is installed."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "The plugin drives the zoe binary from the zoe-fleet release, which has no reviewed native Linux build here; WSL2 uses its own release."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "The plugin drives the zoe binary from the zoe-fleet release, which has no reviewed native Linux build here; WSL2 uses its own release."
+        },
+        "wsl2-arm64": {
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/fc45c4d9ea1de0af27092f26eaa8f5008881f01e",
+          "sha256": "249efdac00b2acbaff71739e942be03c4fa0479aa69a90d597539e5679271fb7",
+          "kind": "source-archive",
+          "status": "verified",
+          "reason": "SHA-256 reproduced from two downloads of the codeload archive at the tower's commit; only herdr-plugin/ is installed."
+        },
+        "wsl2-x64": {
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/fc45c4d9ea1de0af27092f26eaa8f5008881f01e",
+          "sha256": "249efdac00b2acbaff71739e942be03c4fa0479aa69a90d597539e5679271fb7",
+          "kind": "source-archive",
+          "status": "verified",
+          "reason": "SHA-256 reproduced from two downloads of the codeload archive at the tower's commit; only herdr-plugin/ is installed."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/zoetrope-herdr-plugin"
+      },
+      "detection": {
+        "kind": "presence",
+        "command": "zoe",
+        "args": []
+      }
+    },
+    {
       "id": "treehouse",
       "name": "Treehouse",
       "profile": "core",

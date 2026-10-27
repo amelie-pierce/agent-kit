@@ -1,9 +1,11 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { isAbsolute, join, resolve } from 'node:path';
+import { isAbsolute, join, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { doctor, firstmateIssue, gitCheck } from './doctor.mjs';
-import { installPlatform, npmGroup, selected } from './install/macos.mjs';
+import { atomicJson, installPlatform, npmGroup, selected } from './install/macos.mjs';
+import { placeKitExtras } from './shortcuts.mjs';
 import { validateManifest } from './kit.mjs';
 import { artifactFor, artifactTarget, linuxIdentity } from './platforms/linux.mjs';
 
@@ -58,7 +60,24 @@ export async function applyUpdate(manifest, options) {
   const result = await installPlatform(manifest, { ...options, harness: plan.harness, update: true, firstmateHome: plan.firstmateHome,
     withFigma: answers.figma ?? options.withFigma, withTower: answers.tower ?? true, globalHooks: answers.globalHooks ?? true, towerState: plan.setup?.paths?.towerState,
     isRunning: options.isRunning || (id => processRunning(id, plan.noMistakesBin)) });
-  return { ...plan, apply: true, status: result.status, exitCode: result.exitCode, components: result.components,
+  // The kit's launchers, Herdr keys and session-graph plugin arrive with an upgrade too, placed by this (the new)
+  // kit from its own installed copy; a problem with them never fails the update.
+  let shortcuts = null;
+  if (!result.components.some(x => ['conflict', 'deferred'].includes(x.status))) {
+    const root = resolve(options.installRoot), receiptPath = join(root, 'receipt.json'), kitPath = fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/]$/, '');
+    try {
+      const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+      const extras = await placeKitExtras(receipt, root, { env: options.env || process.env, home: options.home, check: options.herdrCheck,
+        kitPath: kitPath.startsWith(join(root, 'kit') + sep) ? kitPath : null, isRunning: options.isRunning || (id => processRunning(id, plan.noMistakesBin)) });
+      if (extras.action !== 'not-selected') {
+        const current = JSON.parse(readFileSync(receiptPath, 'utf8'));
+        current.setup ||= {}; current.setup.shortcuts = extras.record;
+        await atomicJson(receiptPath, current);
+      }
+      shortcuts = extras.lines;
+    } catch (error) { shortcuts = [`Herdr shortcuts: not updated; ${error.message}`]; }
+  }
+  return { ...plan, apply: true, status: result.status, exitCode: result.exitCode, components: result.components, shortcuts,
     previousRelease: plan.fromRelease, nextSteps: result.components.filter(x => ['conflict', 'deferred'].includes(x.status)).map(x => `${x.id}: ${x.reason}`),
     note: 'Previous release binaries remain in their versioned directory. User state rollback is not promised.' };
 }

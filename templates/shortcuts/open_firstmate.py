@@ -5,8 +5,9 @@ from the kit receipt and runs this file. Usage: open-firstmate [claude|codex|mat
 
 claude or codex focuses the coordinator tab in the "Control Tower" workspace, creating the
 workspace or the tab when missing, and starts that agent CLI in the Firstmate home when the
-tab is an idle shell. A tab already running something is only focused, never typed into.
-mates runs the tower launcher's own `open`, which shows the Team tab.
+tab is an idle shell. mates does the same with the Mates tab and fm-mate, which asks for a
+name and scope and creates a second mate. A tab already running something is only focused,
+never typed into.
 
 Every ID comes from the running Herdr's JSON responses (herdr 0.9.3 CLI); nothing is guessed.
 """
@@ -20,6 +21,7 @@ from pathlib import Path
 
 WORKSPACE_LABEL = 'Control Tower'
 CAPTAIN_TABS = {'claude': 'Captain (Claude)', 'codex': 'Captain (Codex)'}
+MATES_TAB = 'Mates'
 SHELLS = ('zsh', 'bash', 'sh', 'fish', 'dash')
 
 
@@ -73,30 +75,37 @@ def captain_tab(herdr, workspace, tabs, mode):
     return (labelled[0] if labelled else None), panes
 
 
-def open_captain(herdr, home, mode, agent):
-    command = shlex.join(['cd', home]) + ' && ' + shlex.join([agent])
+def open_tab(herdr, home, mode, label, program):
+    """Focus the tab for <mode> (found by its agent, else by <label>) and run <program> there when it is an idle shell."""
+    command = shlex.join(['cd', home]) + ' && ' + shlex.join([program])
     workspaces = [w for w in cli(herdr, 'workspace', 'list')['workspaces'] if w.get('label') == WORKSPACE_LABEL]
     if len(workspaces) > 1:
         raise RuntimeError(f'Several workspaces are named {WORKSPACE_LABEL}; rename all but one.')
     if not workspaces:
         created = cli(herdr, 'workspace', 'create', '--cwd', home, '--label', WORKSPACE_LABEL, '--focus')
-        cli(herdr, 'tab', 'rename', created['tab']['tab_id'], CAPTAIN_TABS[mode])
+        cli(herdr, 'tab', 'rename', created['tab']['tab_id'], label)
         cli(herdr, 'pane', 'run', created['root_pane']['pane_id'], command)
-        return f'Opened {WORKSPACE_LABEL} and started {mode} in the Firstmate home.'
+        return f'Opened {WORKSPACE_LABEL} and started {mode} in {label}.'
     workspace = workspaces[0]['workspace_id']
     tabs = cli(herdr, 'tab', 'list', '--workspace', workspace)['tabs']
-    tab, panes = captain_tab(herdr, workspace, tabs, mode)
+    if mode == 'mates':
+        named = [t for t in tabs if t.get('label') == label]
+        if len(named) > 1:
+            raise RuntimeError(f'Several tabs are named {label}; rename all but one.')
+        tab, panes = (named[0] if named else None), cli(herdr, 'pane', 'list', '--workspace', workspace)['panes']
+    else:
+        tab, panes = captain_tab(herdr, workspace, tabs, mode)
     if tab is None:
-        created = cli(herdr, 'tab', 'create', '--workspace', workspace, '--cwd', home, '--label', CAPTAIN_TABS[mode], '--focus')
+        created = cli(herdr, 'tab', 'create', '--workspace', workspace, '--cwd', home, '--label', label, '--focus')
         cli(herdr, 'pane', 'run', created['root_pane']['pane_id'], command)
-        return f'Opened {CAPTAIN_TABS[mode]} and started {mode} in the Firstmate home.'
+        return f'Opened {label} and started {mode} there.'
     cli(herdr, 'workspace', 'focus', workspace)
     cli(herdr, 'tab', 'focus', tab['tab_id'])
     own = [p for p in panes if p['tab_id'] == tab['tab_id']]
     if len(own) == 1 and own[0].get('agent') != mode and idle_shell(herdr, own[0]['pane_id']):
         cli(herdr, 'pane', 'run', own[0]['pane_id'], command)
-        return f'Started {mode} in {tab.get("label") or CAPTAIN_TABS[mode]}.'
-    return f'Focused {tab.get("label") or CAPTAIN_TABS[mode]}; it is already running something, so nothing was typed into it.'
+        return f'Started {mode} in {tab.get("label") or label}.'
+    return f'Focused {tab.get("label") or label}; it is already running something, so nothing was typed into it.'
 
 
 def main(argv):
@@ -111,19 +120,20 @@ def main(argv):
     if not herdr or not home:
         raise RuntimeError('open-firstmate is not configured; run agent-kit repair.')
     if mode == 'mates':
-        tower = setting('TOWER')
-        if not tower:
-            raise RuntimeError('The fleet tower is not installed in this setup, so there is no Team tab to open.')
-        os.execve(tower, [tower, 'open'], {**os.environ, 'HERDR_BIN_PATH': herdr})
-    if mode is None or not agents.get(mode):
+        program, label = setting('MATE'), MATES_TAB
+        if not program:
+            raise RuntimeError('fm-mate is not configured; run agent-kit repair.')
+    elif mode is None or not agents.get(mode):
         raise RuntimeError(f'{mode or "No agent CLI"} is not set up by Agent Kit here; choose ' + ' or '.join(n for n in CAPTAIN_TABS if agents[n]) + '.')
+    else:
+        program, label = agents[mode], CAPTAIN_TABS[mode]
     # A quickly repeated key must not create two coordinator tabs.
     with open(setting('LOCK') or os.devnull, 'a') as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError:
             raise RuntimeError('open-firstmate is already running; try again in a moment.')
-        print(open_captain(herdr, home, mode, agents[mode]))
+        print(open_tab(herdr, home, mode, label, program))
 
 
 if __name__ == '__main__':
