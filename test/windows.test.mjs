@@ -6,7 +6,7 @@ import { join, win32 } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, run } from '../src/kit.mjs';
-import { decodeOutput, inspectWindows, parseWslList, parseWslStatus } from '../src/platforms/windows.mjs';
+import { decodeOutput, inspectWindows, parseWslDistros, parseWslStatus } from '../src/platforms/windows.mjs';
 import { formatWindows, handoffArgv, handoffScript, kitUpstream, linuxPath, powershellCommand, windowsHandoff } from '../src/install/windows.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -15,12 +15,31 @@ const commit = 'c'.repeat(40);
 
 // wsl.exe output as Windows writes it: UTF-16LE with CRLF line endings, optionally with a BOM.
 const utf16 = (text, bom = true) => Buffer.concat([bom ? Buffer.from([0xff, 0xfe]) : Buffer.alloc(0), Buffer.from(text.replace(/\n/g, '\r\n'), 'utf16le')]);
-const listing = rows => `  NAME            STATE           VERSION\n${rows}\n`;
 const noDistros = 'Windows Subsystem for Linux has no installed distributions.\nUse \'wsl.exe --list --online\' to list available distributions\nand \'wsl.exe --install <Distro>\' to install.\n';
 
-function windowsContext({ services = ['WslService'], status = 'Default Distribution: Ubuntu\nDefault Version: 2\n', list = listing('* Ubuntu    Running    2'),
-  listStatus = 0, wslExists = true, virtualization = null, machine = 'x86_64', arch = 'x64', osRelease = '10.0.22631', files = [], env = {} } = {}) {
-  const calls = [];
+// Localized `wsl --list` output. Header and state words differ per display language and can contain
+// spaces; the German and Vietnamese strings are representative, not copied from a real device.
+const locales = {
+  en: { header: '  NAME            STATE           VERSION', Running: 'Running', Stopped: 'Stopped', none: noDistros, noneRunning: 'There are no running distributions.\n' },
+  de: { header: '  NAME                   STATUS            VERSION', Running: 'Wird ausgeführt', Stopped: 'Beendet',
+    none: 'Das Windows-Subsystem für Linux verfügt über keine installierten Distributionen.\n', noneRunning: 'Es werden keine Distributionen ausgeführt.\n' },
+  vi: { header: '  TÊN                    TRẠNG THÁI        PHIÊN BẢN', Running: 'Đang chạy', Stopped: 'Đã dừng',
+    none: 'Hệ thống con Windows dành cho Linux không có bản phân phối nào được cài đặt.\n', noneRunning: 'Không có bản phân phối nào đang chạy.\n' },
+};
+const ubuntu = { name: 'Ubuntu', state: 'Running', version: 2, default: true };
+function wslLists(distros, locale = 'en') {
+  const l = locales[locale], running = distros.filter(d => d.state === 'Running');
+  const names = list => `${list.map(d => d.name).join('\n')}\n`;
+  return {
+    '--quiet': distros.length ? [0, names(distros)] : [-1, l.none],
+    '--running --quiet': running.length ? [0, names(running)] : [-1, l.noneRunning],
+    '--verbose': distros.length ? [0, `${l.header}\n${distros.map(d => `${d.default ? '*' : ' '} ${d.name.padEnd(22)} ${l[d.state].padEnd(17)} ${d.version}`).join('\n')}\n`] : [-1, l.none],
+  };
+}
+
+function windowsContext({ services = ['WslService'], status = 'Default Distribution: Ubuntu\nDefault Version: 2\n', distros = [ubuntu], locale = 'en', lists,
+  wslExists = true, virtualization = null, machine = 'x86_64', arch = 'x64', osRelease = '10.0.22631', files = [], env = {} } = {}) {
+  const calls = [], listed = lists || wslLists(distros, locale);
   const context = {
     platform: 'win32', arch, machine, osRelease, nodeVersion: '24.15.0', calls,
     env: { USERPROFILE: 'C:\\Users\\teammate', SystemRoot: 'C:\\Windows', LOCALAPPDATA: 'C:\\Users\\teammate\\AppData\\Local', ProgramFiles: 'C:\\Program Files', Path: '', ...env },
@@ -30,8 +49,11 @@ function windowsContext({ services = ['WslService'], status = 'Default Distribut
       const name = win32.basename(command).toLowerCase();
       calls.push([name, ...args]);
       if (name === 'reg.exe') return { status: services.some(s => args[1].endsWith(`\\${s}`)) ? 0 : 1, stdout: Buffer.alloc(0) };
-      if (name === 'wsl.exe' && args[0] === '--status') return { status: 0, stdout: typeof status === 'string' ? utf16(status) : status };
-      if (name === 'wsl.exe' && args[0] === '--list') return { status: listStatus, stdout: typeof list === 'string' ? utf16(list) : list };
+      if (name === 'wsl.exe' && args[0] === '--status') return { status: 0, stdout: utf16(status) };
+      if (name === 'wsl.exe' && args[0] === '--list' && listed[args.slice(1).join(' ')]) {
+        const [code, text] = listed[args.slice(1).join(' ')];
+        return { status: code, stdout: utf16(text) };
+      }
       if (name === 'powershell.exe') return virtualization === null ? null : { status: 0, stdout: Buffer.from(`${virtualization}\r\n`) };
       throw new Error(`unexpected command ${name} ${args.join(' ')}`);
     },
@@ -49,17 +71,36 @@ const assertReadOnlyCalls = calls => {
   }
 };
 
-test('wsl.exe output decodes from UTF-16LE with or without a BOM and from UTF-8', () => {
-  const text = listing('* Ubuntu-24.04    Running    2\n  Debian          Stopped    1');
-  for (const encoded of [utf16(text), utf16(text, false), Buffer.from(text.replace(/\n/g, '\r\n'), 'utf8')]) {
-    assert.deepEqual(parseWslList(decodeOutput(encoded)), [
-      { name: 'Ubuntu-24.04', state: 'Running', version: 2, default: true },
-      { name: 'Debian', state: 'Stopped', version: 1, default: false },
-    ]);
+test('wsl.exe output decodes from UTF-16LE with or without a BOM and from UTF-8, in any display language', () => {
+  const distros = [{ name: 'Ubuntu-24.04', state: 'Running', version: 2, default: true }, { name: 'Debian', state: 'Stopped', version: 1, default: false }];
+  for (const locale of ['en', 'de', 'vi']) {
+    const lists = wslLists(distros, locale);
+    const encodings = [text => utf16(text), text => utf16(text, false), text => Buffer.from(text.replace(/\n/g, '\r\n'), 'utf8')];
+    for (const encode of encodings) {
+      const read = key => decodeOutput(encode(lists[key][1]));
+      assert.deepEqual(parseWslDistros({ quiet: read('--quiet'), running: read('--running --quiet'), verbose: read('--verbose') }), distros, locale);
+    }
   }
   assert.deepEqual(parseWslStatus(decodeOutput(utf16('Default Distribution: Ubuntu\nDefault Version: 1\n'))), { defaultVersion: 1, defaultDistro: 'Ubuntu', vmPlatformMissing: false });
-  assert.deepEqual(parseWslList(decodeOutput(utf16(noDistros))), []);
+  assert.deepEqual(parseWslDistros({ quiet: decodeOutput(utf16(noDistros)) }), []);
   assert.equal(decodeOutput(null), '');
+});
+
+test('a running WSL2 distribution is ready on German and Vietnamese Windows', () => {
+  for (const locale of ['de', 'vi']) {
+    const context = windowsContext({ locale, status: '', distros: [ubuntu, { name: 'Debian', state: 'Stopped', version: 1, default: false }] });
+    const platform = inspectWindows(context);
+    assert.equal(platform.ready, true, locale);
+    assert.deepEqual(platform.wsl.target, ubuntu);
+    assert.deepEqual(platform.steps, []);
+    assertReadOnlyCalls(context.calls);
+    const none = inspectWindows(windowsContext({ locale, status: '', distros: [] }));
+    assert.equal(prereq(none, 'wsl-distro').status, 'fail');
+    assert.deepEqual(none.steps.map(x => x.command), ['wsl --install -d Ubuntu']);
+  }
+  const unreadable = inspectWindows(windowsContext({ lists: { ...wslLists([ubuntu]), '--verbose': [-1, ''] } }));
+  assert.equal(prereq(unreadable, 'wsl-distro').status, 'unknown');
+  assert.equal(unreadable.ready, false);
 });
 
 test('no WSL: guides the admin install and reboot, hints at virtualization, never runs wsl.exe', () => {
@@ -85,7 +126,7 @@ test('no WSL: guides the admin install and reboot, hints at virtualization, neve
 });
 
 test('WSL1 default with a WSL1 distro: set the default and convert the distro, no admin', () => {
-  const context = windowsContext({ status: 'Default Distribution: Ubuntu\nDefault Version: 1\n', list: listing('* Ubuntu    Stopped    1') });
+  const context = windowsContext({ status: 'Default Distribution: Ubuntu\nDefault Version: 1\n', distros: [{ ...ubuntu, state: 'Stopped', version: 1 }] });
   const platform = inspectWindows(context);
   assert.equal(platform.ready, false);
   assert.equal(prereq(platform, 'wsl2-default').status, 'fail');
@@ -95,14 +136,14 @@ test('WSL1 default with a WSL1 distro: set the default and convert the distro, n
 });
 
 test('WSL2 with no distribution: install one, and ignore docker-desktop', () => {
-  for (const [list, listStatus] of [[noDistros, -1], [listing('* docker-desktop    Running    2'), 0]]) {
-    const platform = inspectWindows(windowsContext({ status: 'Default Version: 2\n', list, listStatus }));
+  for (const distros of [[], [{ ...ubuntu, name: 'docker-desktop' }]]) {
+    const platform = inspectWindows(windowsContext({ status: 'Default Version: 2\n', distros }));
     assert.equal(platform.ready, false);
     assert.equal(prereq(platform, 'wsl2-default').status, 'pass');
     assert.equal(prereq(platform, 'wsl-distro').status, 'fail');
     assert.deepEqual(platform.steps.map(x => [x.command, x.admin, x.reboot]), [['wsl --install -d Ubuntu', false, false]]);
   }
-  const vm = inspectWindows(windowsContext({ status: 'WSL2 is not supported with your current machine configuration.\nPlease enable the "Virtual Machine Platform" optional component.\n', list: noDistros, listStatus: -1 }));
+  const vm = inspectWindows(windowsContext({ status: 'WSL2 is not supported with your current machine configuration.\nPlease enable the "Virtual Machine Platform" optional component.\n', distros: [] }));
   assert.deepEqual(vm.steps.map(x => [x.command, x.admin, x.reboot]), [['wsl --install --no-distribution', true, true], ['wsl --install -d Ubuntu', false, false]]);
 });
 
@@ -111,7 +152,7 @@ test('WSL2 ready: plan targets Linux artifacts, Linux-side paths and prints the 
   t.after(() => rmSync(home, { recursive: true, force: true }));
   const chrome = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
   const wt = 'C:\\Users\\teammate\\AppData\\Local\\Microsoft\\WindowsApps\\wt.exe';
-  const context = windowsContext({ status: 'Default Distribution: Ubuntu-24.04\nDefault Version: 1\n', list: listing('* Ubuntu-24.04    Running    2\n  docker-desktop    Stopped    2'),
+  const context = windowsContext({ status: 'Default Distribution: Ubuntu-24.04\nDefault Version: 1\n', distros: [{ ...ubuntu, name: 'Ubuntu-24.04' }, { name: 'docker-desktop', state: 'Stopped', version: 2, default: false }],
     files: [chrome, wt], env: { HOME: home } });
   const result = run(['plan', '--json', '--harness', 'codex', '--install-root', '~/.agent-kit', '--firstmate-home', '~/firstmate'], manifest, context);
   const { platform, plan } = result.result;
@@ -164,10 +205,14 @@ test('old Windows builds are refused with an update step', () => {
 test('handoff command construction keeps Linux paths, pins the kit commit and quotes for PowerShell', () => {
   const argv = handoffArgv({ distro: 'Ubuntu', commit, installRoot: '~/.agent-kit', firstmateHome: '/home/me/firstmate', harness: 'claude', withFigma: true });
   assert.deepEqual(argv, ['-d', 'Ubuntu', '--exec', 'bash', '-l', '-c', handoffScript, 'agent-kit-handoff', commit, '~/.agent-kit', '/home/me/firstmate', '--harness', 'claude', '--with-figma']);
-  assert.ok(!/["'\n]/.test(handoffScript), 'script must paste inside PowerShell single quotes');
-  assert.ok(handoffScript.includes(`fetch -q --depth 1 ${kitUpstream} $commit`));
-  assert.ok(!/\/mnt\/|[A-Za-z]:\\|USERPROFILE|credential|token/i.test(handoffScript));
-  assert.equal(powershellCommand(argv), `wsl.exe -d Ubuntu --exec bash -l -c '${handoffScript}' agent-kit-handoff ${commit} '~/.agent-kit' /home/me/firstmate --harness claude --with-figma`);
+  // The printed command must read back, under PowerShell single-quote rules, as exactly this argv, on one
+  // pasteable line, with `~` quoted and no double quotes, which Windows PowerShell 5.1 mangles for native commands.
+  const command = powershellCommand(argv);
+  const psTokens = [...command.matchAll(/'((?:[^']|'')*)'|(\S+)/g)].map(m => m[1] !== undefined ? m[1].replace(/''/g, "'") : m[2]);
+  assert.deepEqual(psTokens, ['wsl.exe', ...argv]);
+  assert.equal(command.split('\n').length, 1);
+  assert.ok(!command.includes('"'));
+  assert.ok(command.includes(" '~/.agent-kit' "));
   for (const bad of ['C:\\Users\\me\\kit', '/mnt/c/Users/me/kit', '~/a b', '/home/me/../kit', 'relative/kit', '~/kit/', '~/$(id)', '/home/me/kit;rm']) {
     assert.throws(() => linuxPath(bad, '--install-root'), /Linux path|Linux filesystem/, bad);
   }
@@ -229,7 +274,7 @@ test('Windows arguments: --handoff and --distro are Windows-only, paths must be 
   assert.throws(() => parseArgs(['check', '--distro', 'Ubuntu'], 'linux'), /only on Windows/);
   assert.throws(() => parseArgs(['plan', '--install-root', 'C:\\kit'], 'win32'), /Linux path/);
   assert.throws(() => parseArgs(['plan', '--install-root', '~/kit'], 'darwin'), /absolute/);
-  const distro = inspectWindows(windowsContext({ list: listing('* Ubuntu    Running    2\n  Debian    Stopped    2') }), { distro: 'Debian' });
+  const distro = inspectWindows(windowsContext({ distros: [ubuntu, { name: 'Debian', state: 'Stopped', version: 2, default: false }] }), { distro: 'Debian' });
   assert.equal(distro.wsl.target.name, 'Debian');
   const missing = inspectWindows(windowsContext(), { distro: 'Fedora' });
   assert.equal(prereq(missing, 'wsl-distro').status, 'fail');

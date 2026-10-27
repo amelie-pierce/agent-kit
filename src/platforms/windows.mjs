@@ -32,12 +32,20 @@ export function parseWslStatus(text) {
   return { defaultVersion, defaultDistro, vmPlatformMissing: /Virtual Machine Platform/i.test(text) };
 }
 
-// `wsl --list --verbose`: a localized header line, then `[*] NAME STATE VERSION` rows.
-export function parseWslList(text) {
-  return text.split('\n').filter(line => line.trim()).slice(1).flatMap(line => {
-    const row = line.match(/^\s*(\*)?\s*([A-Za-z0-9._-]+)\s+(\S+)\s+([12])\s*$/);
-    return row ? [{ name: row[2], state: row[3], version: Number(row[4]), default: Boolean(row[1]) }] : [];
-  });
+// `wsl --list --quiet` prints one distribution name per line and nothing else.
+export function parseWslNames(text) {
+  return [...new Set(text.split('\n').map(line => line.trim()).filter(line => /^[A-Za-z0-9._-]+$/.test(line)))];
+}
+
+// Headers and state words in `wsl --list --verbose` are localized and may contain spaces, so a row is
+// recognised only by a known name after the optional `*` default marker and the version digit at its end.
+export function parseWslDistros({ quiet = '', running = '', verbose = '' }) {
+  const names = parseWslNames(quiet), active = new Set(parseWslNames(running)), rows = new Map();
+  for (const line of verbose.split('\n')) {
+    const row = line.match(/^\s*(\*)?\s*(\S+)\s+(?:.*\s)?([12])\s*$/);
+    if (row && names.includes(row[2]) && !rows.has(row[2])) rows.set(row[2], { version: Number(row[3]), default: Boolean(row[1]) });
+  }
+  return names.map(name => ({ name, state: active.has(name) ? 'Running' : 'Stopped', version: rows.get(name)?.version ?? null, default: rows.get(name)?.default ?? false }));
 }
 
 function defaultRun(command, args, env, timeout = 10000) {
@@ -101,7 +109,7 @@ function inspectBrowser(context) {
 const installStep = { id: 'install-wsl', command: 'wsl --install -d Ubuntu', admin: true, reboot: true,
   note: 'open PowerShell with Run as administrator; after the restart, open Ubuntu once to create your Linux user.' };
 
-// Read-only: queries the service registry, `wsl --status` and `wsl --list --verbose`. It never enables
+// Read-only: queries the service registry, `wsl --status` and `wsl --list` (--quiet, --running, --verbose). It never enables
 // features, installs distributions, starts a distribution or asks for elevation.
 export function inspectWindows(context, options = {}) {
   const env = context.env || {};
@@ -129,11 +137,12 @@ export function inspectWindows(context, options = {}) {
   } else {
     prerequisites.push({ id: 'wsl', status: 'pass', detail: `${wslPath} (${service})` });
     const status = parseWslStatus(decodeOutput(run(wslPath, ['--status'])?.stdout));
-    const listed = run(wslPath, ['--list', '--verbose']);
-    const all = listed?.status === 0 ? parseWslList(decodeOutput(listed.stdout)) : [];
+    // Each list command exits nonzero when it has nothing to report (no distributions, none running).
+    const list = args => { const result = run(wslPath, ['--list', ...args]); return result?.status === 0 ? decodeOutput(result.stdout) : ''; };
+    const all = parseWslDistros({ quiet: list(['--quiet']), running: list(['--running', '--quiet']), verbose: list(['--verbose']) });
     const ignored = all.filter(d => /^docker-desktop/i.test(d.name));
     Object.assign(wsl, status, { distros: all.filter(d => !ignored.includes(d)), ignored: ignored.map(d => d.name) });
-    const fallbackDefault = wsl.distros.find(d => d.default) || (wsl.distros.length === 1 ? wsl.distros[0] : null);
+    const fallbackDefault = wsl.distros.find(d => d.default) || wsl.distros.find(d => d.name === wsl.defaultDistro) || (wsl.distros.length === 1 ? wsl.distros[0] : null);
     wsl.target = options.distro ? all.find(d => d.name === options.distro) || null : fallbackDefault;
     const target = wsl.target;
 
@@ -156,6 +165,8 @@ export function inspectWindows(context, options = {}) {
       const why = wsl.distros.length ? `no default distribution among ${wsl.distros.map(d => d.name).join(', ')}; pass --distro <name>` : 'no Linux distribution is installed';
       prerequisites.push({ id: 'wsl-distro', status: 'fail', detail: why });
       if (!wsl.distros.length) steps.push({ id: 'install-distro', command: 'wsl --install -d Ubuntu', admin: false, reboot: false, note: 'open Ubuntu once afterwards to create your Linux user.' });
+    } else if (target.version === null) {
+      prerequisites.push({ id: 'wsl-distro', status: 'unknown', detail: `WSL version of ${target.name} could not be read from wsl --list --verbose` });
     } else if (target.version !== 2) {
       prerequisites.push({ id: 'wsl-distro', status: 'fail', detail: `${target.name} uses WSL1; the kit needs WSL2` });
       steps.push({ id: 'convert-distro', command: `wsl --set-version ${target.name} 2`, admin: false, reboot: false, note: 'conversion can take several minutes and keeps the distribution files.' });
