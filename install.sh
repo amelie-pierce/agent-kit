@@ -108,7 +108,7 @@ if [ "$reconfigure_keys" = 1 ]; then
   [ -n "$kit_commit" ] || die 'receipt has no installed kit commit'
   kit_bin="${install_root:-$root_path/.tools}/kit/$kit_commit/bin/agent-kit.mjs"
   [ -f "$kit_bin" ] || die 'installed kit command is missing; run agent-kit repair'
-  [ -f "${kit_bin%/bin/agent-kit.mjs}/src/keys.mjs" ] || die "the installed kit predates the keys command; upgrade it first with: node \"$kit_bin\" upgrade --root \"$root_path\" (or rerun bash install.sh), then rerun --reconfigure keys"
+  [ -f "${kit_bin%/bin/agent-kit.mjs}/src/keys.mjs" ] || die "the installed kit predates the keys command; upgrade it first with: node \"$kit_bin\" upgrade --install-root \"${install_root:-$root_path/.tools}\" (or rerun bash install.sh), then rerun --reconfigure keys"
   key_args=()
   [ "$yes" = 0 ] || key_args+=(--yes)
   exec node "$kit_bin" keys --install-root "${install_root:-$root_path/.tools}" ${key_args[@]+"${key_args[@]}"}

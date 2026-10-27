@@ -179,6 +179,15 @@ test('setup writes only the optional key typed at the hidden prompt and records 
   assert.throws(() => parseSetupArgs(['--typesafe-key-env']), /unknown|not/i);
 });
 
+test('the add-later key hint keeps a custom install root and pastes as shell arguments', posixOnly, async t => {
+  const f = fixture(t), root = join(f.base, "Agent ic's"), installRoot = join(f.base, 'custom tools');
+  const c = f.ctx(['--yes', '--dry-run', '--root', root, '--install-root', installRoot]);
+  assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+  const hint = c.text.match(/hidden prompt: bash install\.sh (.*)$/m)[1];
+  const args = spawnSync('/bin/sh', ['-c', `printf '%s\\n' ${hint}`], { encoding: 'utf8' }).stdout.split('\n').slice(0, -1);
+  assert.deepEqual(args, ['--reconfigure', 'keys', '--root', root, '--install-root', installRoot]);
+});
+
 test('scripted answers drive every prompt; nothing is written before yes; answers are saved without secrets', posixOnly, async t => {
   const f = fixture(t);
   const kit = kitCheckout(t, f.base);

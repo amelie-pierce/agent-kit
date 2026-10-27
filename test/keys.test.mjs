@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
@@ -98,11 +98,17 @@ test('install.sh --reconfigure keys routes to the installed command without GitH
   assert.equal(existsSync(f.envPath), false);
 });
 
-test('install.sh --reconfigure keys asks for an upgrade when the installed kit predates the keys command', t => {
+test('install.sh --reconfigure keys asks for an upgrade of the receipt it read when the installed kit predates the keys command', t => {
   const f = fixture(t);
   installedKit(f, { withKeys: false });
-  const run = installSh(f, []);
+  const custom = join(f.base, 'custom tools');
+  renameSync(f.tools, custom);
+  const run = installSh(f, ['--install-root', custom]);
   assert.notEqual(run.status, 0);
   assert.match(run.stderr, /predates the keys command; upgrade it first/);
   assert.doesNotMatch(run.stdout, /^keys /m);
+  const hint = run.stderr.match(/upgrade it first with: (node .*?) \(or rerun/)[1];
+  const upgrade = spawnSync('bash', ['-c', hint], { encoding: 'utf8' });
+  assert.equal(upgrade.stdout, `upgrade --install-root ${custom}\n`);
+  assert.ok(existsSync(join(custom, 'receipt.json')));
 });
