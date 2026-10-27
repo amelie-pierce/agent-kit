@@ -1,0 +1,23 @@
+manifests/pilot-skeleton.json
+  s_be93375429f397::t_70393acc99e01c 3
+test/lifecycle.test.mjs
+  s_be93375429f397::t_a2647d9811e378 348-377
+README.md
+  s_be93375429f397::t_70393acc99e01c 183,269,281
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eeea40ddcee2691917a8b962119698cec2884181",
+  "prompts": {},
+  "sessions": {
+    "s_be93375429f397": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17c4f-e60e-7df3-be8b-6d27bef7ae56",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
