@@ -63,11 +63,17 @@ if ($dryRun) { Say '  -DryRun: Windows and WSL2 are checked and the handoff comm
 
 $wsl = Join-Path $env:SystemRoot 'System32\wsl.exe'
 $saved = $null
+# The receipt path for --root or --install-root, read from the WSL home: sh never expands ~ in $1, so ~ and ~/ become relative to it.
+function Get-ReceiptPath([string]$Root, [string]$InstallRoot) {
+  $chosen = if ($InstallRoot) { $InstallRoot } else { $Root }
+  $base = if ($chosen -eq '~') { '.' } elseif ($chosen.StartsWith('~/')) { $chosen.Substring(2) } else { $chosen }
+  if ($InstallRoot) { return "$base/receipt.json" }
+  return "$base/.tools/receipt.json"
+}
 # Reads the receipt at the chosen root inside WSL; $null when there is none.
 function Read-Receipt {
   if (-not (Test-Path -LiteralPath $wsl)) { return $null }
-  $base = if ($installRoot) { $installRoot } elseif ($root -eq '~') { '.' } elseif ($root.StartsWith('~/')) { $root.Substring(2) } else { $root }
-  $path = if ($installRoot) { "$base/receipt.json" } else { "$base/.tools/receipt.json" }
+  $path = Get-ReceiptPath $root $installRoot
   $target = if ($distro) { @('-d', $distro) } else { @() }
   $read = Invoke-Native $wsl ($target + @('--exec', 'sh', '-c', 'set -f; IFS=; cd || exit 1; cat -- $1', 'agent-kit', $path))
   if ($read.Code -ne 0) { return $null }

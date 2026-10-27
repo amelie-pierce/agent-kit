@@ -82,6 +82,17 @@ test('setup flags validate values and refuse contradictions', () => {
     [['--starter-mate', 'mate', '--no-starter-mate'], /conflict/]]) assert.throws(() => parseSetupArgs(argv), message, argv.join(' '));
 });
 
+test('setup refuses the Windows-only --distro and --handoff off Windows, like the CLI', posixOnly, async t => {
+  for (const platform of ['darwin', 'linux'])
+    for (const argv of [['--distro', 'Ubuntu'], ['--handoff'], ['--yes', '--distro', 'Ubuntu', '--handoff']])
+      assert.throws(() => parseSetupArgs(argv, platform), /--handoff and --distro apply only on Windows/, `${platform} ${argv.join(' ')}`);
+  assert.deepEqual(parseSetupArgs(['--distro', 'Ubuntu', '--handoff'], 'win32'), { distro: 'Ubuntu', handoff: true });
+  const f = fixture(t);
+  const c = f.ctx(['--yes', '--dry-run', '--root', f.root, '--distro', 'Ubuntu']);
+  await assert.rejects(setup(f.fixtureManifest, c), /--handoff and --distro apply only on Windows/);
+  assert.equal(existsSync(f.root), false);
+});
+
 test('root folder refusals: home, its parents, system locations, Windows drives, existing homes and checkouts', posixOnly, t => {
   const f = fixture(t);
   const check = (root, extra = {}) => checkRoot(root, { home: f.home, platform: 'linux', installRoot: join(root, '.tools'), firstmateHome: join(root, 'firstmate'), ...extra });

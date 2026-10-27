@@ -47,7 +47,7 @@ export const validators = {
   channel: value => ['releases', 'main'].includes(value) ? value : (() => { throw new Error('--channel must be releases or main'); })(),
 };
 
-export function parseSetupArgs(argv) {
+export function parseSetupArgs(argv, platform = process.platform) {
   const flags = {};
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -61,6 +61,7 @@ export function parseSetupArgs(argv) {
     if (flags[a] !== undefined && flags[b] !== undefined) throw new Error(`--${a} and --${b} conflict`);
   if (flags['starter-scope'] !== undefined && flags['no-starter-mate']) throw new Error('--starter-scope conflicts with --no-starter-mate');
   if (flags.handoff && flags['dry-run']) throw new Error('--handoff applies only without --dry-run');
+  if ((flags.handoff || flags.distro !== undefined) && platform !== 'win32') throw new Error('--handoff and --distro apply only on Windows');
   if (flags['kit-commit'] !== undefined && !/^[a-f0-9]{40}$/.test(flags['kit-commit'])) throw new Error('--kit-commit must be a full commit SHA');
   if (flags.harness !== undefined) flags.harness = validators.harness(flags.harness);
   if (flags['github-owner'] !== undefined) validators.githubOwner(flags['github-owner']);
@@ -400,7 +401,7 @@ function seedStarter(answer, paths, env, releaseBin) {
 }
 
 export async function setup(manifest, ctx) {
-  const { platform, output } = ctx, flags = parseSetupArgs(ctx.argv);
+  const { platform, output } = ctx, flags = parseSetupArgs(ctx.argv, platform);
   const env = { ...ctx.env };
   delete env.TYPESAFE_API_KEY; // Never pass the key to installer child processes.
   const home = env.HOME;
@@ -553,7 +554,7 @@ export const setupHandoffScript = [
 ].join('; ');
 
 export function windowsSetup(argv, context) {
-  const flags = parseSetupArgs(argv);
+  const flags = parseSetupArgs(argv, 'win32');
   for (const flag of ['kit-dir', 'kit-commit']) if (flags[flag] !== undefined) throw new Error(`--${flag} is set by install.sh; on Windows the kit commit comes from this checkout`);
   for (const flag of ['root', 'install-root', 'firstmate-home']) if (flags[flag] !== undefined) linuxPath(flags[flag], `--${flag}`);
   const passthrough = [];
