@@ -1,0 +1,41 @@
+src/update.mjs
+  s_acd09e1cfaf11b::t_118004643adbe0 9,79-85
+src/setup.mjs
+  s_acd09e1cfaf11b::t_1630be9c92c0ed 26-28,41-42,68,236-243,249-250,304-306
+  s_acd09e1cfaf11b::t_118004643adbe0 22,540-542
+src/shortcuts.mjs
+  s_acd09e1cfaf11b::t_3470d9718d62ec 354,360,363,369,415-417,424,561-583
+  s_acd09e1cfaf11b::t_cfa0b0522b9051 529-530
+  s_acd09e1cfaf11b::t_334949f253ae5f 170,178-179
+  s_acd09e1cfaf11b::t_45bb691b6ce51e 353,370-374,411-414,423
+  s_acd09e1cfaf11b::t_0a6106852947b5 480-528,531-560,584
+src/jev.mjs
+  s_acd09e1cfaf11b::t_4dc93d0f681dae 1-46
+src/keys.mjs
+  s_acd09e1cfaf11b::t_607e25fe47c394 11-12,54-60,62,69-74,77-78,96
+bin/agent-kit.mjs
+  s_acd09e1cfaf11b::t_4dc93d0f681dae 33-37
+src/lifecycle.mjs
+  s_acd09e1cfaf11b::t_118004643adbe0 118
+templates/firstmate/captain-help.md
+  s_acd09e1cfaf11b::t_ffcca25360c07b 1-31
+test/setup.test.mjs
+  s_acd09e1cfaf11b::t_cef05842a2a9db 243,247-248,366
+  s_acd09e1cfaf11b::t_47a3bfe1d07efe 313,327-328
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6ba0ab68cc2c695bdc9d4ba5e769e61bf9c26915",
+  "prompts": {},
+  "sessions": {
+    "s_acd09e1cfaf11b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a5482aa-55d9-4866-b542-09bfa9383265",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
