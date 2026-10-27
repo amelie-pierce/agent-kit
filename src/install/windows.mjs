@@ -9,7 +9,7 @@ export const defaultLinuxFirstmateHome = '~/firstmate';
 // Linux-side paths only: absolute or `~/` (expanded by bash inside WSL), plain characters, and never a
 // Windows drive mount, so Windows and Linux files and credential stores stay separate.
 export function linuxPath(value, flag) {
-  if (!/^(\/|~\/)[A-Za-z0-9._/-]*[A-Za-z0-9._-]$/.test(value || '') || value.split('/').some(part => part === '..' || part === '.')) {
+  if (!/^(\/|~\/)[A-Za-z0-9._/-]*[A-Za-z0-9._-]$/.test(value || '') || value.split('/').slice(1).some(part => part === '' || part === '..' || part === '.')) {
     throw new Error(`${flag} on Windows must be a Linux path inside WSL, such as ~/.agent-kit or /home/<you>/firstmate, using letters, digits, ., _, - and /`);
   }
   if (/^\/mnt(\/|$)/.test(value)) throw new Error(`${flag} must stay on the Linux filesystem, not a Windows drive under /mnt`);

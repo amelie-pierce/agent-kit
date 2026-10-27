@@ -213,7 +213,7 @@ test('handoff command construction keeps Linux paths, pins the kit commit and qu
   assert.equal(command.split('\n').length, 1);
   assert.ok(!command.includes('"'));
   assert.ok(command.includes(" '~/.agent-kit' "));
-  for (const bad of ['C:\\Users\\me\\kit', '/mnt/c/Users/me/kit', '~/a b', '/home/me/../kit', 'relative/kit', '~/kit/', '~/$(id)', '/home/me/kit;rm']) {
+  for (const bad of ['C:\\Users\\me\\kit', '/mnt/c/Users/me/kit', '//mnt/c/kit', '/mnt//c/kit', '~//mnt', '~/a b', '/home/me/../kit', 'relative/kit', '~/kit/', '~/$(id)', '/home/me/kit;rm']) {
     assert.throws(() => linuxPath(bad, '--install-root'), /Linux path|Linux filesystem/, bad);
   }
   assert.throws(() => handoffArgv({ distro: 'Ubuntu; calc', commit, installRoot: '~/k', firstmateHome: '~/f' }), /distribution/);
