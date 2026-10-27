@@ -277,7 +277,7 @@ test('install dry-run plans the selected root and stays read-only', t => {
   assert.equal(result.result.plan.tools.find(x => x.id === 'zoe-fleet-runtime').installLocation, join(installRoot, 'releases', manifest.release, 'zoe-fleet-runtime'));
   const digest = createHash('sha256').update(firstmateHome).digest('hex').slice(0, 12);
   assert.deepEqual(result.result.plan.towerConfig, { firstmateHome, config: join(home, '.config', 'zoe-fleet', 'config'), state: join(home, '.local', 'state', 'zoe-fleet', digest) });
-  assert.match(run(['install', '--dry-run', '--install-root', installRoot, '--firstmate-home', firstmateHome], manifest, context).output, /Tower launcher configuration .*\n- .*zoe-fleet\/config: FM_HOME /);
+  assert.match(run(['install', '--dry-run', '--install-root', installRoot, '--firstmate-home', firstmateHome], manifest, context).output, /Tower launcher configuration .*\n- .*zoe-fleet[\\/]config: FM_HOME /);
   const linux = run(['plan', '--json', '--install-root', installRoot, '--firstmate-home', firstmateHome], manifest, { ...context, platform: 'linux', arch: 'x64', libc: 'glibc', osRelease: 'ID=ubuntu\n', procVersion: 'Linux' });
   assert.equal(linux.result.plan.tools.find(x => x.id === 'zoe-fleet').installLocation, join(installRoot, 'releases', manifest.release, 'zoetrope', 'bin', 'zoe-fleet'));
   assert.equal(linux.result.plan.towerConfig, null);
