@@ -63,5 +63,8 @@ if (-not [version]::TryParse(($reported -replace '^v', ''), [ref]$parsed) -or $p
 }
 Say "Node.js $reported at $($node.Source)"
 
-& $node.Source $cli @cliArgs
+# pwsh 7.5+ expands a leading ~ in variable arguments to native commands into the Windows profile path,
+# which would turn the Linux path ~/.agent-kit into C:\Users\...; single-quoted literals are passed as is.
+$quoted = $cliArgs | ForEach-Object { "'" + ($_ -replace '[''\u2018\u2019\u201A\u201B]', '$0$0') + "'" }
+& ([scriptblock]::Create("& `$node.Source `$cli $quoted"))
 exit $LASTEXITCODE
