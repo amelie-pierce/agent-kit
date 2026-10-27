@@ -793,6 +793,42 @@ test('Linux keeps the source-built tower and has no fleet runtime pin', { skip: 
   assert.equal(existsSync(join(f.home, '.config')), false);
 });
 
+test('Linux rerun over an older source-built tower reports a tower conflict and completes other phases', { skip: process.platform === 'win32' }, async t => {
+  const f = firstmateFixture(t);
+  f.fixtureManifest.tools[0].artifacts['linux-arm64'] = { ...f.fixtureManifest.tools[0].artifacts['darwin-arm64'] };
+  const tower = f.tool('zoe-fleet');
+  tower.artifacts['linux-arm64'] = { ...tower.artifacts['darwin-arm64'], kind: 'source-archive' };
+  tower.version.value = 'a8c495a887ed78308f7c682c5d194835e7094b05';
+  const axi = ['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi'];
+  f.fixtureManifest.tools.push(tower, ...axi.map(id => structuredClone(manifest.tools.find(x => x.id === id))));
+  let builds = 0;
+  f.options = { ...f.options, platform: 'linux', libc: 'glibc', env: {}, runCargo: async (_stage, target) => {
+    builds++;
+    mkdirSync(join(target, 'release'), { recursive: true });
+    writeFileSync(join(target, 'release', 'zoe'), 'fixture tower', { mode: 0o755 });
+  }, runNpm: async stage => {
+    const bins = join(stage, 'node_modules', '.bin');
+    mkdirSync(bins, { recursive: true });
+    for (const id of axi) {
+      const skill = id === 'lavish-axi' ? 'lavish' : id;
+      mkdirSync(join(stage, 'node_modules', id, 'skills', skill), { recursive: true });
+      writeFileSync(join(stage, 'node_modules', id, 'skills', skill, 'SKILL.md'), `---\nname: ${skill}\ndescription: fixture\n---\n`);
+      writeFileSync(join(bins, id), 'fixture', { mode: 0o755 });
+    }
+  } };
+  const first = await installPlatform(f.fixtureManifest, f.options);
+  assert.deepEqual(first.components.map(x => [x.id, x.status]), [['firstmate', 'installed'], ['zoe-fleet', 'installed'], ['npm', 'installed'], ['hooks', 'installed']]);
+  tower.version.value = manifest.tools.find(x => x.id === 'zoe-fleet').version.value;
+  const second = await installPlatform(f.fixtureManifest, f.options);
+  assert.equal(builds, 1);
+  assert.deepEqual(second.components.map(x => [x.id, x.status]), [['firstmate', 'skipped'], ['zoe-fleet', 'conflict'], ['npm', 'skipped'], ['hooks', 'skipped']]);
+  assert.equal(second.components[1].reason, 'older tower build present; an explicit update is needed (planned)');
+  assert.equal(second.towerParity, 'conflict: older tower build present; an explicit update is needed (planned)');
+  assert.equal(second.status, 'partial');
+  assert.deepEqual(readdirSync(join(f.installRoot, 'releases', f.fixtureManifest.release, 'staging')).filter(name => !name.endsWith('.artifact')), []);
+  assert.equal(JSON.parse(readFileSync(second.receipt)).phases['zoe-fleet'].version, 'a8c495a887ed78308f7c682c5d194835e7094b05');
+});
+
 test('Firstmate rerun skips after untracked local settings appear', async t => {
   const f = firstmateFixture(t);
   assert.equal((await installPlatform(f.fixtureManifest, f.options)).components[0].status, 'installed');

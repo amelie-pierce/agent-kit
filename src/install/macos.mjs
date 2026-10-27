@@ -374,6 +374,12 @@ export async function installPlatform(manifest, options = {}) {
         components.push({ id: tool.id, status: 'skipped', reason: 'receipt and owned files match' });
         continue;
       }
+      const sourceTower = ownedPath(root, 'releases', release, 'zoetrope');
+      if (tool.id === 'zoe-fleet' && !towerRelease(tool, a) && await exists(sourceTower)) {
+        const older = receipt.phases[tool.id]?.path === relative(root, sourceTower) && receipt.phases[tool.id].version !== tool.version.value;
+        components.push({ id: tool.id, status: 'conflict', reason: older ? 'older tower build present; an explicit update is needed (planned)' : 'zoetrope build exists without matching receipt; left unchanged' });
+        continue;
+      }
       const filename = `${tool.id}-${a.sha256}.artifact`;
       const artifactPath = ownedPath(root, 'releases', release, 'staging', filename);
       if (await exists(artifactPath)) {
@@ -431,15 +437,13 @@ export async function installPlatform(manifest, options = {}) {
       } else {
         const cargo = options.cargoCommand || 'cargo';
         const stage = ownedPath(root, 'releases', release, 'staging', `zoetrope-${randomUUID()}`);
-        await mkdir(stage, { recursive: true, mode: 0o700 });
-        await unpackTrackedSource(artifactPath, stage);
-        const destSource = ownedPath(root, 'releases', release, 'zoetrope');
-        if (await exists(destSource)) throw new Error('zoetrope build exists without matching receipt');
         const target = ownedPath(root, 'releases', release, 'staging', `cargo-target-${randomUUID()}`);
-        const cargoHomeState = await exists(join(root, 'cargo-home'));
-        if (cargoHomeState && !cargoHomeState.isDirectory()) throw new Error('kit cargo home is not a directory');
         let built = false;
         try {
+          await mkdir(stage, { recursive: true, mode: 0o700 });
+          await unpackTrackedSource(artifactPath, stage);
+          const cargoHomeState = await exists(join(root, 'cargo-home'));
+          if (cargoHomeState && !cargoHomeState.isDirectory()) throw new Error('kit cargo home is not a directory');
           await (options.runCargo || (async () => exec(cargo, ['build', '--locked', '--release', '--bin', 'zoe'], {
             cwd: stage, env: { ...toolEnv(options.home, root), CARGO_HOME: join(root, 'cargo-home'), CARGO_TARGET_DIR: target },
             timeout: 900000, maxBuffer: 65536,
@@ -448,11 +452,11 @@ export async function installPlatform(manifest, options = {}) {
           const stagedBinary = join(stage, 'bin', 'zoe-fleet');
           await mkdir(dirname(stagedBinary), { recursive: true, mode: 0o700 });
           await writeFile(stagedBinary, binary, { mode: 0o755 });
-          await mkdir(dirname(destSource), { recursive: true, mode: 0o700 });
+          await mkdir(dirname(sourceTower), { recursive: true, mode: 0o700 });
           const digest = await hashTree(stage);
-          receipt.phases[tool.id] = { state: 'pending', version: tool.version.value, artifactSha256: a.sha256, path: relative(root, destSource), ownedSha256: digest };
+          receipt.phases[tool.id] = { state: 'pending', version: tool.version.value, artifactSha256: a.sha256, path: relative(root, sourceTower), ownedSha256: digest };
           await save();
-          await rename(stage, destSource);
+          await rename(stage, sourceTower);
           receipt.phases[tool.id].state = 'complete';
           await save();
           components.push({ id: tool.id, status: 'installed', reason: 'pinned source built with cargo --locked' });
@@ -490,7 +494,8 @@ export async function installPlatform(manifest, options = {}) {
       }
     }
     const towerLauncher = ok('zoe-fleet-tower') ? ownedPath(root, 'releases', release, 'zoe-fleet-runtime', 'bin', 'zoe-fleet-tower') : null;
-    const towerParity = towerReleased && towerLauncher ? 'installed from verified release; hands-on acceptance pending (Zoetrope Phase B)'
+    const towerConflict = components.find(x => x.id === 'zoe-fleet' && x.status === 'conflict');
+    const towerParity = towerConflict ? `conflict: ${towerConflict.reason}` : towerReleased && towerLauncher ? 'installed from verified release; hands-on acceptance pending (Zoetrope Phase B)'
       : towerReleased ? 'release binary installed; fleet runtime or launcher configuration incomplete'
         : ok('zoe-fleet') ? 'packaged but fleet manifest and launcher unverified' : 'unavailable';
     // A selected tower keeps the result partial until hands-on acceptance establishes full parity.
