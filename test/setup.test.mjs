@@ -155,6 +155,16 @@ test('--yes --dry-run without a terminal uses the defaults, prints the summary a
   assert.equal(f.downloads.length, 0);
 });
 
+test('the summary lists exactly the Herdr keys the kit will bind, by the placement rules', posixOnly, async t => {
+  const f = fixture(t);
+  const c = f.ctx(['--yes', '--dry-run', '--harness', 'claude', '--no-tower', '--root', f.root]);
+  assert.equal(await setup(f.fixtureManifest, c), 0);
+  const line = c.text.split('\n').find(l => l.includes('agent-kit keys block'));
+  assert.ok(line, c.text);
+  assert.match(line, /\(prefix\+f open-firstmate claude, prefix\+shift\+m open-firstmate mates;/, 'the mates key is bound even with the tower off');
+  assert.doesNotMatch(line, /prefix\+shift\+f|prefix\+shift\+c|prefix\+m /, 'no Codex key, and no plugin keys for plugins not registered');
+});
+
 const keyInstall = async (_manifest, options) => {
   assert.equal(options.env.TYPESAFE_API_KEY, undefined, 'install child environment is sanitized');
   mkdirSync(options.firstmateHome, { recursive: true });

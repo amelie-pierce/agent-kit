@@ -17,7 +17,7 @@ import { linuxIdentity } from './platforms/linux.mjs';
 import { kitCommit, kitUpstream, linuxPath, powershellCommand, windowsNextSteps } from './install/windows.mjs';
 import { inspectWindows } from './platforms/windows.mjs';
 import { envManaged, hiddenKey, keyStatus, writeKey } from './keys.mjs';
-import { herdrConfigPath, kitKeys, placeKitExtras, previewKeys } from './shortcuts.mjs';
+import { kitKeys, placeKitExtras } from './shortcuts.mjs';
 import { processRunning } from './update.mjs';
 import { applyStarter, strategyTakesPlans, defaultMode, describeStarter, fullWarnings, loadPlanTable, modes, planIds, planStarter, previewStarter, providersOf } from './dispatch.mjs';
 
@@ -322,9 +322,10 @@ export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, chan
       outside.push(`  ${change.path}: ${change.changes.map(c => `${c.op} ${c.owner || c.path}`).join(', ')} (an existing file or link is backed up first)`);
     if (plan.issues.some(x => x.id === 'hooks')) outside.push(`  global hooks refused: ${plan.issues.find(x => x.id === 'hooks').reason}`);
   }
-  const keys = kitKeys.filter(k => k.key && (k.mode === 'mates' ? answers.tower : harnessProfiles(answers.harness).includes(k.mode)));
-  if (answers.globalHooks && keys.length) outside.push(`  ${herdrConfigPath(env, home)}: agent-kit keys block (${keys.map(k => `${k.key} open-firstmate ${k.mode}`).join(', ')}; keys you already bound are skipped; backed up first; uninstall removes the block)`,
-    ...previewKeys(herdrConfigPath(env, home), keys).map(note => `    ${note}`));
+  // The plan's keys preview: the same keyBindings rules the placement uses.
+  const herdrKeys = plan.plan?.herdrKeys;
+  if (answers.globalHooks && herdrKeys?.keys.length) outside.push(`  ${herdrKeys.path}: agent-kit keys block (${herdrKeys.keys.map(k => `${k.key} ${k.command}`).join(', ')}; keys you already bound are skipped; backed up first; uninstall removes the block)`,
+    ...herdrKeys.notes.map(note => `    ${note}`));
   if (answers.tower && tower) outside.push(`  ${tower.config}: tower launcher config, private 0600 (the launcher has no config override, so it stays in this XDG location)`);
   if (g.action === 'set' && (g.name !== gitCurrent.name || g.email !== gitCurrent.email)) outside.push(`  ${join(home, '.gitconfig')} (or your git global config): user.name and user.email`);
   lines.push(...(outside.length ? outside : ['  none']));
