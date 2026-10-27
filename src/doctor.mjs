@@ -43,16 +43,17 @@ export function gitCheck(path, pin, origin) {
   const remote = gitIn(path, 'remote', 'get-url', 'origin');
   return remote.status === 0 && remote.stdout.trim() === origin;
 }
-export function firstmateIssue(path, pin, origin) {
+export function firstmateIssue(path, pin, origin, next = pin) {
   const st = typeof path === 'string' && existsSync(path) ? lstatSync(path) : null;
-  if (!pin || !st?.isDirectory() || st.isSymbolicLink() || gitCheck(path, pin, origin)) return null;
+  const pins = [...new Set([pin, next].filter(Boolean))];
+  if (!pin || !st?.isDirectory() || st.isSymbolicLink() || pins.some(accepted => gitCheck(path, accepted, origin))) return null;
   const tail = 'The kit will not reset the Firstmate home itself; rerun agent-kit upgrade afterwards.';
   const changed = gitIn(path, 'status', '--porcelain', '--untracked-files=no');
   if (changed.status === 0 && changed.stdout.trim())
     return `Firstmate home ${path} has uncommitted changes to tracked files. Save them elsewhere if you want to keep them, then discard them so the home is clean. ${tail}`;
   const head = gitIn(path, 'rev-parse', 'HEAD');
-  if (head.status === 0 && head.stdout.trim() !== pin)
-    return `Firstmate home ${path} is not on the kit's pinned Firstmate commit ${pin}. Return the home to commit ${pin}; Firstmate updates go through Firstmate's own /updatefirstmate path. ${tail}`;
+  if (head.status === 0 && !pins.includes(head.stdout.trim()))
+    return `Firstmate home ${path} is not on the kit's pinned Firstmate commit ${pins.join(' or ')}. Return the home to commit ${pin}; Firstmate updates go through Firstmate's own /updatefirstmate path. ${tail}`;
   return `Firstmate home ${path} has an origin remote other than the approved upstream ${origin}, or its Git state cannot be read. Set origin back to ${origin} and make sure git status works in the home. ${tail}`;
 }
 function phasePath(root, id, entry) {
