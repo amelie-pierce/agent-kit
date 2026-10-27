@@ -1,0 +1,27 @@
+src/doctor.mjs
+  s_4a55225786384d::t_748a75bfef68d1 6,32,123,148
+test/doctor-update.test.mjs
+  s_4a55225786384d::t_930c193fff9038 135-136,138
+  s_4a55225786384d::t_6b1d22c2c50b88 9,106-134,137,139
+  s_4a55225786384d::t_7fafb7700b78f3 140
+src/install/macos.mjs
+  s_4a55225786384d::t_748a75bfef68d1 13
+src/update.mjs
+  s_4a55225786384d::t_eb8c5e2ae48d47 5-6,31-34,40,49,56,61-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "355997541fd25d9edb491892cc95b9df932deeea",
+  "prompts": {},
+  "sessions": {
+    "s_4a55225786384d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ddd39674-cda8-49fe-89e6-c54ae9b4c8f9",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
