@@ -1,0 +1,21 @@
+test/windows.test.mjs
+  s_c7645ddfa72f95::t_bbb8a24e748adc 216
+src/install/windows.mjs
+  s_c7645ddfa72f95::t_bbb8a24e748adc 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "745ccfbaf90cd00331b9cfb1697ce34997fd0c41",
+  "prompts": {},
+  "sessions": {
+    "s_c7645ddfa72f95": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f373d337-087b-4568-8f92-87ed3a3ace2f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
