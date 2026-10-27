@@ -1,0 +1,19 @@
+_vaults/agent-kit/wiki/architecture/windows-entry.md
+  s_c4d850bc0494dd::t_d5660b19642002 9,15,17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dfa27e9346de8031d1538e67654d87eaa3ba5fe0",
+  "prompts": {},
+  "sessions": {
+    "s_c4d850bc0494dd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "58d3b999-1f4a-4fa3-85c5-9f4dc504a4ec",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
