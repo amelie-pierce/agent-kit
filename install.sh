@@ -62,6 +62,7 @@ if [ -n "$commit" ] && ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then die '--commit m
 
 if [ "$reconfigure_keys" = 1 ]; then
   say 'Agent Kit key update: opens the installed private key prompt; no kit fetch or vendor sign-in.'
+  [ "$dry_run" = 1 ] && say '  --dry-run: shows only whether the key is set; no prompt and nothing is written.'
 else
   say 'Agent Kit installer. This script will:'
   say '  1. check Node.js, git and the GitHub CLI (and Homebrew with the Xcode Command Line Tools on macOS);'
@@ -110,7 +111,7 @@ if [ "$reconfigure_keys" = 1 ]; then
   [ -f "$kit_bin" ] || die 'installed kit command is missing; run agent-kit repair'
   [ -f "${kit_bin%/bin/agent-kit.mjs}/src/keys.mjs" ] || die "the installed kit predates the keys command; upgrade it first with: node \"$kit_bin\" upgrade --install-root \"${install_root:-$root_path/.tools}\" (or rerun bash install.sh), then rerun --reconfigure keys"
   key_args=()
-  [ "$yes" = 0 ] || key_args+=(--yes)
+  [ "$yes" = 0 ] && [ "$dry_run" = 0 ] || key_args+=(--yes)
   exec node "$kit_bin" keys --install-root "${install_root:-$root_path/.tools}" ${key_args[@]+"${key_args[@]}"}
 fi
 if [ "$root_given" = 0 ] && [ "$yes" = 0 ] && [ ! -f "$receipt" ]; then

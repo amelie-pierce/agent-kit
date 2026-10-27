@@ -141,7 +141,7 @@ When you ask for one, setup fills the inert starter charter (`templates/secondma
 | `--dry-run` | ask, check and print the summary; write nothing |
 | `--yes` | unattended; no questions |
 | `--reconfigure` | ask every question again |
-| `--reconfigure keys` (install.sh) | run only the installed key-update command, without a fresh kit fetch |
+| `--reconfigure keys` (install.sh) | run only the installed key-update command, without a fresh kit fetch; with `--dry-run` it shows only `set` or `not set` and writes nothing |
 | `--allow-existing-root` | accept a root that holds other files or another Firstmate home, after you checked it |
 | `--install-root <dir>`, `--firstmate-home <dir>` | override one derived path; each is checked against `--root` (it cannot be the root itself, overlap `.treehouse` or `.zoe-fleet`, or contain the other) and against the paths recorded in the receipt |
 | `--commit <sha>` | use this reviewed commit (install.sh and install.ps1) |

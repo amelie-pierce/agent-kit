@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
@@ -98,6 +98,31 @@ test('install.sh --reconfigure keys routes to the installed command without GitH
     assert.doesNotMatch(run.stderr, /unbound variable|Fetching the reviewed kit|sign in to GitHub/);
   }
   assert.equal(existsSync(f.envPath), false);
+});
+
+test('install.sh --dry-run --reconfigure keys never prompts and writes no key, .env or receipt', posixOnly, t => {
+  const f = fixture(t);
+  installedKit(f);
+  const routed = installSh(f, ['--dry-run']);
+  assert.equal(routed.status, 0, routed.stderr);
+  assert.match(routed.stdout, /^keys --install-root .*\.tools --yes$/m);
+  assert.match(routed.stderr, /--dry-run: shows only whether the key is set; no prompt and nothing is written/);
+  const commit = JSON.parse(readFileSync(f.receipt, 'utf8')).setup.kit.commit;
+  rmSync(join(f.tools, 'kit', commit), { recursive: true });
+  symlinkSync(kit, join(f.tools, 'kit', commit));
+  const receiptBefore = readFileSync(f.receipt, 'utf8');
+  for (const env of [null, 'TYPESAFE_API_KEY=existing-fixture-123\n']) {
+    if (env) writeFileSync(f.envPath, env, { mode: 0o600 });
+    const run = spawnSync('bash', ['install.sh', '--dry-run', '--reconfigure', 'keys', '--root', f.root], {
+      cwd: kit, env: { HOME: f.home, PATH: process.env.PATH, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' }, encoding: 'utf8', input: `add\n${fakeKey}\ny\n` });
+    assert.equal(run.status, 0, run.stderr);
+    assert.match(run.stdout, env ? /TYPESAFE_API_KEY: set\n/ : /TYPESAFE_API_KEY: not set\n/);
+    assert.match(run.stdout, /Left unchanged\./);
+    assert.doesNotMatch(run.stdout, /Keep or add|Keep, change or remove|Replace the existing key/);
+    assert.equal(env ? readFileSync(f.envPath, 'utf8') : existsSync(f.envPath), env || false);
+    assert.equal(readFileSync(f.receipt, 'utf8'), receiptBefore);
+    for (const text of [run.stdout, run.stderr]) assert.equal(text.includes(fakeKey), false);
+  }
 });
 
 test('install.sh --reconfigure keys asks for an upgrade of the receipt it read when the installed kit predates the keys command', posixOnly, t => {
