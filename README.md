@@ -40,7 +40,7 @@ Install these yourself before running `install.ps1`; the installer checks them a
 - **WSL2 with Ubuntu 22.04 or newer** as the distribution the kit hands off to (`wsl -l -v` shows VERSION 2). The kit does not read the Ubuntu version; inside WSL it checks for glibc 2.35 or newer (Ubuntu 22.04) before installing the tower. Without WSL, run `wsl --install -d Ubuntu` in an administrator PowerShell, restart Windows and open Ubuntu once to create your Linux user.
 - **Inside Ubuntu:** Node.js 24.15.0 or newer from [nvm](https://github.com/nvm-sh/nvm) or [NodeSource](https://github.com/nodesource/distributions), not `apt install nodejs`, whose Ubuntu package is far older, so that `node` is on PATH for login shells (the handoff runs `bash -l`; check with `wsl -e bash -l -c 'node --version'`); git (`sudo apt-get install git`); and the GitHub CLI from its [Linux install instructions](https://github.com/cli/cli/blob/trunk/docs/install_linux.md). Then sign in again inside Ubuntu with `gh auth login`: it is a separate sign-in from Windows, and Windows and Linux credentials stay separate.
 
-The hands-on Windows check, including a Windows 11 on Arm virtual machine in Parallels Desktop, is in [docs/windows-pilot-check.md](docs/windows-pilot-check.md).
+The hands-on Windows check, which teammates run on their own Windows PC, is in [docs/windows-pilot-check.md](docs/windows-pilot-check.md).
 
 ### Root folder
 
@@ -303,7 +303,7 @@ Afterwards, open Windows Terminal with your distribution's profile and run Herdr
 - `install --handoff` end to end on a real WSL2 distribution: argument passing through `wsl.exe --exec`, fetching the pinned kit commit of the private repository inside WSL, and the Linux install;
 - `install.ps1` end to end on a real PC: the `gh` and `git` fetch on Windows, the `setup --handoff` into `install.sh` inside WSL, questions answered over `wsl.exe --exec`, and flag values with spaces;
 - the Windows browser opened from WSL by chrome-devtools-axi, Lavish and vendor sign-in flows;
-- the WSL2 tower release installing from its real assets, launcher `doctor`, and `open` from a Herdr pane under Windows Terminal in the WSL shell (Arm64 in the owner's check; x64 not hands-on confirmed);
+- the WSL2 tower release installing from its real assets, launcher `doctor`, and `open` from a Herdr pane under Windows Terminal in the WSL shell (x64 and Arm64 both not hands-on confirmed until the first teammates report);
 - a clean Windows 11 first run through Windows PowerShell 5.1, and an Arm64 PC.
 
 ## Pins and approval
