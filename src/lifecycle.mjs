@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, readFileSync, readdirSync, readlinkSync } from 'node:fs';
-import { mkdir, mkdtemp, rename, rm, writeFile, symlink } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, rename, rm, writeFile, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -79,8 +79,9 @@ function servicePlan(receipt, root, isRunning) {
   const entry = receipt.phases['no-mistakes'];
   const path = entry?.path ? phaseOwned(root, 'no-mistakes', entry) : null;
   const bin = path && digest(path) === entry.ownedSha256 ? path : null;
-  const checks = [['herdr', 'stop Herdr through its own operator workflow'], ['no-mistakes', 'stop the no-mistakes daemon through its own operator workflow'],
-    ['zoe-fleet-tower', 'close the tower through its own operator workflow']];
+  const first = 'finish or stop running agents and validation runs first, because stopping Herdr or the daemon ends them; then', never = 'the kit never runs this itself';
+  const checks = [['herdr', `${first} run \`herdr server stop\`; ${never}`], ['no-mistakes', `${first} run \`no-mistakes daemon stop\`; ${never}`],
+    ['zoe-fleet-tower', `${first} close the Fleet pane in the Herdr Team tab (\`herdr pane close <pane-id>\`); the tower launcher has no stop command; ${never}`]];
   return checks.filter(([id]) => isRunning(id, bin)).map(([id, step]) => ({ id, step }));
 }
 function unresolved(components, manifest, platform, arch, reportFirstmate) {
@@ -397,7 +398,7 @@ export async function applyUpgrade(plan, options = {}) {
     if (oldGlobal.some(item => item.path === path)) return;
     const st = stat(path);
     oldGlobal.push({ path, type: !st ? 'absent' : st.isSymbolicLink() ? 'link' : st.isFile() ? 'file' : 'other',
-      data: st?.isFile() ? readFileSync(path) : st?.isSymbolicLink() ? readlinkSync(path) : null });
+      data: st?.isFile() ? readFileSync(path) : st?.isSymbolicLink() ? readlinkSync(path) : null, mode: st?.isFile() ? st.mode & 0o7777 : null });
   };
   try {
     if (plan.answers) await atomicJson(join(root, 'receipt.json'), receipt);
@@ -429,7 +430,7 @@ export async function applyUpgrade(plan, options = {}) {
     for (const item of oldGlobal.reverse()) {
       if (item.type === 'other') continue;
       await rm(item.path, { force: true });
-      if (item.type === 'file') { await mkdir(dirname(item.path), { recursive: true, mode: 0o700 }); await writeFile(item.path, item.data, { mode: 0o600 }); }
+      if (item.type === 'file') { await mkdir(dirname(item.path), { recursive: true, mode: 0o700 }); await writeFile(item.path, item.data, { mode: item.mode }); await chmod(item.path, item.mode); }
       if (item.type === 'link') await symlink(item.data, item.path);
     }
     if (!hadRelease) await rm(releaseTarget, { recursive: true, force: true });

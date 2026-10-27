@@ -155,7 +155,7 @@ After an install, run `node <root>/.tools/kit/<commit>/bin/agent-kit.mjs doctor`
 
 ## Repair, upgrade and uninstall
 
-Run these from the kit copy at `<root>/.tools/kit/<commit>`; it finds the receipt. From another checkout, pass `--root <root>` or `--install-root <root>/.tools`. Each prints its plan before any installed file changes. In a terminal, answer `y` to apply; `--yes` applies after printing the same plan without a prompt. Without a terminal or `--yes`, only the plan is printed. Each refuses to apply while kit-installed Herdr, the no-mistakes daemon or the tower is running and names the operator step to stop it. The kit never starts, stops or restarts them.
+Run these from the kit copy at `<root>/.tools/kit/<commit>`; it finds the receipt. From another checkout, pass `--root <root>` or `--install-root <root>/.tools`. Each prints its plan before any installed file changes. In a terminal, answer `y` to apply; `--yes` applies after printing the same plan without a prompt. Without a terminal or `--yes`, only the plan is printed. Each refuses to apply while kit-installed Herdr, the no-mistakes daemon or the tower is running and names the step to stop it: first finish or stop running agents and validation runs, because stopping Herdr or the daemon ends them; then run `herdr server stop` for Herdr, run `no-mistakes daemon stop` for the daemon, and close the Fleet pane in the Herdr Team tab (`herdr pane close <pane-id>`) for the tower, whose launcher has no stop command. The kit never runs these steps itself and never starts, stops or restarts them.
 
 ```sh
 node bin/agent-kit.mjs repair --root /your/Agentic
