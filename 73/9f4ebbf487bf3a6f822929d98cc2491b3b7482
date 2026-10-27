@@ -1,0 +1,57 @@
+manifests/npm-codex/package.json
+  s_3a81ec5b3a858b::t_af9fff116d5149 6
+test/doctor-update.test.mjs
+  s_3a81ec5b3a858b::t_1747763d1e6b67 68
+bin/agent-kit.mjs
+  s_3a81ec5b3a858b::t_765810adfc8f95 16,80
+manifests/plan-models.json
+  s_3a81ec5b3a858b::t_7cc6f3f302fdf8 2-5,10-500,505-854
+test/setup.test.mjs
+  s_3a81ec5b3a858b::t_501e19b99326f1 341
+  s_3a81ec5b3a858b::t_fa8502a001a51d 207,225,228-231,233-236,238-239,241-251,298,312
+src/setup.mjs
+  s_3a81ec5b3a858b::t_765810adfc8f95 18,22,32,199-200,203-204,207,210,212-221,285,447,506
+test/kit.test.mjs
+  s_3a81ec5b3a858b::t_1747763d1e6b67 96,117,402
+README.md
+  s_3a81ec5b3a858b::t_fcc47d7fd7b092 301,313
+  s_3a81ec5b3a858b::t_1747763d1e6b67 308
+  s_3a81ec5b3a858b::t_2e8d4c156ecbd4 60-61,85-93,97,215
+  s_3a81ec5b3a858b::t_af9fff116d5149 331
+manifests/pilot-skeleton.json
+  s_3a81ec5b3a858b::t_af9fff116d5149 954,965
+_vaults/agent-kit/wiki/architecture/index.md
+  s_3a81ec5b3a858b::t_4edf94b134e821 19
+_vaults/agent-kit/wiki/architecture/starter-dispatch-rules.md
+  s_3a81ec5b3a858b::t_4edf94b134e821 3,11,13-21
+test/dispatch.test.mjs
+  s_3a81ec5b3a858b::t_c2a95cd1906dc0 9,268,292-310,312,314-321,324-349,352-369,373,375,379-383,385-386,388,393-413
+  s_3a81ec5b3a858b::t_ef8fd74e3f133a 414
+install.sh
+  s_3a81ec5b3a858b::t_2e8d4c156ecbd4 35-36
+scripts/jev-resolve-smoke.mjs
+  s_3a81ec5b3a858b::t_812ea08440249d 10,46,72-74,80
+src/lifecycle.mjs
+  s_3a81ec5b3a858b::t_765810adfc8f95 14,116
+src/dispatch.mjs
+  s_3a81ec5b3a858b::t_14e78ee6650fd9 9-13,15,22,26-27,29-30,33-34,38-41,45-50,54-55,59-71,73-79,81-85,87-96,99-102,108-110,113-118,121-122,132-140,143,145-147,155-161,163-165
+  s_3a81ec5b3a858b::t_290d13855edeb4 173-177,210-211,215-218,227,229,234
+manifests/npm-codex/package-lock.json
+  s_3a81ec5b3a858b::t_a4f23960f6feb5 11,15-17,26-31,36-38,53-55,70-72,87-89,104-106,121-123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "739f4ebbf487bf3a6f822929d98cc2491b3b7482",
+  "prompts": {},
+  "sessions": {
+    "s_3a81ec5b3a858b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b55b1821-dca0-4653-a19d-01e517415066",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
