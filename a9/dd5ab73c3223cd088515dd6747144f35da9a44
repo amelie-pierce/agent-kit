@@ -1,0 +1,19 @@
+docs/windows-pilot-check.md
+  s_bc30cb6a54d672::t_81b42ef895b6be 106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a9dd5ab73c3223cd088515dd6747144f35da9a44",
+  "prompts": {},
+  "sessions": {
+    "s_bc30cb6a54d672": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "36e252b6-6795-4b0e-8ec4-d03ba41071bd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
