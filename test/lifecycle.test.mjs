@@ -254,6 +254,29 @@ test('upgrade and its update alias refuse a Firstmate home with local changes; r
   }
 });
 
+test('a Firstmate pin change already applied through /updatefirstmate is not called off-pin when origin differs', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t), upstream = bundled.tools.find(x => x.id === 'firstmate').approvedUpstream;
+  const oldPin = f.git('rev-parse', 'HEAD');
+  writeFileSync(join(f.firstmate, 'README.md'), 'firstmate update\n');
+  f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qam', 'firstmate update');
+  const newPin = f.git('rev-parse', 'HEAD');
+  const fetchKit = async (_commit, _env, destination) => {
+    await stagedKit(_commit, _env, destination);
+    const target = structuredClone(f.manifest);
+    target.release = 'new-release';
+    target.tools.find(x => x.id === 'firstmate').version.value = newPin;
+    writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
+  };
+  const args = { ...f.options, resolveCommit: () => 'a'.repeat(40), fetchKit };
+  const before = readFileSync(f.receiptPath, 'utf8');
+  f.git('remote', 'set-url', 'origin', 'https://example.test/fork.git');
+  await assert.rejects(planUpgrade(args), error => /has an origin remote other than the approved upstream/.test(error.message) && !/Return the home to commit/.test(error.message));
+  f.git('remote', 'set-url', 'origin', upstream);
+  f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-q', '--allow-empty', '-m', 'person commit');
+  await assert.rejects(planUpgrade(args), new RegExp(`is not on the kit's pinned Firstmate commit ${oldPin} or ${newPin}\\. Return the home to commit ${oldPin}`));
+  assert.equal(readFileSync(f.receiptPath, 'utf8'), before);
+});
+
 test('upgrade refuses a missing or symlinked Firstmate home and never clones a replacement', { skip: process.platform === 'win32' }, async t => {
   for (const kind of ['missing', 'symlink']) {
     const f = fixture(t), moved = join(f.base, 'moved-firstmate');

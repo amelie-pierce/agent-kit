@@ -93,8 +93,8 @@ function unresolved(components, manifest, platform, arch, reportFirstmate) {
 }
 function assertFirstmateClean(receipt, manifest) {
   const tool = manifest.tools.find(x => x.id === 'firstmate'), path = receipt.phases.firstmate?.path;
-  if (!tool || typeof path !== 'string' || !isAbsolute(path) || gitCheck(path, tool.version.value, tool.approvedUpstream)) return;
-  const issue = firstmateIssue(path, receipt.phases.firstmate.version, tool.approvedUpstream);
+  if (!tool || typeof path !== 'string' || !isAbsolute(path)) return;
+  const issue = firstmateIssue(path, receipt.phases.firstmate.version, tool.approvedUpstream, tool.version.value);
   if (issue) throw new Error(issue);
 }
 function assertStopped(running) {

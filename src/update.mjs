@@ -32,7 +32,7 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
   const handedOff = !!firstmate && firstmateEntry?.version !== firstmate.version.value && typeof firstmateEntry?.path === 'string' && isAbsolute(firstmateEntry.path) &&
     gitCheck(firstmateEntry.path, firstmate.version.value, firstmate.approvedUpstream);
   const unsafe = health.checks.filter(x => x.status === 'fail' && !(handedOff && x.id === 'firstmate') && x.id !== 'hooks' && !x.id.startsWith('prerequisite-') && !x.id.endsWith('-path') && !x.id.endsWith('-pin'));
-  if (unsafe.length) throw new Error((unsafe.some(x => x.id === 'firstmate') && firstmate && firstmateIssue(firstmateEntry?.path, firstmateEntry?.version, firstmate.approvedUpstream))
+  if (unsafe.length) throw new Error((unsafe.some(x => x.id === 'firstmate') && firstmate && firstmateIssue(firstmateEntry?.path, firstmateEntry?.version, firstmate.approvedUpstream, firstmate.version.value))
     || `owned installation fails verification: ${unsafe.map(x => x.id).join(', ')}`);
   const target = `${platform}-${arch}`;
   const changes = selected(manifest, effectiveHarness, answers.figma ?? withFigma, answers.tower ?? true).map(tool => {
