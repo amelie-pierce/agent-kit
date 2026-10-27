@@ -1,0 +1,27 @@
+test/setup.test.mjs
+  s_2c9694e4b37c54::t_79c80ef3e36604 223-237
+install.sh
+  s_2c9694e4b37c54::t_7c24eb129091ab 78
+test/install-sh.test.mjs
+  s_2c9694e4b37c54::t_7c24eb129091ab 57-73,189
+  s_2c9694e4b37c54::t_79c80ef3e36604 180
+  s_2c9694e4b37c54::t_733c1b5ce81a42 25
+src/setup.mjs
+  s_2c9694e4b37c54::t_7c24eb129091ab 479
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7abbfe040b6dd7cbcdc5c2b32cd8837d1dba07fc",
+  "prompts": {},
+  "sessions": {
+    "s_2c9694e4b37c54": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "65beb2d6-3c19-4a52-86f2-a37486a85d83",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
