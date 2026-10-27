@@ -119,6 +119,7 @@ test('repair reports a changed Firstmate home and manifest-unverified tools whil
   writeFileSync(path, 'person edit');
   const result = await applyRepair(manifest, f.options);
   assert.equal(result.status, 'repaired');
+  assert.ok(result.nextSteps.some(x => x.startsWith('firstmate: ')));
   assert.equal(result.components.find(x => x.id === 'zoe-fleet-runtime').status, 'unverified');
   assert.equal(readFileSync(path, 'utf8'), 'restored');
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'person work\n');
@@ -199,6 +200,31 @@ test('upgrade activates a reviewed kit and keeps the previous release', { skip: 
   assert.equal(JSON.parse(readFileSync(f.receiptPath)).setup.kit.commit, commit);
   assert.equal(readFileSync(join(f.bin, 'herdr'), 'utf8'), 'original');
   assert.equal(readFileSync(join(f.root, 'releases', 'new-release', 'bin', 'herdr'), 'utf8'), 'restored');
+});
+
+test('upgrade and its update alias apply kit changes and report a Firstmate home with local changes', { skip: process.platform === 'win32' }, async t => {
+  for (const name of ['upgrade', 'update']) {
+    assert.equal(parseArgs([name, '--yes', '--root', '/tmp/kit']).command, 'upgrade');
+    const f = fixture(t), commit = 'f'.repeat(40);
+    const receipt = JSON.parse(readFileSync(f.receiptPath));
+    receipt.setup.answers.globalHooks = true;
+    writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+    const fetchKit = async (_commit, _env, destination) => {
+      await stagedKit(_commit, _env, destination);
+      const target = structuredClone(f.manifest);
+      target.release = 'new-release';
+      writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
+    };
+    const plan = await planUpgrade({ ...f.options, resolveCommit: () => commit, fetchKit });
+    writeFileSync(join(f.firstmate, 'README.md'), 'person work\n');
+    const result = await applyUpgrade(plan, f.options);
+    assert.equal(result.status, 'upgraded');
+    assert.equal(result.components.find(x => x.id === 'firstmate').status, 'conflict');
+    assert.ok(result.nextSteps.some(x => x.startsWith('firstmate: ')));
+    assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'person work\n');
+    assert.equal(readFileSync(join(f.root, 'releases', 'new-release', 'bin', 'herdr'), 'utf8'), 'restored');
+    assert.equal(JSON.parse(readFileSync(f.receiptPath)).setup.kit.commit, commit);
+  }
 });
 
 test('CLI aliases and unattended flag use the same lifecycle command', () => {
