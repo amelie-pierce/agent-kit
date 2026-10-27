@@ -34,13 +34,13 @@ function tempFixture(t) {
 test('bundled manifest keeps verified source commits and macOS/Linux digests', () => {
   validateManifest(manifest);
   const tower = manifest.tools.find(x => x.id === 'zoe-fleet'), runtime = manifest.tools.find(x => x.id === 'zoe-fleet-runtime');
-  assert.equal(tower.version.value, 'e81530fac3d7754df134dd3c8e995e29bb40104c');
+  assert.equal(tower.version.value, 'fc45c4d9ea1de0af27092f26eaa8f5008881f01e');
   assert.deepEqual(['darwin-arm64', 'darwin-x64', 'linux-arm64', 'linux-x64'].map(target => tower.artifacts[target].kind), ['release-archive', 'release-archive', 'source-archive', 'source-archive']);
-  assert.equal(tower.artifacts['darwin-arm64'].sha256, '87ead8bd844f2554c3fd5fe4ce738da7ec4165bda4bd8454febabf484c59c0cd');
-  assert.equal(tower.artifacts['darwin-x64'].sha256, '164155b32f4ab94cf3fac17660ddac07db6309043d42d58e5df304540d63e269');
+  assert.equal(tower.artifacts['darwin-arm64'].sha256, '067ff921f660840b3cf4f0ab84a7a0500a8b2705f25f0164f1b3f970ca413e65');
+  assert.equal(tower.artifacts['darwin-x64'].sha256, 'f167a67bab048fb06a2c7e0e5254ba497c19249eda94441f3a08ed92e6f47a27');
   for (const target of ['darwin-arm64', 'darwin-x64']) {
-    assert.match(tower.artifacts[target].url, /^https:\/\/github\.com\/pikenguyen227\/zoetrope\/releases\/download\/fleet-v0\.2\.0-e81530fac3d7\//);
-    assert.equal(runtime.artifacts[target].sha256, '2cdd16315f8e00603e97520c89294ffd8823bd3758f0a88b2a0ab9a8022280c1');
+    assert.match(tower.artifacts[target].url, /^https:\/\/github\.com\/pikenguyen227\/zoetrope\/releases\/download\/fleet-v0\.2\.0-fc45c4d9ea1d\//);
+    assert.equal(runtime.artifacts[target].sha256, '48b30346cec0ab1174e296745154defade431b1fb66da6a88c992b383a4e381a');
   }
   assert.deepEqual(['linux-arm64', 'linux-x64'].map(target => runtime.artifacts[target].status), ['unverified', 'unverified']);
   const badKind = structuredClone(tower);
