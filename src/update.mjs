@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { doctor, firstmateIssue, gitCheck } from './doctor.mjs';
 import { atomicJson, installPlatform, npmGroup, selected } from './install/macos.mjs';
 import { placeKitExtras } from './shortcuts.mjs';
+import { applyStarter, describeStarter, harnessOf, modeOf, planStarter, plansOf, strategyTakesPlans } from './dispatch.mjs';
 import { validateManifest } from './kit.mjs';
 import { artifactFor, artifactTarget, linuxIdentity } from './platforms/linux.mjs';
 
@@ -75,6 +76,13 @@ export async function applyUpdate(manifest, options) {
         await atomicJson(receiptPath, current);
       }
       shortcuts = extras.lines;
+      // A home that now takes fm-strategy.sh --plans gets the person's strategy, as a new install does.
+      const current = JSON.parse(readFileSync(receiptPath, 'utf8')), home = plan.firstmateHome;
+      if (!current.setup?.dispatch && home && strategyTakesPlans(home)) {
+        const selected = await applyStarter(planStarter(home, { harness: harnessOf(current), plans: plansOf(current), mode: modeOf(current), create: true }));
+        if (selected.record) { current.setup ||= {}; current.setup.dispatch = selected.record; await atomicJson(receiptPath, current); }
+        const line = describeStarter(selected); if (line) shortcuts.push(line);
+      }
     } catch (error) { shortcuts = [`Herdr shortcuts: not updated; ${error.message}`]; }
   }
   return { ...plan, apply: true, status: result.status, exitCode: result.exitCode, components: result.components, shortcuts,

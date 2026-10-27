@@ -167,7 +167,7 @@ exec ${quote(inputs.python)} ${quote(join(inputs.kit, 'templates', 'shortcuts', 
 // Every file the kit renders into <root>/.tools for this setup, with the condition that wants it.
 export function ownedFiles(inputs, root) {
   return [
-    [launcherFile, launcherScript(inputs)], [mateFile, mateScript(inputs, root)], ['env.sh', envScript(inputs), 0o644],
+    [launcherFile, launcherScript(inputs)], [mateFile, mateScript(inputs, root)], ['bin/fm-jev', jevScript(inputs, root)], ['env.sh', envScript(inputs), 0o644],
     ['bin/firstmate', firstmateScript(inputs)], ['bin/fm-help', helpScript(inputs)],
     ...(inputs.axi ? ['gh-axi', 'chrome-devtools-axi'].map(id => [`bin/ambient-${id}`, ambientScript(inputs, id)]) : []),
     ...(inputs.tower ? [['bin/zoe-fleet-open', towerShim(inputs, 'open')], ['bin/zoe-fleet-demo', towerShim(inputs, 'demo')], ['bin/zoe-fleet-autostart', autostartScript(inputs)]] : []),
@@ -175,6 +175,8 @@ export function ownedFiles(inputs, root) {
     ...(inputs.fullAccess ? [['bin/codex', codexScript(inputs)]] : []),
   ].map(([file, body, mode = 0o755]) => ({ file, body, mode }));
 }
+export const jevScript = (inputs, root) => `${header('fm-jev', 'turn Jev routing on or off (agent-kit jev on|off|status).')}exec ${quote(inputs.node)} ${quote(join(inputs.kit, 'bin', 'agent-kit.mjs'))} jev --install-root ${quote(root)} "$@"
+`;
 export const mateScript = (inputs, root) => `#!/bin/sh
 # agent-kit:fm-mate - create, list or retire a second mate with Firstmate's own secondmate commands.
 # Written by Agent Kit from its receipt; repair rewrites it.
@@ -348,20 +350,28 @@ async function backup(root, path, name) {
 export function planRemoveShortcuts(root, record, firstmateHome = null) {
   if (!record) return null;
   const autostart = record.autostart && firstmateHome ? planAutostart({ firstmateHome, tower: null }, root, { record }) : null;
+  const layout = record.layout?.blockSha256 && record.keys?.path ? planLayout(record.keys.path, { want: false, record: record.layout }) : null;
+  const help = record.captainHelp?.path, captainHelp = help && plainFile(help) && sha(readFileSync(help)) === record.captainHelp.sha256 ? help : null;
   const launchers = Object.entries(record.files || {}).map(([file, digest]) => {
     const path = join(root, file);
     return { path, action: plainFile(path) && sha(readFileSync(path)) === digest ? 'remove unchanged kit launcher' : 'keep changed or absent launcher' };
   });
   const path = record.keys?.path;
-  if (!path) return { launchers, keys: null, autostart };
+  if (!path) return { launchers, keys: null, autostart, layout, captainHelp };
   const { block, rest } = plainFile(path) ? splitBlock(readFileSync(path, 'utf8')) : {};
   const keysAction = block && sha(block) === record.keys.blockSha256 ? 'remove the unchanged agent-kit keys block' : 'keep changed or absent keys block';
-  return { launchers, keys: { path, action: keysAction, rest, created: !!record.keys.created }, autostart };
+  return { launchers, keys: { path, action: keysAction, rest, created: !!record.keys.created }, autostart, layout, captainHelp };
 }
 export async function removeShortcuts(root, plan) {
   if (!plan) return;
   for (const l of plan.launchers) if (l.action === 'remove unchanged kit launcher') await rm(l.path, { force: true });
   if (plan.autostart?.action === 'remove') await applyAutostart(plan.autostart, root);
+  if (plan.captainHelp) await rm(plan.captainHelp, { force: true });
+  // The layout block goes first, then the keys block is removed from what is left.
+  if (plan.layout?.action === 'remove') {
+    await applyLayout(plan.layout, root, {});
+    if (plan.keys) plan.keys.rest = splitBlock(readFileSync(plan.keys.path, 'utf8')).rest;
+  }
   if (plan.keys?.action === 'remove the unchanged agent-kit keys block') {
     await backup(root, plan.keys.path, 'herdr-config.toml');
     const next = joinBlock(plan.keys.rest, null);
@@ -398,12 +408,20 @@ export async function placeKitExtras(receipt, root, { env = process.env, home = 
   const result = await applyShortcuts(planShortcuts(receipt, root, { env, home, record, repair, kitPath }), root, { env, ...(check ? { check } : {}) });
   const lines = [...describeShortcuts(result), ...describePlugin(plugin)];
   if (result.action === 'skip') return { action: result.action, detail: result.detail, keys: result.keys, lines, record };
+  const layoutPlan = planLayout(result.keys?.path || configPath, { root: result.inputs.paths.root, want: receipt.setup?.answers?.herdrLayout !== false, record: prior?.layout, repair });
+  const layout = await applyLayout(layoutPlan, root, { env, check, herdr: result.inputs.herdr });
+  if (!['none'].includes(layoutPlan.action)) lines.push(layout?.error ? `Herdr layout: ${layout.error}` : ['skip', 'keep'].includes(layoutPlan.action) ? `Herdr layout: ${layoutPlan.detail}`
+    : `Herdr layout (${layoutPlan.path}): ${{ add: 'added', refresh: 'refreshed', verify: 'present', remove: 'removed' }[layoutPlan.action]}${layoutPlan.detail ? `; ${layoutPlan.detail}` : ''}`);
+  const help = await placeCaptainHelp(result.inputs, result.keys?.bound || prior?.keys?.bound || [], { record: prior?.captainHelp, repair });
+  if (help.action === 'write') lines.push(`Captain's guide: wrote a starter ${help.path} (print it with fm-help)`);
+  else if (help.action === 'keep' && !help.record) lines.push(`Captain's guide: kept your own ${help.path}`);
   const autostartPlan = planAutostart(result.inputs, root, { record: prior, repair });
   const autostart = await applyAutostart(autostartPlan, root);
   if (autostartPlan.action !== 'none') lines.push(autostartPlan.action === 'skip' || autostartPlan.action === 'keep' ? `Fleet autostart hook: ${autostartPlan.detail}`
     : `Fleet autostart hook (${autostartPlan.path}): ${{ add: 'added', refresh: 'refreshed', verify: 'present', remove: 'removed' }[autostartPlan.action]}`);
   return { action: result.action, detail: result.detail, keys: result.keys, lines,
-    record: { ...result.record, plugin: record.plugin, autostart: autostartPlan.action === 'skip' ? prior?.autostart || null : autostart } };
+    record: { ...result.record, plugin: record.plugin, autostart: autostartPlan.action === 'skip' ? prior?.autostart || null : autostart,
+      layout: layout === 'keep' || layout?.error ? prior?.layout || null : layout, captainHelp: help.record } };
 }
 
 // The tower's Fleet autostart, as the owner runs it: a marker-owned SessionStart entry in the Firstmate home's
@@ -458,4 +476,109 @@ export async function applyAutostart(plan, root) {
     return null;
   }
   return { autostart: true, created: plan.created, excludeAdded: excludeAdded || undefined };
+}
+
+// The owner's Herdr look, as one marker-fenced block: onboarding off, new panes in the agent root, and the
+// theme, sidebar, tab bar, pane and toast settings. It sits after the person's own top-level keys and before
+// their first table, since a top-level key after a table header would belong to that table. A table or
+// top-level key the person already sets is left out of the block and named, so nothing is ever defined twice.
+export const layoutBegin = '# >>> agent-kit layout (managed: agent-kit setup and upgrade write this block, uninstall removes it)';
+export const layoutEnd = '# <<< agent-kit layout';
+export const layoutSections = root => [
+  ['onboarding', ['onboarding = false']],
+  ['terminal', ['[terminal]', '# Default root for new panes, tabs and workspaces.', `new_cwd = ${tomlString(root)}`]],
+  ['theme', ['[theme]', 'name = "gruvbox"', 'auto_switch = false']],
+  ['ui', ['[ui]', 'sidebar_width = 26', 'sidebar_min_width = 22', 'sidebar_max_width = 30', 'sidebar_start_collapsed = false', 'sidebar_collapsed_mode = "compact"',
+    '# Keep the agent that needs attention near the top.', 'agent_panel_sort = "priority"', 'status_indicators = "symbols"', 'show_agent_labels_on_pane_borders = true',
+    'pane_borders = "auto"', 'pane_outer_borders = true', 'pane_gaps = true', 'pane_scrollbars = true', 'hide_tab_bar_when_single_tab = false', 'tab_bar_position = "top"',
+    'tab_bar_right = [{ type = "zoom" }, { type = "datetime", format = "%H:%M" }]', 'tab_bar_right_separator = " · "', 'window_title = "Herdr · {workspace} · {tab}"']],
+  ['ui.sidebar.agents', ['[ui.sidebar.agents]', '# Task first, then provider and status, then workspace context.', 'row_gap = 1', 'rows = [',
+    '  ["state_icon", { token = "tab", bold = true }],', '  ["agent", "state_text"],', '  ["workspace"],', ']']],
+  ['ui.sidebar.spaces', ['[ui.sidebar.spaces]', 'row_gap = 0', 'rows = [', '  ["state_icon", "workspace"],', '  ["branch", "git_status"],', ']']],
+  ['ui.toast', ['[ui.toast]', 'delivery = "herdr"']],
+  ['experimental', ['[experimental]', 'kitty_graphics = true']],
+];
+export function splitLayout(text) {
+  const lines = text.split('\n'), begin = lines.indexOf(layoutBegin), end = lines.indexOf(layoutEnd);
+  if (begin === -1 && end === -1) return { rest: text, block: null };
+  if (begin === -1 || end < begin || lines.lastIndexOf(layoutBegin) !== begin || lines.lastIndexOf(layoutEnd) !== end) return { rest: text, block: null, malformed: true };
+  return { rest: [...lines.slice(0, begin), ...lines.slice(end + 1)].join('\n'), block: lines.slice(begin, end + 1).join('\n') };
+}
+// What the person's file already defines: table names (and their parents) and root-level keys.
+function definedNames(rest) {
+  const names = new Set();
+  let table = '';
+  for (const line of rest.split('\n')) {
+    const header = line.match(/^\s*\[\[?\s*([A-Za-z0-9_.-]+)\s*\]\]?\s*(#.*)?$/);
+    if (header) { table = header[1]; table.split('.').forEach((_, i, parts) => names.add(parts.slice(0, i + 1).join('.'))); continue; }
+    const key = line.match(/^\s*([A-Za-z0-9_.-]+)\s*=/);
+    if (key) { const full = table ? `${table}.${key[1]}` : key[1]; full.split('.').forEach((_, i, parts) => names.add(parts.slice(0, i + 1).join('.'))); }
+  }
+  return names;
+}
+export function planLayout(configPath, { root, want, record = null, repair = false }) {
+  if (stat(configPath) && !plainFile(configPath)) return { action: 'skip', path: configPath, detail: `${configPath} is not a plain file` };
+  const text = stat(configPath) ? readFileSync(configPath, 'utf8') : '';
+  const { rest, block, malformed } = splitLayout(text);
+  if (malformed) return { action: 'skip', path: configPath, detail: 'the agent-kit layout markers are incomplete or repeated; fix them by hand' };
+  if (block && (!record?.blockSha256 || sha(block) !== record.blockSha256)) return { action: 'keep', release: true, path: configPath, detail: 'the agent-kit layout block was edited; left as it is and no longer tracked' };
+  if (!want) return block ? { action: 'remove', path: configPath, body: rest.replace(/^\n+/, ''), prior: sha(text) } : { action: 'none', path: configPath };
+  if (!block && record?.blockSha256 && !repair) return { action: 'keep', path: configPath, detail: 'the agent-kit layout block was removed; not added again (agent-kit repair restores it)' };
+  const defined = definedNames(rest), skipped = [], lines = [layoutBegin];
+  for (const [name, body] of layoutSections(root)) {
+    // A section the person defines, or defines anything inside, is theirs: TOML forbids defining it twice.
+    if ([...defined].some(d => d === name || d.startsWith(`${name}.`))) { skipped.push(name); continue; }
+    lines.push(...body, '');
+  }
+  lines.push(layoutEnd);
+  const nextBlock = lines.length > 2 ? lines.join('\n') : null;
+  // Insert after the person's own top-level lines, before their first table header.
+  const restLines = rest.split('\n'), first = restLines.findIndex(line => /^\s*\[/.test(line));
+  const head = (first === -1 ? restLines : restLines.slice(0, first)).join('\n').replace(/\n+$/, ''), tail = first === -1 ? '' : restLines.slice(first).join('\n');
+  const next = nextBlock ? `${head ? `${head}\n\n` : ''}${nextBlock}\n${tail ? `\n${tail.replace(/^\n+/, '')}` : ''}` : rest;
+  const body = next.endsWith('\n') || !next ? next : `${next}\n`;
+  return { action: body === text ? (block ? 'verify' : 'none') : block ? 'refresh' : nextBlock ? 'add' : 'none', path: configPath, block: nextBlock, body, prior: stat(configPath) ? sha(text) : null,
+    skipped, detail: skipped.length ? `kept your own ${skipped.join(', ')} settings; the kit left those out` : null };
+}
+export async function applyLayout(plan, root, { env, check, herdr }) {
+  if (['none', 'skip'].includes(plan.action)) return null;
+  if (plan.action === 'keep') return plan.release ? null : 'keep';
+  if (plan.action === 'verify') return { blockSha256: sha(plan.block), skipped: plan.skipped };
+  const now = stat(plan.path) ? sha(readFileSync(plan.path)) : null;
+  if (now !== plan.prior) return { error: `${plan.path} changed while updating; left as it is` };
+  const saved = now ? await backup(root, plan.path, 'herdr-config.toml') : null;
+  await mkdir(dirname(plan.path), { recursive: true });
+  const temp = `${plan.path}.agent-kit-${randomUUID()}.tmp`;
+  await writeFile(temp, plan.body, { mode: now ? lstatSync(plan.path).mode & 0o777 : 0o644, flag: 'wx' });
+  await rename(temp, plan.path);
+  if (plan.action === 'remove') return null;
+  const result = (check || herdrCheck)(herdr, plan.path, env);
+  if (!result.ok) {
+    if (saved) await writeFile(plan.path, readFileSync(saved)); else await rm(plan.path, { force: true });
+    return { error: `herdr config check rejected the layout block, so ${plan.path} was restored: ${result.detail}` };
+  }
+  return { blockSha256: sha(plan.block), skipped: plan.skipped };
+}
+
+// A starter data/captain-help.md (printed by fm-help) in the Firstmate home, written only when the home has none.
+// The person's own page is never touched; uninstall removes the kit's page only while unchanged.
+const keyText = key => key.replace(/^prefix\+/, '').replace(/^shift\+(.)$/, (_, c) => `Shift+${c.toUpperCase()}`).replace(/^([a-z])$/, c => c.toUpperCase());
+export function captainHelp(inputs, bound = []) {
+  const template = readFileSync(new URL('../templates/firstmate/captain-help.md', import.meta.url), 'utf8');
+  const keys = kitKeys.filter(k => bound.includes(k.key)).map(k => `- ${keyText(k.key)}: ${k.purpose}.`);
+  if (inputs.graph) keys.push('- Shift+Z: the Zoetrope session graph over the focused pane (its own key).');
+  const values = { FIRSTMATE_HOME: inputs.firstmateHome, TOOLS_BIN: join(inputs.paths.installRoot, 'bin'), KIT: inputs.kit, INSTALL_ROOT: inputs.paths.installRoot,
+    AGENTS: Object.keys(inputs.agents).join(' and '), KEYS: keys.length ? keys.join('\n') : '- No kit keys are bound in your Herdr config.' };
+  return template.replace(/\{\{([A-Z_]+)\}\}/g, (_, name) => values[name] ?? '');
+}
+export async function placeCaptainHelp(inputs, bound, { record = null, repair = false } = {}) {
+  if (!inputs.firstmateHome) return { action: 'none', record };
+  const path = join(inputs.firstmateHome, 'data', 'captain-help.md');
+  if (stat(path)) return { action: plainFile(path) && record?.sha256 && sha(readFileSync(path)) === record.sha256 ? 'verify' : 'keep', path,
+    record: plainFile(path) && record?.sha256 && sha(readFileSync(path)) === record.sha256 ? record : null };
+  if (record?.sha256 && !repair) return { action: 'keep', path, record, detail: 'removed since; not written again (agent-kit repair restores it)' };
+  const body = captainHelp(inputs, bound);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, body, { mode: 0o644, flag: 'wx' });
+  return { action: 'write', path, record: { path, sha256: sha(body) } };
 }

@@ -19,11 +19,13 @@ import { inspectWindows } from './platforms/windows.mjs';
 import { envManaged, hiddenKey, keyStatus, writeKey } from './keys.mjs';
 import { herdrConfigPath, kitKeys, placeKitExtras, previewKeys } from './shortcuts.mjs';
 import { processRunning } from './update.mjs';
-import { applyStarter, defaultMode, describeStarter, fullWarnings, loadPlanTable, modes, planIds, planStarter, previewStarter, providersOf } from './dispatch.mjs';
+import { applyStarter, strategyTakesPlans, defaultMode, describeStarter, fullWarnings, loadPlanTable, modes, planIds, planStarter, previewStarter, providersOf } from './dispatch.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
 export const defaultRoot = '~/Agentic';
-export const setupAnswerKeys = ['harness', 'plans', 'dispatchMode', 'figma', 'tower', 'globalHooks', 'githubOwner', 'gitIdentity', 'starterMate', 'channel'];
+export const setupAnswerKeys = ['harness', 'plans', 'dispatchMode', 'codexFullAccess', 'figma', 'tower', 'globalHooks', 'herdrLayout', 'githubOwner', 'gitIdentity', 'starterMate', 'channel'];
+// Shown before the full-access answer, in the README and in the PR, word for word.
+export const fullAccessWarning = 'Full-access Codex launch: Codex workers that Firstmate starts can read and write anything your user account can, run any command without asking you first, and run hooks without the hook trust review. This matches the kit owner\'s own setup. Answer no to keep Codex\'s normal sandbox and approval prompts.';
 export const steps = [
   ['kit', 'kit source at its pinned commit'],
   ['tools', 'pinned tools, Firstmate home, tower and global hooks'],
@@ -36,7 +38,8 @@ export const steps = [
 ];
 const valueFlags = ['--root', '--install-root', '--firstmate-home', '--harness', '--claude-plan', '--codex-plan', '--dispatch-mode', '--github-owner', '--git-name', '--git-email', '--starter-mate', '--starter-scope',
   '--channel', '--kit-dir', '--kit-commit', '--distro'];
-const booleanFlags = ['--with-figma', '--no-figma', '--with-tower', '--no-tower', '--global-hooks', '--no-global-hooks', '--no-starter-mate', '--yes', '--reconfigure',
+const booleanFlags = ['--with-figma', '--no-figma', '--with-tower', '--no-tower', '--global-hooks', '--no-global-hooks', '--codex-full-access', '--no-codex-full-access',
+  '--herdr-layout', '--no-herdr-layout', '--no-starter-mate', '--yes', '--reconfigure',
   '--dry-run', '--handoff', '--allow-existing-root'];
 const oneLine = (value, flag, max) => {
   if (typeof value !== 'string' || !value.trim() || value.length > max || /[\0-\x1f\x7f]/.test(value)) throw new Error(`${flag} must be one line of at most ${max} characters`);
@@ -62,7 +65,7 @@ export function parseSetupArgs(argv, platform = process.platform) {
     } else if (booleanFlags.includes(arg)) flags[arg.slice(2)] = true;
     else throw new Error(`unknown setup argument: ${arg}`);
   }
-  for (const [a, b] of [['with-figma', 'no-figma'], ['with-tower', 'no-tower'], ['global-hooks', 'no-global-hooks'], ['starter-mate', 'no-starter-mate']])
+  for (const [a, b] of [['with-figma', 'no-figma'], ['with-tower', 'no-tower'], ['global-hooks', 'no-global-hooks'], ['codex-full-access', 'no-codex-full-access'], ['herdr-layout', 'no-herdr-layout'], ['starter-mate', 'no-starter-mate']])
     if (flags[a] !== undefined && flags[b] !== undefined) throw new Error(`--${a} and --${b} conflict`);
   if (flags['starter-scope'] !== undefined && flags['no-starter-mate']) throw new Error('--starter-scope conflicts with --no-starter-mate');
   if (flags.handoff && flags['dry-run']) throw new Error('--handoff applies only without --dry-run');
@@ -230,11 +233,21 @@ export async function collectAnswers(flags, saved, ctx, io, paths) {
     else if (flags[off]) answers[key] = false;
     else if (want(key)) answers[key] = yes ? true : await io.confirm(`${number}. ${question}`, true);
   };
+  // Asked only with Codex, after the warning; on by default, as on the kit owner's setup.
+  if (harnessProfiles(answers.harness).includes('codex')) {
+    if (!flags['codex-full-access'] && !flags['no-codex-full-access'] && want('codexFullAccess') && !yes) output.write(`2d. ${fullAccessWarning}\n`);
+    await toggle('codexFullAccess', 'codex-full-access', 'no-codex-full-access', '2d', 'Use the full-access Codex launch');
+  } else {
+    if (flags['codex-full-access']) throw new Error('--codex-full-access needs codex among the agent CLIs');
+    delete answers.codexFullAccess;
+  }
   await toggle('figma', 'with-figma', 'no-figma', 3, 'Figma support: check figma-cli and guide Figma Desktop sign-in (never patches or restarts Figma)');
   await toggle('tower', 'with-tower', 'no-tower', 4, 'Fleet tower: install the Zoe fleet tower and write its launcher config (never launched)');
   if (!flags['global-hooks'] && !flags['no-global-hooks'] && answers.globalHooks === undefined && !yes)
     output.write(`5. Global hooks and skills touch these files; each existing file or link is backed up under ${join(paths.installRoot, 'backups', 'hooks')} first:\n${globalHookPaths(env.HOME).map(x => `   ${x}`).join('\n')}\n`);
   await toggle('globalHooks', 'global-hooks', 'no-global-hooks', 5, 'Register these kit hooks and skills');
+  if (answers.globalHooks) await toggle('herdrLayout', 'herdr-layout', 'no-herdr-layout', '5a', 'Herdr layout: the kit\'s theme, sidebar, tab bar and pane settings in your Herdr config (settings you already have win)');
+  else if (flags['herdr-layout']) throw new Error('--herdr-layout needs global hooks and skills');
   if (flags['github-owner'] !== undefined) answers.githubOwner = flags['github-owner'];
   else if (want('githubOwner')) {
     const login = githubLogin(env);
@@ -288,8 +301,9 @@ const indent = text => `${text.trimEnd().replace(/^/gm, '  ')}\n`;
 export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, env = {}, keyPlan = { managed: true, status: 'not set' } }) {
   const g = answers.gitIdentity, tower = plan.plan?.towerConfig;
   const lines = ['', 'Agent Kit setup summary. Nothing has been written yet.', 'Answers:',
-    `  1. Root folder: ${paths.root}`, `  2. Agent CLIs: ${harnessLabel(answers.harness)} (plan: ${Object.entries(answers.plans || {}).map(([cli, id]) => `${cli} ${id === 'not-sure' ? 'skip' : id}`).join(', ') || 'skip'}; starter routing mode: ${answers.dispatchMode})`, `  3. Figma support: ${yesNo(answers.figma)}`, `  4. Fleet tower: ${yesNo(answers.tower)}`,
-    `  5. Global hooks and skills: ${yesNo(answers.globalHooks)}`, `  6. GitHub owner: ${answers.githubOwner || 'none'} (recorded only; nothing is created on GitHub)`,
+    `  1. Root folder: ${paths.root}`, `  2. Agent CLIs: ${harnessLabel(answers.harness)} (plan: ${Object.entries(answers.plans || {}).map(([cli, id]) => `${cli} ${id === 'not-sure' ? 'skip' : id}`).join(', ') || 'skip'}; starter routing mode: ${answers.dispatchMode})`,
+    ...(answers.codexFullAccess !== undefined ? [`  2d. Full-access Codex launch: ${answers.codexFullAccess ? 'ON - Codex workers can read and write anything your account can, run commands without asking and run hooks without the trust review' : 'off (Codex keeps its normal sandbox and approvals)'}`] : []), `  3. Figma support: ${yesNo(answers.figma)}`, `  4. Fleet tower: ${yesNo(answers.tower)}`,
+    `  5. Global hooks and skills: ${yesNo(answers.globalHooks)}`, ...(answers.globalHooks ? [`  5a. Herdr layout settings: ${yesNo(answers.herdrLayout !== false)}`] : []), `  6. GitHub owner: ${answers.githubOwner || 'none'} (recorded only; nothing is created on GitHub)`,
     `  7. Git identity: ${g.action === 'set' ? `set user.name "${g.name}" and user.email "${g.email}" with git config --global` : `keep (${gitCurrent.name || 'no name'} <${gitCurrent.email || 'no email'}>)`}${gitStale ? `; your saved "${gitStale.name}" <${gitStale.email}> was not applied because git's value changed since (pass --git-name and --git-email, or --reconfigure, to change it)` : ''}`,
     `  8. Starter second mate: ${answers.starterMate.create ? `${answers.starterMate.id}: ${answers.starterMate.scope}` : 'no'}`, `  9. Update channel: ${answers.channel}${channelOverride ? ` (from --channel; your saved answer was ${channelOverride})` : ''}`,
     ...(keyPlan.managed ? [`  10. Optional TYPESAFE_API_KEY: ${keyPlan.status} (Firstmate home .env; without it Jev routing is off and normal dispatch rules apply)`]
@@ -523,8 +537,9 @@ export async function setup(manifest, ctx) {
           output.write('  TYPESAFE_API_KEY: set\n');
         }
         const keySet = envManaged(paths.firstmateHome) && keyStatus(paths.firstmateHome);
-        // Starter rules follow the key: written once it is set, never over rules the person or a strategy owns.
-        const starter = keySet ? await applyStarter(planStarter(paths.firstmateHome, { harness: answers.harness, plans: answers.plans, mode: answers.dispatchMode, table: ctx.planTable, record: receipt.setup?.dispatch, create: true, restore: true })) : null;
+        // A Firstmate that takes --plans selects the person's strategy at every install; the older bridge writes
+        // starter rules only once the key is set. Never over rules the person or a strategy owns.
+        const starter = keySet || strategyTakesPlans(paths.firstmateHome) ? await applyStarter(planStarter(paths.firstmateHome, { harness: answers.harness, plans: answers.plans, mode: answers.dispatchMode, table: ctx.planTable, record: receipt.setup?.dispatch, create: true, restore: true })) : null;
         if (starter && describeStarter(starter)) output.write(`  ${describeStarter(starter)}\n`);
         await updateReceipt(receiptPath, manifest.release, r => {
           if (envManaged(paths.firstmateHome)) r.setup.keys = { TYPESAFE_API_KEY: keyStatus(paths.firstmateHome) };

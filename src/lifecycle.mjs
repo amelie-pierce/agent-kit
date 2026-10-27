@@ -115,7 +115,7 @@ function homeOf(receipt) {
 // them, upgrade only refreshes unchanged ones, and rules the person or a strategy changed are left alone.
 function starterPlan(receipt, firstmate, mode) {
   const keySet = envManaged(firstmate) && keyStatus(firstmate);
-  return planStarter(firstmate, { harness: harnessOf(receipt), plans: plansOf(receipt), mode: receipt.setup?.dispatch?.template || modeOf(receipt), record: receipt.setup?.dispatch || null, restore: mode === 'repair' && keySet });
+  return planStarter(firstmate, { harness: harnessOf(receipt), plans: plansOf(receipt), mode: receipt.setup?.dispatch?.template || modeOf(receipt), record: receipt.setup?.dispatch || null, restore: mode === 'repair' && (keySet || receipt.setup?.dispatch?.via === 'fm-strategy') });
 }
 const starterSummary = plan => plan.action === 'none' ? null : { path: plan.path, action: plan.action, ...(plan.detail ? { detail: plan.detail } : {}) };
 async function reconcileStarter(root, firstmate, mode) {

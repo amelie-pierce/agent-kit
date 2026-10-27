@@ -30,7 +30,11 @@ try {
     arch: process.arch,
     nodeVersion: process.versions.node,
   };
-  if (argv[0] === 'mate') {
+  if (argv[0] === 'jev') {
+    if (process.platform === 'win32') throw new Error('run agent-kit jev inside the WSL2 distribution');
+    const { runJev } = await import('../src/jev.mjs');
+    process.exitCode = await runJev(argv.slice(1), { kitDir: resolve(fileURLToPath(new URL('..', import.meta.url))) });
+  } else if (argv[0] === 'mate') {
     if (process.platform === 'win32') throw new Error('run fm-mate inside the WSL2 distribution');
     const { runMate } = await import('../src/mate.mjs');
     process.exitCode = await runMate(argv.slice(1), { env: process.env, kitDir: resolve(fileURLToPath(new URL('..', import.meta.url))) });

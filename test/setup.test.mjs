@@ -240,9 +240,12 @@ test('the plan and mode questions use the approved plan ids, warn before full on
     [[/2b\. Codex subscription plan, for starter dispatch rules: plus, pro, business-standard, business-premium, enterprise-edu, api or skip \[skip\][^\n]*$/, 'plus\n'],
       [/2c\. Starter routing mode used once TYPESAFE_API_KEY is set: lean, balanced or full \[lean\][^\n]*$/, 'full\n'],
       [/Warning: full on ChatGPT Plus can reach the five-hour limit first, then the weekly limit\. Use full anyway[^\n]*$/, 'n\n'],
+      [/2d\. Use the full-access Codex launch[^\n]*$/, '\n'],
       [/Keep it as it is[^\n]*$/, 'y\n'], [/Add optional TYPESAFE_API_KEY[^\n]*$/, 'n\n'], [/Write these changes now[^\n]*$/, 'y\n']]);
   assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
   assert.match(c.text, /2\. Agent CLIs: codex \(plan: codex plus; starter routing mode: lean\)/);
+  assert.match(c.text, /2d\. Full-access Codex launch: ON - Codex workers can read and write anything your account can/, 'the default is on and the summary says so');
+  assert.equal(JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8')).setup.answers.codexFullAccess, true);
   const receiptPath = join(f.root, '.tools', 'receipt.json'), saved = () => JSON.parse(readFileSync(receiptPath, 'utf8')).setup.answers;
   assert.deepEqual([saved().plans, saved().dispatchMode], [{ codex: 'plus' }, 'lean']);
   const rerun = f.ctx(['--yes', '--root', f.root]); rerun.installPlatform = keyInstall;
@@ -307,7 +310,7 @@ test('the add-later key hint keeps a custom install root and pastes as shell arg
 test('scripted answers drive every prompt; nothing is written before yes; answers are saved without secrets', posixOnly, async t => {
   const f = fixture(t);
   const kit = kitCheckout(t, f.base);
-  const answers = [f.root, 'y', '', '', 'n', 'n', 'y', 'my-org', 'n', 'Pat Example', 'pat@example.test', 'y', 'n', 'main'];
+  const answers = [f.root, 'y', '', '', 'n', 'n', 'n', 'y', '', 'my-org', 'n', 'Pat Example', 'pat@example.test', 'y', 'n', 'main'];
   const declined = f.ctx(['--kit-dir', kit.dir, '--kit-commit', kit.commit], [...answers, 'n', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, declined), 1);
   assert.match(declined.text, /Cancelled; nothing was written/);
@@ -321,7 +324,8 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
     assert.ok(c.text.includes(prompt), prompt);
   const receipt = JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8'));
   assert.equal(statSync(join(f.root, '.tools', 'receipt.json')).mode & 0o777, 0o600);
-  assert.deepEqual(receipt.setup.answers, { root: f.root, harness: 'codex', plans: { codex: 'not-sure' }, dispatchMode: 'balanced', figma: false, tower: false, globalHooks: true, githubOwner: 'my-org',
+  assert.match(c.text, /2d\. Full-access Codex launch: Codex workers that Firstmate starts can read and write anything your user account can, run any command without asking you first, and run hooks without the hook trust review\./);
+  assert.deepEqual(receipt.setup.answers, { root: f.root, harness: 'codex', plans: { codex: 'not-sure' }, dispatchMode: 'balanced', codexFullAccess: false, figma: false, tower: false, globalHooks: true, herdrLayout: true, githubOwner: 'my-org',
     gitIdentity: { action: 'set', name: 'Pat Example', email: 'pat@example.test' }, starterMate: { create: false }, channel: 'main' });
   assert.deepEqual(receipt.setup.paths, { root: f.root, installRoot: join(f.root, '.tools'), firstmateHome: join(f.root, 'firstmate'), treehouseRoot: f.root, towerState: join(f.root, '.zoe-fleet') });
   assert.deepEqual(Object.values(receipt.setup.steps).map(x => x.state), ['complete', 'complete', 'complete', 'complete', 'complete', 'not-selected', 'complete', 'complete']);
@@ -359,7 +363,7 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   assert.equal(await setup(f.fixtureManifest, override), 0, override.text);
   assert.match(override.text, /9\. Update channel: releases \(from --channel; your saved answer was main\)/);
   // --reconfigure asks again.
-  const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, '', '', 'n', 'n', 'n', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
+  const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, '', '', '', 'n', 'n', 'n', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, reconfigure), 0, reconfigure.text);
   assert.match(reconfigure.text, /3\. Figma support: check/);
 });
