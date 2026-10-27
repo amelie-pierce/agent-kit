@@ -1,0 +1,26 @@
+README.md
+  s_c71b4cc4fa27da::t_23ca25d0259679 33
+src/install/macos.mjs
+  s_c71b4cc4fa27da::t_3b5ad789f216b2 308-309,321,329-332
+src/kit.mjs
+  s_c71b4cc4fa27da::t_2765f8bd39e7fa 184
+  s_c71b4cc4fa27da::t_3b5ad789f216b2 1-2,158-164
+test/kit.test.mjs
+  s_c71b4cc4fa27da::t_d0af8d21ed2d92 785-819
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "65fac5bdb7a8b8a0d78286289a74887294f9a3af",
+  "prompts": {},
+  "sessions": {
+    "s_c71b4cc4fa27da": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fdd53b45-ebec-44f3-9552-63ac159a9d6c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
