@@ -13,6 +13,7 @@ src/install/macos.mjs
 src/kit.mjs
   s_024bf0028b7de2::t_b82eb67087c6c4 33
   s_024bf0028b7de2::t_828d5830e698ea 4,120-122,144,149-150,172-173,175-181,186,196
+  s_024bf0028b7de2::t_a2a88e91836429 1,174
 manifests/pilot-skeleton.json
   s_024bf0028b7de2::t_d09dcfe343bba1 344,346,356-358,360,363-365,367,370-372,374,377-379,381,408-471
   s_024bf0028b7de2::t_98bc60ac2456d6 472-473
@@ -22,6 +23,8 @@ test/kit.test.mjs
   s_024bf0028b7de2::t_e3b800e40f3bca 794-795
 manifests/schema-v1.json
   s_024bf0028b7de2::t_b82eb67087c6c4 64
+bin/agent-kit.mjs
+  s_024bf0028b7de2::t_a2a88e91836429 31
 ---
 {
   "schema_version": "authorship/3.0.0",
