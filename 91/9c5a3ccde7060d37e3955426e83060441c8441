@@ -1,0 +1,19 @@
+manifests/pilot-skeleton.json
+  s_9b6fe3b4fb8173::t_8f5ef21327c680 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "919c5a3ccde7060d37e3955426e83060441c8441",
+  "prompts": {},
+  "sessions": {
+    "s_9b6fe3b4fb8173": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17be5-fd00-7f71-8af7-df194b827835",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
