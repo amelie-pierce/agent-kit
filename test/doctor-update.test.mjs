@@ -106,7 +106,7 @@ test('running binary defers activation and dirty Firstmate is a conflict', { ski
   assert.equal(JSON.parse(readFileSync(f.receiptPath)).pendingUpdate, 'new-release');
   assert.equal(readdirSync(join(f.root, 'releases', 'old-release', 'bin')).includes('herdr'), true);
   writeFileSync(join(f.firstmate, 'README.md'), 'dirty');
-  assert.throws(() => planUpdate(f.manifest, f.options), /owned installation fails verification: firstmate/);
+  assert.throws(() => planUpdate(f.manifest, f.options), /has uncommitted changes to tracked files\. Save them elsewhere .* discard them .* will not reset the Firstmate home itself; rerun agent-kit upgrade/);
 });
 
 test('digest failure keeps the prior binary; changed Firstmate pin uses guarded handoff', { skip: process.platform === 'win32' }, async t => {

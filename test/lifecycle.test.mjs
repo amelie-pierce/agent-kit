@@ -214,7 +214,7 @@ test('upgrade and its update alias refuse a Firstmate home with local changes; r
     };
     const args = { ...f.options, resolveCommit: () => commit, fetchKit };
     const before = readFileSync(f.receiptPath, 'utf8');
-    const refusal = new RegExp(`Firstmate home ${f.firstmate} has local changes; the kit will not reset it\\. Commit or revert`);
+    const refusal = new RegExp(`Firstmate home ${f.firstmate} has uncommitted changes to tracked files\\. Save them elsewhere if you want to keep them, then discard them so the home is clean\\. The kit will not reset the Firstmate home itself; rerun agent-kit upgrade afterwards\\.`);
     writeFileSync(join(f.firstmate, 'README.md'), 'person work\n');
     await assert.rejects(planUpgrade(args), refusal);
     assert.equal(readFileSync(f.receiptPath, 'utf8'), before);
@@ -225,6 +225,14 @@ test('upgrade and its update alias refuse a Firstmate home with local changes; r
     assert.equal(readFileSync(f.receiptPath, 'utf8'), before);
     assert.equal(JSON.parse(before).pendingUpdate, undefined);
     assert.equal(existsSync(join(f.root, 'releases', 'new-release')), false);
+    const pin = f.git('rev-parse', 'HEAD');
+    f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qam', 'person commit');
+    const offPin = new RegExp(`is not on the kit's pinned Firstmate commit ${pin}\\. Return the home to commit ${pin}; Firstmate updates go through Firstmate's own /updatefirstmate path\\. The kit will not reset`);
+    await assert.rejects(planUpgrade(args), offPin);
+    await assert.rejects(applyUpgrade(stale, f.options), offPin);
+    assert.equal(readFileSync(f.receiptPath, 'utf8'), before);
+    f.git('reset', '-q', '--hard', pin);
+    writeFileSync(join(f.firstmate, 'README.md'), 'person work\n');
     const repaired = await applyRepair(f.manifest, f.options);
     assert.equal(repaired.status, 'repaired');
     assert.ok(repaired.nextSteps.some(x => x.startsWith('firstmate: ')));

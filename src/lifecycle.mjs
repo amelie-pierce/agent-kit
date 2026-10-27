@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, rename, rm, writeFile, symlink } from 'node:fs/promises
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { doctor, gitCheck } from './doctor.mjs';
+import { doctor, firstmateIssue, gitCheck } from './doctor.mjs';
 import { installPlatform, atomicJson, towerPaths, systemDirs, within } from './install/macos.mjs';
 import { applyUnregister, previewHooks, previewUnregister } from './install/hooks.mjs';
 import { processRunning } from './update.mjs';
@@ -93,9 +93,9 @@ function unresolved(components, manifest, platform, arch, reportFirstmate) {
 }
 function assertFirstmateClean(receipt, manifest) {
   const tool = manifest.tools.find(x => x.id === 'firstmate'), path = receipt.phases.firstmate?.path;
-  if (!tool || typeof path !== 'string' || !isAbsolute(path) || !stat(path)?.isDirectory() || stat(path).isSymbolicLink()) return;
-  if ([receipt.phases.firstmate.version, tool.version.value].some(pin => pin && gitCheck(path, pin, tool.approvedUpstream))) return;
-  throw new Error(`Firstmate home ${path} has local changes; the kit will not reset it. Commit or revert those changes, then rerun agent-kit upgrade.`);
+  if (!tool || typeof path !== 'string' || !isAbsolute(path) || gitCheck(path, tool.version.value, tool.approvedUpstream)) return;
+  const issue = firstmateIssue(path, receipt.phases.firstmate.version, tool.approvedUpstream);
+  if (issue) throw new Error(issue);
 }
 function assertStopped(running) {
   if (running.length) throw new Error(`kit services are running: ${running.map(x => `${x.id}: ${x.step}`).join('; ')}`);
