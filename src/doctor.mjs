@@ -30,15 +30,27 @@ function treeDigest(root) {
   walk(root);
   return sha(parts.join('\n'));
 }
-export function gitCheck(path, pin, origin) {
+function gitIn(path, ...command) {
   const args = ['--no-optional-locks', '--git-dir', join(path, '.git'), '--work-tree', path];
   const env = { HOME: dirname(path), PATH: process.env.PATH || '', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' };
-  const head = spawnSync('git', [...args, 'rev-parse', 'HEAD'], { encoding: 'utf8', env, timeout: 30000 });
+  return spawnSync('git', [...args, ...command], { encoding: 'utf8', env, timeout: 30000 });
+}
+export function gitCheck(path, pin, origin) {
+  const head = gitIn(path, 'rev-parse', 'HEAD');
   if (head.status !== 0 || head.stdout.trim() !== pin) return false;
-  const changed = spawnSync('git', [...args, 'status', '--porcelain', '--untracked-files=no'], { encoding: 'utf8', env, timeout: 30000 });
+  const changed = gitIn(path, 'status', '--porcelain', '--untracked-files=no');
   if (changed.status !== 0 || changed.stdout.trim()) return false;
-  const remote = spawnSync('git', [...args, 'remote', 'get-url', 'origin'], { encoding: 'utf8', env, timeout: 30000 });
+  const remote = gitIn(path, 'remote', 'get-url', 'origin');
   return remote.status === 0 && remote.stdout.trim() === origin;
+}
+export function firstmateIssue(path, pin, origin) {
+  const st = typeof path === 'string' && existsSync(path) ? lstatSync(path) : null;
+  if (!pin || !st?.isDirectory() || st.isSymbolicLink() || gitCheck(path, pin, origin)) return null;
+  const tail = 'The kit will not reset the Firstmate home itself; rerun agent-kit upgrade afterwards.';
+  const changed = gitIn(path, 'status', '--porcelain', '--untracked-files=no');
+  if (changed.status === 0 && changed.stdout.trim())
+    return `Firstmate home ${path} has uncommitted changes to tracked files. Save them elsewhere if you want to keep them, then discard them so the home is clean. ${tail}`;
+  return `Firstmate home ${path} is not on the kit's pinned Firstmate commit ${pin}. Return the home to commit ${pin}; Firstmate updates go through Firstmate's own /updatefirstmate path. ${tail}`;
 }
 function phasePath(root, id, entry) {
   if (typeof entry.path !== 'string') return null;

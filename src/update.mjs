@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { isAbsolute, join, resolve } from 'node:path';
-import { doctor, gitCheck } from './doctor.mjs';
+import { doctor, firstmateIssue, gitCheck } from './doctor.mjs';
 import { installPlatform, npmGroup, selected } from './install/macos.mjs';
 import { validateManifest } from './kit.mjs';
 
@@ -32,7 +32,8 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
   const handedOff = !!firstmate && firstmateEntry?.version !== firstmate.version.value && typeof firstmateEntry?.path === 'string' && isAbsolute(firstmateEntry.path) &&
     gitCheck(firstmateEntry.path, firstmate.version.value, firstmate.approvedUpstream);
   const unsafe = health.checks.filter(x => x.status === 'fail' && !(handedOff && x.id === 'firstmate') && x.id !== 'hooks' && !x.id.startsWith('prerequisite-') && !x.id.endsWith('-path') && !x.id.endsWith('-pin'));
-  if (unsafe.length) throw new Error(`owned installation fails verification: ${unsafe.map(x => x.id).join(', ')}`);
+  if (unsafe.length) throw new Error((unsafe.some(x => x.id === 'firstmate') && firstmate && firstmateIssue(firstmateEntry?.path, firstmateEntry?.version, firstmate.approvedUpstream))
+    || `owned installation fails verification: ${unsafe.map(x => x.id).join(', ')}`);
   const target = `${platform}-${arch}`;
   const changes = selected(manifest, effectiveHarness, answers.figma ?? withFigma, answers.tower ?? true).map(tool => {
     const group = npmGroup(tool.id), entry = receipt.phases[group || tool.id];
