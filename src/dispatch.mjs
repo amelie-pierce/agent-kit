@@ -4,7 +4,7 @@ import { lstatSync, readFileSync, statSync } from 'node:fs';
 import { link, mkdir, open, rename, rm } from 'node:fs/promises';
 import { delimiter, join } from 'node:path';
 import { harnessProfiles } from './harness.mjs';
-import { envManaged, keyStatus } from './keys.mjs';
+import { envManaged, keyName, keyStatus } from './keys.mjs';
 
 // Starter worker routing for a teammate who turns on Jev (TYPESAFE_API_KEY). When the pinned Firstmate's
 // fm-strategy.sh accepts --plans, the kit selects the strategy there and Firstmate owns every file. Until
@@ -172,7 +172,8 @@ export function planStarter(firstmateHome, { harness, plans = {}, mode, table = 
 export async function applyStarter(plan) {
   if (plan.action === 'strategy') {
     const home = join(plan.path, '..', '..');
-    const r = spawnSync('bash', [join(home, 'bin', 'fm-strategy.sh'), ...plan.argv], { cwd: home, env: { ...process.env, FM_HOME: home }, encoding: 'utf8', timeout: 120000 });
+    const { [keyName]: _key, ...env } = process.env;
+    const r = spawnSync('bash', [join(home, 'bin', 'fm-strategy.sh'), ...plan.argv], { cwd: home, env: { ...env, FM_HOME: home }, encoding: 'utf8', timeout: 120000 });
     return r.status === 0 ? plan : { ...plan, action: 'skip', detail: `fm-strategy.sh ${plan.argv.slice(0, 2).join(' ')} failed: ${(r.stderr || r.stdout || '').trim().split('\n').pop() || `exit ${r.status}`}` };
   }
   if (!['write', 'restore', 'refresh'].includes(plan.action)) return plan;

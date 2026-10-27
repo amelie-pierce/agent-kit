@@ -394,11 +394,13 @@ test('a Firstmate whose fm-strategy.sh takes --plans selects the strategy itself
   const f = firstmateHome(t);
   writeFileSync(join(f.home, 'bin', 'strategies', 'lean.json'), JSON.stringify(slots));
   const log = join(f.base, 'argv');
-  writeFileSync(join(f.home, 'bin', 'fm-strategy.sh'), `#!/usr/bin/env bash\nif [ "$1" = --help ]; then echo 'Usage: fm-strategy.sh set <mode> [--providers <set>] [--plans claude=<plan>,codex=<plan>]'; exit 0; fi\necho "$@" > '${log}'\nmkdir -p "$FM_HOME/config"; echo mode=$2 > "$FM_HOME/config/strategy"\n`, { mode: 0o755 });
+  writeFileSync(join(f.home, 'bin', 'fm-strategy.sh'), `#!/usr/bin/env bash\nif [ "$1" = --help ]; then echo 'Usage: fm-strategy.sh set <mode> [--providers <set>] [--plans claude=<plan>,codex=<plan>]'; exit 0; fi\necho "$@" "key=\${TYPESAFE_API_KEY-unset}" > '${log}'\nmkdir -p "$FM_HOME/config"; echo mode=$2 > "$FM_HOME/config/strategy"\n`, { mode: 0o755 });
   const plan = planStarter(f.home, { harness: 'both', plans: { claude: 'pro', codex: 'not-sure' }, mode: 'lean', create: true });
   assert.equal(plan.action, 'strategy');
+  process.env.TYPESAFE_API_KEY = fakeKey;
+  t.after(() => { delete process.env.TYPESAFE_API_KEY; });
   const result = await applyStarter(plan);
-  assert.equal(readFileSync(log, 'utf8'), 'set lean --providers claude,codex --plans claude=pro --yes\n');
+  assert.equal(readFileSync(log, 'utf8'), 'set lean --providers claude,codex --plans claude=pro --yes key=unset\n', 'the key never reaches fm-strategy.sh');
   assert.equal(result.record, null, 'Firstmate owns a strategy it selected');
   assert.equal(existsSync(f.rules), false, 'the kit wrote no rules file itself');
   assert.match(describeStarter(result), /selected Firstmate's lean strategy .* with bin\/fm-strategy\.sh set lean --providers claude,codex --plans claude=pro --yes/);
