@@ -131,9 +131,6 @@ async function reconcileStarter(root, firstmate, mode) {
   await atomicJson(join(root, 'receipt.json'), receipt);
   return starterSummary(result);
 }
-// The open-firstmate launcher and Herdr keys block follow the global registrations answer. Repair restores a
-// removed block and replaces a changed launcher; upgrade refreshes both while unchanged. Like the starter
-// rules, a problem here never rolls back a repair or upgrade.
 // The figma-cli skills the kit registered that figma-cli itself reports unchanged ('up-to-date').
 function figmaRemovable(root, receipt, options = {}) {
   const phase = receipt.phases['npm-figma'], paths = phase?.skills || [];
@@ -147,6 +144,9 @@ function figmaRemovable(root, receipt, options = {}) {
   }
   return paths.filter(path => unchanged.has(path));
 }
+// The open-firstmate launcher and Herdr keys block follow the global registrations answer. Repair restores a
+// removed block and replaces a changed launcher; upgrade refreshes both while unchanged. Like the starter
+// rules, a problem here never rolls back a repair or upgrade.
 async function reconcileShortcuts(root, options, repair) {
   const { receipt } = receiptAt(root);
   const env = options.env || process.env, home = options.home || env.HOME;
