@@ -10,7 +10,7 @@ date: 2026-10-27
 
 Because a release is a manifest-changing merge, the installer needs a manifest change to be reachable on the default channel. A kit commit without `src/setup.mjs` is refused with a pointer to `--channel main` (install.sh:211). The release label moved to `macos-pilot-3` for that reason; pins did not change (manifests/pilot-skeleton.json:3).
 
-Updated 2026-10-27: the label is one shared string with no platform prefix semantics, and labels are now `pilot-N`; `pilot-8` carries the Windows readiness fixes with no pin change (manifests/pilot-skeleton.json:3; README.md, Pins and approval).
+Updated 2026-10-27: the label is one shared string with no platform prefix semantics, and labels are now `pilot-N`; `pilot-8` carries the Windows readiness fixes and adds only the WSL2 tower and runtime pins ([tower-release.md](tower-release.md)) (manifests/pilot-skeleton.json:3; README.md, Pins and approval).
 
 `setup` (src/setup.mjs:371) asks for the root first only when no `--root` arrives (a direct `agent-kit setup` run). It derives `<root>/firstmate`, `<root>/.tools`, the `<root>/.treehouse` pool, `<root>/.zoe-fleet` tower state and the wrapper path. `--install-root` and `--firstmate-home` are conflict-checked overrides (src/setup.mjs:109-121). `checkRoot` hard-refuses the home directory, its ancestors, system locations, `/mnt` inside WSL, ancestors holding `fm-bootstrap.sh` or `.git`, a non-empty `firstmate/`, and a non-empty `.tools/` without a receipt. It returns confirmation reasons for another Firstmate home or other files (src/setup.mjs:79-107). The existing Firstmate-home rule needed no relaxation, because `firstmate/` and `.tools/` are siblings (src/install/macos.mjs:179-190).
 
