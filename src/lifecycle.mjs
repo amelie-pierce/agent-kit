@@ -83,10 +83,13 @@ function servicePlan(receipt, root, isRunning) {
     ['zoe-fleet-tower', 'close the tower through its own operator workflow']];
   return checks.filter(([id]) => isRunning(id, bin)).map(([id, step]) => ({ id, step }));
 }
-function unresolved(components, manifest, platform, arch, reported = []) {
+function unresolved(components, manifest, platform, arch) {
   const key = `${platform}-${arch}`;
   const unreviewed = id => { const tool = manifest.tools.find(x => x.id === id); return !!tool && (tool.version.status !== 'verified' || tool.artifacts?.[key]?.status !== 'verified'); };
-  return components.filter(x => ['conflict', 'deferred', 'unverified'].includes(x.status) && !reported.includes(x.id) && !(x.status === 'unverified' && unreviewed(x.id)));
+  const firstmateOk = components.some(x => x.id === 'firstmate' && ['installed', 'skipped'].includes(x.status));
+  const reported = x => x.id === 'firstmate' || (!firstmateOk && ((x.id === 'zoe-fleet-tower' && x.status === 'unverified') || (x.id === 'hooks' && x.status === 'deferred')));
+  const open = components.filter(x => ['conflict', 'deferred', 'unverified'].includes(x.status) && !(x.status === 'unverified' && unreviewed(x.id)));
+  return { failed: open.filter(x => !reported(x)), nextSteps: open.filter(reported).map(x => `${x.id}: ${x.reason}`) };
 }
 function assertStopped(running) {
   if (running.length) throw new Error(`kit services are running: ${running.map(x => `${x.id}: ${x.step}`).join('; ')}`);
@@ -234,9 +237,8 @@ export async function applyRepair(manifest, options = {}) {
     const result = await installPlatform(manifest, { ...options, home: options.home, installRoot: plan.root, firstmateHome: homeOf(current),
       harness: answer.harness || 'claude', withFigma: answer.figma || false, withTower: answer.tower !== false, globalHooks: answer.globalHooks !== false,
       towerState: receipt.setup?.paths?.towerState });
-    const firstmateOk = result.components.some(x => x.id === 'firstmate' && ['installed', 'skipped'].includes(x.status));
-    if (unresolved(result.components, manifest, options.platform || process.platform, options.arch || process.arch, firstmateOk ? ['firstmate'] : ['firstmate', 'zoe-fleet-tower']).length)
-      throw new Error('repair has unresolved kit components');
+    const { failed, nextSteps } = unresolved(result.components, manifest, options.platform || process.platform, options.arch || process.arch);
+    if (failed.length) throw new Error('repair has unresolved kit components');
     const wrapper = current.phases['treehouse-root'];
     if (wrapper) {
       const path = phaseOwned(plan.root, 'treehouse-root', wrapper), actual = digest(path);
@@ -260,7 +262,7 @@ export async function applyRepair(manifest, options = {}) {
       const file = plan.files.find(x => x.path === item.original);
       if (file?.action === 'verify' || item.original === staging || item.original === npmCache) await rm(item.backup, { recursive: true, force: true });
     }
-    return { ...plan, apply: true, status: 'repaired', backup, components: result.components };
+    return { ...plan, apply: true, status: 'repaired', backup, components: result.components, nextSteps };
   } catch (error) {
     await atomicJson(join(plan.root, 'receipt.json'), current);
     for (const item of copied.reverse()) { await rm(item.original, { recursive: true, force: true }); await rename(item.backup, item.original); }
@@ -401,7 +403,8 @@ export async function applyUpgrade(plan, options = {}) {
     const target = await import(pathToFileURL(join(kitTarget, 'src', 'update.mjs')).href);
     const result = await target.applyUpdate(plan.manifest, { ...options, installRoot: root, home: options.home, platform: options.platform || process.platform,
       arch: options.arch || process.arch, reviewed: true, isRunning: () => false });
-    if (unresolved(result.components, plan.manifest, options.platform || process.platform, options.arch || process.arch).length) throw new Error('upgrade has unresolved components; prior kit files restored');
+    const { failed, nextSteps } = unresolved(result.components, plan.manifest, options.platform || process.platform, options.arch || process.arch);
+    if (failed.length) throw new Error('upgrade has unresolved components; prior kit files restored');
     const updated = receiptAt(root).receipt;
     const updatedWrapper = updated.phases['treehouse-root'];
     if (updatedWrapper && updated.phases.treehouse) {
@@ -413,7 +416,7 @@ export async function applyUpgrade(plan, options = {}) {
     }
     updated.setup ||= {}; updated.setup.kit = { commit: plan.commit, path: kitTarget };
     await atomicJson(join(root, 'receipt.json'), updated);
-    return { ...plan, apply: true, status: 'upgraded', components: result.components };
+    return { ...plan, apply: true, status: 'upgraded', components: result.components, nextSteps };
   } catch (error) {
     await atomicJson(join(root, 'receipt.json'), old);
     for (const item of oldGlobal.reverse()) {
@@ -446,6 +449,7 @@ export function formatLifecycle(result) {
   if (result.tower) lines.push(`Tower config: ${typeof result.tower === 'string' ? result.tower : result.tower.action}`);
   if (result.wrapper) lines.push(`Treehouse wrapper: ${result.wrapper.action}; ${result.wrapper.path}`);
   for (const item of result.running || []) lines.push(`Running ${item.id}: ${item.step}`);
+  for (const step of result.nextSteps || []) lines.push(`Next step: ${step}`);
   if (result.note) lines.push(result.note);
   if (!result.apply) lines.push(`Confirm with agent-kit ${result.command} --yes using the same root.`);
   return lines.join('\n') + '\n';

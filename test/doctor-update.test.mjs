@@ -106,7 +106,10 @@ test('running binary defers activation and dirty Firstmate is a conflict', { ski
   assert.equal(JSON.parse(readFileSync(f.receiptPath)).pendingUpdate, 'new-release');
   assert.equal(readdirSync(join(f.root, 'releases', 'old-release', 'bin')).includes('herdr'), true);
   writeFileSync(join(f.firstmate, 'README.md'), 'dirty');
-  assert.throws(() => planUpdate(f.manifest, f.options), /owned installation fails verification: firstmate/);
+  planUpdate(f.manifest, f.options);
+  const reported = await applyUpdate(f.manifest, f.options);
+  assert.equal(reported.components.find(x => x.id === 'firstmate').status, 'conflict');
+  assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'dirty');
 });
 
 test('digest failure keeps the prior binary; changed Firstmate pin uses guarded handoff', { skip: process.platform === 'win32' }, async t => {
