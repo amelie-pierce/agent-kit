@@ -386,7 +386,12 @@ export async function installPlatform(manifest, options = {}) {
         if (await hashFile(artifactPath) !== a.sha256) throw new Error(`SHA-256 mismatch for staged ${tool.id}`);
       } else {
         const pending = `${artifactPath}.${randomUUID()}.part`;
-        await (options.fetchArtifact || download)(a.url, pending);
+        try { await (options.fetchArtifact || download)(a.url, pending); } catch (error) {
+          await rm(pending, { force: true });
+          if (!['zoe-fleet', 'zoe-fleet-runtime'].includes(tool.id)) throw error;
+          components.push({ id: tool.id, status: 'unverified', reason: `tower download unavailable: ${error.code || error.message}` });
+          continue;
+        }
         if (await hashFile(pending) !== a.sha256) throw new Error(`SHA-256 mismatch for ${tool.id}`);
         await rename(pending, artifactPath);
       }

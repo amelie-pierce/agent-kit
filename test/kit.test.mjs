@@ -695,7 +695,34 @@ function towerFixture(t, { runtimeFiles } = {}) {
   return { ...f, kitPath, digest };
 }
 
-test('macOS release archives install the tower and configure its launcher without a source build', { skip: process.platform === 'win32' }, async t => {
+test('a tower download network failure leaves the tower partial and later phases complete', { skip: process.platform === 'win32' }, async t => {
+  const f = towerFixture(t);
+  const herdr = structuredClone(manifest.tools.find(x => x.id === 'herdr'));
+  herdr.artifacts['darwin-arm64'] = { url: 'https://fixture.test/herdr', sha256: createHash('sha256').update(readFileSync(f.artifact)).digest('hex'), status: 'verified', reason: '' };
+  f.fixtureManifest.tools.push(herdr);
+  const fetchArtifact = f.options.fetchArtifact;
+  f.options.fetchArtifact = async (url, destination) => {
+    if (url.endsWith('zoe-fleet.tar.gz')) { writeFileSync(destination, 'partial'); throw Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }); }
+    if (url.endsWith('/herdr')) return copyFileSync(f.artifact, destination);
+    return fetchArtifact(url, destination);
+  };
+  const result = await installPlatform(f.fixtureManifest, f.options);
+  assert.deepEqual(result.components.map(x => [x.id, x.status]), [['firstmate', 'installed'], ['zoe-fleet', 'unverified'], ['zoe-fleet-runtime', 'installed'], ['herdr', 'installed'], ['zoe-fleet-tower', 'unverified']]);
+  assert.equal(result.components[1].reason, 'tower download unavailable: ECONNRESET');
+  assert.equal(result.towerParity, 'unavailable');
+  assert.equal(result.status, 'partial');
+  assert.deepEqual(readdirSync(f.kitPath('staging')).filter(name => name.startsWith('zoe-fleet-') && !name.startsWith('zoe-fleet-runtime-')), []);
+  assert.equal(existsSync(f.kitPath('bin', 'zoe-fleet')), false);
+});
+
+test('a tower checksum mismatch still stops the install', { skip: process.platform === 'win32' }, async t => {
+  const f = towerFixture(t);
+  f.fixtureManifest.tools.find(x => x.id === 'zoe-fleet').artifacts['darwin-arm64'].sha256 = '0'.repeat(64);
+  await assert.rejects(installPlatform(f.fixtureManifest, f.options), /SHA-256 mismatch for zoe-fleet/);
+  assert.equal(existsSync(f.kitPath('bin', 'zoe-fleet')), false);
+});
+
+test('macOS release archives install the tower and configure its launcher without a source build',{ skip: process.platform === 'win32' }, async t => {
   const f = towerFixture(t);
   const ids = ['firstmate', 'zoe-fleet', 'zoe-fleet-runtime', 'zoe-fleet-tower'];
   const result = await installPlatform(f.fixtureManifest, f.options);
