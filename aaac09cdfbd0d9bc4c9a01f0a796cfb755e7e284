@@ -1,0 +1,28 @@
+_vaults/agent-kit/wiki/architecture/linux-install.md
+  s_e943c8362dcf8b::t_fba6e5ff5147ed 9
+README.md
+  s_e943c8362dcf8b::t_ac780a5f5dddc7 15,25
+src/kit.mjs
+  s_e943c8362dcf8b::t_a3f9a1c3d3358d 28
+src/platforms/linux.mjs
+  s_e943c8362dcf8b::t_a3f9a1c3d3358d 29-32,35-39,42-45
+  s_e943c8362dcf8b::t_ac780a5f5dddc7 33-34,40-41,57
+test/kit.test.mjs
+  s_e943c8362dcf8b::t_fba6e5ff5147ed 149-183
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aaac09cdfbd0d9bc4c9a01f0a796cfb755e7e284",
+  "prompts": {},
+  "sessions": {
+    "s_e943c8362dcf8b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cdf6806-31fd-4821-86c8-159866616781",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
