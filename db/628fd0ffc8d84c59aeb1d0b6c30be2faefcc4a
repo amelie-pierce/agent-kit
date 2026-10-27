@@ -1,0 +1,30 @@
+src/install/macos.mjs
+  s_acd09e1cfaf11b::t_b56fb7120180ed 22-27,168-169,174-177,476,518,524
+src/shortcuts.mjs
+  s_acd09e1cfaf11b::t_3e63b1ca6513b2 52,189,213,603
+manifests/pilot-skeleton.json
+  s_acd09e1cfaf11b::t_b56fb7120180ed 451-531
+  s_acd09e1cfaf11b::t_356fcddaaec30a 450
+src/herdr-plugin.mjs
+  s_acd09e1cfaf11b::t_3e63b1ca6513b2 56,59,82,85-86,197,199-200,202
+src/kit.mjs
+  s_acd09e1cfaf11b::t_3e63b1ca6513b2 116,197
+test/kit.test.mjs
+  s_acd09e1cfaf11b::t_d7f9d102fd244d 54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "db628fd0ffc8d84c59aeb1d0b6c30be2faefcc4a",
+  "prompts": {},
+  "sessions": {
+    "s_acd09e1cfaf11b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a5482aa-55d9-4866-b542-09bfa9383265",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
