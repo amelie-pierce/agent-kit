@@ -51,7 +51,7 @@ Two locations stay outside the root by their own design, and the summary says so
 
 ### Questions
 
-Every question shows its default and has a matching flag. The installer never asks for secrets, version pins, timezone or locale.
+Every question shows its default and has a matching flag. The sole optional secret question uses hidden terminal input. The installer never asks for vendor login credentials, version pins, timezone or locale.
 
 | # | Question | Default | Flag |
 | --- | --- | --- | --- |
@@ -64,8 +64,17 @@ Every question shows its default and has a matching flag. The installer never as
 | 7 | Git name and email; an existing value changes only after an explicit yes, with `git config --global` | keep | `--git-name <name>`, `--git-email <email>` |
 | 8 | Starter second mate, with a name and a one-line scope | no | `--starter-mate <name>`, `--starter-scope <text>` (`--no-starter-mate`) |
 | 9 | Update channel | reviewed releases | `--channel releases` or `main` |
+| 10 | Optional typesafe.ai dispatch key | skip | `--typesafe-key-file <private-file>` or `--typesafe-key-env` |
 
 With `both` agent CLIs, the kit installs the Codex CLI, checks the Claude CLI, and registers hooks for both. `--yes` runs unattended: no questions, saved answers and flags first, then the defaults. Without a terminal and without `--yes`, answers are read line by line from standard input.
+
+### Optional dispatch key
+
+The kit requires **no `.env` keys** for basic Firstmate dispatch. `TYPESAFE_API_KEY` is the only optional key it offers to configure. Get your own key from the [TypeSafe API keys page](https://console.typesafe.ai/keys). It belongs in `<root>/firstmate/.env` (or the chosen `--firstmate-home`), which the pinned Firstmate home ignores in Git. Enabling it sends each job's screened task text to typesafe.ai for Jev typed dispatch. Without it, Jev routing is off and Firstmate uses its normal dispatch rules. The kit does not test the key against the vendor: the vendor does not document a zero-cost validation call. Invalid-looking or empty keys are rejected locally.
+
+At question 10, the default is **skip**. Input in a terminal is hidden; the summary and receipt show only `set`, `not set` or `will set`. For unattended setup, `--yes` leaves the key unchanged unless you explicitly supply `--typesafe-key-env` (reading `TYPESAFE_API_KEY` from the environment) or `--typesafe-key-file <path>` (a private file). Never put the value in a command argument. An existing key is kept unless you confirm replacement in a terminal. The kit writes `.env` with an atomic rename and mode 0600, preserving unrelated lines and comments.
+
+Add, change or remove the key later by running `node bin/agent-kit.mjs keys --root /your/Agentic` from your own terminal, or `bash install.sh --reconfigure keys --root /your/Agentic`. An agent can guide you through that command; type the key in your own terminal. Pasting it into agent chat exposes it to the agent session and transcript. The command shows `set` or `not set`, asks before replacement or removal, and changes only this key and the receipt's key-set flag. Relay (`FMX_PAIRING_TOKEN`, `FMX_RELAY_URL`) and mail (`FM_MAIL_*`) are advanced Firstmate facilities that the kit does not set up. Claude, Codex and GitHub credentials remain in their vendor sign-in flows, never in this `.env`.
 
 ### Summary screen
 
@@ -79,6 +88,7 @@ Answers:
   3. Figma support: on
   ...
   9. Update channel: releases
+  10. Optional TYPESAFE_API_KEY: not set (Firstmate home .env; without it Jev routing is off and normal dispatch rules apply)
 Derived paths:
   Firstmate home: /Users/you/Agentic/firstmate
   Kit install root: /Users/you/Agentic/.tools (private receipt /Users/you/Agentic/.tools/receipt.json)
@@ -99,7 +109,7 @@ Write these changes now (y/n) [n]:
 
 ### Saved answers
 
-Answers are recorded in the private receipt (`<root>/.tools/receipt.json`, mode 0600) with the derived paths and the kit commit. Secrets are never recorded. A rerun asks the root folder, then reuses the saved answers and asks only questions added since. `--reconfigure` asks everything again. A saved git name and email is applied again only while git's global value is unset or still matches it; if you changed it since, the question is asked again, and `--yes` keeps your current value and says so in the summary. `doctor` and `upgrade` read the same answers, so the agent CLIs, Figma, tower and hooks choices carry over.
+Answers are recorded in the private receipt (`<root>/.tools/receipt.json`, mode 0600) with the derived paths and the kit commit. The receipt's `setup.keys.TYPESAFE_API_KEY` is only a set/not-set boolean; secrets are never recorded. A rerun asks the root folder, then reuses the saved answers and asks only questions added since. `--reconfigure` asks everything again. A saved git name and email is applied again only while git's global value is unset or still matches it; if you changed it since, the question is asked again, and `--yes` keeps your current value and says so in the summary. `doctor` and `upgrade` read the same answers, so the agent CLIs, Figma, tower and hooks choices carry over.
 
 ### Resume after a failed install
 
@@ -131,6 +141,8 @@ When you ask for one, setup fills the inert starter charter (`templates/secondma
 | `--dry-run` | ask, check and print the summary; write nothing |
 | `--yes` | unattended; no questions |
 | `--reconfigure` | ask every question again |
+| `--reconfigure keys` (install.sh) | run only the installed key-update command, without a fresh kit fetch |
+| `--typesafe-key-file <file>`, `--typesafe-key-env` | supply the optional key without putting its value on argv; existing values still need terminal confirmation |
 | `--allow-existing-root` | accept a root that holds other files or another Firstmate home, after you checked it |
 | `--install-root <dir>`, `--firstmate-home <dir>` | override one derived path; each is checked against `--root` (it cannot be the root itself, overlap `.treehouse` or `.zoe-fleet`, or contain the other) and against the paths recorded in the receipt |
 | `--commit <sha>` | use this reviewed commit (install.sh and install.ps1) |
@@ -169,9 +181,13 @@ node bin/agent-kit.mjs uninstall --root /your/Agentic
 
 The `macos-pilot-4` manifest re-pins the Zoe fleet tower and its runtime to `fleet-v0.2.0-fc45c4d9ea1d`; every other pin and digest is unchanged from `macos-pilot-3`, which had the same kit-installed pins as `macos-pilot-2` and `macos-pilot-1`. An install made with `macos-pilot-3` moves to it with `update`, which stages the new tower binary and runtime under the new release directory, leaves the previous release in place and rewrites the kit-owned launcher config to name the new paths. The `macos-pilot-2` release directory let a receipt-recorded older Linux tower build be staged from the reviewed source commit, retaining the older build for rollback. `macos-pilot-3` marks the first reviewed release that carries the single installer, so an install made with `macos-pilot-2` moves to it with `update`.
 
+`macos-pilot-6` changes only the release label from `macos-pilot-5`; no manifest tool pin, digest, lock or prerequisite floor changes. The new user-level writes are the optional Firstmate-home `.env` assignment and the receipt's boolean `setup.keys.TYPESAFE_API_KEY` flag. The key-update command changes those same two locations, and uninstall removes `.env` only with explicit typed confirmation.
+
 `uninstall` removes kit-tagged hooks in `~/.claude/settings.json` and `~/.codex/hooks.json`, kit-owned skill links in `~/.claude/skills/` and `~/.agents/skills/`, an unchanged kit-written tower config, and an unchanged Treehouse wrapper. It restores Codex's `features.hooks` setting only when the kit enabled it. It moves kit programs, releases, npm prefixes and existing private backups out of `<root>/.tools` into `<root>/agent-kit-uninstall/backups/`, preserving changed or additional files privately, and writes `<root>/agent-kit-uninstall/uninstall.json`. A changed Treehouse wrapper is left for manual review. The root folder, Firstmate home, projects and tower fleet state remain. `--remove-firstmate-home` additionally asks you to type that home's exact path and refuses if it finds uncommitted or unpushed work, unsafe project contents or live second mates. This typed confirmation is required even with `--yes`.
 
-These commands do not touch credentials, sign anyone out, remove person-installed Node, git, GitHub CLI, Claude CLI or Xcode tools, or edit shell profiles. On Windows, use `windows/agent-kit.ps1` with the command and `--root ~/Agentic`; it checks WSL2 and prints the handoff, and `--handoff` runs it inside the selected WSL2 distribution.
+Repair and upgrade keep the Firstmate home's `.env` unchanged. Uninstall also keeps it by default. `uninstall --remove-env` removes that file only after you type its exact path; `--remove-firstmate-home` includes `.env` in the confirmed home removal.
+
+Repair and upgrade do not touch credentials. Uninstall keeps `.env` unless you request its removal. These commands do not sign anyone out, remove person-installed Node, git, GitHub CLI, Claude CLI or Xcode tools, or edit shell profiles. On Windows, use `windows/agent-kit.ps1` with the command and `--root ~/Agentic`; it checks WSL2 and prints the handoff, and `--handoff` runs it inside the selected WSL2 distribution.
 
 ## Create your first second mate
 

@@ -2,7 +2,7 @@
 # Agent Kit single installer for macOS and Linux, including Linux inside WSL2 (install.ps1 hands off here).
 # It checks the person-installed prerequisites, uses your own GitHub CLI sign-in to fetch the reviewed kit
 # at one pinned commit, then runs the kit's guided setup: questions, summary, install, sign-in guide, doctor.
-# It never runs sudo, never reads, prints or stores a token, and never edits shell profiles.
+# It never runs sudo or edits shell profiles. The optional typesafe.ai key is entered privately.
 #
 #   bash install.sh [--dry-run] [--yes] [--root <folder>] [--channel releases|main] [setup flags...]
 #
@@ -30,6 +30,9 @@ Usage: bash install.sh [--dry-run] [--yes] [--root <folder>] [--channel releases
   --channel <name>   releases (default: the newest reviewed release) or main
   --commit <sha>     use this reviewed commit of the kit
   --kit-dir <dir>    use a local clean kit checkout instead of fetching one
+  --reconfigure keys  update the optional TYPESAFE_API_KEY in the installed Firstmate home
+  --typesafe-key-file <file>  read the key from a private file, never argv
+  --typesafe-key-env          read the key from TYPESAFE_API_KEY in the environment
 
 Setup flags: --harness claude|codex|claude,codex, --no-figma, --no-tower, --no-global-hooks,
   --github-owner <name>, --git-name <name>, --git-email <email>, --starter-mate <name>,
@@ -37,7 +40,7 @@ Setup flags: --harness claude|codex|claude,codex, --no-figma, --no-tower, --no-g
 EOF
 }
 
-commit='' kit_dir='' channel='' dry_run=0 yes=0 root='' install_root=''
+commit='' kit_dir='' channel='' dry_run=0 yes=0 root='' install_root='' reconfigure_keys=0 key_file='' key_env=0
 pass=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -49,21 +52,31 @@ while [ "$#" -gt 0 ]; do
     --install-root) [ "$#" -ge 2 ] || die '--install-root needs a value'; install_root=$2 ;;
     --dry-run) dry_run=1 ;;
     --yes) yes=1 ;;
+    --reconfigure)
+      if [ "${2:-}" = keys ]; then reconfigure_keys=1; shift 2; continue; fi ;;
+    --typesafe-key-file) [ "$#" -ge 2 ] || die '--typesafe-key-file needs a path'; key_file=$2 ;;
+    --typesafe-key-env) key_env=1 ;;
     --kit-commit) die '--kit-commit is set by install.sh; use --commit' ;;
   esac
   pass+=("$1")
   shift
 done
+typesafe_key_value=${TYPESAFE_API_KEY-}
+unset TYPESAFE_API_KEY
 case "$channel" in ''|releases|main) ;; *) die '--channel must be releases or main' ;; esac
 if [ -n "$commit" ] && ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then die '--commit must be a full 40-character commit SHA'; fi
 
-say 'Agent Kit installer. This script will:'
-say '  1. check Node.js, git and the GitHub CLI (and Homebrew with the Xcode Command Line Tools on macOS);'
-say '     it explains how to install anything missing and never installs it or runs sudo for you;'
-say '  2. check that you are signed in to GitHub with your own gh login (it never reads or prints the token);'
-say '  3. fetch the reviewed kit at one pinned commit and run its guided setup, which asks its questions,'
-say '     shows a summary and writes nothing until you say yes.'
-[ "$dry_run" = 1 ] && say '  --dry-run: nothing is fetched into your root and nothing is written.'
+if [ "$reconfigure_keys" = 1 ]; then
+  say 'Agent Kit key update: opens the installed private key prompt; no kit fetch or vendor sign-in.'
+else
+  say 'Agent Kit installer. This script will:'
+  say '  1. check Node.js, git and the GitHub CLI (and Homebrew with the Xcode Command Line Tools on macOS);'
+  say '     it explains how to install anything missing and never installs it or runs sudo for you;'
+  say '  2. check that you are signed in to GitHub with your own gh login (it never reads or prints the token);'
+  say '  3. fetch the reviewed kit at one pinned commit and run its guided setup, which asks its questions,'
+  say '     shows a summary and writes nothing until you say yes.'
+  [ "$dry_run" = 1 ] && say '  --dry-run: nothing is fetched into your root and nothing is written.'
+fi
 
 expand_root() {
   case "$1" in
@@ -95,6 +108,19 @@ if [ -z "$root" ]; then
 fi
 root_path=$(expand_root "$root") || die "root folder must be an absolute path or start with ~/ (got $root)"
 receipt=${install_root:-$root_path/.tools}/receipt.json
+if [ "$reconfigure_keys" = 1 ]; then
+  [ -f "$receipt" ] || die "no kit receipt at $receipt; install the kit first"
+  kit_commit=$(node -e 'try { const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).setup?.kit?.commit; if (/^[a-f0-9]{40}$/.test(c || "")) process.stdout.write(c); } catch {}' "$receipt")
+  [ -n "$kit_commit" ] || die 'receipt has no installed kit commit'
+  kit_bin="${install_root:-$root_path/.tools}/kit/$kit_commit/bin/agent-kit.mjs"
+  [ -f "$kit_bin" ] || die 'installed kit command is missing; run agent-kit repair'
+  key_args=()
+  [ -z "$key_file" ] || key_args+=(--typesafe-key-file "$key_file")
+  [ "$key_env" = 0 ] || key_args+=(--typesafe-key-env)
+  [ "$yes" = 0 ] || key_args+=(--yes)
+  if [ "$key_env" = 1 ]; then TYPESAFE_API_KEY="$typesafe_key_value" exec node "$kit_bin" keys --install-root "${install_root:-$root_path/.tools}" "${key_args[@]}"; fi
+  exec node "$kit_bin" keys --install-root "${install_root:-$root_path/.tools}" "${key_args[@]}"
+fi
 if [ "$root_given" = 0 ] && [ "$yes" = 0 ] && [ ! -f "$receipt" ]; then
   for attempt in 1 2 3 4; do
     [ "$attempt" = 4 ] && die "no y or n answer to: Use $root_path"
@@ -214,7 +240,11 @@ fi
 set +e
 root_arg=()
 [ "$root_given" = 1 ] || root_arg=(--root "$root_path")
-node "$kit/bin/agent-kit.mjs" setup --kit-dir "$kit" --kit-commit "$commit" ${root_arg[@]+"${root_arg[@]}"} ${pass[@]+"${pass[@]}"}
+if [ "$key_env" = 1 ]; then
+  TYPESAFE_API_KEY="$typesafe_key_value" node "$kit/bin/agent-kit.mjs" setup --kit-dir "$kit" --kit-commit "$commit" ${root_arg[@]+"${root_arg[@]}"} ${pass[@]+"${pass[@]}"}
+else
+  node "$kit/bin/agent-kit.mjs" setup --kit-dir "$kit" --kit-commit "$commit" ${root_arg[@]+"${root_arg[@]}"} ${pass[@]+"${pass[@]}"}
+fi
 status=$?
 set -e
 exit "$status"
