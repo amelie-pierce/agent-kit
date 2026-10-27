@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
-import { hiddenKey, keyStatus, readKeyFile, validateTypesafeKey, writeKey } from '../src/keys.mjs';
+import { hiddenKey, keyStatus, validateTypesafeKey, writeKey } from '../src/keys.mjs';
 
 const kit = fileURLToPath(new URL('..', import.meta.url));
 const fakeKey = 'fixture-typesafe-key-123';
@@ -40,13 +40,9 @@ test('key write preserves unrelated lines, uses a private atomic replacement and
   assert.doesNotMatch(readFileSync(f.envPath, 'utf8'), /TYPESAFE_API_KEY/);
 });
 
-test('key input validation and private file checks reject unsafe values', t => {
-  const f = fixture(t), path = join(f.base, 'key.txt');
+test('key input validation rejects empty and unsafe values', () => {
   for (const value of ['', 'short', 'bad value', 'bad\nvalue', 'bad$(command)']) assert.throws(() => validateTypesafeKey(value));
-  writeFileSync(path, `${fakeKey}\n`, { mode: 0o600 });
-  assert.equal(readKeyFile(path), fakeKey);
-  chmodSync(path, 0o644);
-  assert.throws(() => readKeyFile(path), /private file/);
+  assert.equal(validateTypesafeKey(fakeKey), fakeKey);
 });
 
 test('hidden TTY entry never echoes the fake value', async () => {
@@ -59,36 +55,54 @@ test('hidden TTY entry never echoes the fake value', async () => {
   assert.doesNotMatch(shown, /fixture-typesafe-key/);
 });
 
-test('keys CLI reads only a named private file, records a flag and never exposes the fake key', t => {
-  const f = fixture(t), path = join(f.base, 'key.txt');
-  writeFileSync(path, `${fakeKey}\n`, { mode: 0o600 });
-  const argv = ['bin/agent-kit.mjs', 'keys', '--root', f.root, '--typesafe-key-file', path, '--yes'];
-  const env = { HOME: f.home, PATH: process.env.PATH, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
-  const run = () => spawnSync(process.execPath, argv, { cwd: kit, env, encoding: 'utf8' });
-  const first = run();
+test('keys CLI without a terminal or with --yes leaves the key unchanged and says how to add it', t => {
+  const f = fixture(t);
+  const env = { HOME: f.home, PATH: process.env.PATH, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', TYPESAFE_API_KEY: fakeKey };
+  const run = extra => spawnSync(process.execPath, ['bin/agent-kit.mjs', 'keys', '--root', f.root, ...extra], { cwd: kit, env, encoding: 'utf8', input: `add\n${fakeKey}\n` });
+  const first = run([]);
   assert.equal(first.status, 0, first.stderr);
-  assert.equal(statSync(f.envPath).mode & 0o777, 0o600);
-  assert.deepEqual(JSON.parse(readFileSync(f.receipt, 'utf8')).setup.keys, { TYPESAFE_API_KEY: true });
-  for (const text of [first.stdout, first.stderr, readFileSync(f.receipt, 'utf8'), argv.join(' '), ...readdirSync(f.tools).filter(name => name.endsWith('.log')).map(name => readFileSync(join(f.tools, name), 'utf8'))])
-    assert.equal(text.includes(fakeKey), false);
-  const old = readFileSync(f.envPath, 'utf8');
-  const second = run();
+  assert.match(first.stdout, /TYPESAFE_API_KEY: not set/);
+  assert.match(first.stdout, /Left unchanged\. To add, change or remove it, run this command from your own terminal/);
+  assert.equal(existsSync(f.envPath), false);
+  writeFileSync(f.envPath, 'TYPESAFE_API_KEY=existing-fixture-123\n', { mode: 0o600 });
+  const second = run(['--yes']);
   assert.equal(second.status, 0, second.stderr);
-  assert.equal(readFileSync(f.envPath, 'utf8'), old, 'unattended rerun keeps existing value');
   assert.match(second.stdout, /TYPESAFE_API_KEY: set/);
+  assert.equal(readFileSync(f.envPath, 'utf8'), 'TYPESAFE_API_KEY=existing-fixture-123\n');
+  assert.equal(JSON.parse(readFileSync(f.receipt, 'utf8')).setup.keys, undefined);
+  for (const text of [first.stdout, first.stderr, second.stdout, second.stderr]) assert.equal(text.includes(fakeKey), false);
+  for (const flag of ['--typesafe-key-file', '--typesafe-key-env']) assert.match(run([flag, 'x']).stderr, /unknown argument/);
 });
 
-test('install.sh --reconfigure keys routes to the installed command without GitHub access', t => {
-  const f = fixture(t), commit = 'a'.repeat(40);
-  const bin = join(f.tools, 'kit', commit, 'bin'); mkdirSync(bin, { recursive: true });
-  writeFileSync(join(bin, 'agent-kit.mjs'), 'process.stdout.write(process.argv.slice(2).join(" ") + "\\n");\n');
+function installedKit(f, { withKeys = true } = {}) {
+  const commit = 'a'.repeat(40), dir = join(f.tools, 'kit', commit);
+  mkdirSync(join(dir, 'bin'), { recursive: true });
+  writeFileSync(join(dir, 'bin', 'agent-kit.mjs'), 'process.stdout.write(process.argv.slice(2).join(" ") + "\\n");\n');
+  if (withKeys) { mkdirSync(join(dir, 'src')); writeFileSync(join(dir, 'src', 'keys.mjs'), ''); }
   const receipt = JSON.parse(readFileSync(f.receipt, 'utf8'));
   receipt.setup.kit = { commit };
   writeFileSync(f.receipt, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
-  const run = spawnSync('bash', ['install.sh', '--reconfigure', 'keys', '--root', f.root, '--yes'], {
-    cwd: kit, env: { HOME: f.home, PATH: process.env.PATH, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' }, encoding: 'utf8' });
-  assert.equal(run.status, 0, run.stderr);
-  assert.match(run.stdout, /keys --install-root .*\.tools --yes/);
-  assert.doesNotMatch(run.stderr, /Fetching the reviewed kit|sign in to GitHub/);
+}
+const installSh = (f, extra) => spawnSync('bash', ['install.sh', '--reconfigure', 'keys', '--root', f.root, ...extra], {
+  cwd: kit, env: { HOME: f.home, PATH: process.env.PATH, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' }, encoding: 'utf8' });
+
+test('install.sh --reconfigure keys routes to the installed command without GitHub access', t => {
+  const f = fixture(t);
+  installedKit(f);
+  for (const [extra, args] of [[['--yes'], /^keys --install-root .*\.tools --yes$/m], [[], /^keys --install-root .*\.tools$/m]]) {
+    const run = installSh(f, extra);
+    assert.equal(run.status, 0, run.stderr);
+    assert.match(run.stdout, args);
+    assert.doesNotMatch(run.stderr, /unbound variable|Fetching the reviewed kit|sign in to GitHub/);
+  }
   assert.equal(existsSync(f.envPath), false);
+});
+
+test('install.sh --reconfigure keys asks for an upgrade when the installed kit predates the keys command', t => {
+  const f = fixture(t);
+  installedKit(f, { withKeys: false });
+  const run = installSh(f, []);
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /predates the keys command; upgrade it first/);
+  assert.doesNotMatch(run.stdout, /^keys /m);
 });

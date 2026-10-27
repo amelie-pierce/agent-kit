@@ -51,7 +51,7 @@ export function validateManifest(manifest) {
 }
 
 export function parseArgs(argv, platform = process.platform) {
-  let command, json = false, harness = 'claude', withFigma = false, dryRun = false, handoff = false, yes = false, print = false, removeFirstmateHome = false, removeEnv = false, keyFile, keyEnv = false, installRoot, firstmateHome, distro, root;
+  let command, json = false, harness = 'claude', withFigma = false, dryRun = false, handoff = false, yes = false, print = false, removeFirstmateHome = false, removeEnv = false, installRoot, firstmateHome, distro, root;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (['check', '--check', 'plan', 'install', 'doctor', 'update', '--update', 'upgrade', 'repair', 'reinstall', 'uninstall', 'keys', 'secondmate-template'].includes(arg) && !command) command = arg === '--check' ? 'check' : arg === '--update' || arg === 'update' ? 'upgrade' : arg === 'reinstall' ? 'repair' : arg;
@@ -63,8 +63,6 @@ export function parseArgs(argv, platform = process.platform) {
     else if (arg === '--yes') yes = true;
     else if (arg === '--remove-firstmate-home') removeFirstmateHome = true;
     else if (arg === '--remove-env') removeEnv = true;
-    else if (arg === '--typesafe-key-file' && argv[i + 1]) keyFile = argv[++i];
-    else if (arg === '--typesafe-key-env') keyEnv = true;
     else if (arg === '--print') print = true;
     else if (arg === '--install-root' && argv[i + 1]) installRoot = argv[++i];
     else if (arg === '--firstmate-home' && argv[i + 1]) firstmateHome = argv[++i];
@@ -84,8 +82,6 @@ export function parseArgs(argv, platform = process.platform) {
   if (yes && !['upgrade', 'repair', 'uninstall', 'keys'].includes(command)) throw new Error('--yes applies only to repair, upgrade, uninstall and keys');
   if (removeFirstmateHome && command !== 'uninstall') throw new Error('--remove-firstmate-home applies only to uninstall');
   if (removeEnv && command !== 'uninstall') throw new Error('--remove-env applies only to uninstall');
-  if ((keyFile || keyEnv) && command !== 'keys') throw new Error('key source flags apply only to keys');
-  if (keyFile && keyEnv) throw new Error('--typesafe-key-file and --typesafe-key-env conflict');
   if (print && command !== 'secondmate-template') throw new Error('--print applies only to secondmate-template');
   if (command === 'secondmate-template' && !print) throw new Error('secondmate-template requires --print');
   if (handoff && (!['install', 'repair', 'upgrade', 'uninstall'].includes(command) || dryRun)) throw new Error('--handoff applies only to install and lifecycle commands without --dry-run');
@@ -99,7 +95,7 @@ export function parseArgs(argv, platform = process.platform) {
     if (installRoot && !isAbsolute(installRoot)) throw new Error('--install-root must be absolute');
     if (firstmateHome && !isAbsolute(firstmateHome)) throw new Error('--firstmate-home must be absolute');
   }
-  return { command: dryRun ? 'plan' : command, json, harness, withFigma, installRoot, firstmateHome, root, dryRun, handoff, distro, yes, print, removeFirstmateHome, removeEnv, keyFile, keyEnv };
+  return { command: dryRun ? 'plan' : command, json, harness, withFigma, installRoot, firstmateHome, root, dryRun, handoff, distro, yes, print, removeFirstmateHome, removeEnv };
 }
 
 const loginSteps = {
