@@ -9,5 +9,6 @@ date: 2026-10-26
 - [Read-only boundary](read-only-boundary.md) — command evaluation and platform routing.
 - [macOS install](macos-install.md) — staging, ownership receipts, source boundaries and partial tower status.
 - [Linux and WSL2 install](linux-install.md) — platform checks, Linux artifact selection and CI smoke boundary.
+- [Tower release install](tower-release.md) — macOS release archives, runtime launcher configuration and acceptance-pending parity.
 - [Global registration](global-registration.md) — owned hook and skill merge, preview and trust boundary.
 - [Windows entry and WSL2 handoff](windows-entry.md) — PowerShell bootstrap, read-only WSL preflight, guided steps and the pinned handoff into Linux.

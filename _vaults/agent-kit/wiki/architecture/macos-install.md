@@ -1,6 +1,6 @@
 ---
 title: macOS install
-description: Verified staging, ownership receipts and partial tower boundary
+description: Verified staging, ownership receipts and tower install boundary
 date: 2026-10-26
 ---
 
@@ -12,4 +12,4 @@ The installer downloads pinned artifacts into release staging, checks SHA-256 be
 
 Firstmate source is fetched at the pinned commit into a fresh home; runtime directories begin empty. The source-owned hooks and relative skills remain in that checkout (src/install/macos.mjs:110-128; src/install/macos.mjs:302-320; README.md:27). After the pinned npm phase, the installer previews and applies owned global AXI hooks and skills; see [Global registration](global-registration.md) (src/install/macos.mjs:359-370; src/install/hooks.mjs:195-249).
 
-Zoetrope has a source build adapter using `cargo build --locked --release --bin zoe`. Build failure yields a partial result. A built binary still leaves fleet-manifest and launcher parity **UNVERIFIED**, and the installer reports partial status (src/install/macos.mjs:320-361). The [Zoetrope follow-ups](../../../../docs/zoetrope-followups.md) name the needed packaging and acceptance work (docs/zoetrope-followups.md:1-10).
+Updated 2026-10-27: on macOS the tower installs from verified Zoetrope release archives and its runtime launcher is configured; see [Tower release install](tower-release.md). The `cargo build --locked --release --bin zoe` adapter remains only for source-archive targets (Linux), where a built binary still leaves fleet-manifest and launcher parity **UNVERIFIED** (src/install/macos.mjs:431-462; src/install/macos.mjs:491-497).
