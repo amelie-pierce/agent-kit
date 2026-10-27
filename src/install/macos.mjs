@@ -305,6 +305,8 @@ async function towerPhase(root, release, firstmateHome, receipt, save, options) 
   const bin = ownedPath(root, 'releases', release, 'bin', 'zoe-fleet'), noMistakes = ownedPath(root, 'releases', release, 'bin', 'no-mistakes');
   const launcher = ownedPath(root, 'releases', release, 'zoe-fleet-runtime', 'bin', 'zoe-fleet-tower');
   const stage = ownedPath(root, 'releases', release, 'staging', `zoe-fleet-config-${randomUUID()}`);
+  const created = !(await exists(state));
+  let recorded = false;
   await mkdir(stage, { recursive: true, mode: 0o700 });
   try {
     const args = [launcher, 'setup', '--home', home, '--bin', bin, '--state', state, ...(await exists(noMistakes) ? ['--no-mistakes', noMistakes] : [])];
@@ -316,6 +318,7 @@ async function towerPhase(root, release, firstmateHome, receipt, save, options) 
     if (!lines.length || lines.some(([key, value]) => !allowed[key]?.includes(value)) || !lines.some(([key]) => key === 'FM_HOME')) throw new Error('launcher setup wrote an unexpected config');
     receipt.phases[id] = { state: 'pending', version: receipt.phases['zoe-fleet-runtime']?.version, path: config, ownedSha256: sha(body), fleetState: state };
     await save();
+    recorded = true;
     await mkdir(dirname(config), { recursive: true, mode: 0o700 });
     const staged = `${config}.${randomUUID()}.tmp`;
     await writeFile(staged, body, { mode: 0o600, flag: 'wx' });
@@ -323,7 +326,10 @@ async function towerPhase(root, release, firstmateHome, receipt, save, options) 
     receipt.phases[id].state = 'complete';
     await save();
     return { id, status: 'installed', reason: `launcher configured for ${home} with private fleet state ${realState}` };
-  } finally { await rm(stage, { recursive: true, force: true }); }
+  } finally {
+    await rm(stage, { recursive: true, force: true });
+    if (created && !recorded && (await exists(state))?.isDirectory() && (await readdir(state, { recursive: true, withFileTypes: true })).every(x => x.isDirectory())) await rm(state, { recursive: true });
+  }
 }
 
 export async function installPlatform(manifest, options = {}) {

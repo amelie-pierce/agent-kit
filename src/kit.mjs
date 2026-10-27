@@ -1,4 +1,5 @@
-import { join, isAbsolute, posix, resolve } from 'node:path';
+import { realpathSync } from 'node:fs';
+import { basename, dirname, join, isAbsolute, posix, resolve } from 'node:path';
 import { inspectPlatform } from './platforms/index.mjs';
 import { previewHooks, publicHookChanges } from './install/hooks.mjs';
 import { towerPaths } from './install/macos.mjs';
@@ -154,6 +155,13 @@ function plannedLocation(tool, context, options, release, artifact) {
   return 'UNVERIFIED: no install adapter';
 }
 
+function canonicalPath(path) {
+  try { return realpathSync(path); } catch (error) {
+    if (error.code !== 'ENOENT' || dirname(path) === path) throw error;
+    return join(canonicalPath(dirname(path)), basename(path));
+  }
+}
+
 export function run(argv, manifest, context) {
   validateManifest(manifest);
   const options = parseArgs(argv, context.platform);
@@ -172,8 +180,8 @@ export function run(argv, manifest, context) {
   let towerConfig = null;
   const runtime = evaluation.selected.find(tool => tool.id === 'zoe-fleet-runtime');
   if (options.command === 'plan' && evaluation.platform.supported && !windows && runtime?.artifacts[evaluation.target]?.status === 'verified') {
-    const firstmateHome = resolve(firstmateLocation(context, options));
     try {
+      const firstmateHome = canonicalPath(resolve(firstmateLocation(context, options)));
       towerConfig = { firstmateHome, ...towerPaths(context.env, context.env.HOME, firstmateHome) };
     } catch (error) {
       evaluation.issues.push({ status: 'conflict', id: 'zoe-fleet-tower', reason: error.message });
