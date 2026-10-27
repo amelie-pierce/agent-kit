@@ -211,7 +211,7 @@
         "kind": "git-commit",
         "value": "fc45c4d9ea1de0af27092f26eaa8f5008881f01e",
         "status": "verified",
-        "reason": "Commit verified on approved upstream; release tag fleet-v0.2.0-fc45c4d9ea1d resolves to it."
+        "reason": "Commit verified on approved upstream; release tags fleet-v0.2.0-fc45c4d9ea1d and fleet-v0.2.0-fc45c4d9ea1d-linux resolve to it."
       },
       "approvedUpstream": "https://github.com/pikenguyen227/zoetrope",
       "license": {
@@ -247,6 +247,20 @@
           "kind": "source-archive",
           "status": "verified",
           "reason": "fleet-v0.2.0-fc45c4d9ea1d has no Linux asset; SHA-256 of the pinned source archive for the cargo build fallback."
+        },
+        "wsl2-arm64": {
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-fc45c4d9ea1d-linux/zoe-fleet-0.2.0-fc45c4d9ea1d-aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "c22035f08c5f23631ebc87cac6d5116f86cae894d22f68bda60389d860609a3e",
+          "kind": "release-archive",
+          "status": "verified",
+          "reason": "WSL2 only (glibc 2.35, Ubuntu 22.04 or newer); SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
+        },
+        "wsl2-x64": {
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-fc45c4d9ea1d-linux/zoe-fleet-0.2.0-fc45c4d9ea1d-x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "8085a73f24d6290df078e4e7edf34ea00ab712288e9fbbd72ff50c50bb549a45",
+          "kind": "release-archive",
+          "status": "verified",
+          "reason": "WSL2 only (glibc 2.35, Ubuntu 22.04 or newer); SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
         },
         "windows-arm64": {
           "url": null,
@@ -316,6 +330,20 @@
           "sha256": null,
           "status": "unverified",
           "reason": "fleet-v0.2.0-fc45c4d9ea1d has no Linux tower release; Linux keeps the source-built tower without the fleet runtime."
+        },
+        "wsl2-arm64": {
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-fc45c4d9ea1d/zoetrope-fleet-runtime-0.2.0-fc45c4d9ea1d.tar.gz",
+          "sha256": "48b30346cec0ab1174e296745154defade431b1fb66da6a88c992b383a4e381a",
+          "kind": "release-archive",
+          "status": "verified",
+          "reason": "WSL2 only; architecture-independent runtime archive from fleet-v0.2.0-fc45c4d9ea1d. SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
+        },
+        "wsl2-x64": {
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-fc45c4d9ea1d/zoetrope-fleet-runtime-0.2.0-fc45c4d9ea1d.tar.gz",
+          "sha256": "48b30346cec0ab1174e296745154defade431b1fb66da6a88c992b383a4e381a",
+          "kind": "release-archive",
+          "status": "verified",
+          "reason": "WSL2 only; architecture-independent runtime archive from fleet-v0.2.0-fc45c4d9ea1d. SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
         },
         "windows-arm64": {
           "url": null,

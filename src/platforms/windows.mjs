@@ -179,7 +179,7 @@ export function inspectWindows(context, options = {}) {
   prerequisites.push(inspectTerminal(context, localAppData), inspectBrowser(context));
   const ready = prerequisites.every(p => p.status === 'pass' || ['terminal', 'browser', 'virtualization'].includes(p.id));
   const message = ready
-    ? `Windows ${version}; WSL2 distribution ${wsl.target.name} is ready. The full stack installs inside it through the Linux installer (linux-${linuxArch}).`
+    ? `Windows ${version}; WSL2 distribution ${wsl.target.name} is ready. The full stack installs inside it through the Linux installer (wsl2-${linuxArch}, otherwise linux-${linuxArch} artifacts).`
     : `Windows ${version}; the full stack installs inside WSL2 through the Linux installer. Run the listed steps yourself; the kit never enables features, elevates or restarts Windows.`;
-  return { ...base, supported: buildOk, ready, wsl, prerequisites, steps, artifactTarget: `linux-${linuxArch}`, message };
+  return { ...base, supported: buildOk, ready, wsl, prerequisites, steps, artifactTarget: `wsl2-${linuxArch}`, message };
 }

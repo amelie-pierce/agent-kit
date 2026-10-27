@@ -110,7 +110,7 @@ Then continue with part 2. In step 1 of part 2, `$env:PROCESSOR_ARCHITECTURE` sh
    powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 --commit <SHA>
    ```
 
-   Answer the questions with the defaults unless you were told otherwise. The fleet tower is on by default and has no WSL2 build pinned yet, so the expected ending is `Agent Kit setup finished; some tools are partial and are retried on rerun.` (a later release that pins the WSL2 tower should end `Agent Kit setup complete.`). Success: the health check step reports `pass`, and running the same command again skips every completed step and retries only the partial tower.
+   Answer the questions with the defaults unless you were told otherwise. The fleet tower is on by default and installs from the pinned WSL2 release, so the expected ending is `Agent Kit setup complete.`, with the tools step reading `tower: installed from verified release; hands-on acceptance pending (Zoetrope Phase B)` and a `Tower launcher:` line. Success: the health check step reports `pass`, the output names no `cargo` build, and running the same command again skips every completed step. If the tools step instead reports `zoe-fleet: unverified; refused: the WSL2 tower release needs Ubuntu 22.04 or newer`, the distribution is older than Ubuntu 22.04; note it and stop.
 9. **Isolation checks.** In PowerShell:
 
    ```powershell
@@ -131,10 +131,19 @@ Then continue with part 2. In step 1 of part 2, `$env:PROCESSOR_ARCHITECTURE` sh
     ```
 
     Optionally run `lavish-axi --help`, or `chrome-devtools-axi open https://example.com` and note whether a Windows browser opens. Do not sign in to any agent CLI for this check.
+11. **Tower.** In the same Ubuntu shell, run the launcher path the installer printed on its `Tower launcher:` line:
+
+    ```sh
+    uname -m
+    getconf GNU_LIBC_VERSION
+    <printed launcher> doctor
+    ```
+
+    Success: `uname -m` prints `aarch64` on the Arm VM (`x86_64` on an x64 PC), `getconf` prints `glibc 2.35` or newer, and `doctor` reports no failures. Then start Herdr in that shell, and from a Herdr pane run `<printed launcher> open`. Success: the Fleet pane opens in the Herdr Team tab. Close it with `herdr pane close <pane-id>` and stop Herdr with `herdr server stop`. The full Zoetrope Phase B check (spawning a second mate) is not part of this check. This step is hands-on confirmed only for Arm64 once the owner runs it; x64 stays not hands-on confirmed until a teammate x64 PC runs it.
 
 ## Send back (redacted)
 
-Send the output of part 2 steps 1, 6, 7 (the questions and the summary), 8 (the last 40 lines, including the health check), 9 and 10 as text. From a Parallels VM, also send the Parallels Desktop and macOS versions, the VM's CPU and memory settings, the output of `wsl -e uname -m`, and any Parallels menu wording that differed from part 1.
+Send the output of part 2 steps 1, 6, 7 (the questions and the summary), 8 (the last 40 lines, including the health check and the tower lines), 9, 10 and 11 as text. From a Parallels VM, also send the Parallels Desktop and macOS versions, the VM's CPU and memory settings, the output of `wsl -e uname -m`, and any Parallels menu wording that differed from part 1.
 
 Before sending, replace your Windows user name, Linux user name, host names (including the Mac's and the VM's), GitHub login and email with `<user>`, `<host>`, `<login>` and `<email>`. Never include tokens, `gh auth status` token lines, anything from `~/.config/gh`, `.env` files, receipt contents other than its `release` and `phases` keys, or screenshots of browser sign-ins.
 

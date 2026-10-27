@@ -448,7 +448,7 @@ export async function setup(manifest, ctx) {
       starter: managed ? previewStarter(paths.firstmateHome, { harness: answers.harness, plans: answers.plans, mode: answers.dispatchMode, table: ctx.planTable, record: receipt?.setup?.dispatch, keySet: !!keyValue || wasSet }) : null };
     const options = { command: 'plan', harness: answers.harness, withFigma: answers.figma, withTower: answers.tower, globalHooks: answers.globalHooks,
       installRoot: paths.installRoot, firstmateHome: paths.firstmateHome, towerState: paths.towerState };
-    const context = { env, platform, arch: ctx.arch, nodeVersion: ctx.nodeVersion, procVersion: ctx.procVersion, osRelease: ctx.osRelease, libc: ctx.libc, runCommand: ctx.runCommand, applicationDirs: ctx.applicationDirs };
+    const context = { env, platform, arch: ctx.arch, nodeVersion: ctx.nodeVersion, procVersion: ctx.procVersion, osRelease: ctx.osRelease, libc: ctx.libc, glibcVersion: ctx.glibcVersion, runCommand: ctx.runCommand, applicationDirs: ctx.applicationDirs };
     const plan = evaluatePlan(manifest, context, options).result;
     const blockers = blocking(plan);
     output.write(formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, keyPlan }));
@@ -491,7 +491,7 @@ export async function setup(manifest, ctx) {
       await stepRun(0, async () => kit.commit ? { state: 'complete', detail: await placeKit(paths, kit, env) } : { state: 'not-selected', detail: 'run from a local kit checkout; no pinned commit given' });
       let install;
       await stepRun(1, async () => {
-        install = await (ctx.installPlatform || installPlatform)(manifest, { platform, arch: ctx.arch, home, env, nodeVersion: ctx.nodeVersion, procVersion: ctx.procVersion, osRelease: ctx.osRelease, libc: ctx.libc,
+        install = await (ctx.installPlatform || installPlatform)(manifest, { platform, arch: ctx.arch, home, env, nodeVersion: ctx.nodeVersion, procVersion: ctx.procVersion, osRelease: ctx.osRelease, libc: ctx.libc, glibcVersion: ctx.glibcVersion,
           installRoot: paths.installRoot, firstmateHome: paths.firstmateHome, harness: answers.harness, withFigma: answers.figma, withTower: answers.tower, globalHooks: answers.globalHooks,
           towerState: paths.towerState, ...ctx.installOptions,
           onHooksPreview: changes => output.write(`  Global hook and skill changes (kit-owned entries only; existing files backed up first):\n${changes.map(c => `    ${c.path}: ${c.changes.map(x => `${x.op} ${x.owner || x.path}`).join(', ')}`).join('\n') || '    none'}\n`) });

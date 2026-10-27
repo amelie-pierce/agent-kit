@@ -1,6 +1,7 @@
 import { realpathSync } from 'node:fs';
 import { basename, dirname, join, isAbsolute, posix, resolve } from 'node:path';
 import { inspectPlatform } from './platforms/index.mjs';
+import { artifactFor, towerGlibcGap } from './platforms/linux.mjs';
 import { previewHooks, publicHookChanges } from './install/hooks.mjs';
 import { npmGroup, towerPaths } from './install/macos.mjs';
 import { defaultLinuxFirstmateHome, defaultLinuxRoot, describeStep, linuxPath, windowsHandoff, windowsNextSteps } from './install/windows.mjs';
@@ -35,7 +36,7 @@ export function validateManifest(manifest) {
     if (!relativePath || !/^[A-Za-z0-9._/-]+$/.test(relativePath) || isAbsolute(relativePath) || relativePath.split('/').some(part => !part || part === '..' || part === '.')) throw new Error(`unsafe install location for ${tool.id}`);
     if (!tool.artifacts || !Object.keys(tool.artifacts).length) throw new Error(`missing artifacts for ${tool.id}`);
     for (const [target, artifact] of Object.entries(tool.artifacts)) {
-      if (!/^(darwin|linux|windows)-(arm64|x64)$/.test(target)) throw new Error(`invalid target for ${tool.id}`);
+      if (!/^(darwin|linux|wsl2|windows)-(arm64|x64)$/.test(target)) throw new Error(`invalid target for ${tool.id}`);
       if (!['verified', 'unverified'].includes(artifact.status) || (artifact.url !== null && !artifact.url?.startsWith('https://')) || (artifact.sha256 !== null && !/^[a-f0-9]{64}$/i.test(artifact.sha256 || ''))) throw new Error(`invalid artifact for ${tool.id}`);
       if (artifact.status === 'verified' && (!artifact.url || !artifact.sha256)) throw new Error(`verified artifact incomplete for ${tool.id}`);
       if (artifact.kind !== undefined && !['release-archive', 'source-archive'].includes(artifact.kind)) throw new Error(`invalid artifact kind for ${tool.id}`);
@@ -124,10 +125,12 @@ function evaluate(manifest, context, options) {
   for (const result of platform.tools) if (result.status !== 'pass')
     (result.id === 'zoe-fleet-runtime' && (result.status === 'unknown' || ['linux', 'wsl2'].includes(platform.platform)) ? advisories : issues).push({ status: result.status, id: result.id, reason: result.reason });
   for (const conflict of platform.pathConflicts) issues.push({ status: 'fail', id: conflict.id, reason: 'multiple executable paths; PATH precedence needs review' });
-  const target = platform.artifactTarget || `${platform.platform === 'wsl2' ? 'linux' : platform.platform}-${context.arch}`;
+  const target = platform.artifactTarget || `${platform.platform}-${context.arch}`;
   for (const tool of selected) {
     if (tool.version.status !== 'verified' && !issues.some(x => x.id === tool.id && x.reason === tool.version.reason)) issues.push({ status: 'unknown', id: tool.id, reason: tool.version.reason });
-    const artifact = tool.artifacts[target];
+    const artifact = artifactFor(tool, target);
+    const glibcGap = tool.id === 'zoe-fleet' && platform.platform === 'wsl2' && artifact?.kind === 'release-archive' && towerGlibcGap(platform);
+    if (glibcGap) issues.push({ status: 'fail', id: tool.id, reason: glibcGap });
     if (!npmGroup(tool.id) && (!artifact || artifact.status !== 'verified')) (tool.id === 'zoe-fleet-runtime' && ['linux', 'wsl2'].includes(platform.platform) ? advisories : issues).push({ status: 'unknown', id: tool.id, reason: artifact?.reason || `artifact for ${target} is not reviewed` });
   }
   const optional = manifest.tools.filter(tool => tool.kind !== 'prerequisite' && tool.classification !== 'never-ship' && !selected.includes(tool) && (options.withTower !== false || !towerIds.has(tool.id)));
@@ -219,7 +222,7 @@ export function evaluatePlan(manifest, context, options) {
   }
   let towerConfig = null;
   const runtime = evaluation.selected.find(tool => tool.id === 'zoe-fleet-runtime');
-  if (options.command === 'plan' && evaluation.platform.supported && !windows && runtime?.artifacts[evaluation.target]?.status === 'verified') {
+  if (options.command === 'plan' && evaluation.platform.supported && !windows && runtime && artifactFor(runtime, evaluation.target)?.status === 'verified') {
     try {
       const firstmateHome = canonicalPath(resolve(firstmateLocation(context, options)));
       towerConfig = { firstmateHome, ...towerPaths(context.env, context.env.HOME, firstmateHome, options.towerState) };
@@ -229,7 +232,7 @@ export function evaluatePlan(manifest, context, options) {
   }
   const plan = options.command === 'plan' ? {
     tools: evaluation.selected.map(tool => {
-      const artifact = tool.artifacts[evaluation.target];
+      const artifact = artifactFor(tool, evaluation.target);
       return { id: tool.id, name: tool.name, version: tool.version.value, versionStatus: tool.version.status, lockGroup: npmGroup(tool.id),
         origin: tool.approvedUpstream, installLocation: plannedLocation(tool, context, options, manifest.release, artifact),
         artifactUrl: artifact?.url || null, sha256: artifact?.sha256 || null, classification: tool.classification };

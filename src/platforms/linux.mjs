@@ -10,8 +10,9 @@ function detectLibc() {
   try {
     const version = execFileSync('getconf', ['GNU_LIBC_VERSION'], { encoding: 'utf8', timeout: 1500,
       env: { PATH: '/usr/bin:/bin', HOME: '', LC_ALL: 'C' }, stdio: ['ignore', 'pipe', 'ignore'] });
-    return /^glibc\s+\d/.test(version) ? 'glibc' : 'unknown';
-  } catch { return 'unknown'; }
+    const match = version.match(/^glibc\s+(\d+\.\d+)/);
+    return match ? { libc: 'glibc', glibcVersion: match[1] } : { libc: 'unknown', glibcVersion: null };
+  } catch { return { libc: 'unknown', glibcVersion: null }; }
 }
 
 export function linuxIdentity(context) {
@@ -22,8 +23,20 @@ export function linuxIdentity(context) {
     || release.match(/^ID=["']?([^\n"']+)/m)?.[1] || 'unknown distribution';
   const wsl = Boolean(env.WSL_INTEROP || env.WSL_DISTRO_NAME || /microsoft|wsl/i.test(version));
   const wsl2 = wsl && Boolean(env.WSL_INTEROP || /WSL2|microsoft-standard/i.test(version));
-  const libc = context.libc ?? (process.platform === 'linux' ? detectLibc() : 'unknown');
-  return { distro, libc, wsl, wsl2 };
+  const detected = context.libc === undefined && process.platform === 'linux' ? detectLibc() : {};
+  const libc = context.libc ?? detected.libc ?? 'unknown';
+  return { distro, libc, glibcVersion: context.glibcVersion ?? detected.glibcVersion ?? null, wsl, wsl2 };
+}
+
+// WSL2 prefers its own wsl2-<arch> artifact and otherwise uses the linux-<arch> one.
+export const artifactTarget = (identity, arch) => `${identity.wsl2 ? 'wsl2' : 'linux'}-${arch}`;
+export const artifactFor = (tool, target) => tool.artifacts[target] ?? (target.startsWith('wsl2-') ? tool.artifacts[`linux-${target.slice(5)}`] : undefined);
+
+// The WSL2 tower release is built against glibc 2.35 (Ubuntu 22.04).
+export function towerGlibcGap(identity) {
+  const [major, minor] = (identity.glibcVersion || '').split('.').map(Number);
+  if (major > 2 || (major === 2 && minor >= 35)) return null;
+  return `the WSL2 tower release needs Ubuntu 22.04 or newer (glibc 2.35 or newer); ${identity.glibcVersion ? `this distribution has glibc ${identity.glibcVersion}` : 'the glibc version could not be read'}. Upgrade the distribution, or rerun setup with --no-tower.`;
 }
 
 const browsers = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'firefox'];
@@ -61,6 +74,6 @@ export function inspectLinux(context, _manifest, selectedTools) {
     }), ...selectedTools.filter(tool => tool.kind === 'prerequisite').map(tool => inspectPrerequisite(tool, context))];
   const tools = selectedTools.filter(tool => tool.kind !== 'prerequisite').map(tool => tool.detection.kind === 'git-head' ? inspectSource(tool, context) : inspectCommand(tool, context));
   const pathConflicts = tools.filter(tool => tool.paths.length > 1).map(tool => ({ id: tool.id, paths: tool.paths }));
-  return { platform, arch: context.arch, supported, ...identity, prerequisites, tools, pathConflicts,
+  return { platform, arch: context.arch, supported, ...identity, artifactTarget: artifactTarget(identity, context.arch), prerequisites, tools, pathConflicts,
     message: `${identity.distro}; ${identity.libc}${identity.wsl2 ? '; WSL2. Browser and terminal run on Windows; install tools inside the Linux distro.' : ''}` };
 }

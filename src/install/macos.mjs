@@ -6,7 +6,7 @@ import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep 
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { applyHooks, previewHooks, publicHookChanges } from './hooks.mjs';
-import { linuxIdentity } from '../platforms/linux.mjs';
+import { artifactFor, artifactTarget, linuxIdentity, towerGlibcGap } from '../platforms/linux.mjs';
 import { towerIds, usesProfile } from '../harness.mjs';
 
 const exec = promisify(execFile);
@@ -345,7 +345,7 @@ async function towerPhase(root, release, firstmateHome, receipt, save, options) 
 
 export async function installPlatform(manifest, options = {}) {
   const platform = options.platform || process.platform, arch = options.arch || process.arch;
-  const linux = platform === 'linux' ? linuxIdentity({ env: options.env || process.env, procVersion: options.procVersion, osRelease: options.osRelease, libc: options.libc }) : null;
+  const linux = platform === 'linux' ? linuxIdentity({ env: options.env || process.env, procVersion: options.procVersion, osRelease: options.osRelease, libc: options.libc, glibcVersion: options.glibcVersion }) : null;
   if (!['darwin', 'linux'].includes(platform) || !['arm64', 'x64'].includes(arch) || (linux && (linux.libc !== 'glibc' || (linux.wsl && !linux.wsl2)))) return { status: 'unsupported', exitCode: 2, components: [], message: `unsupported install target ${platform}/${arch}${linux ? ` (${linux.libc}${linux.wsl && !linux.wsl2 ? ', WSL1' : ''})` : ''}`,
     bin: null, npmBin: null, codexBin: null, firstmateHome: null, towerParity: 'unavailable', towerLauncher: null, loginSteps: [] };
   const nodeVersion = options.nodeVersion || process.versions.node;
@@ -369,14 +369,19 @@ export async function installPlatform(manifest, options = {}) {
     if (!recordedHome && !(await newDirectory(firstmateHome))) throw new Error('--firstmate-home must be a new or empty directory; refusing to inherit it');
     const save = () => atomicJson(receiptPath, receipt);
     if (options.update && receipt.release !== release) { receipt.pendingUpdate = release; await save(); }
-    const components = [], targetKey = `${platform}-${arch}`, harness = options.harness || 'claude';
+    const components = [], targetKey = linux ? artifactTarget(linux, arch) : `${platform}-${arch}`, harness = options.harness || 'claude';
     const chosen = selected(manifest, harness, !!options.withFigma, options.withTower !== false);
     await mkdir(join(root, 'releases', release, 'staging'), { recursive: true, mode: 0o700 });
     for (const tool of chosen) {
       if (npmIds.has(tool.id)) continue;
-      const a = tool.artifacts[targetKey];
+      const a = artifactFor(tool, targetKey);
       if (tool.version.status !== 'verified' || a?.status !== 'verified') {
         components.push({ id: tool.id, status: 'unverified', reason: a?.reason || tool.version.reason || `no verified ${platform} artifact` });
+        continue;
+      }
+      const glibcGap = linux?.wsl2 && towerRelease(tool, a) && towerGlibcGap(linux);
+      if (glibcGap) {
+        components.push({ id: tool.id, status: 'unverified', reason: `refused: ${glibcGap}` });
         continue;
       }
       if (!binaryIds.has(tool.id) && !sourceIds.has(tool.id) && !runtimeIds.has(tool.id)) {
