@@ -1,0 +1,41 @@
+src/doctor.mjs
+  s_acd09e1cfaf11b::t_934bd6b7421059 115,138,188-193
+src/install/macos.mjs
+  s_acd09e1cfaf11b::t_934bd6b7421059 627
+  s_acd09e1cfaf11b::t_803a52c8099594 14-18,255-275,282,284,286-287,290-291,294,421,589-593
+src/setup.mjs
+  s_acd09e1cfaf11b::t_934bd6b7421059 395
+src/kit.mjs
+  s_acd09e1cfaf11b::t_934bd6b7421059 201
+manifests/npm-figma/package.json
+  s_acd09e1cfaf11b::t_7c5649f1884b40 1-8
+test/doctor-update.test.mjs
+  s_acd09e1cfaf11b::t_03dd32e8c5e181 65,74
+manifests/pilot-skeleton.json
+  s_acd09e1cfaf11b::t_7c5649f1884b40 1137-1142,1148-1189,1194
+  s_acd09e1cfaf11b::t_f8c36f8db67be6 1191,1193
+  s_acd09e1cfaf11b::t_8337842fc64768 377,379,389-390,393,396-397,400,415-416,419,422-423,426
+src/lifecycle.mjs
+  s_acd09e1cfaf11b::t_a668dfb98b0592 136-148,389-390
+test/kit.test.mjs
+  s_acd09e1cfaf11b::t_f8c36f8db67be6 432
+  s_acd09e1cfaf11b::t_03dd32e8c5e181 122,137,348,353,363-364,422,431
+manifests/npm-figma/package-lock.json
+  s_acd09e1cfaf11b::t_8a37276c0885c0 1-388
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b7f08c85ad79d972e00c4710226d1fd1f8e92364",
+  "prompts": {},
+  "sessions": {
+    "s_acd09e1cfaf11b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a5482aa-55d9-4866-b542-09bfa9383265",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
