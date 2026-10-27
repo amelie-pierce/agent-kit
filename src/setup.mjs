@@ -392,7 +392,7 @@ export function nextSteps({ answers, paths, install, kit, shortcuts }) {
   const agents = harnessProfiles(answers.harness), keys = new Set(shortcuts?.keys?.bound || []);
   const shortcut = kitKeys.filter(k => agents.includes(k.mode) && keys.has(k.key)).map(k => `${k.key} for ${k.mode}`);
   return ['Next steps:',
-    `  1. Add these folders to the start of your PATH yourself (the kit never edits shell profiles), then open a new terminal:\n       ${[dirname(paths.wrapper), install.bin, install.npmBin, install.codexBin].filter(Boolean).join('\n       ')}`,
+    `  1. Add these folders to the start of your PATH yourself (the kit never edits shell profiles), then open a new terminal:\n       ${[dirname(paths.wrapper), install.bin, install.npmBin, install.codexBin, install.figmaBin].filter(Boolean).join('\n       ')}`,
     ...(kit.commit ? [`  2. Health check later: node ${join(paths.kit, 'bin', 'agent-kit.mjs')} doctor --install-root ${paths.installRoot}`]
       : ['  2. Health check later: node bin/agent-kit.mjs doctor --install-root ' + paths.installRoot + ' from this checkout']),
     `  3. Sign in to ${agents.join(' and ')} yourself in that terminal; the kit never signs in for you.`,

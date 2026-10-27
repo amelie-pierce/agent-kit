@@ -112,7 +112,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
   const byId = new Map(manifest.tools.map(t => [t.id, t]));
   for (const [id, entry] of Object.entries(receipt.phases)) {
     if (id === 'hooks') continue;
-    if (!byId.has(id) && !['npm', 'npm-codex', 'zoe-fleet-tower', 'treehouse-root'].includes(id)) { checks.push(status(id, 'fail', 'unknown receipt phase')); continue; }
+    if (!byId.has(id) && !['npm', 'npm-codex', 'npm-figma', 'zoe-fleet-tower', 'treehouse-root'].includes(id)) { checks.push(status(id, 'fail', 'unknown receipt phase')); continue; }
     const path = phasePath(root, id, entry);
     if (!path) { checks.push(status(id, 'fail', 'unsafe receipt path')); continue; }
     if (id === 'zoe-fleet-tower') {
@@ -135,7 +135,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
     const tool = byId.get(id);
     if (tool?.kind !== 'prerequisite' && tool && tool.version.value !== entry.version) checks.push(status(`${id}-pin`, 'unknown', `installed ${entry.version}; reviewed checkout pins ${tool.version.value || 'unverified'}`));
     if (tool?.kind !== 'prerequisite' && tool) checks.push(status(`${id}-origin`, entry.artifactSha256 === artifactFor(tool, platform.artifactTarget || `${platformName}-${arch}`)?.sha256 ? 'pass' : 'unknown', 'artifact digest compared with reviewed manifest origin'));
-    if (id === 'npm' || id === 'npm-codex') {
+    if (id === 'npm' || id === 'npm-codex' || id === 'npm-figma') {
       const lock = readFileSync(new URL(`../manifests/${id}/package-lock.json`, import.meta.url));
       checks.push(status(`${id}-origin`, entry.artifactSha256 === sha(lock) ? 'pass' : 'unknown', 'npm lock digest compared with reviewed registry origin'));
     }
@@ -185,6 +185,12 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
     checks.push(status('firstmate-fork', fork ? 'pass' : 'warn', fork ? `firstmate origin: ${origin} (approved fork)` : `firstmate origin: ${origin || 'unreadable'}; expected the approved fork ${firstmateFork}`));
   }
   checks.push(...shortcutsHealth(receipt, root));
+  for (const path of receipt.phases['npm-figma']?.skills || []) {
+    let owner = null;
+    try { owner = JSON.parse(readFileSync(join(path, '.figma-cli-skill.json'), 'utf8')).owner; } catch { /* reported */ }
+    checks.push(status(`figma-skill-${path.split('/').slice(-3).join('-')}`, owner === 'amelie-pierce/figma-cli' ? 'pass' : 'warn',
+      owner === 'amelie-pierce/figma-cli' ? `${path} registered by figma-cli` : `${path} missing or not figma-cli's; agent-kit repair registers it again`));
+  }
   checks.push(status('authenticated', 'unknown', 'sign-in belongs to this teammate; no auth store queried'));
   checks.push(status('live-tested', 'unknown', 'live fleet was not probed'));
   return doctorResult(checks, receipt.release, manifest, receipt, root);

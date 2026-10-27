@@ -62,7 +62,7 @@ test('doctor verifies receipt, digest, path precedence, modes and unknown auth/l
   assert.equal(doctor(f.manifest, f.options).checks.find(x => x.id === 'receipt-mode').status, 'fail');
 });
 
-test('doctor checks person-installed floors and links without requiring optional Figma', { skip: process.platform === 'win32' }, t => {
+test('doctor checks person-installed floors and links; Figma is a kit component, not a prerequisite', { skip: process.platform === 'win32' }, t => {
   const f = fixture(t), bin = join(f.base, 'bin');
   mkdirSync(bin);
   for (const [name, version] of Object.entries({ node: 'v24.15.0', git: 'git version 2.20.0', gh: 'gh version 2.0.0', claude: '2.1.293 (Claude Code)' }))
@@ -71,7 +71,7 @@ test('doctor checks person-installed floors and links without requiring optional
   const options = { ...f.options, env: { HOME: f.home, PATH: `${bin}:/usr/bin:/bin`, SHELL: '/bin/bash' } };
   const checks = doctor(manifest, options).checks;
   assert.equal(checks.find(x => x.id === 'prerequisite-github-cli').status, 'pass');
-  assert.equal(checks.find(x => x.id === 'prerequisite-figma-cli').status, 'warn');
+  assert.equal(checks.some(x => x.id === 'prerequisite-figma-cli'), false);
   writeFileSync(join(bin, 'gh'), '#!/bin/sh\necho "gh version 1.9.9"\n', { mode: 0o755 });
   const old = doctor(manifest, options);
   assert.equal(old.exitCode, 1);

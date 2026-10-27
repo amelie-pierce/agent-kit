@@ -119,7 +119,7 @@ test('person-installed prerequisites pass at their floors and fail below them wi
   assert.match(oldRuntime.issues.find(x => x.id === 'node-runtime').reason, /https:\/\/nodejs.org\/en\/download/);
 });
 
-test('correct macOS, headless Linux and WSL2 prerequisite checks are ready; optional Figma is advisory', { skip: process.platform === 'win32' }, t => {
+test('correct macOS, headless Linux and WSL2 prerequisite checks are ready; Figma is no longer a person-installed prerequisite', { skip: process.platform === 'win32' }, t => {
   const { home, bin, root } = tempFixture(t);
   for (const name of [...prereqBins, 'sh', 'sha256sum']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
   const tools = manifest.tools.filter(x => x.kind === 'prerequisite');
@@ -134,7 +134,7 @@ test('correct macOS, headless Linux and WSL2 prerequisite checks are ready; opti
       const result = run([command, '--json'], { ...manifest, tools }, context);
       assert.deepEqual([result.result.summary, result.exitCode], ['ready', 0], JSON.stringify(result.result.issues));
       assert.equal(result.result.issues.length, 0);
-      assert.ok(result.result.advisories.some(x => x.id === 'figma-cli' && /figma-cli absent.*https:\/\//.test(x.reason)));
+      assert.ok(!result.result.platform.prerequisites.some(x => x.id === 'figma-cli'), 'the kit installs figma-cli itself when Figma is chosen');
     }
   }
   assert.deepEqual(readdirSync(home), []);
@@ -345,12 +345,12 @@ test('macOS preflight reports shell, install root, unzip, terminal and browser r
   assert.deepEqual(readdirSync(join(home, '.agent-kit')), []);
 });
 
-test('plan lists the unselected harness and reports Figma as an optional prerequisite', t => {
+test('plan lists the unselected harness and Figma as optional kit components', t => {
   const { home, bin } = tempFixture(t);
   const context = { platform: 'linux', arch: 'x64', env: { HOME: home, PATH: bin }, nodeVersion: '24.15.0', libc: 'glibc', procVersion: '', osRelease: '' };
   const claude = run(['plan', '--json'], manifest, context);
   const optional = claude.result.plan.optionalComponents;
-  assert.deepEqual(optional.map(x => x.id).sort(), ['codex']);
+  assert.deepEqual(optional.map(x => x.id).sort(), ['codex', 'figma-cli']);
   const codex = optional.find(x => x.id === 'codex');
   const lock = manifest.tools.find(x => x.id === 'codex');
   assert.equal(codex.status, 'optional, not selected');
@@ -360,7 +360,8 @@ test('plan lists the unselected harness and reports Figma as an optional prerequ
   assert.ok(claude.result.plan.loginSteps.some(x => x.includes('Claude Code')));
   const selected = run(['plan', '--json', '--harness', 'codex', '--with-figma'], manifest, context);
   assert.deepEqual(selected.result.plan.optionalComponents.map(x => x.id), []);
-  assert.equal(selected.result.platform.prerequisites.find(x => x.id === 'figma-cli').required, false);
+  const figma = selected.result.plan.tools.find(x => x.id === 'figma-cli');
+  assert.deepEqual([figma.version, figma.lockGroup], ['cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942', 'npm-figma']);
   const text = run(['plan'], manifest, context).output;
   assert.match(text, new RegExp(`- ${lock.name}: optional, not selected; ${lock.version.value.replace(/\./g, '\\.')} from ${lock.approvedUpstream}`));
   assert.deepEqual(readdirSync(home), []);
@@ -418,7 +419,7 @@ test('CLI writes no files under a temporary HOME in check or plan', t => {
   }
 });
 
-test('optional figma version runs with disposable HOME and never writes the teammate HOME', { skip: process.platform === 'win32' }, t => {
+test('the figma-cli version probe runs with disposable HOME and never writes the teammate HOME', { skip: process.platform === 'win32' }, t => {
   const { home, bin, root } = tempFixture(t);
   writeFileSync(join(bin, 'figma-cli'), '#!/bin/sh\n/bin/mkdir -p "$HOME/.figma-cli/plugins"\necho 2.2.5-make.2\n', { mode: 0o755 });
   const context = { env: { HOME: home, PATH: bin }, platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0',
@@ -427,8 +428,8 @@ test('optional figma version runs with disposable HOME and never writes the team
     const result = run([command, '--json', '--with-figma'], manifest, context);
     assert.equal(result.exitCode, 1);
     assert.deepEqual(readdirSync(home), []);
-    const figma = result.result.platform.prerequisites.find(x => x.id === 'figma-cli');
-    assert.equal(figma.status, 'pass');
+    const figma = result.result.platform.tools.find(x => x.id === 'figma-cli');
+    assert.deepEqual([figma.status, figma.reason], ['unknown', 'present; version not read because its command writes into HOME']);
     assert.deepEqual(figma.paths, [join(bin, 'figma-cli')]);
   }
 });

@@ -11,7 +11,11 @@ import { towerIds, usesProfile } from '../harness.mjs';
 
 const exec = promisify(execFile);
 const npmIds = new Set(['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi', 'codex']);
-export const npmGroup = id => id === 'codex' ? 'npm-codex' : npmIds.has(id) ? 'npm' : null;
+export const npmGroup = id => id === 'codex' ? 'npm-codex' : id === 'figma-cli' ? 'npm-figma' : npmIds.has(id) ? 'npm' : null;
+// npm package names that map to a different manifest tool id.
+const npmTool = { '@openai/codex': 'codex', '@amelie-pierce/figma-cli': 'figma-cli' };
+// A tool pinned to a git commit installs from that commit's codeload archive, integrity-pinned in its lock.
+const codeload = tool => `https://codeload.github.com/${tool.approvedUpstream.replace(/^https:\/\/github\.com\//, '')}/tar.gz/${tool.version.value}`;
 const binaryIds = new Set(['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint']);
 const sourceIds = new Set(['firstmate', 'zoe-fleet']);
 const runtimeIds = new Set(['zoe-fleet-runtime']);
@@ -248,22 +252,46 @@ export function selected(manifest, harness, withFigma, withTower = true) {
   return manifest.tools.filter(t => t.kind !== 'prerequisite' && t.classification !== 'never-ship' && (withTower || !towerIds.has(t.id))
     && (t.profile === 'core' || usesProfile(harness, t.profile) || (withFigma && t.profile === 'figma')));
 }
+// figma-cli's own skills install (figma-cli, figma-make, figma-make-team) for each chosen agent CLI. It never
+// overwrites a skill the person changed or a skill another tool owns; those are reported. Recorded for uninstall.
+async function figmaSkills(root, receipt, save, harness, options) {
+  const entry = join(root, receipt.phases['npm-figma'].path, 'node_modules', '@amelie-pierce', 'figma-cli', 'src', 'index.js');
+  const results = [];
+  for (const agent of usesProfile(harness, 'claude') && usesProfile(harness, 'codex') ? ['claude', 'codex'] : [usesProfile(harness, 'claude') ? 'claude' : 'codex']) {
+    try {
+      const { stdout } = await (options.runFigma || ((args, env) => exec(process.execPath, [entry, ...args], { env, timeout: 60000, maxBuffer: 1024 * 1024 })))(
+        ['skills', 'install', '--agent', agent], { ...toolEnv(options.home, root), FIGMA_CLI_SKIP_SKILLS: '1' });
+      results.push(...JSON.parse(stdout).results);
+    } catch (error) {
+      const body = error.stdout ? (() => { try { return JSON.parse(error.stdout).results; } catch { return null; } })() : null;
+      if (body) results.push(...body); else return { id: 'figma-skills', status: 'conflict', reason: `figma-cli skills install failed: ${(error.stderr || error.message).trim().split('\n').pop()}` };
+    }
+  }
+  receipt.phases['npm-figma'].skills = results.filter(r => ['installed', 'updated', 'up-to-date'].includes(r.status)).map(r => r.path);
+  await save();
+  const kept = results.filter(r => !['installed', 'updated', 'up-to-date', 'linked'].includes(r.status));
+  return kept.length ? { id: 'figma-skills', status: 'conflict', reason: kept.map(r => `${r.path}: ${r.reason || r.status}`).join('; ') }
+    : { id: 'figma-skills', status: 'installed', reason: `figma-cli skills registered: ${results.map(r => r.path).join(', ')}` };
+}
 async function npmPhase(root, release, group, manifest, receipt, save, options) {
   const base = fileURLToPath(new URL(`../../manifests/${group}/`, import.meta.url));
   const lockData = await readFile(join(base, 'package-lock.json'));
   const pkgData = await readFile(join(base, 'package.json'));
   const locked = JSON.parse(lockData);
   const packages = JSON.parse(pkgData).dependencies;
+  const pinnedSources = new Set();
   for (const [name, value] of Object.entries(packages)) {
-    const id = name === '@openai/codex' ? 'codex' : name;
+    const id = npmTool[name] || name;
     const tool = manifest.tools.find(x => x.id === id);
-    if (tool?.version.value !== value) throw new Error(`manifest and npm lock disagree for ${id}`);
+    const commit = tool?.version.kind === 'git-commit';
+    if (!tool || (commit ? value !== codeload(tool) : tool.version.value !== value)) throw new Error(`manifest and npm lock disagree for ${id}`);
     if (tool.version.status !== 'verified') return { id: group, status: 'unverified', reason: `${id}: ${tool.version.reason}` };
     const item = locked.packages[`node_modules/${name}`];
-    if (!item || item.version !== value || !item.integrity) throw new Error(`unlocked npm dependency: ${name}`);
+    if (!item || !item.integrity || (commit ? item.resolved !== value : item.version !== value)) throw new Error(`unlocked npm dependency: ${name}`);
+    if (commit) pinnedSources.add(value);
   }
   for (const [name, item] of Object.entries(locked.packages)) {
-    if (name && (!item.integrity || !item.resolved?.startsWith('https://registry.npmjs.org/'))) throw new Error(`unreviewed npm lock entry: ${name}`);
+    if (name && (!item.integrity || !(item.resolved?.startsWith('https://registry.npmjs.org/') || pinnedSources.has(item.resolved)))) throw new Error(`unreviewed npm lock entry: ${name}`);
   }
   const id = group, lockSha = sha(lockData), target = ownedPath(root, 'releases', release, group);
   if (await checkReceipt(root, receipt, id, locked.version, lockSha, options)) {
@@ -390,7 +418,7 @@ export async function installPlatform(manifest, options = {}) {
     const chosen = selected(manifest, harness, !!options.withFigma, options.withTower !== false);
     await mkdir(join(root, 'releases', release, 'staging'), { recursive: true, mode: 0o700 });
     for (const tool of chosen) {
-      if (npmIds.has(tool.id)) continue;
+      if (npmGroup(tool.id)) continue;
       const a = artifactFor(tool, targetKey);
       if (tool.version.status !== 'verified' || a?.status !== 'verified') {
         components.push({ id: tool.id, status: 'unverified', reason: a?.reason || tool.version.reason || `no verified ${platform} artifact` });
@@ -558,6 +586,11 @@ export async function installPlatform(manifest, options = {}) {
     const coreNpm = chosen.some(t => npmIds.has(t.id) && t.id !== 'codex');
     if (coreNpm) components.push(await npmPhase(root, release, 'npm', manifest, receipt, save, options));
     if (chosen.some(t => t.id === 'codex')) components.push(await npmPhase(root, release, 'npm-codex', manifest, receipt, save, options));
+    if (chosen.some(t => t.id === 'figma-cli')) {
+      const figma = await npmPhase(root, release, 'npm-figma', manifest, receipt, save, options);
+      components.push(figma);
+      if (['installed', 'skipped'].includes(figma.status) && options.globalHooks !== false) components.push(await figmaSkills(root, receipt, save, harness, options));
+    }
     const shouldRegister = chosen.some(t => npmIds.has(t.id) && t.id !== 'codex') || receipt.phases.hooks;
     let hookChanges = [];
     if (options.globalHooks === false) {
@@ -591,6 +624,7 @@ export async function installPlatform(manifest, options = {}) {
       receipt: receiptPath, bin: join(root, 'releases', release, 'bin'),
       npmBin: coreNpm ? join(root, 'releases', release, 'npm', 'node_modules', '.bin') : null,
       codexBin: chosen.some(t => t.id === 'codex') ? join(root, 'releases', release, 'npm-codex', 'node_modules', '.bin') : null,
+      figmaBin: chosen.some(t => t.id === 'figma-cli') ? join(root, 'releases', release, 'npm-figma', 'node_modules', '.bin') : null,
       firstmateHome: components.some(x => x.id === 'firstmate' && ['installed', 'skipped'].includes(x.status)) ? firstmateHome : null,
       towerParity, towerLauncher, hookChanges,
       loginSteps: manifest.tools.filter(t => t.classification === 'per-user-login' && (t.profile === 'core' || usesProfile(harness, t.profile) || (options.withFigma && t.profile === 'figma'))).map(t => login[t.id]).filter(Boolean),

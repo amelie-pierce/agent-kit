@@ -198,6 +198,7 @@ function plannedLocation(tool, context, options, release, artifact) {
   if (['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint'].includes(tool.id)) return join(versioned, 'bin', tool.id);
   if (['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi'].includes(tool.id)) return join(versioned, 'npm', 'node_modules', '.bin', tool.id);
   if (tool.id === 'codex') return join(versioned, 'npm-codex', 'node_modules', '.bin', 'codex');
+  if (tool.id === 'figma-cli') return join(versioned, 'npm-figma', 'node_modules', '.bin', 'figma-cli');
   return 'UNVERIFIED: no install adapter';
 }
 

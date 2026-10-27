@@ -133,6 +133,19 @@ async function reconcileStarter(root, firstmate, mode) {
 // The open-firstmate launcher and Herdr keys block follow the global registrations answer. Repair restores a
 // removed block and replaces a changed launcher; upgrade refreshes both while unchanged. Like the starter
 // rules, a problem here never rolls back a repair or upgrade.
+// The figma-cli skills the kit registered that figma-cli itself reports unchanged ('up-to-date').
+function figmaRemovable(root, receipt, options = {}) {
+  const phase = receipt.phases['npm-figma'], paths = phase?.skills || [];
+  if (!paths.length || !phase.path) return [];
+  const entry = join(root, phase.path, 'node_modules', '@amelie-pierce', 'figma-cli', 'src', 'index.js');
+  if (!stat(entry)) return [];
+  const unchanged = new Set();
+  for (const agent of ['claude', 'codex']) {
+    const r = spawnSync(process.execPath, [entry, 'skills', 'status', '--agent', agent], { encoding: 'utf8', timeout: 60000, env: { HOME: options.home || process.env.HOME, PATH: process.env.PATH || '' } });
+    try { for (const item of JSON.parse(r.stdout).results) if (item.status === 'up-to-date') unchanged.add(item.path); } catch { /* nothing proven unchanged */ }
+  }
+  return paths.filter(path => unchanged.has(path));
+}
 async function reconcileShortcuts(root, options, repair) {
   const { receipt } = receiptAt(root);
   const env = options.env || process.env, home = options.home || env.HOME;
@@ -373,6 +386,8 @@ export async function applyUninstall(options = {}) {
     const path = phaseOwned(root, 'treehouse-root', wrapper);
     if (digest(path) === wrapper.ownedSha256) await rm(path);
   }
+  // Before the release moves: figma-cli's own status says which of its skills are unchanged, and only those go.
+  for (const path of figmaRemovable(root, receipt, options)) await rm(path, { recursive: true, force: true });
   // Before the release moves: the plugin's own remove-keys lives there.
   const shortcuts = receipt.setup?.shortcuts;
   await removePlugin(planRemovePlugin(root, shortcuts?.plugin, shortcuts?.keys?.path || herdrConfigPath(options.env || process.env, options.home)), {

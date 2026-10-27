@@ -374,9 +374,9 @@
       "classification": "shareable",
       "version": {
         "kind": "git-commit",
-        "value": "fc45c4d9ea1de0af27092f26eaa8f5008881f01e",
+        "value": "c80eef892902b31202957cf479befca919b3305c",
         "status": "verified",
-        "reason": "The herdr-plugin/ directory (plugin id furkankly.zoetrope) at the tower's reviewed commit; it drives zoe, which the kit provides from the pinned zoe-fleet binary built from the same commit."
+        "reason": "The herdr-plugin/ directory (plugin id furkankly.zoetrope) at pikenguyen227/zoetrope main c80eef89 (#44, the zoe path fallback); it drives zoe, which the kit provides from the pinned zoe-fleet binary built at fc45c4d. Since fc45c4d no runtime or launcher file changed."
       },
       "approvedUpstream": "https://github.com/pikenguyen227/zoetrope",
       "license": {
@@ -386,18 +386,18 @@
       "runtimeMinimum": null,
       "artifacts": {
         "darwin-arm64": {
-          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/fc45c4d9ea1de0af27092f26eaa8f5008881f01e",
-          "sha256": "249efdac00b2acbaff71739e942be03c4fa0479aa69a90d597539e5679271fb7",
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/c80eef892902b31202957cf479befca919b3305c",
+          "sha256": "c533e712ba8cfa4c2f7f17e8d59bbcba8d51cda7275e2eb1ed23c09f70d9b81c",
           "kind": "source-archive",
           "status": "verified",
-          "reason": "SHA-256 reproduced from two downloads of the codeload archive at the tower's commit; only herdr-plugin/ is installed."
+          "reason": "SHA-256 reproduced from two downloads of the codeload archive at c80eef89; only herdr-plugin/ is installed."
         },
         "darwin-x64": {
-          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/fc45c4d9ea1de0af27092f26eaa8f5008881f01e",
-          "sha256": "249efdac00b2acbaff71739e942be03c4fa0479aa69a90d597539e5679271fb7",
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/c80eef892902b31202957cf479befca919b3305c",
+          "sha256": "c533e712ba8cfa4c2f7f17e8d59bbcba8d51cda7275e2eb1ed23c09f70d9b81c",
           "kind": "source-archive",
           "status": "verified",
-          "reason": "SHA-256 reproduced from two downloads of the codeload archive at the tower's commit; only herdr-plugin/ is installed."
+          "reason": "SHA-256 reproduced from two downloads of the codeload archive at c80eef89; only herdr-plugin/ is installed."
         },
         "linux-arm64": {
           "url": null,
@@ -412,18 +412,18 @@
           "reason": "The plugin drives the zoe binary from the zoe-fleet release, which has no reviewed native Linux build here; WSL2 uses its own release."
         },
         "wsl2-arm64": {
-          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/fc45c4d9ea1de0af27092f26eaa8f5008881f01e",
-          "sha256": "249efdac00b2acbaff71739e942be03c4fa0479aa69a90d597539e5679271fb7",
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/c80eef892902b31202957cf479befca919b3305c",
+          "sha256": "c533e712ba8cfa4c2f7f17e8d59bbcba8d51cda7275e2eb1ed23c09f70d9b81c",
           "kind": "source-archive",
           "status": "verified",
-          "reason": "SHA-256 reproduced from two downloads of the codeload archive at the tower's commit; only herdr-plugin/ is installed."
+          "reason": "SHA-256 reproduced from two downloads of the codeload archive at c80eef89; only herdr-plugin/ is installed."
         },
         "wsl2-x64": {
-          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/fc45c4d9ea1de0af27092f26eaa8f5008881f01e",
-          "sha256": "249efdac00b2acbaff71739e942be03c4fa0479aa69a90d597539e5679271fb7",
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/c80eef892902b31202957cf479befca919b3305c",
+          "sha256": "c533e712ba8cfa4c2f7f17e8d59bbcba8d51cda7275e2eb1ed23c09f70d9b81c",
           "kind": "source-archive",
           "status": "verified",
-          "reason": "SHA-256 reproduced from two downloads of the codeload archive at the tower's commit; only herdr-plugin/ is installed."
+          "reason": "SHA-256 reproduced from two downloads of the codeload archive at c80eef89; only herdr-plugin/ is installed."
         },
         "windows-arm64": {
           "url": null,
@@ -1134,22 +1134,64 @@
       "name": "Figma CLI",
       "profile": "figma",
       "classification": "per-user-login",
+      "version": {
+        "kind": "git-commit",
+        "value": "cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942",
+        "status": "verified",
+        "reason": "amelie-pierce/figma-cli 2.2.5-make.2 at main cf6883a0 (it adds the figma-make-team skill after the v2.2.5-make.2 tag); the codeload archive is integrity-pinned in manifests/npm-figma/package-lock.json, SHA-256 0dd737552ad598d27f29eea61c6995840f186955c8ff18b963a0855bf68e3fad from two downloads, and its dependencies come from registry.npmjs.org."
+      },
       "approvedUpstream": "https://github.com/amelie-pierce/figma-cli",
       "license": {
         "name": "MIT",
         "reference": "https://github.com/amelie-pierce/figma-cli/blob/main/LICENSE"
       },
-      "detection": {
-        "kind": "command",
-        "command": "figma-cli",
-        "args": [
-          "--version"
-        ]
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Installed from the integrity-pinned npm lock (manifests/npm-figma/package-lock.json), not a release artifact."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Installed from the integrity-pinned npm lock (manifests/npm-figma/package-lock.json), not a release artifact."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Installed from the integrity-pinned npm lock (manifests/npm-figma/package-lock.json), not a release artifact."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Installed from the integrity-pinned npm lock (manifests/npm-figma/package-lock.json), not a release artifact."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Installed from the integrity-pinned npm lock (manifests/npm-figma/package-lock.json), not a release artifact."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Installed from the integrity-pinned npm lock (manifests/npm-figma/package-lock.json), not a release artifact."
+        }
       },
-      "kind": "prerequisite",
-      "minVersion": "2.0.0",
-      "required": false,
-      "installDocs": "https://github.com/amelie-pierce/figma-cli#readme"
+      "installLocation": {
+        "relativePath": ".agent-kit/npm-figma"
+      },
+      "detection": {
+        "kind": "presence",
+        "command": "figma-cli",
+        "args": []
+      }
     }
   ],
   "neverShip": [

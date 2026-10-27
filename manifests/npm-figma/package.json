@@ -1,0 +1,8 @@
+{
+  "name": "@amelie-pierce/agent-kit-figma",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@amelie-pierce/figma-cli": "https://codeload.github.com/amelie-pierce/figma-cli/tar.gz/cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942"
+  }
+}
