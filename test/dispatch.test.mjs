@@ -431,3 +431,121 @@ test('doctor reports jev ready only with the key, rules and resolver tools, as a
   writeFileSync(f.rules, '{"rules":[]}\n');
   assert.match(row({ HOME: f.home, PATH: tools }).detail, /^not ready: config\/crew-dispatch\.json has no well-formed rules$/);
 });
+
+// A stand-in for a Firstmate whose fm-strategy.sh takes --plans: set renders crew-dispatch.json from its own
+// arguments, records them in config/strategy, notes whether rules already existed, and answers a matching
+// --dry-run with Firstmate's "no change:" line. A fail file makes set refuse without writing.
+function nativeStrategy(home, log) {
+  writeFileSync(join(home, 'bin', 'fm-strategy.sh'), `#!/usr/bin/env bash
+if [ "$1" = --help ]; then echo 'Usage: fm-strategy.sh set <mode> [--providers claude|codex|claude,codex] [--plans <plans>] [--dry-run] [--yes]'; exit 0; fi
+echo "$@" "key=\${TYPESAFE_API_KEY-unset}" >> '${log}'
+[ ! -e "$FM_HOME/fail" ] || { echo "fm-strategy: refused for the fixture" >&2; exit 1; }
+args=$(printf '%s ' "$@" | sed 's/ --yes //; s/ --dry-run //; s/ $//')
+if [ "\${*: -1}" = --dry-run ]; then
+  [ "$(cat "$FM_HOME/config/strategy" 2>/dev/null)" = "$args" ] && echo "no change: this home already matches $2" || echo "dry run: nothing written"; exit 0
+fi
+mkdir -p "$FM_HOME/config"
+[ -e "$FM_HOME/config/crew-dispatch.json" ] && prior=present || prior=absent
+printf '{"rules":[{"when":"native","use":{"harness":"claude"},"strategy":"light"}],"args":"%s","prior":"%s"}\\n' "$args" "$prior" > "$FM_HOME/config/crew-dispatch.json"
+printf '%s\\n' "$args" > "$FM_HOME/config/strategy"
+`, { mode: 0o755 });
+}
+const bridgeStrategy = home => writeFileSync(join(home, 'bin', 'fm-strategy.sh'), '#!/usr/bin/env bash\necho "Usage: fm-strategy.sh set <mode> [--providers <set>]"\n', { mode: 0o755 });
+
+test('a native selection is recorded by digest, verified by a dry run, refreshed on a plan change and released once changed', posixOnly, async t => {
+  const f = firstmateHome(t), log = join(f.base, 'argv');
+  nativeStrategy(f.home, log);
+  const first = await applyStarter(planStarter(f.home, { harness: 'claude', plans: { claude: 'max5x' }, mode: 'balanced', create: true }));
+  assert.equal(first.action, 'strategy');
+  assert.deepEqual(first.record, { file: 'config/crew-dispatch.json', via: 'fm-strategy', template: 'balanced', providers: 'claude', plans: { claude: 'max5x' },
+    sha256: sha(readFileSync(f.rules)), strategySha256: sha(readFileSync(join(f.home, 'config', 'strategy'))) });
+  assert.equal(JSON.parse(readFileSync(f.rules, 'utf8')).prior, 'absent');
+
+  const same = planStarter(f.home, { harness: 'claude', plans: { claude: 'max5x' }, mode: 'balanced', record: first.record, create: true, restore: true });
+  assert.equal(same.action, 'reselect');
+  const verified = await applyStarter(same);
+  assert.equal(verified.action, 'verify');
+  assert.equal(verified.record, first.record);
+  assert.match(describeStarter(verified), /balanced strategy the kit selected is unchanged/);
+  assert.deepEqual(readFileSync(log, 'utf8').trim().split('\n').map(line => line.split(' ').at(-2)), ['--yes', '--dry-run'], 'a matching home gets only a dry run');
+
+  const changed = await applyStarter(planStarter(f.home, { harness: 'claude', plans: { claude: 'pro' }, mode: 'lean', record: first.record, create: true }));
+  assert.equal(changed.action, 'reselect');
+  assert.match(readFileSync(log, 'utf8'), /set lean --providers claude --plans claude=pro --yes key=unset\n$/);
+  assert.deepEqual(changed.record.plans, { claude: 'pro' });
+  assert.equal(changed.record.sha256, sha(readFileSync(f.rules)));
+  assert.equal(starterRemovable(f.home, changed.record), null, 'uninstall keeps Firstmate\'s strategy files');
+
+  writeFileSync(f.rules, '{"rules":[]}\n');
+  const kept = await applyStarter(planStarter(f.home, { harness: 'claude', plans: { claude: 'pro' }, mode: 'lean', record: changed.record, create: true, restore: true }));
+  assert.equal(kept.action, 'keep');
+  assert.equal(kept.record, null, 'a changed selection is Firstmate\'s alone');
+  assert.equal(readFileSync(f.rules, 'utf8'), '{"rules":[]}\n');
+
+  // Repair restores a selection only when both files are gone and the key is set.
+  rmSync(f.rules); rmSync(join(f.home, 'config', 'strategy'));
+  assert.equal(planStarter(f.home, { harness: 'claude', record: changed.record }).action, 'none');
+  const restored = await applyStarter(planStarter(f.home, { harness: 'claude', plans: { claude: 'pro' }, mode: 'lean', record: changed.record, restore: true }));
+  assert.equal(restored.action, 'strategy');
+  assert.equal(restored.record.sha256, sha(readFileSync(f.rules)));
+});
+
+test('an unchanged bridge file moves to the native selection once the home takes --plans; an edited one is kept and named', posixOnly, async t => {
+  const f = firstmateHome(t), log = join(f.base, 'argv');
+  writeFileSync(join(f.home, 'bin', 'strategies', 'lean.json'), JSON.stringify(slots));
+  bridgeStrategy(f.home);
+  const bridge = await applyStarter(planStarter(f.home, { harness: 'claude', plans: { claude: 'pro' }, mode: 'lean', create: true }));
+  assert.equal(bridge.action, 'write');
+  assert.equal(bridge.record.via, undefined);
+  const bridgeBody = readFileSync(f.rules, 'utf8');
+
+  // The home's Firstmate gains --plans (a later pin). A failed selection puts the bridge file back untouched.
+  nativeStrategy(f.home, log);
+  writeFileSync(join(f.home, 'fail'), '');
+  const plan = planStarter(f.home, { harness: 'claude', plans: { claude: 'pro' }, mode: 'lean', record: bridge.record });
+  assert.equal(plan.action, 'migrate');
+  const failed = await applyStarter(plan);
+  assert.equal(failed.action, 'skip');
+  assert.match(describeStarter(failed), /not written; fm-strategy\.sh set lean failed: fm-strategy: refused for the fixture/);
+  assert.equal(failed.record, bridge.record, 'the receipt keeps tracking the bridge file');
+  assert.equal(readFileSync(f.rules, 'utf8'), bridgeBody);
+  assert.deepEqual(readdirSync(join(f.home, 'config')), ['crew-dispatch.json'], 'no aside file is left behind');
+
+  rmSync(join(f.home, 'fail'));
+  const migrated = await applyStarter(planStarter(f.home, { harness: 'claude', plans: { claude: 'pro' }, mode: 'lean', record: bridge.record }));
+  assert.equal(migrated.action, 'migrate');
+  assert.deepEqual(JSON.parse(readFileSync(f.rules, 'utf8')), { rules: [{ when: 'native', use: { harness: 'claude' }, strategy: 'light' }], args: 'set lean --providers claude --plans claude=pro', prior: 'absent' },
+    'Firstmate renders from its own template, not on top of the bridge rules');
+  assert.equal(migrated.record.via, 'fm-strategy');
+  assert.equal(migrated.record.sha256, sha(readFileSync(f.rules)));
+  assert.match(describeStarter(migrated), /replaced the kit's unchanged bridge rules at .* with Firstmate's lean strategy for claude fitted to your plan \(claude pro\) \(bin\/fm-strategy\.sh set lean --providers claude --plans claude=pro --yes\)/);
+  assert.deepEqual(readdirSync(join(f.home, 'config')).sort(), ['crew-dispatch.json', 'strategy']);
+
+  const edited = firstmateHome(t);
+  writeFileSync(join(edited.home, 'bin', 'strategies', 'lean.json'), JSON.stringify(slots));
+  bridgeStrategy(edited.home);
+  const old = await applyStarter(planStarter(edited.home, { harness: 'claude', plans: { claude: 'pro' }, mode: 'lean', create: true }));
+  writeFileSync(edited.rules, '{"rules":[{"when":"mine","use":{"harness":"claude"}}]}\n');
+  nativeStrategy(edited.home, join(edited.base, 'argv'));
+  const kept = await applyStarter(planStarter(edited.home, { harness: 'claude', plans: { claude: 'pro' }, mode: 'lean', record: old.record, create: true, restore: true }));
+  assert.equal(kept.action, 'keep');
+  assert.match(describeStarter(kept), /kept .*; existing rules are yours; bin\/fm-strategy\.sh set lean --providers claude --plans claude=pro switches them to Firstmate's plan-aware strategy/);
+  assert.equal(readFileSync(edited.rules, 'utf8'), '{"rules":[{"when":"mine","use":{"harness":"claude"}}]}\n');
+  assert.equal(existsSync(join(edited.base, 'argv')), false, 'fm-strategy.sh set never ran');
+});
+
+test('upgrade moves an unchanged bridge file to the native selection and uninstall then keeps Firstmate\'s strategy', posixOnly, async t => {
+  const f = lifecycleFixture(t);
+  await f.write();
+  nativeStrategy(f.firstmate, join(f.base, 'argv'));
+  f.updateFirstmate('bin/fm-strategy.sh', readFileSync(join(f.firstmate, 'bin', 'fm-strategy.sh'), 'utf8'));
+  const result = await upgradeTo(f);
+  assert.equal(result.dispatch.action, 'migrate');
+  const record = f.readReceipt().setup.dispatch;
+  assert.equal(record.via, 'fm-strategy');
+  assert.equal(record.strategySha256, sha(readFileSync(join(f.firstmate, 'config', 'strategy'))));
+  assert.equal(planUninstall(f.options).dispatch.action, 'keep the Firstmate strategy the kit selected; Firstmate owns its files');
+  await applyUninstall(f.options);
+  assert.equal(existsSync(f.rules), true);
+  assert.equal(existsSync(join(f.firstmate, 'config', 'strategy')), true);
+});

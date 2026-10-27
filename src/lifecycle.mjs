@@ -330,7 +330,8 @@ export function planUninstall({ installRoot, home, env = process.env, isRunning 
     tower: tower?.path && digest(tower.path) === tower.ownedSha256 ? { path: tower.path, action: 'remove unchanged kit config' } : { path: tower?.path || null, action: 'keep changed or absent config' },
     wrapper: wrapperPath ? { path: wrapperPath, action: digest(wrapperPath) === wrapper.ownedSha256 ? 'remove unchanged wrapper' : 'keep changed or absent wrapper' } : null,
     dispatch: receipt.setup?.dispatch && !removeFirstmateHome ? { path: join(firstmate, receipt.setup.dispatch.file || 'config/crew-dispatch.json'),
-      action: starterRemovable(firstmate, receipt.setup.dispatch) ? 'remove unchanged kit starter rules' : 'keep rules you or a strategy changed' } : null,
+      action: starterRemovable(firstmate, receipt.setup.dispatch) ? 'remove unchanged kit starter rules'
+        : receipt.setup.dispatch.via === 'fm-strategy' ? 'keep the Firstmate strategy the kit selected; Firstmate owns its files' : 'keep rules you or a strategy changed' } : null,
     note: removeFirstmateHome ? 'Plan only. Exact path confirmation and clean-work checks authorize removing the Firstmate home, including its .env; the root, fleet state, private backups and final record stay.'
       : removeEnv ? 'Plan only. Exact path confirmation authorizes removing the Firstmate home .env; the home and other personal files stay.'
         : 'Plan only. The root, Firstmate home and its .env, projects, fleet state, private backups and final uninstall record stay. Personal prerequisites, credentials and shell profiles are untouched.' };

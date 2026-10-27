@@ -1,6 +1,6 @@
 ---
 title: Starter dispatch rules and Jev readiness
-description: Kit-written config/crew-dispatch.json from Firstmate's mode templates and owner-approved plan profiles, the fm-strategy --plans bridge, ownership digest and the doctor jev row
+description: Kit-written config/crew-dispatch.json from Firstmate's mode templates and owner-approved plan profiles, the native fm-strategy --plans selection and its bridge fallback, ownership digests and the doctor jev row
 date: 2026-10-27
 ---
 
@@ -18,8 +18,13 @@ The rules follow the chosen mode's template in the pinned home (`bin/strategies/
 
 Sources: src/dispatch.mjs `loadPlanTable`, `planRoles`, `starterAdvice`; src/setup.mjs `collectAnswers`.
 
-When the home's `fm-strategy.sh --help` documents `--plans`, the kit runs `set <mode> --providers <set> --plans ... --yes` instead, and Firstmate owns the files. Firstmate 976c3ba has no `--plans`, so the kit bridges by writing only the rules file (src/dispatch.mjs `strategyTakesPlans`, `planStarter`, `applyStarter`). The rules use models newer than older CLIs know: Codex CLI is pinned to 0.164.0 for GPT-6.1 Terra, and the Claude Code minimum is 2.1.293 for Haiku 5.5 (manifests/pilot-skeleton.json).
+When the home's `fm-strategy.sh --help` documents `--plans`, the kit runs `set <mode> --providers <set> [--plans ...] --yes` without the key in its environment, and Firstmate renders the routing files. Firstmate 976c3ba has no `--plans`, so the kit keeps a bridge for such a home and writes only the rules file (src/dispatch.mjs `strategyTakesPlans`, `planStarter`, `selectStrategy`). The `--plans` interface and plan names were checked against Firstmate branch `fm/fm-strategy-plans` (ffd39119), and `scripts/jev-resolve-smoke.mjs` passes against both that branch (`AGENT_KIT_FIRSTMATE_SRC`) and the pin. The rules use models newer than older CLIs know: Codex CLI is pinned to 0.164.0 for GPT-6.1 Terra, and the Claude Code minimum is 2.1.293 for Haiku 5.5 (manifests/pilot-skeleton.json).
 
-Ownership: the kit writes only when neither the rules file nor `config/strategy` exists, by hard-linking a temp file so a file that appears concurrently is never replaced. It records `setup.dispatch` with the template, agent CLIs, plans and a digest. Repair restores a missing kit file while the key is set. Upgrade and setup refresh the file only while its digest matches, and uninstall removes it only while unchanged. A changed file or a selected strategy releases ownership (src/dispatch.mjs `planStarter`, `applyStarter`, `starterRemovable`; src/lifecycle.mjs `reconcileStarter`).
+Ownership: the kit writes or selects only when neither the rules file nor `config/strategy` exists, by hard-linking a temp file so a file that appears concurrently is never replaced. It records `setup.dispatch` with the template, agent CLIs, plans and a digest; a native selection adds `via: 'fm-strategy'` and `strategySha256`. The record moves as follows (src/dispatch.mjs `planStarter`, `applyStarter`, `selectStrategy`, `starterRemovable`; src/lifecycle.mjs `reconcileStarter`, `planUninstall`).
+- Repair restores a missing kit file while the key is set. A selection is restored only when both files are gone.
+- Upgrade and setup refresh the file only while its digest matches. A selection is refreshed only while both digests match, after an `fm-strategy.sh set --dry-run` that does not print `no change:`.
+- An unchanged bridge file in a home that gains `--plans` is moved aside, Firstmate renders from its template alone, and the aside copy is put back if no strategy got selected (`migrate`). An edited bridge file is kept and the result names the switching command.
+- Uninstall removes only unchanged bridge files and keeps a native selection, since its four config files are Firstmate's.
+- A changed file or a strategy the kit did not select releases ownership.
 
 Doctor's `jev` row checks the key line (set / not set only), well-formed rules, a usable never-send list, the resolver script, and `jq curl quota-axi awk grep sed tr` on PATH. It warns rather than fails (src/dispatch.mjs `jevReadiness`; src/doctor.mjs). A clear resolver answer also needs quota-axi to measure the signed-in provider. Unmeasured quota escalates, which is the person's own sign-in and outside the kit. `scripts/jev-resolve-smoke.mjs` proves keys-then-resolve against the pinned Firstmate with stubbed curl and quota-axi.
