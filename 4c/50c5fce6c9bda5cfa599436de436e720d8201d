@@ -1,0 +1,38 @@
+install.sh
+  s_a0c30c8459f81d::t_8ac4f99356aedb 33,41,111,114,235
+_vaults/agent-kit/wiki/architecture/optional-dispatch-key.md
+  s_a0c30c8459f81d::t_94e309b6f143f0 9,13
+src/keys.mjs
+  s_a0c30c8459f81d::t_8ac4f99356aedb 5,81
+README.md
+  s_a0c30c8459f81d::t_94e309b6f143f0 54,67,75,77
+src/kit.mjs
+  s_a0c30c8459f81d::t_8ac4f99356aedb 54,98
+test/setup.test.mjs
+  s_a0c30c8459f81d::t_87565b371d9582 6,143,145,153-156,158-171,179
+bin/agent-kit.mjs
+  s_a0c30c8459f81d::t_25dbdb8caf4a6b 65-66
+  s_a0c30c8459f81d::t_ca5dd46a71fdcd 15,57-59
+src/setup.mjs
+  s_a0c30c8459f81d::t_8ac4f99356aedb 17,32,34,414
+  s_a0c30c8459f81d::t_ca5dd46a71fdcd 265
+test/keys.test.mjs
+  s_a0c30c8459f81d::t_be56e42dc9e0d9 4,9,43,45,58-62,64-68,71-74,77-81,85-97,100-107
+  s_a0c30c8459f81d::t_92cdafd03029f9 108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4c50c5fce6c9bda5cfa599436de436e720d8201d",
+  "prompts": {},
+  "sessions": {
+    "s_a0c30c8459f81d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "949f6563-2711-42db-9252-9ccd06b55250",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
