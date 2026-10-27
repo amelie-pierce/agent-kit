@@ -103,7 +103,7 @@ Then continue with part 2. In step 1 of part 2, `$env:PROCESSOR_ARCHITECTURE` sh
    ```
 
    Accept the root `~/Agentic`. This checks the Windows prerequisites and WSL2 only; it does not ask the other questions. Success: it prints `Agent Kit install (Windows): handoff-ready` and one `wsl.exe -d Ubuntu --exec bash -l -c '...' agent-kit-setup <SHA> ... --dry-run` command. Nothing runs inside WSL.
-7. **WSL dry run.** Paste that printed `wsl.exe ...` command into the same PowerShell window. Success: every setup question and the summary appear, it ends with `Dry run: nothing was written.`, and afterwards `wsl -e ls ~/Agentic` reports no such file or directory.
+7. **WSL dry run.** Paste that printed `wsl.exe ...` command into the same PowerShell window. Success: every setup question and the summary appear, it ends with `Dry run: nothing was written.`, and afterwards `wsl -e sh -c 'ls ~/Agentic'` reports no such file or directory.
 8. **Real install.**
 
    ```powershell
