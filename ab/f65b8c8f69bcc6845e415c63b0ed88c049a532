@@ -1,0 +1,19 @@
+test/windows.test.mjs
+  s_faf2a16e386943::t_3ab21af39d7233 328-330
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "abf65b8c8f69bcc6845e415c63b0ed88c049a532",
+  "prompts": {},
+  "sessions": {
+    "s_faf2a16e386943": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b3a0eb51-16b4-457d-8d0a-6cf69e7dc934",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
