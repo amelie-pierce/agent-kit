@@ -12,7 +12,7 @@ import { applyUninstall, planUninstall } from '../src/lifecycle.mjs';
 const kit = fileURLToPath(new URL('..', import.meta.url));
 const sha = body => createHash('sha256').update(body).digest('hex');
 const posixOnly = { skip: process.platform === 'win32' };
-const python = spawnSync('/bin/sh', ['-c', 'command -v python3'], { encoding: 'utf8' }).stdout.trim();
+const python = posixOnly.skip ? null : spawnSync('/bin/sh', ['-c', 'command -v python3'], { encoding: 'utf8' }).stdout.trim();
 const ok = () => ({ ok: true, detail: '' });
 
 // A kit root as setup leaves it: Herdr, Codex and the tower runtime recorded in the receipt, the kit copy at
