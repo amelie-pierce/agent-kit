@@ -202,33 +202,40 @@ test('upgrade activates a reviewed kit and keeps the previous release', { skip: 
   assert.equal(readFileSync(join(f.root, 'releases', 'new-release', 'bin', 'herdr'), 'utf8'), 'restored');
 });
 
-test('upgrade and its update alias apply kit changes and report a Firstmate home with local changes', { skip: process.platform === 'win32' }, async t => {
+test('upgrade and its update alias refuse a Firstmate home with local changes; repair still runs; a clean home upgrades', { skip: process.platform === 'win32' }, async t => {
   for (const name of ['upgrade', 'update']) {
     assert.equal(parseArgs([name, '--yes', '--root', '/tmp/kit']).command, 'upgrade');
     const f = fixture(t), commit = 'f'.repeat(40);
-    const receipt = JSON.parse(readFileSync(f.receiptPath));
-    receipt.setup.answers.globalHooks = true;
-    writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
     const fetchKit = async (_commit, _env, destination) => {
       await stagedKit(_commit, _env, destination);
       const target = structuredClone(f.manifest);
       target.release = 'new-release';
       writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
     };
-    const plan = await planUpgrade({ ...f.options, resolveCommit: () => commit, fetchKit });
+    const args = { ...f.options, resolveCommit: () => commit, fetchKit };
+    const before = readFileSync(f.receiptPath, 'utf8');
+    const refusal = new RegExp(`Firstmate home ${f.firstmate} has local changes; the kit will not reset it\\. Commit or revert`);
     writeFileSync(join(f.firstmate, 'README.md'), 'person work\n');
-    const result = await applyUpgrade(plan, f.options);
-    assert.equal(result.status, 'partial');
-    assert.equal(result.components.find(x => x.id === 'firstmate').status, 'conflict');
-    assert.ok(result.nextSteps.some(x => x.startsWith('firstmate: ')));
-    assert.ok(result.nextSteps.some(x => x.startsWith('release new-release is pending')));
-    assert.match(formatLifecycle(result), /^Agent Kit upgrade: partial\n/);
-    const after = JSON.parse(readFileSync(f.receiptPath));
-    assert.equal(after.release, 'old-release');
-    assert.equal(after.pendingUpdate, 'new-release');
+    await assert.rejects(planUpgrade(args), refusal);
+    assert.equal(readFileSync(f.receiptPath, 'utf8'), before);
+    writeFileSync(join(f.firstmate, 'README.md'), 'fixture\n');
+    const stale = await planUpgrade(args);
+    writeFileSync(join(f.firstmate, 'README.md'), 'person work\n');
+    await assert.rejects(applyUpgrade(stale, f.options), refusal);
+    assert.equal(readFileSync(f.receiptPath, 'utf8'), before);
+    assert.equal(JSON.parse(before).pendingUpdate, undefined);
+    assert.equal(existsSync(join(f.root, 'releases', 'new-release')), false);
+    const repaired = await applyRepair(f.manifest, f.options);
+    assert.equal(repaired.status, 'repaired');
+    assert.ok(repaired.nextSteps.some(x => x.startsWith('firstmate: ')));
     assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'person work\n');
-    assert.equal(readFileSync(join(f.root, 'releases', 'new-release', 'bin', 'herdr'), 'utf8'), 'restored');
-    assert.equal(JSON.parse(readFileSync(f.receiptPath)).setup.kit.commit, commit);
+    writeFileSync(join(f.firstmate, 'README.md'), 'fixture\n');
+    const result = await applyUpgrade(await planUpgrade(args), f.options);
+    assert.match(formatLifecycle(result), /^Agent Kit upgrade: upgraded\n/);
+    const after = JSON.parse(readFileSync(f.receiptPath));
+    assert.equal(after.release, 'new-release');
+    assert.equal(after.pendingUpdate, undefined);
+    assert.equal(after.setup.kit.commit, commit);
   }
 });
 
