@@ -292,7 +292,7 @@ powershell -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\agent-kit.ps
 
 Afterwards, open Windows Terminal with your distribution's profile and run Herdr, the tower and the agent CLIs in that WSL shell. chrome-devtools-axi and Lavish open the browser on the Windows side.
 
-**Needs a real Windows machine (owner acceptance).** The steps for that check are in [docs/windows-pilot-check.md](docs/windows-pilot-check.md). CI covers mocked `wsl.exe` fixtures and a read-only `check`/`plan`/`install --dry-run` and bootstrap smoke on the GitHub `windows-latest` runner. It never enables WSL. These remain untested until a person runs them on a real device:
+**Needs a real Windows machine (teammate hands-on check).** The steps for that check are in [docs/windows-pilot-check.md](docs/windows-pilot-check.md). CI covers mocked `wsl.exe` fixtures and a read-only `check`/`plan`/`install --dry-run` and bootstrap smoke on the GitHub `windows-latest` runner. It never enables WSL. These remain untested until a person runs them on a real device:
 
 - on a PC without WSL, `check` printing the administrator `wsl --install -d Ubuntu` and restart steps without running them; then enabling WSL2 with that command, the restart, and first-run Linux user creation;
 - `wsl --set-default-version 2` and `wsl --set-version` on a WSL1 setup, and non-English `wsl --status` output (the default version then reads as unknown);
