@@ -49,7 +49,7 @@ export function shortcutInputs(receipt, root, env, recorded = null, kitPath = nu
   const realClaude = harness === 'codex' ? null : recorded?.realClaude && stat(recorded.realClaude) ? recorded.realClaude
     : findOnPath('claude', env.PATH || '').find(path => dirname(path) !== join(root, 'bin')) || null;
   const firstmateHome = receipt.setup?.paths?.firstmateHome || receipt.phases?.firstmate?.path || null;
-  return { herdr: phase('herdr'), python, node, kit, firstmateHome, agents, realClaude, mate: join(root, mateFile), graph: !!recorded?.plugin?.entrySha256,
+  return { herdr: phase('herdr'), python, node, kit, firstmateHome, agents, realClaude, mate: join(root, mateFile), graph: !!recorded?.plugin?.entrySha256, pluginManager: !!recorded?.plugin?.managerSha256,
     lock: join(root, '.open-firstmate.lock'), program, firstmate: join(root, 'bin', 'firstmate'),
     paths: { root: receipt.setup?.paths?.root || dirname(root), treehouseRoot: receipt.setup?.paths?.treehouseRoot || dirname(root), installRoot: root },
     tower: receipt.phases?.['zoe-fleet-tower'] && runtime ? { launcher: join(runtime, 'bin', 'zoe-fleet-tower'), runtime } : null,
@@ -186,6 +186,7 @@ export const kitKeys = [
   { mode: 'codex', key: 'prefix+shift+f', description: 'Firstmate: Codex coordinator', purpose: 'open the Codex coordinator' },
   { mode: 'mates', key: 'prefix+shift+m', description: 'Firstmate: new second mate (Mates tab)', purpose: 'create a second mate in the Mates tab' },
   { mode: 'graph', key: 'prefix+shift+c', action: 'furkankly.zoetrope.open-tab', description: 'zoetrope: session graph (tab)', purpose: 'open the session graph in a tab' },
+  { mode: 'plugins', key: 'prefix+m', action: 'ray.plugin-manager.open', description: 'Plugin Manager', purpose: 'open the Herdr plugin manager' },
 ];
 // Herdr 0.9.3's own prefix bindings (`herdr --default-config`). A kit key on one of them overrides that
 // action unless the person moved the action to another key; the plan reports every such override.
@@ -209,7 +210,7 @@ export function previewKeys(configPath, entries) {
     : defaults.filter(d => d.key === entry.key).map(d => overrideNote(entry, d.action, rest)));
 }
 export function keyBindings(inputs, launcher, keys = kitKeys) {
-  const wanted = { claude: !!inputs.agents.claude, codex: !!inputs.agents.codex, mates: true, graph: inputs.graph };
+  const wanted = { claude: !!inputs.agents.claude, codex: !!inputs.agents.codex, mates: true, graph: inputs.graph, plugins: inputs.pluginManager };
   return keys.filter(entry => entry.key && wanted[entry.mode]).map(entry => ({ ...entry, command: entry.action || `${quote(launcher)} ${entry.mode}` }));
 }
 // Herdr default actions still on their default key: an action the person set in their config is no longer there.
@@ -599,7 +600,7 @@ export function shortcutsHealth(receipt, root) {
   if (plugin?.registry) {
     let entries = [];
     try { entries = JSON.parse(readFileSync(plugin.registry, 'utf8')); } catch { /* reported below */ }
-    for (const [id, key] of [['furkankly.zoetrope', 'entrySha256'], ['pikenguyen227.zoetrope-fleet', 'fleetSha256']]) if (plugin[key]) {
+    for (const [id, key] of [['furkankly.zoetrope', 'entrySha256'], ['pikenguyen227.zoetrope-fleet', 'fleetSha256'], ['ray.plugin-manager', 'managerSha256']]) if (plugin[key]) {
       const found = Array.isArray(entries) ? entries.filter(e => e?.plugin_id === id) : [];
       row(`herdr-plugin-${id}`, found.length === 1 && sha(JSON.stringify(found[0])) === plugin[key], found.length === 1 ? `registered in ${plugin.registry}` : `not registered in ${plugin.registry}; agent-kit repair restores it while Herdr is stopped`);
     }

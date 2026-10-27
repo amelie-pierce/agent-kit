@@ -448,6 +448,88 @@
       }
     },
     {
+      "id": "herdr-plugin-manager",
+      "name": "Herdr Plugin Manager (ray.plugin-manager)",
+      "profile": "core",
+      "classification": "shareable",
+      "version": {
+        "kind": "git-commit",
+        "value": "e4fef2693728a36cbb389af033a389cad2257869",
+        "status": "verified",
+        "reason": "speardragon/herdr-plugin-manager 0.5.0 at e4fef269, the commit the owner's Herdr runs; MIT."
+      },
+      "approvedUpstream": "https://github.com/speardragon/herdr-plugin-manager",
+      "license": {
+        "name": "MIT",
+        "reference": "https://github.com/speardragon/herdr-plugin-manager/blob/main/LICENSE"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": "https://codeload.github.com/speardragon/herdr-plugin-manager/tar.gz/e4fef2693728a36cbb389af033a389cad2257869",
+          "sha256": "3382cd1342d03e4c171025d9886d9337c63e2873360feef1122532f4e4817c62",
+          "kind": "source-archive",
+          "status": "verified",
+          "reason": "SHA-256 reproduced from two downloads of the codeload archive at e4fef269."
+        },
+        "darwin-x64": {
+          "url": "https://codeload.github.com/speardragon/herdr-plugin-manager/tar.gz/e4fef2693728a36cbb389af033a389cad2257869",
+          "sha256": "3382cd1342d03e4c171025d9886d9337c63e2873360feef1122532f4e4817c62",
+          "kind": "source-archive",
+          "status": "verified",
+          "reason": "SHA-256 reproduced from two downloads of the codeload archive at e4fef269."
+        },
+        "linux-arm64": {
+          "url": "https://codeload.github.com/speardragon/herdr-plugin-manager/tar.gz/e4fef2693728a36cbb389af033a389cad2257869",
+          "sha256": "3382cd1342d03e4c171025d9886d9337c63e2873360feef1122532f4e4817c62",
+          "kind": "source-archive",
+          "status": "verified",
+          "reason": "SHA-256 reproduced from two downloads of the codeload archive at e4fef269."
+        },
+        "linux-x64": {
+          "url": "https://codeload.github.com/speardragon/herdr-plugin-manager/tar.gz/e4fef2693728a36cbb389af033a389cad2257869",
+          "sha256": "3382cd1342d03e4c171025d9886d9337c63e2873360feef1122532f4e4817c62",
+          "kind": "source-archive",
+          "status": "verified",
+          "reason": "SHA-256 reproduced from two downloads of the codeload archive at e4fef269."
+        },
+        "wsl2-arm64": {
+          "url": "https://codeload.github.com/speardragon/herdr-plugin-manager/tar.gz/e4fef2693728a36cbb389af033a389cad2257869",
+          "sha256": "3382cd1342d03e4c171025d9886d9337c63e2873360feef1122532f4e4817c62",
+          "kind": "source-archive",
+          "status": "verified",
+          "reason": "SHA-256 reproduced from two downloads of the codeload archive at e4fef269."
+        },
+        "wsl2-x64": {
+          "url": "https://codeload.github.com/speardragon/herdr-plugin-manager/tar.gz/e4fef2693728a36cbb389af033a389cad2257869",
+          "sha256": "3382cd1342d03e4c171025d9886d9337c63e2873360feef1122532f4e4817c62",
+          "kind": "source-archive",
+          "status": "verified",
+          "reason": "SHA-256 reproduced from two downloads of the codeload archive at e4fef269."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Windows runs the kit inside WSL2; the Linux artifact applies there."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Windows runs the kit inside WSL2; the Linux artifact applies there."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/herdr-plugin-manager"
+      },
+      "detection": {
+        "kind": "presence",
+        "command": "herdr",
+        "args": []
+      }
+    },
+    {
       "id": "treehouse",
       "name": "Treehouse",
       "profile": "core",

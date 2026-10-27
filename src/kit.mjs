@@ -113,7 +113,7 @@ const loginSteps = {
 
 const advisoryPrerequisites = ['terminal', 'browser', 'virtualization'];
 // The runtime and the session-graph plugin are installed with the tower, never found on PATH beforehand.
-const towerAdvisories = new Set(['zoe-fleet-runtime', 'zoetrope-herdr-plugin']);
+const towerAdvisories = new Set(['zoe-fleet-runtime', 'zoetrope-herdr-plugin', 'herdr-plugin-manager']);
 
 function evaluate(manifest, context, options) {
   const relevant = manifest.tools.filter(tool => tool.classification !== 'never-ship' && (options.withTower !== false || !towerIds.has(tool.id))
@@ -194,7 +194,7 @@ function plannedLocation(tool, context, options, release, artifact) {
   if (tool.id === 'firstmate') return firstmateLocation(context, options);
   if (tool.id === 'zoe-fleet') return artifact?.kind === 'release-archive' ? join(versioned, 'bin', 'zoe-fleet') : join(versioned, 'zoetrope', 'bin', 'zoe-fleet');
   if (tool.id === 'zoe-fleet-runtime') return join(versioned, 'zoe-fleet-runtime');
-  if (tool.id === 'zoetrope-herdr-plugin') return join(versioned, 'zoetrope-herdr-plugin');
+  if (tool.id === 'zoetrope-herdr-plugin' || tool.id === 'herdr-plugin-manager') return join(versioned, tool.id);
   if (['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint'].includes(tool.id)) return join(versioned, 'bin', tool.id);
   if (['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi'].includes(tool.id)) return join(versioned, 'npm', 'node_modules', '.bin', tool.id);
   if (tool.id === 'codex') return join(versioned, 'npm-codex', 'node_modules', '.bin', 'codex');

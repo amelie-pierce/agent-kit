@@ -53,11 +53,10 @@ export function parseManifest(text) {
 export function pluginEntry(pluginRoot, id = pluginId) {
   const manifestPath = join(pluginRoot, 'herdr-plugin.toml'), m = parseManifest(readFileSync(manifestPath, 'utf8'));
   if (m.id !== id) throw new Error(`pinned plugin manifest names ${m.id}, not ${id}`);
-  const pick = (item, keys) => Object.fromEntries(keys.filter(k => item[k] !== undefined).map(k => [k, item[k]]));
+  // Panes and actions carry every field their manifest declares (popup width and height included).
   return { plugin_id: m.id, name: m.name, version: m.version, min_herdr_version: m.min_herdr_version, description: m.description,
     manifest_path: manifestPath, plugin_root: pluginRoot, enabled: true, platforms: m.platforms,
-    panes: (m.panes || []).map(p => pick(p, ['id', 'title', 'placement', 'command'])),
-    actions: (m.actions || []).map(a => pick(a, ['id', 'title', 'description', 'contexts', 'command'])), source: { kind: 'local' } };
+    panes: (m.panes || []).map(p => ({ ...p })), actions: (m.actions || []).map(a => ({ ...a })), source: { kind: 'local' } };
 }
 
 export const zoeScript = binary => `#!/bin/sh
@@ -80,10 +79,11 @@ export function splitPluginKeys(text) {
 // The plugins the kit registers: the session graph with its zoe and keys, and the tower's own Fleet plugin
 // (pikenguyen227.zoetrope-fleet from the runtime's fleet-plugin/), which the launcher's open would otherwise link.
 export const fleetPluginId = 'pikenguyen227.zoetrope-fleet';
+export const managerPluginId = 'ray.plugin-manager';
 function pluginSpecs(receipt, root) {
   const phase = id => receipt.phases?.[id]?.state === 'complete' && typeof receipt.phases[id].path === 'string' ? join(root, receipt.phases[id].path) : null;
-  const graph = phase('zoetrope-herdr-plugin'), runtime = phase('zoe-fleet-runtime');
-  return [graph && { id: pluginId, root: graph, key: 'entrySha256' },
+  const graph = phase('zoetrope-herdr-plugin'), runtime = phase('zoe-fleet-runtime'), manager = phase('herdr-plugin-manager');
+  return [graph && { id: pluginId, root: graph, key: 'entrySha256' }, manager && { id: managerPluginId, root: manager, key: 'managerSha256' },
     runtime && receipt.phases?.['zoe-fleet-tower'] && stat(join(runtime, 'fleet-plugin', 'herdr-plugin.toml')) && { id: fleetPluginId, root: join(runtime, 'fleet-plugin'), key: 'fleetSha256' }].filter(Boolean);
 }
 function registration(entries, spec, record, repair, registry) {
@@ -194,11 +194,12 @@ export function planRemovePlugin(root, record, configPath) {
   let entries = null;
   try { entries = readRegistry(record.registry).entries; } catch { /* left as it is */ }
   const ours = (id, key) => { const found = entries?.filter(e => e?.plugin_id === id) || []; return found.length === 1 && record[key] && sha(stable(found[0])) === record[key] ? found[0] : null; };
-  const graph = ours(pluginId, 'entrySha256'), fleet = ours(fleetPluginId, 'fleetSha256');
+  const graph = ours(pluginId, 'entrySha256'), fleet = ours(fleetPluginId, 'fleetSha256'), manager = ours(managerPluginId, 'managerSha256');
   const block = configPath && plainFile(configPath) ? splitPluginKeys(readFileSync(configPath, 'utf8')) : null;
-  return { root, registry: record.registry, entries, configPath, pluginRoot: graph?.plugin_root || null, remove: [graph && pluginId, fleet && fleetPluginId].filter(Boolean),
+  const remove = [graph && pluginId, fleet && fleetPluginId, manager && managerPluginId].filter(Boolean);
+  return { root, registry: record.registry, entries, configPath, pluginRoot: graph?.plugin_root || null, remove,
     zoe: { path: zoe, action: plainFile(zoe) && record.zoeSha256 && sha(readFileSync(zoe)) === record.zoeSha256 ? 'remove unchanged zoe wrapper' : 'keep changed or absent zoe wrapper' },
-    register: { action: graph || fleet ? `remove the kit's ${[graph && pluginId, fleet && fleetPluginId].filter(Boolean).join(' and ')} entries` : 'keep changed or absent plugin entries' },
+    register: { action: remove.length ? `remove the kit's ${remove.join(', ')} entries` : 'keep changed or absent plugin entries' },
     keys: { action: graph && block && record.keysSha256 && sha(block) === record.keysSha256 ? `remove the unchanged ${pluginId} keys block` : `keep changed or absent ${pluginId} keys block` } };
 }
 export async function removePlugin(plan, { env = process.env, herdr } = {}) {
