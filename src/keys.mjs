@@ -22,6 +22,10 @@ export function validateTypesafeKey(value) {
   return value;
 }
 
+export function envManaged(firstmateHome) {
+  try { safeFile(join(firstmateHome, '.env')); return true; } catch { return false; }
+}
+
 export function keyStatus(firstmateHome) {
   const path = join(firstmateHome, '.env');
   if (!safeFile(path)) return false;

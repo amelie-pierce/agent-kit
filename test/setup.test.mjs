@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, linkSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Readable, Writable } from 'node:stream';
@@ -140,34 +140,38 @@ test('--yes --dry-run without a terminal uses the defaults, prints the summary a
   assert.equal(f.downloads.length, 0);
 });
 
-test('setup writes only the optional key typed at the hidden prompt and records a boolean', posixOnly, async t => {
-  const f = fixture(t), key = 'fixture-typesafe-key-123';
-  const installPlatform = async (_manifest, options) => {
-    assert.equal(options.env.TYPESAFE_API_KEY, undefined, 'install child environment is sanitized');
-    mkdirSync(options.firstmateHome, { recursive: true });
-    writeFileSync(join(options.firstmateHome, '.gitignore'), '.env\n');
-    const git = spawnSync('git', ['init', '-q', options.firstmateHome], { env: options.env, encoding: 'utf8' });
-    assert.equal(git.status, 0, git.stderr);
-    return { status: 'partial', components: [], bin: null, towerParity: 'unavailable', loginSteps: [] };
-  };
-  const unattended = f.ctx(['--yes', '--root', f.root, '--no-tower', '--no-global-hooks']);
-  unattended.env = { ...f.env, TYPESAFE_API_KEY: key };
-  unattended.installPlatform = installPlatform;
-  assert.equal(await setup(f.fixtureManifest, unattended), 0, unattended.text);
-  const envPath = join(f.root, 'firstmate', '.env');
-  assert.equal(existsSync(envPath), false, '--yes leaves the key unset even with the variable in the environment');
-  assert.match(unattended.text, /10\. Optional TYPESAFE_API_KEY: not set[^\n]*\n\s+Add, change or remove it later [^\n]*bash install\.sh --reconfigure keys --root /);
-
+const keyInstall = async (_manifest, options) => {
+  assert.equal(options.env.TYPESAFE_API_KEY, undefined, 'install child environment is sanitized');
+  mkdirSync(options.firstmateHome, { recursive: true });
+  writeFileSync(join(options.firstmateHome, '.gitignore'), '.env\n');
+  const git = spawnSync('git', ['init', '-q', options.firstmateHome], { env: options.env, encoding: 'utf8' });
+  assert.equal(git.status, 0, git.stderr);
+  return { status: 'partial', components: [], bin: null, towerParity: 'unavailable', loginSteps: [] };
+};
+function ttyCtx(f, argv, replies) {
   const input = new PassThrough(); input.isTTY = true; input.setRawMode = () => {};
-  const replies = [[/Add optional TYPESAFE_API_KEY[^\n]*$/, 'y\n'], [/TYPESAFE_API_KEY \(hidden[^\n]*$/, `${key}\r`], [/Write these changes now[^\n]*$/, 'y\n']];
   const chunks = [];
-  const c = { ...f.ctx(['--root', f.root]), input, installPlatform, output: new Writable({ write(chunk, _enc, done) {
+  const c = { ...f.ctx(argv), input, installPlatform: keyInstall, output: new Writable({ write(chunk, _enc, done) {
     chunks.push(chunk.toString());
     const next = replies[0];
     if (next && next[0].test(chunks.join(''))) { replies.shift(); setImmediate(() => input.write(next[1])); }
     done();
   } }) };
   Object.defineProperty(c, 'text', { get: () => chunks.join('') });
+  return c;
+}
+
+test('setup writes only the optional key typed at the hidden prompt and records a boolean', posixOnly, async t => {
+  const f = fixture(t), key = 'fixture-typesafe-key-123';
+  const unattended = f.ctx(['--yes', '--root', f.root, '--no-tower', '--no-global-hooks']);
+  unattended.env = { ...f.env, TYPESAFE_API_KEY: key };
+  unattended.installPlatform = keyInstall;
+  assert.equal(await setup(f.fixtureManifest, unattended), 0, unattended.text);
+  const envPath = join(f.root, 'firstmate', '.env');
+  assert.equal(existsSync(envPath), false, '--yes leaves the key unset even with the variable in the environment');
+  assert.match(unattended.text, /10\. Optional TYPESAFE_API_KEY: not set[^\n]*\n\s+Add, change or remove it later [^\n]*bash install\.sh --reconfigure keys --root /);
+
+  const c = ttyCtx(f, ['--root', f.root], [[/Add optional TYPESAFE_API_KEY[^\n]*$/, 'y\n'], [/TYPESAFE_API_KEY \(hidden[^\n]*$/, `${key}\r`], [/Write these changes now[^\n]*$/, 'y\n']]);
   assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
   assert.equal(readFileSync(envPath, 'utf8'), `TYPESAFE_API_KEY=${key}\n`);
   assert.equal(statSync(envPath).mode & 0o777, 0o600);
@@ -177,6 +181,38 @@ test('setup writes only the optional key typed at the hidden prompt and records 
   assert.equal(c.text.includes(key), false);
   assert.match(c.text, /TYPESAFE_API_KEY: will set/);
   assert.throws(() => parseSetupArgs(['--typesafe-key-env']), /unknown|not/i);
+});
+
+test('a terminal dry run never asks for the key and shows only its current status', posixOnly, async t => {
+  const f = fixture(t), key = 'fixture-typesafe-key-123';
+  const first = f.ctx(['--yes', '--root', f.root, '--no-tower', '--no-global-hooks']);
+  first.installPlatform = keyInstall;
+  assert.equal(await setup(f.fixtureManifest, first), 0, first.text);
+  const c = ttyCtx(f, ['--root', f.root, '--dry-run'], [[/Add optional TYPESAFE_API_KEY[^\n]*$/, 'y\n'], [/TYPESAFE_API_KEY \(hidden[^\n]*$/, `${key}\r`]]);
+  assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+  assert.doesNotMatch(c.text, /Add optional TYPESAFE_API_KEY|hidden; press Enter|will set/);
+  assert.match(c.text, /10\. Optional TYPESAFE_API_KEY: not set/);
+  assert.equal(existsSync(join(f.root, 'firstmate', '.env')), false);
+});
+
+test('setup continues past a symlinked or hard-linked .env without reading, changing or recording it', posixOnly, async t => {
+  const f = fixture(t), key = 'fixture-typesafe-key-123';
+  const first = f.ctx(['--yes', '--root', f.root, '--no-tower', '--no-global-hooks']);
+  first.installPlatform = keyInstall;
+  assert.equal(await setup(f.fixtureManifest, first), 0, first.text);
+  const envPath = join(f.root, 'firstmate', '.env'), target = join(f.base, 'shared.env');
+  for (const link of [symlinkSync, linkSync]) {
+    rmSync(envPath, { force: true });
+    writeFileSync(target, `TYPESAFE_API_KEY=${key}\n`, { mode: 0o600 });
+    link(target, envPath);
+    const c = ttyCtx(f, ['--root', f.root], [[/Write these changes now[^\n]*$/, 'y\n']]);
+    assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+    assert.match(c.text, /10\. Optional TYPESAFE_API_KEY: not checked\. Warning: [^\n]*\.env is a symlink, hard link/);
+    assert.doesNotMatch(c.text, /Add optional TYPESAFE_API_KEY|TYPESAFE_API_KEY: (set|not set|will set)/);
+    assert.equal(c.text.includes(key), false);
+    assert.equal(readFileSync(target, 'utf8'), `TYPESAFE_API_KEY=${key}\n`);
+    assert.equal(JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8')).setup.keys, undefined);
+  }
 });
 
 test('the add-later key hint keeps a custom install root and pastes as shell arguments', posixOnly, async t => {

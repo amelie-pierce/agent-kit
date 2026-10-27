@@ -14,7 +14,7 @@ import { findOnPath } from './platforms/macos.mjs';
 import { linuxIdentity } from './platforms/linux.mjs';
 import { kitCommit, kitUpstream, linuxPath, powershellCommand, windowsNextSteps } from './install/windows.mjs';
 import { inspectWindows } from './platforms/windows.mjs';
-import { hiddenKey, keyStatus, writeKey } from './keys.mjs';
+import { envManaged, hiddenKey, keyStatus, writeKey } from './keys.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
 export const defaultRoot = '~/Agentic';
@@ -255,15 +255,16 @@ export async function collectAnswers(flags, saved, ctx, io, paths) {
 const shellQuote = value => `'${value.replaceAll("'", "'\\''")}'`;
 const yesNo = value => value ? 'on' : 'off';
 const indent = text => `${text.trimEnd().replace(/^/gm, '  ')}\n`;
-export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, keyPlan = { status: 'not set' } }) {
+export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, keyPlan = { managed: true, status: 'not set' } }) {
   const g = answers.gitIdentity, tower = plan.plan?.towerConfig;
   const lines = ['', 'Agent Kit setup summary. Nothing has been written yet.', 'Answers:',
     `  1. Root folder: ${paths.root}`, `  2. Agent CLIs: ${harnessLabel(answers.harness)}`, `  3. Figma support: ${yesNo(answers.figma)}`, `  4. Fleet tower: ${yesNo(answers.tower)}`,
     `  5. Global hooks and skills: ${yesNo(answers.globalHooks)}`, `  6. GitHub owner: ${answers.githubOwner || 'none'} (recorded only; nothing is created on GitHub)`,
     `  7. Git identity: ${g.action === 'set' ? `set user.name "${g.name}" and user.email "${g.email}" with git config --global` : `keep (${gitCurrent.name || 'no name'} <${gitCurrent.email || 'no email'}>)`}${gitStale ? `; your saved "${gitStale.name}" <${gitStale.email}> was not applied because git's value changed since (pass --git-name and --git-email, or --reconfigure, to change it)` : ''}`,
     `  8. Starter second mate: ${answers.starterMate.create ? `${answers.starterMate.id}: ${answers.starterMate.scope}` : 'no'}`, `  9. Update channel: ${answers.channel}${channelOverride ? ` (from --channel; your saved answer was ${channelOverride})` : ''}`,
-    `  10. Optional TYPESAFE_API_KEY: ${keyPlan.status} (Firstmate home .env; without it Jev routing is off and normal dispatch rules apply)`,
-    ...(keyPlan.status === 'will set' ? [] : [`      Add, change or remove it later from your own terminal with the hidden prompt: bash install.sh --reconfigure keys --root ${shellQuote(paths.root)}${paths.installRoot === join(paths.root, '.tools') ? '' : ` --install-root ${shellQuote(paths.installRoot)}`}`]),
+    ...(keyPlan.managed ? [`  10. Optional TYPESAFE_API_KEY: ${keyPlan.status} (Firstmate home .env; without it Jev routing is off and normal dispatch rules apply)`]
+      : [`  10. Optional TYPESAFE_API_KEY: not checked. Warning: ${join(paths.firstmateHome, '.env')} is a symlink, hard link or other non-plain file, so the kit neither reads nor changes it`]),
+    ...(keyPlan.status === 'will set' || !keyPlan.managed ? [] : [`      Add, change or remove it later from your own terminal with the hidden prompt: bash install.sh --reconfigure keys --root ${shellQuote(paths.root)}${paths.installRoot === join(paths.root, '.tools') ? '' : ` --install-root ${shellQuote(paths.installRoot)}`}`]),
     'Derived paths:', `  Firstmate home: ${paths.firstmateHome}`, `  Kit install root: ${paths.installRoot} (private receipt ${join(paths.installRoot, 'receipt.json')})`,
     `  Kit source: ${kit.commit ? `${paths.kit} at ${kit.commit}` : 'this checkout (not recorded)'}`,
     `  Treehouse pool: ${paths.treehousePool} through the kit wrapper ${paths.wrapper}`,
@@ -410,14 +411,14 @@ export async function setup(manifest, ctx) {
       if (!(flags['allow-existing-root'] || (io && await io.confirm('Use it anyway', false)))) throw new Error(`refusing ${root}: ${rootCheck.reasons.join('; ')}. Choose another root${io ? '' : ', or pass --allow-existing-root after checking it yourself'}`);
     } else if (io && flags.root === undefined && !(await io.confirm(`   Use ${root}`, true))) throw new Error('setup cancelled; nothing was written');
     const { answers, current: gitCurrent, gitStale, channelOverride } = await collectAnswers(flags, receipt?.setup?.answers || {}, { ...ctx, env }, io || { confirm: async (_q, d) => d }, paths);
-    const wasSet = keyStatus(paths.firstmateHome);
+    const managed = envManaged(paths.firstmateHome), wasSet = managed && keyStatus(paths.firstmateHome);
     let keyValue = null;
-    if (!wasSet && io && ctx.input.isTTY && await io.confirm('10. Add optional TYPESAFE_API_KEY from https://console.typesafe.ai/keys now? Enabling Jev sends screened task text to typesafe.ai', false)) {
+    if (managed && !wasSet && !flags['dry-run'] && io && ctx.input.isTTY && await io.confirm('10. Add optional TYPESAFE_API_KEY from https://console.typesafe.ai/keys now? Enabling Jev sends screened task text to typesafe.ai', false)) {
       io.close(); io = null;
       keyValue = await hiddenKey(ctx.input, output);
       io = prompter(ctx.input, output);
     }
-    const keyPlan = { value: keyValue, status: keyValue ? 'will set' : wasSet ? 'set' : 'not set' };
+    const keyPlan = { value: keyValue, managed, status: keyValue ? 'will set' : wasSet ? 'set' : 'not set' };
     const options = { command: 'plan', harness: answers.harness, withFigma: answers.figma, withTower: answers.tower, globalHooks: answers.globalHooks,
       installRoot: paths.installRoot, firstmateHome: paths.firstmateHome, towerState: paths.towerState };
     const context = { env, platform, arch: ctx.arch, nodeVersion: ctx.nodeVersion, procVersion: ctx.procVersion, osRelease: ctx.osRelease, libc: ctx.libc, runCommand: ctx.runCommand, applicationDirs: ctx.applicationDirs };
@@ -474,7 +475,10 @@ export async function setup(manifest, ctx) {
           keyPlan.value = null;
           output.write('  TYPESAFE_API_KEY: set\n');
         }
-        await updateReceipt(receiptPath, manifest.release, r => { r.setup.keys = { TYPESAFE_API_KEY: keyStatus(paths.firstmateHome) }; });
+        await updateReceipt(receiptPath, manifest.release, r => {
+          if (envManaged(paths.firstmateHome)) r.setup.keys = { TYPESAFE_API_KEY: keyStatus(paths.firstmateHome) };
+          else delete r.setup.keys;
+        });
         const incomplete = install.components.filter(x => ['unverified', 'conflict', 'deferred'].includes(x.status));
         return incomplete.length ? { state: 'partial', detail: `retry on rerun: ${incomplete.map(x => x.id).join(', ')}` } : { state: 'complete', detail: install.towerParity !== 'unavailable' ? `tower: ${install.towerParity}` : '' };
       });
