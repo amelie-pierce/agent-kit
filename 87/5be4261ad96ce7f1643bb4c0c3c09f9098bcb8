@@ -1,0 +1,21 @@
+test/lifecycle.test.mjs
+  s_acd09e1cfaf11b::t_e44b6cb9096ff4 348,350,367,369,372-373
+manifests/pilot-skeleton.json
+  s_acd09e1cfaf11b::t_24884ee77eb9cc 3,79,91-92,97-98,103-104,109-110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "875be4261ad96ce7f1643bb4c0c3c09f9098bcb8",
+  "prompts": {},
+  "sessions": {
+    "s_acd09e1cfaf11b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a5482aa-55d9-4866-b542-09bfa9383265",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
