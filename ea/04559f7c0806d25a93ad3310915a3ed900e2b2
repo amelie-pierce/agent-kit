@@ -1,0 +1,46 @@
+bin/agent-kit.mjs
+  s_acd09e1cfaf11b::t_526d08806eda36 33-37
+  s_acd09e1cfaf11b::t_5cb8e46e9dfcb7 175
+src/secondmate.mjs
+  s_acd09e1cfaf11b::t_47ad7d41b5fc40 1-3,14-49
+test/kit.test.mjs
+  s_acd09e1cfaf11b::t_6a7966d27940f8 801,809
+  s_acd09e1cfaf11b::t_191a2e9ddd1610 882,1003
+templates/shortcuts/open_firstmate.py
+  s_acd09e1cfaf11b::t_da94acb5e8b84f 7-8,78-80,123-124,129-130,137
+src/setup.mjs
+  s_acd09e1cfaf11b::t_47ad7d41b5fc40 9-10,417-419
+src/lifecycle.mjs
+  s_acd09e1cfaf11b::t_3c09ed5b0ac13c 350,380
+src/shortcuts.mjs
+  s_acd09e1cfaf11b::t_3c09ed5b0ac13c 348,350,356,359,364,400-406
+  s_acd09e1cfaf11b::t_2fdaacb81850d7 47-57,65-66,72-177,264-270,295-296,298-302,307-308,378
+  s_acd09e1cfaf11b::t_09e36f627eed0a 407-460
+templates/shortcuts/codex_launch.py
+  s_acd09e1cfaf11b::t_57bd6b1a324c4d 1-70
+src/install/macos.mjs
+  s_acd09e1cfaf11b::t_0d4d7a487bb45d 339-340,344
+src/herdr-plugin.mjs
+  s_acd09e1cfaf11b::t_84dd890143f9f1 53,55,80-83,85-101,103-106,108-115,117-118,153,161-165,168-173,175,180,190,194-197,199,201-202,208,214-215,217-219
+test/shortcuts.test.mjs
+  s_acd09e1cfaf11b::t_755aaf455b581c 123,132-133,153,157-160,199,208,246-247
+src/mate.mjs
+  s_acd09e1cfaf11b::t_151d5a67bc8530 47-49
+  s_acd09e1cfaf11b::t_a63ab1959c81bd 1-46,50-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ea04559f7c0806d25a93ad3310915a3ed900e2b2",
+  "prompts": {},
+  "sessions": {
+    "s_acd09e1cfaf11b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a5482aa-55d9-4866-b542-09bfa9383265",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
