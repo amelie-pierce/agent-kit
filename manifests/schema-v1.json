@@ -61,6 +61,7 @@
       "properties": {
         "url": { "type": ["string", "null"], "pattern": "^https://" },
         "sha256": { "type": ["string", "null"], "pattern": "^[a-fA-F0-9]{64}$" },
+        "kind": { "enum": ["release-archive", "source-archive"], "description": "For the tower: a packaged release archive, or a source archive the installer builds only as a fallback. Absent means a source archive." },
         "status": { "enum": ["verified", "unverified"] },
         "reason": { "type": "string" }
       },
