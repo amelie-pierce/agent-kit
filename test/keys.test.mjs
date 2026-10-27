@@ -10,6 +10,8 @@ import { hiddenKey, keyStatus, validateTypesafeKey, writeKey } from '../src/keys
 
 const kit = fileURLToPath(new URL('..', import.meta.url));
 const fakeKey = 'fixture-typesafe-key-123';
+// File modes, bash and Linux --root paths are POSIX behavior; on Windows the kit runs inside WSL.
+const posixOnly = { skip: process.platform === 'win32' };
 function fixture(t) {
   const base = mkdtempSync(join(tmpdir(), 'kit-keys-'));
   t.after(() => rmSync(base, { recursive: true, force: true }));
@@ -22,7 +24,7 @@ function fixture(t) {
   return { base, home, root, firstmate, tools, receipt, envPath: join(firstmate, '.env') };
 }
 
-test('key write preserves unrelated lines, uses a private atomic replacement and removes only its key', async t => {
+test('key write preserves unrelated lines, uses a private atomic replacement and removes only its key', posixOnly, async t => {
   const f = fixture(t);
   const before = '# keep this comment\nOTHER=keep\nTYPESAFE_API_KEY=oldfixture123\n';
   writeFileSync(f.envPath, before, { mode: 0o600 });
@@ -55,7 +57,7 @@ test('hidden TTY entry never echoes the fake value', async () => {
   assert.doesNotMatch(shown, /fixture-typesafe-key/);
 });
 
-test('keys CLI without a terminal or with --yes leaves the key unchanged and says how to add it', t => {
+test('keys CLI without a terminal or with --yes leaves the key unchanged and says how to add it', posixOnly, t => {
   const f = fixture(t);
   const env = { HOME: f.home, PATH: process.env.PATH, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', TYPESAFE_API_KEY: fakeKey };
   const run = extra => spawnSync(process.execPath, ['bin/agent-kit.mjs', 'keys', '--root', f.root, ...extra], { cwd: kit, env, encoding: 'utf8', input: `add\n${fakeKey}\n` });
@@ -86,7 +88,7 @@ function installedKit(f, { withKeys = true } = {}) {
 const installSh = (f, extra) => spawnSync('bash', ['install.sh', '--reconfigure', 'keys', '--root', f.root, ...extra], {
   cwd: kit, env: { HOME: f.home, PATH: process.env.PATH, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' }, encoding: 'utf8' });
 
-test('install.sh --reconfigure keys routes to the installed command without GitHub access', t => {
+test('install.sh --reconfigure keys routes to the installed command without GitHub access', posixOnly, t => {
   const f = fixture(t);
   installedKit(f);
   for (const [extra, args] of [[['--yes'], /^keys --install-root .*\.tools --yes$/m], [[], /^keys --install-root .*\.tools$/m]]) {
@@ -98,7 +100,7 @@ test('install.sh --reconfigure keys routes to the installed command without GitH
   assert.equal(existsSync(f.envPath), false);
 });
 
-test('install.sh --reconfigure keys asks for an upgrade of the receipt it read when the installed kit predates the keys command', t => {
+test('install.sh --reconfigure keys asks for an upgrade of the receipt it read when the installed kit predates the keys command', posixOnly, t => {
   const f = fixture(t);
   installedKit(f, { withKeys: false });
   const custom = join(f.base, 'custom tools');
