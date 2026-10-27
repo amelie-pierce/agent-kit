@@ -1,0 +1,26 @@
+test/lifecycle.test.mjs
+  s_113371b8debf06::t_63d1a8f2b19579 122,205-227
+  s_113371b8debf06::t_f4b97163132efc 228-229
+src/update.mjs
+  s_113371b8debf06::t_90bd4c00b0a64b 5,31
+test/doctor-update.test.mjs
+  s_113371b8debf06::t_b14cb14f9ec44f 109-112
+src/lifecycle.mjs
+  s_113371b8debf06::t_63d1a8f2b19579 86,89-92,240-241,265,406-407,419,452
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4993e97da2c0576d57a27becdaf506314cd5a0a2",
+  "prompts": {},
+  "sessions": {
+    "s_113371b8debf06": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "392d7127-bf31-44ef-b31e-22107b7c7a59",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
