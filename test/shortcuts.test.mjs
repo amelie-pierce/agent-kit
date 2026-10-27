@@ -75,6 +75,31 @@ test('the keys block binds only free keys, keeps your own bindings and is fenced
   assert.equal(text.split(keysBegin).length, 2);
 });
 
+test('pieces identical to what the kit writes are adopted without a receipt record, and differing ones stay the person\'s', posixOnly, async t => {
+  const f = fixture(t);
+  const first = await f.run();
+  const text = readFileSync(f.configPath, 'utf8'), block = splitBlock(text).block, files = first.record.files;
+  // A rolled-back upgrade leaves the pieces in place but drops their record.
+  const forget = () => { const r = f.readReceipt(); delete r.setup.shortcuts; writeFileSync(join(f.root, 'receipt.json'), `${JSON.stringify(r)}\n`, { mode: 0o600 }); };
+  forget();
+  const adopted = await f.run();
+  assert.ok(adopted.launchers.every(l => l.action === 'verify'), JSON.stringify(adopted.launchers.map(l => [l.file, l.action])));
+  assert.deepEqual(adopted.record.files, files);
+  assert.equal(adopted.keys.action, 'verify');
+  assert.equal(adopted.record.keys.blockSha256, sha(block));
+  assert.equal(readFileSync(f.configPath, 'utf8'), text);
+  // Differing pieces are kept as they are and not recorded.
+  writeFileSync(f.launcher, '#!/bin/sh\necho mine\n', { mode: 0o755 });
+  writeFileSync(f.configPath, text.replace('Firstmate: new second mate', 'my mates'));
+  forget();
+  const kept = await f.run();
+  assert.equal(kept.launchers.find(l => l.file === 'bin/open-firstmate').action, 'conflict');
+  assert.equal('bin/open-firstmate' in kept.record.files, false);
+  assert.equal(kept.keys.action, 'keep');
+  assert.equal(kept.record.keys, null);
+  assert.equal(readFileSync(f.launcher, 'utf8'), '#!/bin/sh\necho mine\n');
+});
+
 test('only the chosen agent CLIs get coordinator keys; Herdr defaults the kit would replace are named', posixOnly, async t => {
   const f = fixture(t, { harness: 'codex', tower: false });
   const result = await f.run();

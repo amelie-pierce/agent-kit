@@ -82,6 +82,44 @@ test('the Herdr plugins are registered as local entries beside the person\'s own
   assert.equal(existsSync(join(f.root, 'bin', 'zoe')), false);
 });
 
+test('Herdr layout, plugin entries, zoe, the autostart hook and the captain guide identical to the kit\'s are adopted without a record; differing ones are kept', posixOnly, async t => {
+  const f = fixture(t);
+  mkdirSync(join(f.home, '.config', 'herdr'), { recursive: true });
+  writeFileSync(f.configPath, 'onboarding = true\n');
+  const placed = await plugins(f);
+  const layout = await applyLayout(planLayout(f.configPath, { root: '/r/Agentic', want: true }), f.root, { env: f.env, check: () => ({ ok: true }) });
+  const inputs = shortcutInputs(f.receipt, f.root, f.env);
+  const autostart = await applyAutostart(planAutostart(inputs, f.root), f.root);
+  const help = await placeCaptainHelp(inputs, ['prefix+f']);
+  const config = readFileSync(f.configPath, 'utf8'), registry = readFileSync(f.registry, 'utf8');
+  // No record at all, as after a rolled-back upgrade: each piece is verified and recorded, nothing rewritten.
+  const again = await plugins(f);
+  assert.deepEqual(again.regs.map(r => r.action), ['verify', 'verify', 'verify']);
+  assert.equal(again.zoe.action, 'verify');
+  for (const key of ['entrySha256', 'managerSha256', 'fleetSha256', 'zoeSha256', 'keysSha256']) assert.equal(again.record[key], placed.record[key], key);
+  const layoutPlan = planLayout(f.configPath, { root: '/r/Agentic', want: true });
+  assert.equal(layoutPlan.action, 'verify');
+  assert.deepEqual(await applyLayout(layoutPlan, f.root, { env: f.env }), layout);
+  const autostartPlan = planAutostart(inputs, f.root);
+  assert.equal(autostartPlan.action, 'verify');
+  assert.equal((await applyAutostart(autostartPlan, f.root)).autostart, true);
+  assert.deepEqual(await placeCaptainHelp(inputs, ['prefix+f']), { action: 'verify', path: help.path, record: help.record });
+  assert.equal(readFileSync(f.configPath, 'utf8'), config);
+  assert.equal(readFileSync(f.registry, 'utf8'), registry);
+  // Differing pieces stay the person's.
+  writeFileSync(join(f.root, 'bin', 'zoe'), '#!/bin/sh\necho mine\n', { mode: 0o755 });
+  writeFileSync(f.configPath, config.replace('name = "gruvbox"', 'name = "nord"'));
+  const entries = JSON.parse(registry); entries.find(e => e.plugin_id === managerPluginId).enabled = false;
+  writeFileSync(f.registry, `${JSON.stringify(entries)}\n`);
+  const kept = await plugins(f);
+  assert.equal(kept.zoe.action, 'conflict');
+  assert.equal(kept.record.zoeSha256, undefined);
+  assert.equal(kept.regs.find(r => r.spec.id === managerPluginId).action, 'keep');
+  assert.equal(kept.record.managerSha256, undefined);
+  assert.equal(planLayout(f.configPath, { root: '/r/Agentic', want: true }).action, 'keep');
+  assert.equal(readFileSync(join(f.root, 'bin', 'zoe'), 'utf8'), '#!/bin/sh\necho mine\n');
+});
+
 test('the kit never writes Herdr\'s plugin registry while Herdr runs', posixOnly, async t => {
   const f = fixture(t);
   const result = await plugins(f, { isRunning: id => id === 'herdr' });

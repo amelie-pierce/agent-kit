@@ -255,8 +255,8 @@ export function planShortcuts(receipt, root, { env = process.env, home = env.HOM
   if (missing.length) return { action: 'skip', detail: `needs ${missing.join(', ')}`, keys: { path: configPath }, record };
   const owned = (file, body) => {
     const path = join(root, file), current = stat(path), recorded = record?.files?.[file];
-    const action = !current ? 'write' : !plainFile(path) || !recorded ? 'conflict' : sha(readFileSync(path)) === sha(body) ? 'verify'
-      : sha(readFileSync(path)) === recorded ? 'refresh' : repair ? 'replace' : 'keep';
+    const action = !current ? 'write' : !plainFile(path) ? 'conflict' : sha(readFileSync(path)) === sha(body) ? 'verify'
+      : !recorded ? 'conflict' : sha(readFileSync(path)) === recorded ? 'refresh' : repair ? 'replace' : 'keep';
     return { file, path, action, body };
   };
   const wanted = ownedFiles(inputs, root);
@@ -273,13 +273,13 @@ export function planShortcuts(receipt, root, { env = process.env, home = env.HOM
   const text = file ? readFileSync(configPath, 'utf8') : '';
   const { rest, block, malformed } = splitBlock(text);
   if (malformed) return { ...plan, keys: { path: configPath, action: 'skip', detail: 'the agent-kit keys markers are incomplete or repeated; fix them by hand' } };
-  if (block && (!record?.keys?.blockSha256 || sha(block) !== record.keys.blockSha256))
-    return { ...plan, keys: { path: configPath, action: 'keep', detail: 'the agent-kit keys block was edited; left as it is and no longer tracked' } };
   if (!block && record?.keys?.blockSha256 && !repair)
     return { ...plan, keys: { path: configPath, action: 'keep', release: false, detail: 'the agent-kit keys block was removed; not added again (agent-kit repair restores it)' } };
   const taken = boundKeys(rest), bound = bindings.filter(b => !taken.has(b.key)), skipped = bindings.filter(b => taken.has(b.key)).map(b => b.key);
   const defaults = defaultsInEffect(rest), overrides = bound.flatMap(b => defaults.filter(d => d.key === b.key).map(d => overrideNote(b, d.action, rest)));
   const nextBlock = bound.length ? renderBlock(bound) : null, next = joinBlock(rest, nextBlock);
+  if (block && block !== nextBlock && (!record?.keys?.blockSha256 || sha(block) !== record.keys.blockSha256))
+    return { ...plan, keys: { path: configPath, action: 'keep', detail: 'the agent-kit keys block was edited; left as it is and no longer tracked' } };
   const keys = { path: configPath, bound: bound.map(b => b.key), skipped, block: nextBlock, body: next, prior: file ? sha(text) : null, created: !file || !!record?.keys?.created,
     action: next === text ? (block ? 'verify' : 'none') : block ? 'refresh' : bound.length ? 'add' : 'none',
     overrides, ...(skipped.length || overrides.length ? { detail: [skipped.length ? `skipped ${skipped.join(', ')}: already bound in ${configPath}` : null, ...overrides].filter(Boolean).join('; ') } : {}) };
@@ -523,7 +523,9 @@ export function planLayout(configPath, { root, want, record = null, repair = fal
   const text = stat(configPath) ? readFileSync(configPath, 'utf8') : '';
   const { rest, block, malformed } = splitLayout(text);
   if (malformed) return { action: 'skip', path: configPath, detail: 'the agent-kit layout markers are incomplete or repeated; fix them by hand' };
-  if (block && (!record?.blockSha256 || sha(block) !== record.blockSha256)) return { action: 'keep', release: true, path: configPath, detail: 'the agent-kit layout block was edited; left as it is and no longer tracked' };
+  const edited = !!block && (!record?.blockSha256 || sha(block) !== record.blockSha256);
+  const keepEdited = { action: 'keep', release: true, path: configPath, detail: 'the agent-kit layout block was edited; left as it is and no longer tracked' };
+  if (edited && !want) return keepEdited;
   if (!want) return block ? { action: 'remove', path: configPath, body: rest.replace(/^\n+/, ''), prior: sha(text) } : { action: 'none', path: configPath };
   if (!block && record?.blockSha256 && !repair) return { action: 'keep', path: configPath, detail: 'the agent-kit layout block was removed; not added again (agent-kit repair restores it)' };
   const defined = definedNames(rest), skipped = [], lines = [layoutBegin];
@@ -534,6 +536,7 @@ export function planLayout(configPath, { root, want, record = null, repair = fal
   }
   lines.push(layoutEnd);
   const nextBlock = lines.length > 2 ? lines.join('\n') : null;
+  if (edited && block !== nextBlock) return keepEdited;
   // Insert after the person's own top-level lines, before their first table header or marker-fenced block.
   const restLines = rest.split('\n'), first = restLines.findIndex(line => /^\s*\[/.test(line) || line.startsWith('# >>> '));
   const head = (first === -1 ? restLines : restLines.slice(0, first)).join('\n').replace(/\n+$/, ''), tail = first === -1 ? '' : restLines.slice(first).join('\n');
@@ -576,10 +579,12 @@ export function captainHelp(inputs, bound = []) {
 export async function placeCaptainHelp(inputs, bound, { record = null, repair = false } = {}) {
   if (!inputs.firstmateHome) return { action: 'none', record };
   const path = join(inputs.firstmateHome, 'data', 'captain-help.md');
-  if (stat(path)) return { action: plainFile(path) && record?.sha256 && sha(readFileSync(path)) === record.sha256 ? 'verify' : 'keep', path,
-    record: plainFile(path) && record?.sha256 && sha(readFileSync(path)) === record.sha256 ? record : null };
-  if (record?.sha256 && !repair) return { action: 'keep', path, record, detail: 'removed since; not written again (agent-kit repair restores it)' };
   const body = captainHelp(inputs, bound);
+  if (stat(path)) {
+    const now = plainFile(path) ? sha(readFileSync(path)) : null, ours = !!now && (now === record?.sha256 || now === sha(body));
+    return { action: ours ? 'verify' : 'keep', path, record: ours ? { path, sha256: now } : null };
+  }
+  if (record?.sha256 && !repair) return { action: 'keep', path, record, detail: 'removed since; not written again (agent-kit repair restores it)' };
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, body, { mode: 0o644, flag: 'wx' });
   return { action: 'write', path, record: { path, sha256: sha(body) } };

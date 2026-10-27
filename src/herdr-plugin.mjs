@@ -89,8 +89,8 @@ function pluginSpecs(receipt, root) {
 function registration(entries, spec, record, repair, registry) {
   const found = entries.filter(e => e?.plugin_id === spec.id);
   const entry = pluginEntry(spec.root, spec.id), ours = found.length === 1 && record?.[spec.key] && sha(stable(found[0])) === record[spec.key];
+  if (found.length === 1 && stable(found[0]) === stable(entry)) return { spec, entry, action: 'verify' };
   if (found.length && !ours) return { spec, entry, action: 'keep', release: true, detail: `${registry} already has a ${spec.id} entry; left as it is` };
-  if (found.length && stable(found[0]) === stable(entry)) return { spec, entry, action: 'verify' };
   if (!found.length && record?.[spec.key] && !repair) return { spec, entry, action: 'keep', detail: `the kit's ${spec.id} entry was removed; not added again (agent-kit repair restores it)` };
   return { spec, entry, action: found.length ? 'refresh' : 'add' };
 }
@@ -111,8 +111,8 @@ export function planPlugin(receipt, root, { env = process.env, home = env.HOME, 
   let zoe = null;
   if (graph) {
     const path = join(root, zoeFile), body = zoeScript(zoeFleet), current = stat(path);
-    zoe = { path, body, action: !current ? 'write' : !plainFile(path) || !record?.zoeSha256 ? 'conflict'
-      : sha(readFileSync(path)) === sha(body) ? 'verify' : sha(readFileSync(path)) === record.zoeSha256 ? 'refresh' : repair ? 'replace' : 'keep' };
+    zoe = { path, body, action: !current ? 'write' : !plainFile(path) ? 'conflict' : sha(readFileSync(path)) === sha(body) ? 'verify'
+      : !record?.zoeSha256 ? 'conflict' : sha(readFileSync(path)) === record.zoeSha256 ? 'refresh' : repair ? 'replace' : 'keep' };
   }
   return { action: 'apply', root, herdr, pluginRoot: graph?.root || null, registry, entries, record, configPath, zoe, regs,
     register: regs.find(r => r.spec.id === pluginId) || { action: 'none' } };
