@@ -1,0 +1,21 @@
+docs/zoetrope-followups.md
+  s_352f0d8b3d80f5::t_13c2d093402ee4 14
+README.md
+  s_352f0d8b3d80f5::t_13c2d093402ee4 255
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1e9b823971546a9fb2f9af10977ec336c0deed26",
+  "prompts": {},
+  "sessions": {
+    "s_352f0d8b3d80f5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "96ac9c8b-c48d-4e88-bf2b-34203e9985a1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
