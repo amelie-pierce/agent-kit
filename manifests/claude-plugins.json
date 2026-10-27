@@ -1,34 +1,125 @@
 {
   "schemaVersion": 1,
-  "note": "Claude Code plugins the kit installs with the person's own claude CLI when Claude is chosen. Each marketplace is fetched from its own repository at a pinned commit (the git commit is its content digest); nothing is vendored here.",
+  "note": "Claude Code plugins the kit installs with the person's own claude CLI when Claude is chosen. Each marketplace is fetched from its own repository at a pinned commit (the git commit is its content digest); nothing is vendored here. Plugins that connect to an account are installed only: each teammate signs in through the plugin's own flow, and the kit never writes a token or MCP credential. Excluded by the owner: claude-mem.",
   "marketplaces": [
     {
       "name": "openai-codex",
       "repo": "openai/codex-plugin-cc",
       "commit": "db52e28f4d9ded852ab3942cea316258ae4ef346",
       "license": "Apache-2.0",
-      "plugins": [{ "name": "codex", "when": "claude" }]
+      "plugins": [
+        {
+          "name": "codex",
+          "when": "claude"
+        }
+      ]
     },
     {
       "name": "cc-gemini-plugin",
       "repo": "thepushkarp/cc-gemini-plugin",
       "commit": "dd745eabf0764bfcab0b33df4a8d7155265fa68b",
       "license": "MIT (stated in its README; the repository has no LICENSE file)",
-      "plugins": [{ "name": "cc-gemini-plugin", "when": "claude" }]
+      "plugins": [
+        {
+          "name": "cc-gemini-plugin",
+          "when": "claude"
+        }
+      ]
     },
     {
       "name": "amelie-pierce",
       "repo": "amelie-pierce/figma-cli",
       "commit": "cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942",
       "license": "MIT",
-      "plugins": [{ "name": "figma-cli", "when": "claude+figma" }]
+      "plugins": [
+        {
+          "name": "figma-cli",
+          "when": "claude+figma"
+        }
+      ]
     },
     {
       "name": "claude-plugins-official",
       "repo": "anthropics/claude-plugins-official",
       "commit": "41f619d61b999adec1a1c8deb97d1a5b6ac35bb6",
       "license": "Apache-2.0",
-      "plugins": []
+      "plugins": [
+        {
+          "name": "atlassian",
+          "when": "claude",
+          "license": "Apache-2.0 (atlassian/atlassian-mcp-server); connects to your Atlassian account, sign in yourself"
+        },
+        {
+          "name": "chrome-devtools-mcp",
+          "when": "claude",
+          "license": "Apache-2.0 (ChromeDevTools/chrome-devtools-mcp)"
+        },
+        {
+          "name": "code-review",
+          "when": "claude",
+          "license": "Apache-2.0 (claude-plugins-official)"
+        },
+        {
+          "name": "code-simplifier",
+          "when": "claude",
+          "license": "Apache-2.0 (claude-plugins-official)"
+        },
+        {
+          "name": "commit-commands",
+          "when": "claude",
+          "license": "Apache-2.0 (claude-plugins-official)"
+        },
+        {
+          "name": "context7",
+          "when": "claude",
+          "license": "Apache-2.0 (claude-plugins-official); its MCP server may ask for your own Context7 key, which the kit never writes"
+        },
+        {
+          "name": "data-engineering",
+          "when": "claude",
+          "license": "Apache-2.0 (astronomer/agents)"
+        },
+        {
+          "name": "figma",
+          "when": "claude",
+          "license": "no licence file in figma/mcp-server-guide; installed by reference from the official marketplace, nothing redistributed; connects to your Figma account, sign in yourself"
+        },
+        {
+          "name": "frontend-design",
+          "when": "claude",
+          "license": "Apache-2.0 (claude-plugins-official)"
+        },
+        {
+          "name": "playwright",
+          "when": "claude",
+          "license": "Apache-2.0 (claude-plugins-official)"
+        },
+        {
+          "name": "security-guidance",
+          "when": "claude",
+          "license": "Apache-2.0 (claude-plugins-official)"
+        },
+        {
+          "name": "skill-creator",
+          "when": "claude",
+          "license": "Apache-2.0 (claude-plugins-official)"
+        },
+        {
+          "name": "superpowers",
+          "when": "claude",
+          "license": "MIT (obra/superpowers)"
+        },
+        {
+          "name": "typescript-lsp",
+          "when": "claude",
+          "license": "Apache-2.0 (claude-plugins-official)"
+        },
+        {
+          "name": "rust-analyzer-lsp",
+          "when": "claude",
+          "license": "Apache-2.0 (claude-plugins-official)"
+        }
+      ]
     }
   ],
   "patches": [

@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { lstatSync, readFileSync, statSync } from 'node:fs';
-import { link, mkdir, open, rename, rm } from 'node:fs/promises';
+import { link, mkdir, open, rename, rm, writeFile } from 'node:fs/promises';
 import { delimiter, join } from 'node:path';
 import { harnessProfiles } from './harness.mjs';
 import { envManaged, keyName, keyStatus } from './keys.mjs';
@@ -108,6 +108,28 @@ export function renderStarter(template, providers, plans = {}, table = loadPlanT
   return `${JSON.stringify(rendered, null, 2)}\n`;
 }
 
+// The owner's two extra tiers, added after the rendered rules as custom rules (no strategy key, so
+// fm-strategy.sh set keeps them on every re-render): check runs the rendered light route at low effort and
+// research the rendered hard route, so they follow the plans already fitted and add no new model or spend.
+export const ownerTiers = [
+  { id: 'check', when: 'Quick checks that change nothing: confirm a fact, read state, rerun an existing check or test, answer a lookup', from: 'light', effort: 'low',
+    why: 'A check needs no deep reasoning; the light route at low effort keeps it cheap.' },
+  { id: 'research', when: 'Open-ended research or investigation across several sources before any change is planned', from: 'hard',
+    why: 'Research rewards the strongest route the plan already uses for hard work.' },
+];
+export function withOwnerTiers(body) {
+  const value = JSON.parse(body), rules = Array.isArray(value.rules) ? value.rules : null;
+  if (!rules) return body;
+  for (const tier of ownerTiers) {
+    if (rules.some(rule => rule.when === tier.when)) continue;
+    const source = rules.find(rule => rule.strategy === tier.from);
+    if (!source) continue;
+    const use = [source.use].flat().map(profile => ({ ...profile, ...(tier.effort ? { effort: tier.effort } : {}) }));
+    rules.push({ when: tier.when, use: Array.isArray(source.use) ? use : use[0], why: tier.why });
+  }
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
 // Settings Firstmate leaves to the person, printed as fm-strategy.sh show does: the coordinator launch,
 // the no-mistakes validation model, and the second mate launch. The kit edits none of them.
 export function starterAdvice(template, providers, plans = {}, table = loadPlanTable(), mode = 'balanced') {
@@ -178,7 +200,7 @@ export function planStarter(firstmateHome, { harness, plans = {}, mode, table = 
   const template = readTemplate(firstmateHome, mode);
   if (!template) return keep('skip', `this Firstmate has no bin/strategies/${mode}.json template`);
   if (!ignored(firstmateHome)) return keep('skip', `${starterFile} is not gitignored in the Firstmate home`);
-  const body = renderStarter(template, providers, plans, table, mode);
+  const body = withOwnerTiers(renderStarter(template, providers, plans, table, mode));
   const next = { file: starterFile, template: mode, providers, plans: chosen, sha256: sha(body) };
   const extra = { path, providers, plans: chosen, mode, record: next, body, advice: starterAdvice(template, providers, plans, table, mode) };
   if (current) return { action: next.sha256 === record.sha256 ? 'verify' : 'refresh', ...extra, prior: record.sha256 };
@@ -241,6 +263,10 @@ async function selectStrategy(plan) {
     }
   }
   if (!selected) return { ...plan, action: 'skip', detail: `fm-strategy.sh ${plan.argv.slice(0, 2).join(' ')} failed: ${last(r)}` };
+  if (plainFile(plan.path)) {
+    const before = readFileSync(plan.path, 'utf8'), after = withOwnerTiers(before);
+    if (after !== before) { const temp = `${plan.path}.agent-kit-${randomUUID()}.tmp`; await writeFile(temp, after, { flag: 'wx' }); await rename(temp, plan.path); }
+  }
   const sha256 = fileSha(plan.path), strategySha256 = fileSha(strategy);
   const record = sha256 && strategySha256 ? { file: starterFile, via: 'fm-strategy', template: plan.mode, providers: plan.providers, plans: plan.plans, sha256, strategySha256 } : null;
   return { ...plan, record, ...(r.status === 0 ? {} : { detail: `fm-strategy.sh selected the strategy but then reported: ${last(r)}` }) };

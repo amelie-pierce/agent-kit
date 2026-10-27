@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpath
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { applyStarter, defaultMode, describeStarter, effectivePlans, fullWarnings, loadPlanTable, planIds, planStarter, renderStarter, starterAdvice, starterRemovable } from '../src/dispatch.mjs';
+import { applyStarter, defaultMode, describeStarter, effectivePlans, fullWarnings, loadPlanTable, ownerTiers, planIds, planStarter, renderStarter, starterAdvice, starterRemovable, withOwnerTiers } from '../src/dispatch.mjs';
 import { doctor, formatDoctor } from '../src/doctor.mjs';
 import { applyRepair, applyUninstall, applyUpgrade, planRepair, planUninstall, planUpgrade } from '../src/lifecycle.mjs';
 
@@ -60,7 +60,7 @@ test('starter rules are written only as config/crew-dispatch.json, privately lin
   const result = await applyStarter(planStarter(f.home, { harness: 'both', create: true }));
   assert.equal(result.action, 'write');
   assert.deepEqual(readdirSync(join(f.home, 'config')), ['crew-dispatch.json'], 'no strategy, secondmate-harness or fresh-start.json');
-  assert.equal(readFileSync(f.rules, 'utf8'), renderStarter(template, 'claude,codex'));
+  assert.equal(readFileSync(f.rules, 'utf8'), withOwnerTiers(renderStarter(template, 'claude,codex')));
   assert.deepEqual(result.record, { file: 'config/crew-dispatch.json', template: 'balanced', providers: 'claude,codex', plans: { claude: 'not-sure', codex: 'not-sure' }, sha256: sha(readFileSync(f.rules)) });
   assert.equal(statSync(f.rules).nlink, 1, 'temp link removed');
   assert.equal(planStarter(f.home, { harness: 'both', record: result.record, create: true }).action, 'verify');
@@ -195,7 +195,7 @@ test('upgrade refreshes unchanged kit rules from the home\'s template and leaves
   unchanged.updateFirstmate('bin/strategies/balanced.json', JSON.stringify(next));
   const result = await upgradeTo(unchanged);
   assert.equal(result.dispatch.action, 'refresh');
-  assert.equal(readFileSync(unchanged.rules, 'utf8'), renderStarter(next, 'claude'));
+  assert.equal(readFileSync(unchanged.rules, 'utf8'), withOwnerTiers(renderStarter(next, 'claude')));
   assert.equal(unchanged.readReceipt().setup.dispatch.sha256, sha(readFileSync(unchanged.rules)));
 
   const changed = lifecycleFixture(t);
@@ -266,7 +266,7 @@ test('keys on a terminal writes starter rules when it sets the key, keeps them o
   assert.equal(run.status, 0, run.stdout + run.stderr);
   assert.match(run.stdout, /TYPESAFE_API_KEY: set/);
   assert.match(run.stdout, /Starter dispatch rules: wrote Firstmate's balanced rules for claude to .*config\/crew-dispatch\.json \(Jev uses them/);
-  assert.equal(readFileSync(f.rules, 'utf8'), renderStarter(template, 'claude'));
+  assert.equal(readFileSync(f.rules, 'utf8'), withOwnerTiers(renderStarter(template, 'claude')));
   const receipt = readFileSync(f.receiptPath, 'utf8');
   assert.deepEqual(JSON.parse(receipt).setup.dispatch.sha256, sha(readFileSync(f.rules)));
   for (const text of [run.stdout, run.stderr, receipt, readFileSync(f.rules, 'utf8')]) assert.equal(text.includes(fakeKey), false);
@@ -383,7 +383,7 @@ test('changing the plan later refreshes unchanged kit rules and never rewrites r
   const changed = await applyStarter(planStarter(f.home, { harness: 'claude', plans: { claude: 'max5x' }, mode: 'balanced', record: first.record, create: true }));
   assert.equal(changed.action, 'refresh');
   assert.deepEqual(changed.record.plans, { claude: 'max5x' });
-  assert.equal(readFileSync(f.rules, 'utf8'), renderStarter(slots, 'claude', { claude: 'max5x' }, loadPlanTable(), 'balanced'));
+  assert.equal(readFileSync(f.rules, 'utf8'), withOwnerTiers(renderStarter(slots, 'claude', { claude: 'max5x' }, loadPlanTable(), 'balanced')));
   writeFileSync(f.rules, '{"rules":[{"when":"mine","use":{"harness":"claude"}}]}\n');
   const kept = await applyStarter(planStarter(f.home, { harness: 'claude', plans: { claude: 'pro' }, mode: 'balanced', record: changed.record, create: true }));
   assert.equal(kept.action, 'keep');
@@ -410,7 +410,7 @@ test('a Firstmate whose fm-strategy.sh takes --plans selects the strategy itself
   writeFileSync(join(bridge.home, 'bin', 'fm-strategy.sh'), '#!/usr/bin/env bash\necho "Usage: fm-strategy.sh set <mode> [--providers <set>]"\n', { mode: 0o755 });
   const written = await applyStarter(planStarter(bridge.home, { harness: 'claude', plans: { claude: 'pro' }, mode: 'lean', create: true }));
   assert.equal(written.action, 'write');
-  assert.equal(readFileSync(bridge.rules, 'utf8'), renderStarter(slots, 'claude', { claude: 'pro' }, loadPlanTable(), 'lean'));
+  assert.equal(readFileSync(bridge.rules, 'utf8'), withOwnerTiers(renderStarter(slots, 'claude', { claude: 'pro' }, loadPlanTable(), 'lean')));
   assert.equal(existsSync(join(bridge.home, 'config', 'strategy')), false);
 });
 
@@ -514,7 +514,8 @@ test('an unchanged bridge file moves to the native selection once the home takes
   rmSync(join(f.home, 'fail'));
   const migrated = await applyStarter(planStarter(f.home, { harness: 'claude', plans: { claude: 'pro' }, mode: 'lean', record: bridge.record }));
   assert.equal(migrated.action, 'migrate');
-  assert.deepEqual(JSON.parse(readFileSync(f.rules, 'utf8')), { rules: [{ when: 'native', use: { harness: 'claude' }, strategy: 'light' }], args: 'set lean --providers claude --plans claude=pro', prior: 'absent' },
+  assert.deepEqual(JSON.parse(readFileSync(f.rules, 'utf8')), { rules: [{ when: 'native', use: { harness: 'claude' }, strategy: 'light' },
+    { when: ownerTiers[0].when, use: { harness: 'claude', effort: 'low' }, why: ownerTiers[0].why }], args: 'set lean --providers claude --plans claude=pro', prior: 'absent' },
     'Firstmate renders from its own template, not on top of the bridge rules');
   assert.equal(migrated.record.via, 'fm-strategy');
   assert.equal(migrated.record.sha256, sha(readFileSync(f.rules)));

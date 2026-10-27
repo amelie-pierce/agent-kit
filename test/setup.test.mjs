@@ -7,6 +7,7 @@ import { PassThrough, Readable, Writable } from 'node:stream';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { withOwnerTiers } from '../src/dispatch.mjs';
 import { charterText, checkRoot, derivePaths, expandRoot, parseSetupArgs, resumeSummary, setup, wrapperScript } from '../src/setup.mjs';
 import { doctor } from '../src/doctor.mjs';
 import { parseHarness } from '../src/harness.mjs';
@@ -220,7 +221,8 @@ test('setup writes Firstmate\'s balanced starter rules only once the key is set 
   assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
   assert.match(c.text, /Starter dispatch rules: will write Firstmate's balanced rules for codex to [^\n]*crew-dispatch\.json/);
   assert.match(c.text, /Starter dispatch rules: wrote Firstmate's balanced rules for codex/);
-  assert.deepEqual(JSON.parse(readFileSync(rules, 'utf8')), { rules: [{ ...template.dispatch.rules[0], use: [template.dispatch.rules[0].use[1]] }], default: template.dispatch.default });
+  const rendered = { rules: [{ ...template.dispatch.rules[0], use: [template.dispatch.rules[0].use[1]] }], default: template.dispatch.default };
+  assert.deepEqual(JSON.parse(readFileSync(rules, 'utf8')), JSON.parse(withOwnerTiers(`${JSON.stringify(rendered)}\n`)), 'the template rules, then the kit\'s check and research tiers');
   assert.deepEqual(readdirSync(join(f.root, 'firstmate', 'config')), ['crew-dispatch.json']);
   const receipt = readFileSync(receiptPath, 'utf8');
   assert.deepEqual(JSON.parse(receipt).setup.dispatch, { file: 'config/crew-dispatch.json', template: 'balanced', providers: 'codex', plans: { codex: 'not-sure' }, sha256: sha(readFileSync(rules)) });
