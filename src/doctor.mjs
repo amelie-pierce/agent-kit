@@ -6,6 +6,7 @@ import { previewHooks } from './install/hooks.mjs';
 import { npmGroup, towerPaths } from './install/macos.mjs';
 import { inspectPlatform } from './platforms/index.mjs';
 import { usesProfile } from './harness.mjs';
+import { jevReadiness } from './dispatch.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
 const status = (id, state, detail) => ({ id, status: state, detail });
@@ -163,6 +164,12 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
       checks.push(status('hooks', changed ? 'fail' : 'pass', changed ? 'kit hook markers or skill targets differ' : 'kit hook markers and skill targets intact'));
     } catch { checks.push(status('hooks', 'fail', 'hook ownership cannot be verified')); }
   } else checks.push(status('hooks', 'unknown', 'global hooks not recorded in receipt'));
+  const jevHome = receipt.setup?.paths?.firstmateHome || receipt.phases.firstmate?.path;
+  if (typeof jevHome === 'string' && isAbsolute(jevHome)) {
+    // Optional Jev routing: a warning, never a failure, and only set / not set about the key.
+    const jev = jevReadiness(jevHome, env);
+    checks.push(status('jev', jev.ready ? 'pass' : 'warn', jev.ready ? 'ready (key set, rules present)' : `not ready: ${jev.reasons.join('; ')}`));
+  }
   checks.push(status('authenticated', 'unknown', 'sign-in belongs to this teammate; no auth store queried'));
   checks.push(status('live-tested', 'unknown', 'live fleet was not probed'));
   return doctorResult(checks, receipt.release, manifest, receipt, root);

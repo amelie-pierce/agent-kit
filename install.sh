@@ -32,7 +32,7 @@ Usage: bash install.sh [--dry-run] [--yes] [--root <folder>] [--channel releases
   --kit-dir <dir>    use a local clean kit checkout instead of fetching one
   --reconfigure keys  update the optional TYPESAFE_API_KEY in the installed Firstmate home (hidden prompt)
 
-Setup flags: --harness claude|codex|claude,codex, --no-figma, --no-tower, --no-global-hooks,
+Setup flags: --harness claude|codex|claude,codex, --claude-plan <id>, --codex-plan <id>, --no-figma, --no-tower, --no-global-hooks,
   --github-owner <name>, --git-name <name>, --git-email <email>, --starter-mate <name>,
   --starter-scope <text>, --reconfigure, --allow-existing-root, --install-root <dir>, --firstmate-home <dir>.
 EOF

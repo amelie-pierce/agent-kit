@@ -13,3 +13,5 @@ The key writer validates token syntax, requires a gitignored and untracked `.env
 `agent-kit keys` updates or removes only that key after a keep/change/remove choice; replacement and removal require confirmation. The command records the resulting set flag, never the value (bin/agent-kit.mjs:47-75). `install.sh --reconfigure keys` routes to the installed kit copy without fetching a release, and asks the person to upgrade first when that copy predates the keys command; with `--dry-run` it passes `--yes`, so the command reports set / not set without prompting or writing (install.sh:106-117). Repair and upgrade preserve the Firstmate home; uninstall keeps its `.env` by default and removes it only after exact path confirmation with `--remove-env` or confirmed removal of the whole home (src/lifecycle.mjs:280-339).
 
 The teammate guide owns the user-facing key inventory, source link, Jev behavior, and safe later-update instructions (README.md:71-77). The manifest release label changes independently of tool pins (manifests/pilot-skeleton.json:3).
+
+Setting the key also writes starter dispatch rules; see [starter dispatch rules](starter-dispatch-rules.md).

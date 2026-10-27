@@ -83,9 +83,10 @@ export async function writeKey(firstmateHome, action, value) {
 
 export async function hiddenKey(input, output) {
   if (!input?.isTTY) throw new Error('hidden key entry requires a terminal');
-  output.write('TYPESAFE_API_KEY (hidden; press Enter to cancel): ');
   const sink = new Writable({ write(_chunk, _encoding, done) { done(); } });
+  // readline puts the terminal in raw mode here, so the prompt comes after it and type-ahead is never echoed.
   const rl = createInterface({ input, output: sink, terminal: true });
+  output.write('TYPESAFE_API_KEY (hidden; press Enter to cancel): ');
   try {
     const value = await rl.question('');
     output.write('\n');

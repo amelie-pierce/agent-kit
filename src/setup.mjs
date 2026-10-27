@@ -9,16 +9,17 @@ import { evaluatePlan } from './kit.mjs';
 import { atomicJson, formatInstall, installPlatform, lock, systemDirs, within } from './install/macos.mjs';
 import { globalHookPaths } from './install/hooks.mjs';
 import { doctor, formatDoctor } from './doctor.mjs';
-import { harnessLabel, parseHarness } from './harness.mjs';
+import { harnessLabel, harnessProfiles, parseHarness } from './harness.mjs';
 import { findOnPath } from './platforms/macos.mjs';
 import { linuxIdentity } from './platforms/linux.mjs';
 import { kitCommit, kitUpstream, linuxPath, powershellCommand, windowsNextSteps } from './install/windows.mjs';
 import { inspectWindows } from './platforms/windows.mjs';
 import { envManaged, hiddenKey, keyStatus, writeKey } from './keys.mjs';
+import { applyStarter, describeStarter, loadPlanTable, planStarter, previewStarter, readyPlans } from './dispatch.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
 export const defaultRoot = '~/Agentic';
-export const setupAnswerKeys = ['harness', 'figma', 'tower', 'globalHooks', 'githubOwner', 'gitIdentity', 'starterMate', 'channel'];
+export const setupAnswerKeys = ['harness', 'plans', 'figma', 'tower', 'globalHooks', 'githubOwner', 'gitIdentity', 'starterMate', 'channel'];
 export const steps = [
   ['kit', 'kit source at its pinned commit'],
   ['tools', 'pinned tools, Firstmate home, tower and global hooks'],
@@ -28,7 +29,7 @@ export const steps = [
   ['logins', 'guided personal sign-ins'],
   ['doctor', 'health check'],
 ];
-const valueFlags = ['--root', '--install-root', '--firstmate-home', '--harness', '--github-owner', '--git-name', '--git-email', '--starter-mate', '--starter-scope',
+const valueFlags = ['--root', '--install-root', '--firstmate-home', '--harness', '--claude-plan', '--codex-plan', '--github-owner', '--git-name', '--git-email', '--starter-mate', '--starter-scope',
   '--channel', '--kit-dir', '--kit-commit', '--distro'];
 const booleanFlags = ['--with-figma', '--no-figma', '--with-tower', '--no-tower', '--global-hooks', '--no-global-hooks', '--no-starter-mate', '--yes', '--reconfigure',
   '--dry-run', '--handoff', '--allow-existing-root'];
@@ -195,6 +196,18 @@ export async function collectAnswers(flags, saved, ctx, io, paths) {
       output.write('2. Agent CLIs: codex (Claude Code is offered once its CLI is installed: https://code.claude.com/docs/en/setup)\n');
     } else answers.harness = yes ? 'codex' : await io.valid('2. Agent CLIs: codex, claude or claude,codex', 'codex', validators.harness);
   }
+  // One plan per chosen agent CLI, offered only from ready rows of the kit's plan table; not-sure keeps
+  // Firstmate's balanced starter rules. Only the plan id is saved.
+  const table = ctx.planTable || loadPlanTable(), plans = {};
+  for (const cli of harnessProfiles(answers.harness)) {
+    const ids = readyPlans(table, cli).map(row => row.id), flag = flags[`${cli}-plan`];
+    const check = value => ids.includes(value) ? value : (() => { throw new Error(`--${cli}-plan must be one of: ${ids.join(', ')}`); })();
+    if (flag !== undefined) plans[cli] = check(flag);
+    else if (ids.includes(answers.plans?.[cli])) plans[cli] = answers.plans[cli];
+    else plans[cli] = yes || ids.length < 2 ? 'not-sure' : await io.valid(`2${cli === 'claude' ? 'a' : 'b'}. ${table.harnesses[cli].label} plan (shapes starter dispatch rules): ${ids.join(', ')}`, 'not-sure', check);
+  }
+  for (const flag of ['claude-plan', 'codex-plan']) if (flags[flag] !== undefined && plans[flag.slice(0, -5)] === undefined) throw new Error(`--${flag} needs ${flag.slice(0, -5)} among the agent CLIs`);
+  answers.plans = plans;
   const toggle = async (key, on, off, number, question) => {
     if (flags[on]) answers[key] = true;
     else if (flags[off]) answers[key] = false;
@@ -258,13 +271,14 @@ const indent = text => `${text.trimEnd().replace(/^/gm, '  ')}\n`;
 export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, keyPlan = { managed: true, status: 'not set' } }) {
   const g = answers.gitIdentity, tower = plan.plan?.towerConfig;
   const lines = ['', 'Agent Kit setup summary. Nothing has been written yet.', 'Answers:',
-    `  1. Root folder: ${paths.root}`, `  2. Agent CLIs: ${harnessLabel(answers.harness)}`, `  3. Figma support: ${yesNo(answers.figma)}`, `  4. Fleet tower: ${yesNo(answers.tower)}`,
+    `  1. Root folder: ${paths.root}`, `  2. Agent CLIs: ${harnessLabel(answers.harness)} (plan: ${Object.entries(answers.plans || {}).map(([cli, id]) => `${cli} ${id}`).join(', ') || 'not sure'})`, `  3. Figma support: ${yesNo(answers.figma)}`, `  4. Fleet tower: ${yesNo(answers.tower)}`,
     `  5. Global hooks and skills: ${yesNo(answers.globalHooks)}`, `  6. GitHub owner: ${answers.githubOwner || 'none'} (recorded only; nothing is created on GitHub)`,
     `  7. Git identity: ${g.action === 'set' ? `set user.name "${g.name}" and user.email "${g.email}" with git config --global` : `keep (${gitCurrent.name || 'no name'} <${gitCurrent.email || 'no email'}>)`}${gitStale ? `; your saved "${gitStale.name}" <${gitStale.email}> was not applied because git's value changed since (pass --git-name and --git-email, or --reconfigure, to change it)` : ''}`,
     `  8. Starter second mate: ${answers.starterMate.create ? `${answers.starterMate.id}: ${answers.starterMate.scope}` : 'no'}`, `  9. Update channel: ${answers.channel}${channelOverride ? ` (from --channel; your saved answer was ${channelOverride})` : ''}`,
     ...(keyPlan.managed ? [`  10. Optional TYPESAFE_API_KEY: ${keyPlan.status} (Firstmate home .env; without it Jev routing is off and normal dispatch rules apply)`]
       : [`  10. Optional TYPESAFE_API_KEY: not checked. Warning: ${join(paths.firstmateHome, '.env')} is a symlink, hard link or other non-plain file, so the kit neither reads nor changes it`]),
     ...(keyPlan.status === 'will set' || !keyPlan.managed ? [] : [`      Add, change or remove it later from your own terminal with the hidden prompt: bash install.sh --reconfigure keys --root ${shellQuote(paths.root)}${paths.installRoot === join(paths.root, '.tools') ? '' : ` --install-root ${shellQuote(paths.installRoot)}`}`]),
+    ...(keyPlan.starter ? [`      Starter dispatch rules: ${keyPlan.starter}`] : []),
     'Derived paths:', `  Firstmate home: ${paths.firstmateHome}`, `  Kit install root: ${paths.installRoot} (private receipt ${join(paths.installRoot, 'receipt.json')})`,
     `  Kit source: ${kit.commit ? `${paths.kit} at ${kit.commit}` : 'this checkout (not recorded)'}`,
     `  Treehouse pool: ${paths.treehousePool} through the kit wrapper ${paths.wrapper}`,
@@ -418,7 +432,8 @@ export async function setup(manifest, ctx) {
       keyValue = await hiddenKey(ctx.input, output);
       io = prompter(ctx.input, output);
     }
-    const keyPlan = { value: keyValue, managed, status: keyValue ? 'will set' : wasSet ? 'set' : 'not set' };
+    const keyPlan = { value: keyValue, managed, status: keyValue ? 'will set' : wasSet ? 'set' : 'not set',
+      starter: managed ? previewStarter(paths.firstmateHome, { harness: answers.harness, plans: answers.plans, table: ctx.planTable, record: receipt?.setup?.dispatch, keySet: !!keyValue || wasSet }) : null };
     const options = { command: 'plan', harness: answers.harness, withFigma: answers.figma, withTower: answers.tower, globalHooks: answers.globalHooks,
       installRoot: paths.installRoot, firstmateHome: paths.firstmateHome, towerState: paths.towerState };
     const context = { env, platform, arch: ctx.arch, nodeVersion: ctx.nodeVersion, procVersion: ctx.procVersion, osRelease: ctx.osRelease, libc: ctx.libc, runCommand: ctx.runCommand, applicationDirs: ctx.applicationDirs };
@@ -444,7 +459,7 @@ export async function setup(manifest, ctx) {
     try {
       receipt = await updateReceipt(receiptPath, manifest.release, r => {
         r.setup = { version: 1, answers, paths: { root: paths.root, installRoot: paths.installRoot, firstmateHome: paths.firstmateHome, treehouseRoot: paths.treehouseRoot, towerState: paths.towerState },
-          kit: kit.commit ? { commit: kit.commit, path: paths.kit } : r.setup?.kit || null, steps: r.setup?.steps || {} };
+          kit: kit.commit ? { commit: kit.commit, path: paths.kit } : r.setup?.kit || null, steps: r.setup?.steps || {}, ...(r.setup?.dispatch ? { dispatch: r.setup.dispatch } : {}) };
       });
       const stepRun = async (index, fn) => {
         const [id, label] = steps[index];
@@ -475,9 +490,15 @@ export async function setup(manifest, ctx) {
           keyPlan.value = null;
           output.write('  TYPESAFE_API_KEY: set\n');
         }
+        const keySet = envManaged(paths.firstmateHome) && keyStatus(paths.firstmateHome);
+        // Starter rules follow the key: written once it is set, never over rules the person or a strategy owns.
+        const starter = keySet ? await applyStarter(planStarter(paths.firstmateHome, { harness: answers.harness, plans: answers.plans, table: ctx.planTable, record: receipt.setup?.dispatch, create: true, restore: true })) : null;
+        if (starter && describeStarter(starter)) output.write(`  ${describeStarter(starter)}\n`);
         await updateReceipt(receiptPath, manifest.release, r => {
           if (envManaged(paths.firstmateHome)) r.setup.keys = { TYPESAFE_API_KEY: keyStatus(paths.firstmateHome) };
           else delete r.setup.keys;
+          if (starter?.record) r.setup.dispatch = starter.record;
+          else if (starter) delete r.setup.dispatch;
         });
         const incomplete = install.components.filter(x => ['unverified', 'conflict', 'deferred'].includes(x.status));
         return incomplete.length ? { state: 'partial', detail: `retry on rerun: ${incomplete.map(x => x.id).join(', ')}` } : { state: 'complete', detail: install.towerParity !== 'unavailable' ? `tower: ${install.towerParity}` : '' };

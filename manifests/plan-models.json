@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "status": "draft",
+  "note": "Rows with status todo await owner-approved values from each vendor's official plan pages; until then only not-sure is offered. A ready row lists the models the plan can run on that agent CLI (models), the replacement for each Firstmate template model outside that list (substitute), the official page the values come from (source), and optionally the validation model to set by hand in no-mistakes (validation). Profiles whose model is neither listed nor substituted are dropped.",
+  "base": "balanced",
+  "harnesses": {
+    "claude": {
+      "label": "Claude",
+      "plans": [
+        { "id": "not-sure", "label": "Not sure", "status": "ready", "note": "Firstmate's balanced starter rules, unchanged" },
+        { "id": "pro", "label": "Claude Pro", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null },
+        { "id": "max-5x", "label": "Claude Max 5x", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null },
+        { "id": "max-20x", "label": "Claude Max 20x", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null },
+        { "id": "team", "label": "Claude Team", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null },
+        { "id": "enterprise", "label": "Claude Enterprise", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null }
+      ]
+    },
+    "codex": {
+      "label": "Codex",
+      "plans": [
+        { "id": "not-sure", "label": "Not sure", "status": "ready", "note": "Firstmate's balanced starter rules, unchanged" },
+        { "id": "plus", "label": "ChatGPT Plus", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null },
+        { "id": "pro", "label": "ChatGPT Pro", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null },
+        { "id": "business", "label": "ChatGPT Business", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null },
+        { "id": "enterprise", "label": "ChatGPT Enterprise", "status": "todo", "source": null, "models": null, "substitute": null, "validation": null }
+      ]
+    }
+  }
+}

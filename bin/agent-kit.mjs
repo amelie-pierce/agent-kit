@@ -13,6 +13,7 @@ import { setup, windowsSetup } from '../src/setup.mjs';
 import { applyRepair, applyUninstall, applyUpgrade, formatLifecycle, planRepair, planUninstall, planUpgrade } from '../src/lifecycle.mjs';
 import { atomicJson, lock } from '../src/install/macos.mjs';
 import { hiddenKey, keyStatus, writeKey } from '../src/keys.mjs';
+import { applyStarter, describeStarter, harnessOf, planStarter, plansOf, starterFile } from '../src/dispatch.mjs';
 
 async function ask(question) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -64,6 +65,7 @@ try {
     }
     if (action === 'set' && set && !['y', 'yes'].includes((await ask('Replace the existing key? (y/N): ')).toLowerCase())) action = 'keep';
     if (action === 'remove' && await ask('Type REMOVE TYPESAFE_API_KEY to confirm: ') !== 'REMOVE TYPESAFE_API_KEY') action = 'keep';
+    let starter = null;
     if (action !== 'keep') {
       const unlock = await lock(options.installRoot, '.setup.lock');
       try {
@@ -73,10 +75,19 @@ try {
           throw new Error('Firstmate home changed during the prompt; rerun keys');
         set = await writeKey(firstmateHome, action, value);
         currentReceipt.setup ||= {}; currentReceipt.setup.keys = { TYPESAFE_API_KEY: set };
+        if (set) {
+          // A newly set key gets Firstmate's starter rules unless the person or a strategy already owns the routing.
+          starter = await applyStarter(planStarter(firstmateHome, { harness: harnessOf(currentReceipt), plans: plansOf(currentReceipt), record: currentReceipt.setup.dispatch, create: true, restore: true }));
+          if (starter.record) currentReceipt.setup.dispatch = starter.record;
+          else delete currentReceipt.setup.dispatch;
+        }
         await atomicJson(receiptPath, currentReceipt);
       } finally { await unlock(); }
     }
     process.stdout.write(`TYPESAFE_API_KEY: ${set ? 'set' : 'not set'}\n`);
+    if (starter && describeStarter(starter)) process.stdout.write(`${describeStarter(starter)}\n`);
+    if (action === 'remove' && existsSync(join(firstmateHome, starterFile)))
+      process.stdout.write(`Dispatch rules at ${join(firstmateHome, starterFile)} are kept; without the key Firstmate reads them in its normal dispatch.\n`);
   } else if (options.command === 'doctor') {
     validateManifest(manifest);
     if (context.platform === 'win32') throw new Error('run doctor inside the WSL2 distribution');
