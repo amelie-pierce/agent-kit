@@ -245,7 +245,7 @@ Derived paths:
 Files outside the root that will be touched:
   /Users/you/.claude/settings.json: add agent-kit:gh-axi, ... (an existing file or link is backed up first)
   ...
-  /Users/you/.config/herdr/config.toml: agent-kit keys block (prefix+shift+f open-firstmate codex, prefix+shift+m open-firstmate mates; keys you already bound are skipped; backed up first; uninstall removes the block)
+  /Users/you/.config/herdr/config.toml: agent-kit keys block (prefix+shift+f open-firstmate codex, prefix+shift+m open-firstmate mates, prefix+shift+c furkankly.zoetrope.open-tab, prefix+m ray.plugin-manager.open; keys you already bound are skipped; backed up first; uninstall removes the block)
   /Users/you/.config/zoe-fleet/config: tower launcher config, private 0600 (the launcher has no config override, so it stays in this XDG location)
 Will install (pinned and verified; nothing is downloaded until you say yes):
   - Firstmate e823c61f... -> /Users/you/Agentic/firstmate
