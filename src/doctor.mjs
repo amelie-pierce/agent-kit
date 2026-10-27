@@ -9,6 +9,7 @@ import { usesProfile } from './harness.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
 const status = (id, state, detail) => ({ id, status: state, detail });
+export const firstmateDiffers = 'Firstmate commit, origin or tracked source differs from pin';
 const safeFile = path => {
   try { const st = lstatSync(path); return st.isFile() && !st.isSymbolicLink() ? st : null; }
   catch (error) { if (error.code === 'ENOENT') return null; throw error; }
@@ -103,7 +104,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
     if (id === 'firstmate') {
       const pin = byId.get(id)?.version.value;
       const matched = pin && entry.version === pin && gitCheck(path, pin, byId.get(id)?.approvedUpstream);
-      checks.push(status(id, matched ? 'pass' : 'fail', matched ? 'pinned HEAD, origin and tracked source verified' : 'Firstmate commit, origin or tracked source differs from pin'));
+      checks.push(status(id, matched ? 'pass' : 'fail', matched ? 'pinned HEAD, origin and tracked source verified' : firstmateDiffers));
       for (const dir of ['bin', 'data', 'state', 'config', 'projects']) checks.push(status(`firstmate-layout-${dir}`, existsSync(join(path, dir)) && lstatSync(join(path, dir)).isDirectory() ? 'pass' : 'fail', `Firstmate ${dir}/ directory`));
       continue;
     }

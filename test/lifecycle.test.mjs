@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { applyRepair, applyUninstall, applyUpgrade, planRepair, planUninstall, planUpgrade, resolveReviewedCommit } from '../src/lifecycle.mjs';
+import { applyRepair, applyUninstall, applyUpgrade, formatLifecycle, planRepair, planUninstall, planUpgrade, resolveReviewedCommit } from '../src/lifecycle.mjs';
 import { parseArgs } from '../src/kit.mjs';
 import { windowsLifecycle } from '../src/install/windows.mjs';
 
@@ -218,12 +218,34 @@ test('upgrade and its update alias apply kit changes and report a Firstmate home
     const plan = await planUpgrade({ ...f.options, resolveCommit: () => commit, fetchKit });
     writeFileSync(join(f.firstmate, 'README.md'), 'person work\n');
     const result = await applyUpgrade(plan, f.options);
-    assert.equal(result.status, 'upgraded');
+    assert.equal(result.status, 'partial');
     assert.equal(result.components.find(x => x.id === 'firstmate').status, 'conflict');
     assert.ok(result.nextSteps.some(x => x.startsWith('firstmate: ')));
+    assert.ok(result.nextSteps.some(x => x.startsWith('release new-release is pending')));
+    assert.match(formatLifecycle(result), /^Agent Kit upgrade: partial\n/);
+    const after = JSON.parse(readFileSync(f.receiptPath));
+    assert.equal(after.release, 'old-release');
+    assert.equal(after.pendingUpdate, 'new-release');
     assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'person work\n');
     assert.equal(readFileSync(join(f.root, 'releases', 'new-release', 'bin', 'herdr'), 'utf8'), 'restored');
     assert.equal(JSON.parse(readFileSync(f.receiptPath)).setup.kit.commit, commit);
+  }
+});
+
+test('upgrade refuses a missing or symlinked Firstmate home and never clones a replacement', { skip: process.platform === 'win32' }, async t => {
+  for (const kind of ['missing', 'symlink']) {
+    const f = fixture(t), moved = join(f.base, 'moved-firstmate');
+    const fetchKit = async (_commit, _env, destination) => {
+      await stagedKit(_commit, _env, destination);
+      const target = structuredClone(f.manifest);
+      target.release = 'new-release';
+      writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
+    };
+    renameSync(f.firstmate, moved);
+    if (kind === 'symlink') symlinkSync(moved, f.firstmate);
+    await assert.rejects(planUpgrade({ ...f.options, resolveCommit: () => 'a'.repeat(40), fetchKit }), /owned installation fails verification: firstmate/);
+    assert.equal(kind === 'missing' ? existsSync(f.firstmate) : lstatSync(f.firstmate).isSymbolicLink(), kind !== 'missing');
+    assert.equal(JSON.parse(readFileSync(f.receiptPath)).release, 'old-release');
   }
 });
 
