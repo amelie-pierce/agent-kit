@@ -75,7 +75,7 @@ expand_root() {
 }
 ask() {  # <question> <default>; the answer is in $reply
   printf '%s [%s]: ' "$1" "$2" >&2
-  IFS= read -r reply || [ -n "$reply" ] || die 'input ended before every question was answered; pass --yes to accept the shown defaults'
+  read -r reply || [ -n "$reply" ] || die 'input ended before every question was answered; pass --yes to accept the shown defaults'
   [ -t 0 ] || printf '\n' >&2
   reply=${reply:-$2}
 }

@@ -476,7 +476,7 @@ export async function setup(manifest, ctx) {
       const partial = (await readReceipt(receiptPath)).setup.steps.tools.state !== 'complete';
       output.write(`\nAgent Kit setup ${failed ? 'finished with failures' : partial ? 'finished; some tools are partial and are retried on rerun' : 'complete'}.\n`);
       output.write(`Add these folders to the start of your PATH yourself (the kit never edits shell profiles):\n  ${[dirname(paths.wrapper), install.bin, install.npmBin, install.codexBin].filter(Boolean).join('\n  ')}\n`);
-      if (kit.commit) output.write(`Health check later: node ${join(paths.kit, 'bin', 'agent-kit.mjs')} doctor --root ${paths.root}\n`);
+      if (kit.commit) output.write(`Health check later: node ${join(paths.kit, 'bin', 'agent-kit.mjs')} doctor --install-root ${paths.installRoot}\n`);
       return failed || partial ? 1 : 0;
     } catch (error) {
       if (error.reported) return 1;

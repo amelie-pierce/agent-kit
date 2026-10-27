@@ -22,7 +22,7 @@ function fixture(t) {
   for (const name of ['uname', 'grep', 'head', 'mktemp', 'rm', 'mkdir', 'cat']) symlinkSync(spawnSync('/bin/sh', ['-c', `command -v ${name}`], { encoding: 'utf8' }).stdout.trim(), join(sys, name));
   const stub = (name, body) => writeFileSync(join(stubs, name), `#!/bin/sh\nprintf '%s\\n' "${name} $*" >> '${log}'\n${body}\n`, { mode: 0o755 });
   stub('gh', `case "$*" in
-  --version) echo 'gh version 2.83.2 (2025-12-10)' ;;
+  --version) echo "gh version \${GH_VERSION:-2.83.2} (2025-12-10)" ;;
   'auth status --hostname github.com') exit "\${GH_AUTH:-0}" ;;
   *'commits?sha=main&path=manifests/pilot-skeleton.json&per_page=1'*) echo ${release} ;;
   *'commits/main'*) echo ${main} ;;
@@ -54,13 +54,23 @@ exit "\${NODE_EXIT:-0}"`);
   return { base, stubs, home, tmp, run };
 }
 
-test('install.sh floors match the manifest prerequisites', () => {
-  const body = readFileSync(script, 'utf8');
-  const floor = id => manifest.tools.find(x => x.id === id).minVersion;
-  assert.match(body, new RegExp(`^NODE_MIN=${floor('node').replaceAll('.', '\\.')}$`, 'm'));
-  assert.match(body, new RegExp(`^GIT_MIN=${floor('git').replaceAll('.', '\\.')}$`, 'm'));
-  assert.match(body, new RegExp(`^GH_MIN=${floor('github-cli').replaceAll('.', '\\.')}$`, 'm'));
-  assert.equal(manifest.nodeMinimum, floor('node'));
+test('install.sh accepts each prerequisite at exactly its manifest floor and refuses one version below', posixOnly, t => {
+  const f = fixture(t);
+  const below = version => {
+    const [major, minor, patch] = version.split('.').map(Number);
+    return patch ? `${major}.${minor}.${patch - 1}` : minor ? `${major}.${minor - 1}.99` : `${major - 1}.99.99`;
+  };
+  const floors = [['node', 'NODE_VERSION', 'Node.js', v => `v${v}`], ['git', 'GIT_VERSION', 'git', v => v], ['github-cli', 'GH_VERSION', 'GitHub CLI \\(gh\\)', v => v]]
+    .map(([id, env, name, shown]) => ({ env, name, shown, floor: manifest.tools.find(x => x.id === id).minVersion }));
+  const atFloor = f.run(['--yes'], Object.fromEntries(floors.map(x => [x.env, x.shown(x.floor)])));
+  assert.equal(atFloor.status, 0, atFloor.stderr);
+  assert.doesNotMatch(atFloor.stderr, /is older than/);
+  for (const tool of floors) {
+    const old = f.run(['--yes'], { [tool.env]: tool.shown(below(tool.floor)) });
+    assert.equal(old.status, 1, tool.env);
+    assert.match(old.stderr, new RegExp(`${tool.name} ${below(tool.floor).replaceAll('.', '\\.')} is older than ${tool.floor.replaceAll('.', '\\.')}`));
+    assert.ok(!old.calls.some(x => / fetch |node-arg/.test(x)), old.calls.join('\n'));
+  }
 });
 
 test('install.sh --help prints usage without touching anything', posixOnly, t => {
@@ -167,7 +177,7 @@ test('install.sh asks the root folder first, reads that root\'s saved channel, a
 
   const chosen = join(f.base, 'Work', 'Agentic');
   save(join(chosen, '.tools'), 'main');
-  const rerun = f.run([], { HEAD_COMMIT: main }, `${chosen}\n`);
+  const rerun = f.run([], { HEAD_COMMIT: main }, `${chosen} \n`);
   assert.equal(rerun.status, 0, rerun.stderr);
   assert.match(rerun.stderr, /1\. Root folder for your agent setup .*\[~\/Agentic\]: /);
   assert.doesNotMatch(rerun.stderr, /Use .*\(y\/n\)/, 'a root with a receipt is a resume, so it is not confirmed again');
@@ -176,7 +186,7 @@ test('install.sh asks the root folder first, reads that root\'s saved channel, a
   assert.deepEqual(rootArgs(rerun), ['--root', chosen]);
 
   save(join(f.home, 'Agentic', '.tools'), 'main');
-  const other = f.run([], {}, '~/Other\ny\n');
+  const other = f.run([], {}, '  ~/Other \n y \n');
   assert.equal(other.status, 0, other.stderr);
   assert.match(other.stderr, new RegExp(`Use ${join(f.home, 'Other')} \\(y/n\\)`));
   assert.doesNotMatch(other.stderr, /saved in/, 'the receipt at ~/Agentic belongs to another root');

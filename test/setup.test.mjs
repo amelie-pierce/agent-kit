@@ -220,6 +220,21 @@ test('a failed step stops safely; the rerun prints the resume summary, re-verifi
   assert.equal(health.checks.find(x => x.id === 'treehouse-path').status, 'pass', 'the kit wrapper counts as the kit treehouse');
 });
 
+test('the health-check hint names the actual install root, so an --install-root override is honoured', posixOnly, async t => {
+  const f = fixture(t);
+  const kit = kitCheckout(t, f.base);
+  const installRoot = join(f.base, 'kit-tools');
+  const c = f.ctx(['--yes', '--root', f.root, '--install-root', installRoot, '--no-tower', '--kit-dir', kit.dir, '--kit-commit', kit.commit]);
+  assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+  const hint = c.text.match(/Health check later: node (\S+) (doctor .*)\n/);
+  assert.ok(hint, c.text);
+  assert.equal(hint[1], join(installRoot, 'kit', kit.commit, 'bin', 'agent-kit.mjs'));
+  const options = parseArgs(hint[2].split(' '));
+  assert.equal(options.installRoot, installRoot);
+  const health = doctor(f.fixtureManifest, { installRoot: options.installRoot, home: f.home, env: f.env, platform: 'linux', arch: 'x64', nodeVersion: '24.21.0' });
+  assert.notEqual(health.checks.find(x => x.id === 'receipt')?.status, 'fail');
+});
+
 test('a saved git identity is not re-applied once you changed it: asked again, or kept under --yes', posixOnly, async t => {
   const f = fixture(t);
   const first = f.ctx(['--yes', '--root', f.root, '--no-tower', '--git-name', 'Pat Example', '--git-email', 'pat@example.test']);
