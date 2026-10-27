@@ -12,4 +12,6 @@ Updated 2026-10-27: `doctor` checks person-installed prerequisite version floors
 
 `update` only accepts the manifest bundled in a clean kit checkout reachable from `origin/main`. Its plan compares the receipt version and digest with the target manifest and npm locks; `--yes` runs the shared installer with update mode. The installer records a pending target, stages under the new release, leaves the earlier release files in place, defers running binaries and holds hook activation while dependencies are deferred or conflicted (src/update.mjs:11; src/update.mjs:18; src/install/macos.mjs:365; src/install/macos.mjs:398; src/install/macos.mjs:518). A changed Firstmate pin is completed only after its own guarded `/updatefirstmate` path has produced the exact reviewed commit (src/install/macos.mjs:379).
 
+Updated 2026-10-27: the user-facing `upgrade` command (with `update` as an alias) first resolves the saved reviewed channel and fetches that kit commit; the shared update module remains its version and installer plan engine. See [Kit lifecycle commands](lifecycle.md) (src/lifecycle.mjs:289-329; bin/agent-kit.mjs:61-93).
+
 The starter charter is plain text; the CLI only prints it and Firstmate's local scaffold, seed and launch commands. No kit code performs those commands (templates/secondmate/charter.md:1; src/secondmate.mjs:3; bin/agent-kit.mjs:37).

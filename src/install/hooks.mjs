@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { existsSync, lstatSync, readFileSync, readlinkSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readlinkSync, readdirSync } from 'node:fs';
 import { chmod, mkdir, mkdtemp, readFile, rename, rm, symlink, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
@@ -192,6 +192,21 @@ function tomlFeature(source, desired, path) {
   return { after: out.join(newline), changes: [{ op: hookAt === -1 ? 'add' : 'replace', path: 'features.hooks', before: hookValue, after: true }] };
 }
 
+function previousHooksSetting(receipt, root, config) {
+  if (receipt.phases?.hooks?.codexHooksPrevious !== undefined) return receipt.phases.hooks.codexHooksPrevious;
+  // Receipts made before lifecycle commands did not record the former value. Their hook
+  // operation and earliest private backup together prove whether the kit enabled it.
+  const changed = receipt.phases?.hooks?.files?.some(file => file.path === config && file.changes?.includes('features.hooks'));
+  if (!changed) return undefined;
+  const directory = join(root, 'backups', 'hooks');
+  const candidates = lstatSync(directory, { throwIfNoEntry: false })?.isDirectory()
+    ? readdirSync(directory).map(name => join(directory, name, 'codex-config.toml')).filter(path => lstatSync(path, { throwIfNoEntry: false })?.isFile()) : [];
+  candidates.sort((a, b) => lstatSync(a).mtimeMs - lstatSync(b).mtimeMs);
+  if (!candidates.length) return null;
+  const before = readFileSync(candidates[0], 'utf8');
+  return /^\s*hooks\s*=\s*false(?:\s*#.*)?$/m.test(before) ? false : null;
+}
+
 export function previewHooks(manifest, { home, installRoot }) {
   if (!home || !installRoot) throw new Error('hooks preview requires HOME and --install-root');
   const root = resolve(installRoot), release = manifest.release;
@@ -329,7 +344,10 @@ export async function applyHooks(preview, { installRoot, receipt, save, generate
     } else if (skill.before) await unlink(skill.path);
   }
   for (const script of preview.scripts) if (script.op === 'remove') await unlink(script.path);
-  receipt.phases.hooks = { state: 'complete', files: preview.files.filter(x => x.changes.length).map(x => ({ path: x.path, kind: x.kind, changes: x.changes.map(c => c.owner || c.path) })),
+  const configPath = preview.files.find(x => x.kind === 'toml')?.path;
+  const previouslyEnabled = configPath ? previousHooksSetting(receipt, installRoot, configPath) : undefined;
+  const codexChange = preview.files.find(x => x.kind === 'toml')?.changes.find(x => x.path === 'features.hooks');
+  receipt.phases.hooks = { state: 'complete', ...(previouslyEnabled !== undefined || codexChange ? { codexHooksPrevious: previouslyEnabled !== undefined ? previouslyEnabled : codexChange.before } : {}), files: preview.files.filter(x => x.changes.length).map(x => ({ path: x.path, kind: x.kind, changes: x.changes.map(c => c.owner || c.path) })),
     skills: preview.skills.map(x => ({ path: x.path, owner: x.owner, target: x.after })), scripts: preview.scripts.map(x => ({ path: x.path, owner: `agent-kit:${x.id}`, action: x.op, sha256: x.sha256 })) };
   await save();
   return { id: 'hooks', status: 'installed', reason: 'kit-owned global hooks and skills merged with private backups' };
@@ -345,4 +363,72 @@ export function publicHookChanges(preview) {
 export function globalHookPaths(home) {
   return [join(home, '.claude', 'settings.json'), join(home, '.codex', 'hooks.json'), join(home, '.codex', 'config.toml'),
     ...tools.flatMap(([, skill]) => [join(home, '.claude', 'skills', skill), join(home, '.agents', 'skills', skill)])];
+}
+
+// Removing registration uses the same ownership parser as installation. A marker alone does
+// not authorize removing a hook whose command was changed outside this kit's release tree.
+export function previewUnregister({ home, installRoot, receipt }) {
+  const root = resolve(installRoot), files = [];
+  for (const path of [join(home, '.claude', 'settings.json'), join(home, '.codex', 'hooks.json')]) {
+    plainParents(home, path);
+    const { source, value } = jsonFile(path);
+    const merged = mergeHooks(value, new Map(), root, path);
+    files.push({ path, before: source, after: merged.changes.length ? `${JSON.stringify(merged.value, null, 2)}\n` : source, changes: merged.changes });
+  }
+  const config = join(home, '.codex', 'config.toml');
+  plainParents(home, config);
+  const source = safeFile(config);
+  let after = source, note;
+  const previous = previousHooksSetting(receipt, root, config);
+  if (previous !== undefined && source !== null) {
+    // The install phase recorded whether it added the key or changed false to true.
+    // Ambiguous or changed TOML is left as the person has it rather than reset.
+    const lines = source.split(/\r?\n/);
+    let section = '', at = -1;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (/^\[.*\]$/.test(line)) section = line.slice(1, -1).trim();
+      else if (section === 'features' && /^hooks\s*=/.test(line)) {
+        if (at !== -1) { note = 'duplicate hooks setting; left unchanged'; break; }
+        at = i;
+      }
+    }
+    if (!note && (at === -1 || !/^hooks\s*=\s*true(?:\s*#.*)?$/.test(lines[at].trim()))) note = 'hooks setting changed since the kit set it; left unchanged';
+    if (!note && previous !== null && previous !== false) throw new Error(`${config}: invalid recorded hooks setting`);
+    if (!note) {
+      if (previous === null) lines.splice(at, 1);
+      else lines[at] = lines[at].replace(/\btrue\b/, 'false');
+      after = lines.join(source.includes('\r\n') ? '\r\n' : '\n');
+    }
+  }
+  files.push({ path: config, before: source, after, changes: after !== source ? [{ op: 'restore', path: 'features.hooks', before: true, after: previous }] : [], ...(note ? { note } : {}) });
+  const skills = [];
+  for (const [id, skill] of tools) for (const base of [join(home, '.claude', 'skills'), join(home, '.agents', 'skills')]) {
+    const path = join(base, skill);
+    plainParents(home, path);
+    const st = lstatSync(path, { throwIfNoEntry: false });
+    if (!st?.isSymbolicLink()) continue;
+    const target = resolve(dirname(path), readlinkSync(path));
+    if (target.startsWith(join(root, 'releases') + sep) && target.endsWith(join('node_modules', id, 'skills', skill))) skills.push({ path, target, owner: `agent-kit:${id}` });
+  }
+  return { files, skills, changed: files.some(x => x.changes.length) || skills.length > 0 };
+}
+
+export async function applyUnregister(preview, backupDir) {
+  for (const file of preview.files) if (file.changes.length && safeFile(file.path) !== file.before) throw new Error(`${file.path}: changed since plan`);
+  for (const skill of preview.skills) {
+    const st = lstatSync(skill.path, { throwIfNoEntry: false });
+    if (!st?.isSymbolicLink() || resolve(dirname(skill.path), readlinkSync(skill.path)) !== skill.target) throw new Error(`${skill.path}: changed since plan`);
+  }
+  for (const file of preview.files) if (file.changes.length) {
+    if (file.before !== null) {
+      const backup = join(backupDir, file.path.includes(`${sep}.claude${sep}`) ? 'claude-settings.json' : file.path.endsWith('.toml') ? 'codex-config.toml' : 'codex-hooks.json');
+      await mkdir(dirname(backup), { recursive: true, mode: 0o700 });
+      await writeFile(backup, file.before, { mode: 0o600, flag: 'wx' });
+    }
+    const temp = `${file.path}.${randomUUID()}.tmp`;
+    await writeFile(temp, file.after, { mode: 0o600, flag: 'wx' });
+    await rename(temp, file.path);
+  }
+  for (const skill of preview.skills) await unlink(skill.path);
 }
