@@ -213,9 +213,10 @@ test('handoff command construction keeps Linux paths, pins the kit commit and qu
   assert.equal(command.split('\n').length, 1);
   assert.ok(!command.includes('"'));
   assert.ok(command.includes(" '~/.agent-kit' "));
-  for (const bad of ['C:\\Users\\me\\kit', '/mnt/c/Users/me/kit', '//mnt/c/kit', '/mnt//c/kit', '~//mnt', '~/a b', '/home/me/../kit', 'relative/kit', '~/kit/', '~/$(id)', '/home/me/kit;rm']) {
+  for (const bad of ['C:\\Users\\me\\kit', '/mnt/c/Users/me/kit', '//mnt/c/kit', '//mnt/c/Users/me/kit', '/mnt//c/kit', '~//mnt', '/home//me/kit', '~/a b', '/home/me/../kit', 'relative/kit', '~/kit/', '~/$(id)', '/home/me/kit;rm']) {
     assert.throws(() => linuxPath(bad, '--install-root'), /Linux path|Linux filesystem/, bad);
   }
+  for (const good of ['~/.agent-kit', '/home/me/firstmate']) assert.equal(linuxPath(good, '--install-root'), good);
   assert.throws(() => handoffArgv({ distro: 'Ubuntu; calc', commit, installRoot: '~/k', firstmateHome: '~/f' }), /distribution/);
   assert.throws(() => handoffArgv({ distro: 'Ubuntu', commit: 'main', installRoot: '~/k', firstmateHome: '~/f' }), /SHA-1/);
   assert.throws(() => handoffArgv({ distro: 'Ubuntu', commit, installRoot: '~/k', firstmateHome: '~/k' }), /differ/);
@@ -265,6 +266,10 @@ test('windows install: needs-setup and unpinned refuse; --handoff spawns only ws
   assert.equal(handed.exitCode, 1);
   assert.deepEqual(spawned, [['C:\\Windows\\System32\\wsl.exe', preview.argv]]);
   assert.throws(() => windowsHandoff({ ...options, installRoot: 'C:\\kit' }, windowsContext()), /Linux path/);
+  const refused = { ...windowsContext(), spawn };
+  assert.throws(() => windowsHandoff({ installRoot: '//mnt/c/kit', firstmateHome: '~/firstmate', handoff: true }, refused), /Linux path/);
+  assert.ok(!refused.calls.some(call => call[0] === 'wsl.exe'), refused.calls.join('; '));
+  assert.equal(spawned.length, 1);
 });
 
 test('Windows arguments: --handoff and --distro are Windows-only, paths must be Linux-side', () => {
@@ -273,6 +278,8 @@ test('Windows arguments: --handoff and --distro are Windows-only, paths must be 
   assert.throws(() => parseArgs(['install', '--dry-run', '--handoff'], 'win32'), /only to install/);
   assert.throws(() => parseArgs(['check', '--distro', 'Ubuntu'], 'linux'), /only on Windows/);
   assert.throws(() => parseArgs(['plan', '--install-root', 'C:\\kit'], 'win32'), /Linux path/);
+  assert.throws(() => parseArgs(['install', '--install-root', '~/.agent-kit', '--firstmate-home', '//mnt/c/fm'], 'win32'), /--firstmate-home on Windows must be a Linux path/);
+  assert.throws(() => parseArgs(['install', '--install-root', '//mnt/c/kit', '--firstmate-home', '~/firstmate', '--handoff'], 'win32'), /--install-root on Windows must be a Linux path/);
   assert.throws(() => parseArgs(['plan', '--install-root', '~/kit'], 'darwin'), /absolute/);
   const distro = inspectWindows(windowsContext({ distros: [ubuntu, { name: 'Debian', state: 'Stopped', version: 2, default: false }] }), { distro: 'Debian' });
   assert.equal(distro.wsl.target.name, 'Debian');

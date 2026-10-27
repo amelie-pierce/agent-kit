@@ -67,10 +67,12 @@ export const windowsNextSteps = distro => [
   'chrome-devtools-axi and Lavish open the browser on the Windows side.',
 ];
 
-export function windowsHandoff(options, context, platform = inspectWindows(context, { distro: options.distro })) {
+// Paths are validated before inspectWindows, so a refused path never runs wsl.exe.
+export function windowsHandoff(options, context, inspected) {
   const installRoot = options.installRoot || defaultLinuxRoot, firstmateHome = options.firstmateHome || defaultLinuxFirstmateHome;
   linuxPath(installRoot, '--install-root');
   linuxPath(firstmateHome, '--firstmate-home');
+  const platform = inspected || inspectWindows(context, { distro: options.distro });
   const base = { platform: 'windows', build: platform.build, linuxArch: platform.linuxArch, prerequisites: platform.prerequisites, steps: platform.steps,
     nextSteps: windowsNextSteps(platform.wsl?.target?.name) };
   if (!platform.supported || !platform.ready) return { ...base, status: 'needs-setup', exitCode: 1, message: platform.message, command: null };

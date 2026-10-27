@@ -74,6 +74,7 @@ Afterwards, open Windows Terminal with your distribution's profile and run Herdr
 - `wsl --set-default-version 2` and `wsl --set-version` on a WSL1 setup, and non-English `wsl --status` output (the default version then reads as unknown);
 - with a running WSL2 Ubuntu and non-English (for example German) `wsl.exe` output, `check` and `plan` reporting ready and `install` printing the pinned `wsl.exe` handoff command with Linux paths;
 - `install` refusing `--install-root /mnt/c/kit` and `C:\kit`, so Windows and Linux files stay separate;
+- on a real Windows PC with WSL2, a repeated-slash `/mnt` install root such as `//mnt/c/kit` being refused, with nothing written to C:;
 - the preflight under Windows PowerShell 5.1 and pwsh leaving your user profile folder unchanged (CI checks this on the `windows-latest` runner only);
 - `install --handoff` end to end on a real WSL2 distribution: argument passing through `wsl.exe --exec`, fetching the pinned kit commit of the private repository inside WSL, and the Linux install;
 - the Windows browser opened from WSL by chrome-devtools-axi, Lavish and vendor sign-in flows;
