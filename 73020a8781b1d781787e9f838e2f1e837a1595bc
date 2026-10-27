@@ -1,0 +1,25 @@
+src/doctor.mjs
+  s_5e518649603a4a::t_5e7ccf237d40c1 8,66,70
+  s_5e518649603a4a::t_71c1d993ba2ef1 69
+test/doctor-update.test.mjs
+  s_5e518649603a4a::t_a483ebe165d828 144-145,148
+  s_5e518649603a4a::t_a91d29acbc367e 3
+README.md
+  s_5e518649603a4a::t_42c4c71d31b163 19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "73020a8781b1d781787e9f838e2f1e837a1595bc",
+  "prompts": {},
+  "sessions": {
+    "s_5e518649603a4a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1227a2ea-1c5c-4d96-adbe-090d72940716",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
