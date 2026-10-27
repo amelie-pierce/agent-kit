@@ -1289,7 +1289,7 @@
     "project clones and worktree pools",
     "validation runs and mirrors",
     "generated review artifacts and personal plugin caches",
-    "local backups, absolute-path wrappers and private patches",
-    "permissive agent-launch settings"
+    "another person's local backups, absolute-path wrappers and patch files (the kit renders its own launchers from each receipt and applies its reviewed plugin edit in code)",
+    "another person's agent-launch settings (the kit's full-access Codex launch is its own, owner-approved, asked with a warning and off with a no)"
   ]
 }

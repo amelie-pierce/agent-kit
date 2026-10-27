@@ -634,7 +634,7 @@ export async function installPlatform(manifest, options = {}) {
       nextSteps: [
         'Codex reviews new or changed hooks interactively; review and approve them yourself when prompted.',
         'no-mistakes init installs its user-level skill when you initialize your own repository.',
-        ...(towerLauncher ? [`Run ${towerLauncher} doctor, then open from a Herdr pane; open links the Herdr plugin. The kit does neither.`] : []),
+        ...(towerLauncher ? [`Run ${towerLauncher} doctor, then open the Fleet tab from a Herdr pane (zoe-fleet-open). The kit never runs either.`] : []),
         ...(linux?.wsl2 ? ['Use Windows Terminal and a browser on the Windows side; run agent tools inside your WSL2 Linux distro.'] : [])] };
   } finally { await unlock(); }
 }
