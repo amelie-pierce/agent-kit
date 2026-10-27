@@ -1,16 +1,14 @@
 import { inspectMacOS } from './macos.mjs';
 import { inspectLinux } from './linux.mjs';
+import { inspectWindows } from './windows.mjs';
 
-export function inspectPlatform(context, manifest, selectedTools) {
+export function inspectPlatform(context, manifest, selectedTools, options = {}) {
   if (context.platform === 'darwin') return inspectMacOS(context, manifest, selectedTools);
   if (context.platform === 'linux') return inspectLinux(context, manifest, selectedTools);
-  const platform = context.platform === 'win32' ? 'windows' : context.platform;
-  const message = platform === 'windows'
-    ? 'Windows personal-device flow is planned: run native PowerShell/Node preflight, check or guide WSL2 and a Linux distro, then hand off installation to Linux inside WSL. This skeleton does not perform that handoff.'
-    : `${platform} adapter is not yet supported; this release checks macOS and Linux (WSL2 uses the Linux path).`;
+  if (context.platform === 'win32') return inspectWindows(context, { distro: options.distro });
   return {
-    platform, arch: context.arch, supported: false,
-    message,
+    platform: context.platform, arch: context.arch, supported: false,
+    message: `${context.platform} adapter is not yet supported; this release checks macOS, Linux and Windows (Windows installs through WSL2).`,
     prerequisites: [], tools: [], pathConflicts: [],
   };
 }

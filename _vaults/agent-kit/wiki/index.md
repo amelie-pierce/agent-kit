@@ -6,11 +6,11 @@ date: 2026-10-26
 
 # Agent Kit
 
-Agent Kit is a Node CLI for per-person Firstmate and tool setup. It has read-only `check` and `plan` commands and macOS/Linux `install` paths; the [README](../../../README.md) states the current partial-install boundary (README.md:1-15; README.md:17-37).
+Agent Kit is a Node CLI for per-person Firstmate and tool setup. It has read-only `check` and `plan` commands, macOS/Linux `install` paths, and a Windows entry that hands off to the Linux install inside WSL2; the [README](../../../README.md) states the current partial-install boundary (README.md:1-15; README.md:17-37).
 
 ## Operating mode and authority
 
-Read this index before scanning the repository. Compile focused notes only when task work establishes new facts. Live code wins, then the manifest and schema, then this wiki. Start at `bin/agent-kit.mjs` for CLI dispatch, `src/kit.mjs` for validation and read-only result assembly, `src/install/macos.mjs` for the shared installation phases, `src/platforms/` for platform checks, and `manifests/` for pins and npm locks (bin/agent-kit.mjs:1-33; src/kit.mjs:11-37; src/install/macos.mjs:233-268; src/platforms/index.mjs:1-16).
+Read this index before scanning the repository. Compile focused notes only when task work establishes new facts. Live code wins, then the manifest and schema, then this wiki. Start at `bin/agent-kit.mjs` for CLI dispatch, `src/kit.mjs` for validation and read-only result assembly, `src/install/macos.mjs` for the shared installation phases, `src/platforms/` for platform checks, `src/install/windows.mjs` and `windows/agent-kit.ps1` for the Windows handoff, and `manifests/` for pins and npm locks (bin/agent-kit.mjs:1-33; src/kit.mjs:11-37; src/install/macos.mjs:233-268; src/platforms/index.mjs:1-16).
 
 | Area | Index |
 | --- | --- |
