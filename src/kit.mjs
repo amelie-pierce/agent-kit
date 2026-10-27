@@ -73,16 +73,16 @@ export function parseArgs(argv, platform = process.platform) {
   if (root !== undefined) {
     if (!['doctor', 'upgrade', 'repair', 'uninstall'].includes(command)) throw new Error('--root applies only to doctor and lifecycle commands; use setup for a new root');
     if (installRoot) throw new Error('--root conflicts with --install-root; pass one of them');
-    if (platform === 'win32') linuxPath(root, '--root');
+    if (platform === 'win32' && command !== 'doctor') linuxPath(root, '--root');
     else if (!isAbsolute(root)) throw new Error('--root must be absolute');
-    installRoot = join(root, '.tools');
+    installRoot = platform === 'win32' && command !== 'doctor' ? posix.join(root, '.tools') : join(root, '.tools');
   }
   if (dryRun && command !== 'install') throw new Error('--dry-run applies only to install');
   if (yes && !['upgrade', 'repair', 'uninstall'].includes(command)) throw new Error('--yes applies only to repair, upgrade and uninstall');
   if (removeFirstmateHome && command !== 'uninstall') throw new Error('--remove-firstmate-home applies only to uninstall');
   if (print && command !== 'secondmate-template') throw new Error('--print applies only to secondmate-template');
   if (command === 'secondmate-template' && !print) throw new Error('secondmate-template requires --print');
-  if (handoff && (!['install', 'doctor', 'repair', 'upgrade', 'uninstall'].includes(command) || dryRun)) throw new Error('--handoff applies only to install, doctor and lifecycle commands without --dry-run');
+  if (handoff && (!['install', 'repair', 'upgrade', 'uninstall'].includes(command) || dryRun)) throw new Error('--handoff applies only to install and lifecycle commands without --dry-run');
   if ((handoff || distro) && platform !== 'win32') throw new Error('--handoff and --distro apply only on Windows');
   if (firstmateHome && !installRoot) throw new Error('--firstmate-home requires --install-root');
   if (firstmateHome && ['doctor', 'upgrade', 'repair', 'uninstall', 'secondmate-template'].includes(command)) throw new Error('--firstmate-home does not apply to this command');

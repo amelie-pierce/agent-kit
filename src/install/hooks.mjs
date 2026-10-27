@@ -378,28 +378,30 @@ export function previewUnregister({ home, installRoot, receipt }) {
   const config = join(home, '.codex', 'config.toml');
   plainParents(home, config);
   const source = safeFile(config);
-  let after = source;
+  let after = source, note;
   const previous = previousHooksSetting(receipt, root, config);
   if (previous !== undefined && source !== null) {
     // The install phase recorded whether it added the key or changed false to true.
-    // Refuse ambiguous TOML rather than resetting a person's later choice.
+    // Ambiguous or changed TOML is left as the person has it rather than reset.
     const lines = source.split(/\r?\n/);
     let section = '', at = -1;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       if (/^\[.*\]$/.test(line)) section = line.slice(1, -1).trim();
       else if (section === 'features' && /^hooks\s*=/.test(line)) {
-        if (at !== -1) throw new Error(`${config}: duplicate hooks setting; refusing removal`);
+        if (at !== -1) { note = 'duplicate hooks setting; left unchanged'; break; }
         at = i;
       }
     }
-    if (at === -1 || !/^hooks\s*=\s*true(?:\s*#.*)?$/.test(lines[at].trim())) throw new Error(`${config}: hooks setting changed; refusing removal`);
-    if (previous === null) lines.splice(at, 1);
-    else if (previous === false) lines[at] = lines[at].replace(/\btrue\b/, 'false');
-    else throw new Error(`${config}: invalid recorded hooks setting`);
-    after = lines.join(source.includes('\r\n') ? '\r\n' : '\n');
+    if (!note && (at === -1 || !/^hooks\s*=\s*true(?:\s*#.*)?$/.test(lines[at].trim()))) note = 'hooks setting changed since the kit set it; left unchanged';
+    if (!note && previous !== null && previous !== false) throw new Error(`${config}: invalid recorded hooks setting`);
+    if (!note) {
+      if (previous === null) lines.splice(at, 1);
+      else lines[at] = lines[at].replace(/\btrue\b/, 'false');
+      after = lines.join(source.includes('\r\n') ? '\r\n' : '\n');
+    }
   }
-  files.push({ path: config, before: source, after, changes: after !== source ? [{ op: 'restore', path: 'features.hooks', before: true, after: previous }] : [] });
+  files.push({ path: config, before: source, after, changes: after !== source ? [{ op: 'restore', path: 'features.hooks', before: true, after: previous }] : [], ...(note ? { note } : {}) });
   const skills = [];
   for (const [id, skill] of tools) for (const base of [join(home, '.claude', 'skills'), join(home, '.agents', 'skills')]) {
     const path = join(base, skill);

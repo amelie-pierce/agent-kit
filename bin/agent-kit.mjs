@@ -44,15 +44,10 @@ try {
     }
   } else if (options.command === 'doctor') {
     validateManifest(manifest);
-    if (context.platform === 'win32') {
-      const result = windowsLifecycle(options, context);
-      process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatWindows(result));
-      process.exitCode = result.exitCode;
-    } else {
-      const result = doctor(manifest, { installRoot: options.installRoot, home: process.env.HOME, env: process.env, nodeVersion: context.nodeVersion });
-      process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatDoctor(result));
-      process.exitCode = result.exitCode;
-    }
+    if (context.platform === 'win32') throw new Error('run doctor inside the WSL2 distribution');
+    const result = doctor(manifest, { installRoot: options.installRoot, home: process.env.HOME, env: process.env, nodeVersion: context.nodeVersion });
+    process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatDoctor(result));
+    process.exitCode = result.exitCode;
   } else if (['repair', 'upgrade', 'uninstall'].includes(options.command)) {
     validateManifest(manifest);
     if (context.platform === 'win32') {

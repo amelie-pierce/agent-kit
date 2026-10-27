@@ -83,6 +83,11 @@ function servicePlan(receipt, root, isRunning) {
     ['zoe-fleet-tower', 'close the tower through its own operator workflow']];
   return checks.filter(([id]) => isRunning(id, bin)).map(([id, step]) => ({ id, step }));
 }
+function unresolved(components, manifest, platform, arch, reported = []) {
+  const key = `${platform}-${arch}`;
+  const unreviewed = id => { const tool = manifest.tools.find(x => x.id === id); return !!tool && (tool.version.status !== 'verified' || tool.artifacts?.[key]?.status !== 'verified'); };
+  return components.filter(x => ['conflict', 'deferred', 'unverified'].includes(x.status) && !reported.includes(x.id) && !(x.status === 'unverified' && unreviewed(x.id)));
+}
 function assertStopped(running) {
   if (running.length) throw new Error(`kit services are running: ${running.map(x => `${x.id}: ${x.step}`).join('; ')}`);
 }
@@ -163,7 +168,7 @@ export function planRepair(manifest, { installRoot, home, env = process.env, isR
   if (receipt.setup?.answers?.globalHooks !== false) try { hooks = previewHooks(manifest, { home, installRoot: root }); }
   catch (error) { hookError = error.message; }
   const tower = towerConfig(receipt, env, home, firstmate);
-  const towerAction = tower && stat(tower.path)?.isFile() && digest(tower.path) === tower.ownedSha256 ? 'verify' : tower ? 'restore if unchanged or missing' : 'not installed';
+  const towerAction = !tower ? 'not installed' : !stat(tower.path) ? 'restore missing' : digest(tower.path) === tower.ownedSha256 ? 'verify' : 'backup and replace changed';
   return { command: 'repair', root, release: receipt.release, files, firstmate: { path: firstmate, status: fm?.status || 'unknown', action: 'report only' },
     hooks: hooks ? { changed: hooks.changed } : { changed: false, ...(hookError ? { note: hookError } : {}) }, tower: towerAction, running: servicePlan(receipt, root, isRunning),
     note: 'Plan only. Confirmation verifies the reviewed release, privately backs up changed kit files, and restores kit registrations. Firstmate data, state, config and projects remain in place.' };
@@ -229,7 +234,9 @@ export async function applyRepair(manifest, options = {}) {
     const result = await installPlatform(manifest, { ...options, home: options.home, installRoot: plan.root, firstmateHome: homeOf(current),
       harness: answer.harness || 'claude', withFigma: answer.figma || false, withTower: answer.tower !== false, globalHooks: answer.globalHooks !== false,
       towerState: receipt.setup?.paths?.towerState });
-    if (result.components.some(x => ['conflict', 'deferred', 'unverified'].includes(x.status) && x.id !== 'firstmate')) throw new Error('repair has unresolved kit components');
+    const firstmateOk = result.components.some(x => x.id === 'firstmate' && ['installed', 'skipped'].includes(x.status));
+    if (unresolved(result.components, manifest, options.platform || process.platform, options.arch || process.arch, firstmateOk ? ['firstmate'] : ['firstmate', 'zoe-fleet-tower']).length)
+      throw new Error('repair has unresolved kit components');
     const wrapper = current.phases['treehouse-root'];
     if (wrapper) {
       const path = phaseOwned(plan.root, 'treehouse-root', wrapper), actual = digest(path);
@@ -283,7 +290,8 @@ export function planUninstall({ installRoot, home, env = process.env, isRunning 
   const wrapperPath = wrapper ? phaseOwned(root, 'treehouse-root', wrapper) : null;
   return { command: 'uninstall', root, firstmate, removeFirstmateHome, running,
     kitPaths: ['kit', 'releases', 'npm-cache', 'cargo-home', 'empty-user.npmrc', 'empty-global.npmrc', 'receipt.json'].map(name => join(root, name)).filter(path => !!stat(path)),
-    registration: { files: registration.files.filter(x => x.changes.length).map(x => x.path), skills: registration.skills.map(x => x.path) },
+    registration: { files: registration.files.filter(x => x.changes.length).map(x => x.path), skills: registration.skills.map(x => x.path),
+      kept: registration.files.filter(x => x.note).map(x => `${x.path}: ${x.note}`) },
     tower: tower?.path && digest(tower.path) === tower.ownedSha256 ? { path: tower.path, action: 'remove unchanged kit config' } : { path: tower?.path || null, action: 'keep changed or absent config' },
     wrapper: wrapperPath ? { path: wrapperPath, action: digest(wrapperPath) === wrapper.ownedSha256 ? 'remove unchanged wrapper' : 'keep changed or absent wrapper' } : null,
     note: removeFirstmateHome ? 'Plan only. Exact path confirmation and clean-work checks authorize removing the Firstmate home; the root, fleet state, private backups and final record stay.'
@@ -371,6 +379,7 @@ export async function applyUpgrade(plan, options = {}) {
   assertStopped(servicePlan(receipt, root, options.isRunning || processRunning));
   if (receipt.release !== plan.fromRelease || (receipt.setup?.kit?.commit || null) !== plan.fromCommit || (receipt.setup?.answers?.channel || 'releases') !== plan.channel)
     throw new Error('kit receipt changed since the upgrade plan; rerun upgrade');
+  if (plan.answers) { receipt.setup ||= {}; receipt.setup.answers = plan.answers; }
   const releaseTarget = join(root, 'releases', plan.toRelease);
   const hadRelease = !!stat(releaseTarget);
   const oldGlobal = [];
@@ -381,6 +390,7 @@ export async function applyUpgrade(plan, options = {}) {
       data: st?.isFile() ? readFileSync(path) : st?.isSymbolicLink() ? readlinkSync(path) : null });
   };
   try {
+    if (plan.answers) await atomicJson(join(root, 'receipt.json'), receipt);
     const preview = previewHooks(plan.manifest, { home: options.home, installRoot: root });
     for (const file of preview.files) capture(file.path);
     for (const skill of preview.skills) capture(skill.path);
@@ -391,7 +401,7 @@ export async function applyUpgrade(plan, options = {}) {
     const target = await import(pathToFileURL(join(kitTarget, 'src', 'update.mjs')).href);
     const result = await target.applyUpdate(plan.manifest, { ...options, installRoot: root, home: options.home, platform: options.platform || process.platform,
       arch: options.arch || process.arch, reviewed: true, isRunning: () => false });
-    if (result.components.some(x => ['conflict', 'deferred', 'unverified'].includes(x.status))) throw new Error('upgrade has unresolved components; prior kit files restored');
+    if (unresolved(result.components, plan.manifest, options.platform || process.platform, options.arch || process.arch).length) throw new Error('upgrade has unresolved components; prior kit files restored');
     const updated = receiptAt(root).receipt;
     const updatedWrapper = updated.phases['treehouse-root'];
     if (updatedWrapper && updated.phases.treehouse) {
@@ -402,7 +412,6 @@ export async function applyUpgrade(plan, options = {}) {
       updatedWrapper.ownedSha256 = sha(body); updatedWrapper.version = plan.toRelease;
     }
     updated.setup ||= {}; updated.setup.kit = { commit: plan.commit, path: kitTarget };
-    if (plan.answers) updated.setup.answers = plan.answers;
     await atomicJson(join(root, 'receipt.json'), updated);
     return { ...plan, apply: true, status: 'upgraded', components: result.components };
   } catch (error) {
@@ -430,6 +439,7 @@ export function formatLifecycle(result) {
   if (result.hooks) lines.push(`Hooks and skills: ${result.hooks.note || (result.hooks.changed ? 'kit registration will be refreshed' : 'already registered or not selected')}`);
   for (const path of result.registration?.files || []) lines.push(`Remove kit registration from ${path}`);
   for (const path of result.registration?.skills || []) lines.push(`Remove kit skill link ${path}`);
+  for (const item of result.registration?.kept || []) lines.push(`Keep ${item}`);
   for (const path of result.kitPaths || []) lines.push(`Remove kit path (keep private backup where applicable): ${path}`);
   if (result.firstmate) lines.push(`Firstmate: ${typeof result.firstmate === 'string' ? result.firstmate : `${result.firstmate.status}; ${result.firstmate.action}; ${result.firstmate.path}`}`);
   if (result.firstmatePinChange) lines.push(`Firstmate pin: ${result.firstmateReady ? 'guarded update already verified' : 'run /updatefirstmate in the Firstmate home before applying'}`);
