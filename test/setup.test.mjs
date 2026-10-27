@@ -182,6 +182,9 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   assert.match(again.text, /1\. kit source at its pinned commit: complete/);
   assert.match(again.text, /Step 1 of 7: kit source at its pinned commit\n  complete: kit source verified at its pinned commit/);
   assert.equal(f.downloads.length, 2, 'rerun downloads nothing');
+  const override = f.ctx(['--yes', '--dry-run', '--root', f.root, '--channel', 'releases']);
+  assert.equal(await setup(f.fixtureManifest, override), 0, override.text);
+  assert.match(override.text, /9\. Update channel: releases \(from --channel; your saved answer was main\)/);
   // --reconfigure asks again.
   const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, 'n', 'n', 'n', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, reconfigure), 0, reconfigure.text);

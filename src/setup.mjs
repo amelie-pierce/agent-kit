@@ -246,18 +246,19 @@ async function collectAnswers(flags, saved, ctx, io, paths) {
   if (answers.starterMate?.create && !answers.starterMate.scope) throw new Error('a starter second mate needs a one-line scope; pass --starter-scope');
   if (flags.channel !== undefined) answers.channel = flags.channel;
   else if (want('channel')) answers.channel = yes ? 'releases' : await io.valid('9. Update channel: releases (reviewed releases) or main', 'releases', validators.channel);
-  return { answers, current, gitStale: yes ? stale : null };
+  const channelOverride = flags.channel !== undefined && !flags.reconfigure && saved.channel && saved.channel !== flags.channel ? saved.channel : null;
+  return { answers, current, gitStale: yes ? stale : null, channelOverride };
 }
 
 const yesNo = value => value ? 'on' : 'off';
 const indent = text => `${text.trimEnd().replace(/^/gm, '  ')}\n`;
-export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, kit, home }) {
+export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home }) {
   const g = answers.gitIdentity, tower = plan.plan?.towerConfig;
   const lines = ['', 'Agent Kit setup summary. Nothing has been written yet.', 'Answers:',
     `  1. Root folder: ${paths.root}`, `  2. Agent CLIs: ${harnessLabel(answers.harness)}`, `  3. Figma support: ${yesNo(answers.figma)}`, `  4. Fleet tower: ${yesNo(answers.tower)}`,
     `  5. Global hooks and skills: ${yesNo(answers.globalHooks)}`, `  6. GitHub owner: ${answers.githubOwner || 'none'} (recorded only; nothing is created on GitHub)`,
     `  7. Git identity: ${g.action === 'set' ? `set user.name "${g.name}" and user.email "${g.email}" with git config --global` : `keep (${gitCurrent.name || 'no name'} <${gitCurrent.email || 'no email'}>)`}${gitStale ? `; your saved "${gitStale.name}" <${gitStale.email}> was not applied because git's value changed since (pass --git-name and --git-email, or --reconfigure, to change it)` : ''}`,
-    `  8. Starter second mate: ${answers.starterMate.create ? `${answers.starterMate.id}: ${answers.starterMate.scope}` : 'no'}`, `  9. Update channel: ${answers.channel}`,
+    `  8. Starter second mate: ${answers.starterMate.create ? `${answers.starterMate.id}: ${answers.starterMate.scope}` : 'no'}`, `  9. Update channel: ${answers.channel}${channelOverride ? ` (from --channel; your saved answer was ${channelOverride})` : ''}`,
     'Derived paths:', `  Firstmate home: ${paths.firstmateHome}`, `  Kit install root: ${paths.installRoot} (private receipt ${join(paths.installRoot, 'receipt.json')})`,
     `  Kit source: ${kit.commit ? `${paths.kit} at ${kit.commit}` : 'this checkout (not recorded)'}`,
     `  Treehouse pool: ${paths.treehousePool} through the kit wrapper ${paths.wrapper}`,
@@ -401,13 +402,13 @@ export async function setup(manifest, ctx) {
       output.write(`${root} needs confirmation: ${rootCheck.reasons.join('; ')}.\nThe kit only adds firstmate/, .tools/, .treehouse/ and .zoe-fleet/ there and leaves everything else as it is.\n`);
       if (!(flags['allow-existing-root'] || (io && await io.confirm('Use it anyway', false)))) throw new Error(`refusing ${root}: ${rootCheck.reasons.join('; ')}. Choose another root${io ? '' : ', or pass --allow-existing-root after checking it yourself'}`);
     } else if (io && flags.root === undefined && !(await io.confirm(`   Use ${root}`, true))) throw new Error('setup cancelled; nothing was written');
-    const { answers, current: gitCurrent, gitStale } = await collectAnswers(flags, receipt?.setup?.answers || {}, ctx, io || { confirm: async (_q, d) => d }, paths);
+    const { answers, current: gitCurrent, gitStale, channelOverride } = await collectAnswers(flags, receipt?.setup?.answers || {}, ctx, io || { confirm: async (_q, d) => d }, paths);
     const options = { command: 'plan', harness: answers.harness, withFigma: answers.figma, withTower: answers.tower, globalHooks: answers.globalHooks,
       installRoot: paths.installRoot, firstmateHome: paths.firstmateHome, towerState: paths.towerState };
     const context = { env, platform, arch: ctx.arch, nodeVersion: ctx.nodeVersion, procVersion: ctx.procVersion, osRelease: ctx.osRelease, libc: ctx.libc, runCommand: ctx.runCommand, applicationDirs: ctx.applicationDirs };
     const plan = evaluatePlan(manifest, context, options).result;
     const blockers = blocking(plan);
-    output.write(formatSummary({ answers, paths, plan, gitCurrent, gitStale, kit, home }));
+    output.write(formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home }));
     if (blockers.length) {
       output.write('Install these yourself first, then rerun the installer (the kit never installs them):\n');
       for (const issue of blockers) output.write(`  - ${issue.id}: ${issue.reason}\n`);

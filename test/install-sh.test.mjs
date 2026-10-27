@@ -44,8 +44,8 @@ for arg in "$@"; do printf 'node-arg:%s\\n' "$arg" >> '${log}'; done
 exit "\${NODE_EXIT:-0}"`);
   stub('xcode-select', 'exit "${XCODE:-0}"');
   stub('brew', 'exit 0');
-  const run = (args, env = {}) => {
-    const result = spawnSync(bash, [script, ...args], { encoding: 'utf8', cwd: base,
+  const run = (args, env = {}, input = '') => {
+    const result = spawnSync(bash, [script, ...args], { encoding: 'utf8', cwd: base, input,
       env: { HOME: home, PATH: `${stubs}:${sys}`, TMPDIR: tmp, ...env } });
     const calls = existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean) : [];
     rmSync(log, { force: true });
@@ -74,7 +74,7 @@ test('install.sh --help prints usage without touching anything', posixOnly, t =>
 test('install.sh guides missing or old prerequisites and never runs sudo or the kit', posixOnly, t => {
   const f = fixture(t);
   rmSync(join(f.stubs, 'node'));
-  const result = f.run([], { GIT_VERSION: '2.19.0' });
+  const result = f.run(['--yes'], { GIT_VERSION: '2.19.0' });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Install these yourself first[\s\S]*Node\.js 24\.15\.0 or newer is not on PATH[\s\S]*nodejs\.org\/en\/download/);
   assert.match(result.stderr, /git 2\.19\.0 is older than 2\.20\.0/);
@@ -82,7 +82,7 @@ test('install.sh guides missing or old prerequisites and never runs sudo or the 
   if (process.platform === 'linux') assert.match(result.stderr, /sudo asks for your administrator password, and this installer never runs it/);
   if (process.platform === 'darwin') {
     rmSync(join(f.stubs, 'brew'));
-    const mac = f.run([], { XCODE: '2' });
+    const mac = f.run(['--yes'], { XCODE: '2' });
     assert.match(mac.stderr, /xcode-select --install/);
     assert.match(mac.stderr, /Homebrew: install it from https:\/\/brew\.sh/);
   }
@@ -90,7 +90,7 @@ test('install.sh guides missing or old prerequisites and never runs sudo or the 
 
 test('install.sh asks for your own gh login and fetches nothing without it', posixOnly, t => {
   const f = fixture(t);
-  const result = f.run([], { GH_AUTH: '1' });
+  const result = f.run(['--yes'], { GH_AUTH: '1' });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /gh auth login/);
   assert.ok(!result.calls.some(x => / api | fetch /.test(x)), result.calls.join('\n'));
@@ -115,18 +115,18 @@ test('install.sh fetches the newest reviewed release with a one-shot gh credenti
 
 test('install.sh main channel, an exact commit, refusals and the setup exit code', posixOnly, t => {
   const f = fixture(t);
-  const mainRun = f.run(['--channel', 'main'], { HEAD_COMMIT: main });
+  const mainRun = f.run(['--yes', '--channel', 'main'], { HEAD_COMMIT: main });
   assert.equal(mainRun.status, 0, mainRun.stderr);
   assert.ok(mainRun.calls.includes('gh api repos/amelie-pierce/agent-kit/commits/main --jq .sha'));
   assert.deepEqual(mainRun.nodeArgs.slice(-2), ['--channel', 'main']);
-  const diverged = f.run(['--commit', 'b'.repeat(40)], { GH_RELATION: 'diverged' });
+  const diverged = f.run(['--yes', '--commit', 'b'.repeat(40)], { GH_RELATION: 'diverged' });
   assert.equal(diverged.status, 1);
   assert.match(diverged.stderr, /is not on main, so it is not a reviewed kit commit/);
   assert.ok(!diverged.calls.some(x => x.includes(' fetch ')));
-  const old = f.run([], { OLD_KIT: '1' });
+  const old = f.run(['--yes'], { OLD_KIT: '1' });
   assert.equal(old.status, 1);
   assert.match(old.stderr, /predates this installer; rerun with --channel main/);
-  assert.equal(f.run([], { NODE_EXIT: '3' }).status, 3);
+  assert.equal(f.run(['--yes'], { NODE_EXIT: '3' }).status, 3);
   assert.match(f.run(['--commit', 'abc']).stderr, /full 40-character commit SHA/);
   assert.match(f.run(['--channel', 'nightly']).stderr, /releases or main/);
   assert.match(f.run(['--kit-commit', release]).stderr, /use --commit/);
@@ -159,6 +159,42 @@ test('install.sh reuses the update channel saved in the receipt at the chosen or
   assert.equal(fetched(unreadable), release, 'an unreadable receipt falls back to releases; setup reports the receipt itself');
 });
 
+test('install.sh asks the root folder first, reads that root\'s saved channel, and passes the root to setup', posixOnly, t => {
+  const f = fixture(t);
+  const save = (dir, channel) => { mkdirSync(dir, { recursive: true }); writeFileSync(join(dir, 'receipt.json'), JSON.stringify({ setup: { answers: { channel } } })); };
+  const fetched = result => result.calls.find(x => x.includes(' fetch ')).split(' ').pop();
+  const rootArgs = result => result.nodeArgs.slice(6, 8);
+
+  const chosen = join(f.base, 'Work', 'Agentic');
+  save(join(chosen, '.tools'), 'main');
+  const rerun = f.run([], { HEAD_COMMIT: main }, `${chosen}\n`);
+  assert.equal(rerun.status, 0, rerun.stderr);
+  assert.match(rerun.stderr, /1\. Root folder for your agent setup .*\[~\/Agentic\]: /);
+  assert.doesNotMatch(rerun.stderr, /Use .*\(y\/n\)/, 'a root with a receipt is a resume, so it is not confirmed again');
+  assert.match(rerun.stderr, /Using the main channel saved in .*Work\/Agentic\/\.tools\/receipt\.json/);
+  assert.equal(fetched(rerun), main);
+  assert.deepEqual(rootArgs(rerun), ['--root', chosen]);
+
+  save(join(f.home, 'Agentic', '.tools'), 'main');
+  const other = f.run([], {}, '~/Other\ny\n');
+  assert.equal(other.status, 0, other.stderr);
+  assert.match(other.stderr, new RegExp(`Use ${join(f.home, 'Other')} \\(y/n\\)`));
+  assert.doesNotMatch(other.stderr, /saved in/, 'the receipt at ~/Agentic belongs to another root');
+  assert.equal(fetched(other), release);
+  assert.deepEqual(rootArgs(other), ['--root', join(f.home, 'Other')]);
+
+  const retried = f.run([], { HEAD_COMMIT: main }, 'relative/path\n\n');
+  assert.match(retried.stderr, /must be an absolute path or start with ~\/ \(got relative\/path\)/);
+  assert.deepEqual(rootArgs(retried), ['--root', join(f.home, 'Agentic')]);
+  const cancelled = f.run([], {}, '~/Other\nn\n');
+  assert.equal(cancelled.status, 1);
+  assert.match(cancelled.stderr, /setup cancelled; nothing was written/);
+  assert.ok(!cancelled.calls.some(x => / api | fetch |node-arg/.test(x)), cancelled.calls.join('\n'));
+  const ended = f.run([]);
+  assert.equal(ended.status, 1);
+  assert.match(ended.stderr, /input ended before every question was answered; pass --yes/);
+});
+
 test('install.sh --kit-dir uses a local clean checkout; a dry run continues before sign-in', posixOnly, t => {
   const f = fixture(t);
   const local = join(f.base, 'local-kit');
@@ -167,8 +203,10 @@ test('install.sh --kit-dir uses a local clean checkout; a dry run continues befo
   const result = f.run(['--kit-dir', local, '--dry-run', '--yes'], { GH_AUTH: '1' });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stderr, /not signed in to GitHub yet/);
-  assert.deepEqual(result.nodeArgs, [join(local, 'bin', 'agent-kit.mjs'), 'setup', '--kit-dir', local, '--kit-commit', release, '--dry-run', '--yes']);
+  assert.deepEqual(result.nodeArgs, [join(local, 'bin', 'agent-kit.mjs'), 'setup', '--kit-dir', local, '--kit-commit', release, '--root', join(f.home, 'Agentic'), '--dry-run', '--yes']);
   assert.ok(!result.calls.some(x => x.startsWith('gh api')));
-  assert.equal(f.run(['--kit-dir', local], { GH_AUTH: '1' }).status, 1, 'a real run still needs your gh login');
-  assert.match(f.run(['--kit-dir', local, '--commit', 'b'.repeat(40)]).stderr, /differs from the --kit-dir checkout/);
+  const unsigned = f.run(['--yes', '--kit-dir', local], { GH_AUTH: '1' });
+  assert.equal(unsigned.status, 1, 'a real run still needs your gh login');
+  assert.match(unsigned.stderr, /gh auth login/);
+  assert.match(f.run(['--yes', '--kit-dir', local, '--commit', 'b'.repeat(40)]).stderr, /differs from the --kit-dir checkout/);
 });

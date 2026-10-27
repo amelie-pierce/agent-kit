@@ -37,7 +37,7 @@ Setup flags: --harness claude|codex|claude,codex, --no-figma, --no-tower, --no-g
 EOF
 }
 
-commit='' kit_dir='' channel='' dry_run=0 root=${HOME:-}/Agentic install_root=''
+commit='' kit_dir='' channel='' dry_run=0 yes=0 root='' install_root=''
 pass=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -48,6 +48,7 @@ while [ "$#" -gt 0 ]; do
     --root) [ "$#" -ge 2 ] || die '--root needs a value'; root=$2 ;;
     --install-root) [ "$#" -ge 2 ] || die '--install-root needs a value'; install_root=$2 ;;
     --dry-run) dry_run=1 ;;
+    --yes) yes=1 ;;
     --kit-commit) die '--kit-commit is set by install.sh; use --commit' ;;
   esac
   pass+=("$1")
@@ -63,6 +64,44 @@ say '  2. check that you are signed in to GitHub with your own gh login (it neve
 say '  3. fetch the reviewed kit at one pinned commit and run its guided setup, which asks its questions,'
 say '     shows a summary and writes nothing until you say yes.'
 [ "$dry_run" = 1 ] && say '  --dry-run: nothing is fetched into your root and nothing is written.'
+
+expand_root() {
+  case "$1" in
+    \~) printf '%s' "$HOME" ;;
+    \~/*) printf '%s' "$HOME/${1#\~/}" ;;
+    /*) printf '%s' "$1" ;;
+    *) return 1 ;;
+  esac
+}
+ask() {  # <question> <default>; the answer is in $reply
+  printf '%s [%s]: ' "$1" "$2" >&2
+  IFS= read -r reply || [ -n "$reply" ] || die 'input ended before every question was answered; pass --yes to accept the shown defaults'
+  [ -t 0 ] || printf '\n' >&2
+  reply=${reply:-$2}
+}
+default_root=\~/Agentic root_given=1
+if [ -z "$root" ]; then
+  root_given=0
+  root=$default_root
+  if [ "$yes" = 0 ]; then
+    for attempt in 1 2 3; do
+      ask '1. Root folder for your agent setup (holds firstmate/, .tools/, .treehouse/ and .zoe-fleet/)' "$default_root"
+      expand_root "$reply" >/dev/null && break
+      say "root folder must be an absolute path or start with ~/ (got $reply)"
+      [ "$attempt" = 3 ] && die "no valid answer to: 1. Root folder"
+    done
+    root=$reply
+  fi
+fi
+root_path=$(expand_root "$root") || die "root folder must be an absolute path or start with ~/ (got $root)"
+receipt=${install_root:-$root_path/.tools}/receipt.json
+if [ "$root_given" = 0 ] && [ "$yes" = 0 ] && [ ! -f "$receipt" ]; then
+  for attempt in 1 2 3 4; do
+    [ "$attempt" = 4 ] && die "no y or n answer to: Use $root_path"
+    ask "   Use $root_path (y/n)" y
+    case "$reply" in [yY]|[yY][eE][sS]) break ;; [nN]|[nN][oO]) die 'setup cancelled; nothing was written' ;; esac
+  done
+fi
 
 version_of() { "$@" 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true; }
 version_ge() {
@@ -143,8 +182,6 @@ if [ -n "$kit_dir" ]; then
 else
   if [ -z "$commit" ]; then
     if [ -z "$channel" ]; then
-      case "$root" in \~) root=$HOME ;; \~/*) root=$HOME/${root#\~/} ;; esac
-      receipt=${install_root:-$root/.tools}/receipt.json
       if [ -f "$receipt" ]; then
         # A rerun keeps the update channel saved in this install's receipt; an explicit --channel wins.
         channel=$(node -e 'try { const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).setup?.answers?.channel; if (c === "releases" || c === "main") process.stdout.write(c); } catch {}' "$receipt" || true)
@@ -175,7 +212,9 @@ else
 fi
 
 set +e
-node "$kit/bin/agent-kit.mjs" setup --kit-dir "$kit" --kit-commit "$commit" ${pass[@]+"${pass[@]}"}
+root_arg=()
+[ "$root_given" = 1 ] || root_arg=(--root "$root_path")
+node "$kit/bin/agent-kit.mjs" setup --kit-dir "$kit" --kit-commit "$commit" ${root_arg[@]+"${root_arg[@]}"} ${pass[@]+"${pass[@]}"}
 status=$?
 set -e
 exit "$status"

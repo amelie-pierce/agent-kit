@@ -27,7 +27,7 @@ function Invoke-Native([string]$File, [string[]]$Arguments) {
 
 if ([Environment]::OSVersion.Platform -ne 'Win32NT') { Stop-Kit 'install.ps1 is for Windows. On macOS or Linux run: bash install.sh' }
 
-$dryRun = $false; $channel = ''; $commit = ''; $kitDir = ''; $root = '~/Agentic'; $installRoot = ''; $distro = ''
+$dryRun = $false; $yes = $false; $channel = ''; $commit = ''; $kitDir = ''; $root = ''; $installRoot = ''; $distro = ''
 $pass = @()
 for ($i = 0; $i -lt $args.Count; $i++) {
   $arg = "$($args[$i])"
@@ -47,6 +47,7 @@ for ($i = 0; $i -lt $args.Count; $i++) {
   }
   if ($arg -eq '--kit-commit') { Stop-Kit '--kit-commit is set by the installer; use --commit' }
   if ($arg -eq '--handoff') { continue }
+  if ($arg -eq '--yes') { $yes = $true }
   $pass += $arg
 }
 if ($channel -notin @('', 'releases', 'main')) { Stop-Kit '--channel must be releases or main' }
@@ -59,6 +60,46 @@ Say '  3. fetch the reviewed kit at one pinned commit into a temporary folder an
 Say '     WSL2 and hands off to install.sh inside your WSL2 distribution; the questions and the install happen there.'
 Say '  Steps that need administrator rights or a restart are printed for you to run yourself.'
 if ($dryRun) { Say '  -DryRun: Windows and WSL2 are checked and the handoff command is printed; nothing is handed off or installed.' }
+
+$wsl = Join-Path $env:SystemRoot 'System32\wsl.exe'
+$saved = $null
+# Reads the receipt at the chosen root inside WSL; $null when there is none.
+function Read-Receipt {
+  if (-not (Test-Path -LiteralPath $wsl)) { return $null }
+  $base = if ($installRoot) { $installRoot } elseif ($root -eq '~') { '.' } elseif ($root.StartsWith('~/')) { $root.Substring(2) } else { $root }
+  $path = if ($installRoot) { "$base/receipt.json" } else { "$base/.tools/receipt.json" }
+  $target = if ($distro) { @('-d', $distro) } else { @() }
+  $read = Invoke-Native $wsl ($target + @('--exec', 'sh', '-c', 'set -f; IFS=; cd || exit 1; cat -- $1', 'agent-kit', $path))
+  if ($read.Code -ne 0) { return $null }
+  try { $savedChannel = "$(($read.Out | ConvertFrom-Json).setup.answers.channel)" } catch { $savedChannel = '' }
+  return @{ Path = $path; Channel = $savedChannel }
+}
+if (-not $root) {
+  $root = '~/Agentic'
+  if (-not $yes) {
+    for ($attempt = 1; ; $attempt++) {
+      $answer = Read-Host '1. Root folder for your agent setup inside WSL (holds firstmate/, .tools/, .treehouse/ and .zoe-fleet/) [~/Agentic]'
+      if ($null -eq $answer) { Stop-Kit 'input ended before every question was answered; pass --yes to accept the shown defaults' }
+      if (-not $answer.Trim()) { $answer = '~/Agentic' }
+      $answer = $answer.Trim()
+      if ($answer -match '^(/|~/)[A-Za-z0-9._/-]*[A-Za-z0-9._-]$' -and @($answer.Split('/') | Select-Object -Skip 1 | Where-Object { $_ -in @('', '.', '..') }).Count -eq 0 -and $answer -notmatch '^/mnt(/|$)') { break }
+      Say "The root folder must be a Linux path inside WSL, such as ~/Agentic or /home/<you>/Agentic, using letters, digits, ., _, - and /, and not a Windows drive under /mnt (got $answer)"
+      if ($attempt -ge 3) { Stop-Kit 'no valid answer to: 1. Root folder' }
+    }
+    $root = $answer
+    $saved = Read-Receipt
+    if (-not $saved) {
+      for ($attempt = 1; ; $attempt++) {
+        $confirm = Read-Host "   Use $root inside WSL (y/n) [y]"
+        if ($null -eq $confirm) { Stop-Kit 'input ended before every question was answered; pass --yes to accept the shown defaults' }
+        if ($confirm.Trim() -in @('', 'y', 'yes')) { break }
+        if ($confirm.Trim() -in @('n', 'no')) { Stop-Kit 'setup cancelled; nothing was written' }
+        if ($attempt -ge 3) { Stop-Kit "no y or n answer to: Use $root" }
+      }
+    }
+  }
+  $pass = @('--root', $root) + $pass
+}
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 if ((New-Object Security.Principal.WindowsPrincipal($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -92,17 +133,10 @@ try {
     Say "Using the local kit checkout $kit."
   } else {
     if (-not $commit) {
-      $wsl = Join-Path $env:SystemRoot 'System32\wsl.exe'
-      if (-not $channel -and (Test-Path -LiteralPath $wsl)) {
+      if (-not $channel) {
         # A rerun keeps the update channel saved in the receipt inside WSL; an explicit --channel wins.
-        $base = if ($installRoot) { $installRoot } elseif ($root -eq '~') { '.' } elseif ($root.StartsWith('~/')) { $root.Substring(2) } else { $root }
-        $receipt = if ($installRoot) { "$base/receipt.json" } else { "$base/.tools/receipt.json" }
-        $target = if ($distro) { @('-d', $distro) } else { @() }
-        $read = Invoke-Native $wsl ($target + @('--exec', 'sh', '-c', 'set -f; IFS=; cd || exit 1; cat -- $1', 'agent-kit', $receipt))
-        if ($read.Code -eq 0) {
-          try { $saved = "$(($read.Out | ConvertFrom-Json).setup.answers.channel)" } catch { $saved = '' }
-          if ($saved -in @('releases', 'main')) { $channel = $saved; Say "Using the $channel channel saved in $receipt inside WSL." }
-        }
+        if (-not $saved) { $saved = Read-Receipt }
+        if ($saved -and $saved.Channel -in @('releases', 'main')) { $channel = $saved.Channel; Say "Using the $channel channel saved in $($saved.Path) inside WSL." }
       }
       if (-not $channel) { $channel = 'releases' }
       $query = if ($channel -eq 'releases') { @('api', "repos/$Repo/commits?sha=main&path=manifests/pilot-skeleton.json&per_page=1", '--jq', '.[0].sha') }
