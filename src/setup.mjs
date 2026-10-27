@@ -252,6 +252,7 @@ export async function collectAnswers(flags, saved, ctx, io, paths) {
   return { answers, current, gitStale: yes ? stale : null, channelOverride };
 }
 
+const shellQuote = value => `'${value.replaceAll("'", "'\\''")}'`;
 const yesNo = value => value ? 'on' : 'off';
 const indent = text => `${text.trimEnd().replace(/^/gm, '  ')}\n`;
 export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, keyPlan = { status: 'not set' } }) {
@@ -262,7 +263,7 @@ export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, chan
     `  7. Git identity: ${g.action === 'set' ? `set user.name "${g.name}" and user.email "${g.email}" with git config --global` : `keep (${gitCurrent.name || 'no name'} <${gitCurrent.email || 'no email'}>)`}${gitStale ? `; your saved "${gitStale.name}" <${gitStale.email}> was not applied because git's value changed since (pass --git-name and --git-email, or --reconfigure, to change it)` : ''}`,
     `  8. Starter second mate: ${answers.starterMate.create ? `${answers.starterMate.id}: ${answers.starterMate.scope}` : 'no'}`, `  9. Update channel: ${answers.channel}${channelOverride ? ` (from --channel; your saved answer was ${channelOverride})` : ''}`,
     `  10. Optional TYPESAFE_API_KEY: ${keyPlan.status} (Firstmate home .env; without it Jev routing is off and normal dispatch rules apply)`,
-    ...(keyPlan.status === 'will set' ? [] : [`      Add, change or remove it later from your own terminal with the hidden prompt: bash install.sh --reconfigure keys --root ${paths.root}`]),
+    ...(keyPlan.status === 'will set' ? [] : [`      Add, change or remove it later from your own terminal with the hidden prompt: bash install.sh --reconfigure keys --root ${shellQuote(paths.root)}${paths.installRoot === join(paths.root, '.tools') ? '' : ` --install-root ${shellQuote(paths.installRoot)}`}`]),
     'Derived paths:', `  Firstmate home: ${paths.firstmateHome}`, `  Kit install root: ${paths.installRoot} (private receipt ${join(paths.installRoot, 'receipt.json')})`,
     `  Kit source: ${kit.commit ? `${paths.kit} at ${kit.commit}` : 'this checkout (not recorded)'}`,
     `  Treehouse pool: ${paths.treehousePool} through the kit wrapper ${paths.wrapper}`,
