@@ -1,0 +1,37 @@
+_vaults/agent-kit/wiki/architecture/tower-release.md
+  s_bc30cb6a54d672::t_197e02d4b127ac 11
+docs/windows-pilot-check.md
+  s_bc30cb6a54d672::t_560129730e9604 79
+scripts/wsl2-tower-smoke.mjs
+  s_bc30cb6a54d672::t_01abf5645a4cd8 1-44
+README.md
+  s_bc30cb6a54d672::t_197e02d4b127ac 257,349
+  s_bc30cb6a54d672::t_590fc497bd0557 245,255
+.github/workflows/test.yml
+  s_bc30cb6a54d672::t_01abf5645a4cd8 29-31
+src/platforms/macos.mjs
+  s_bc30cb6a54d672::t_29b2d763aa5726 15
+test/kit.test.mjs
+  s_bc30cb6a54d672::t_e4b90a93deb140 781
+  s_bc30cb6a54d672::t_ea4168e5ff8c67 16-17,162-163,175-187,812,824,980-981,987-988,1000,1023-1034,1051
+src/platforms/linux.mjs
+  s_bc30cb6a54d672::t_29b2d763aa5726 3,26-27,30,33-34,44-56,89-90
+src/install/macos.mjs
+  s_bc30cb6a54d672::t_29b2d763aa5726 21-22,442-445,555
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f67486a30dff30ff04384786766850db44650497",
+  "prompts": {},
+  "sessions": {
+    "s_bc30cb6a54d672": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "36e252b6-6795-4b0e-8ec4-d03ba41071bd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
