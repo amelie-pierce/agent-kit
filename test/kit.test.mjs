@@ -123,7 +123,7 @@ test('correct macOS, headless Linux and WSL2 prerequisite checks are ready; opti
   const { home, bin, root } = tempFixture(t);
   for (const name of [...prereqBins, 'sh', 'sha256sum']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
   const tools = manifest.tools.filter(x => x.kind === 'prerequisite');
-  const outputs = { node: 'v24.15.0', git: 'git version 2.20.0', gh: 'gh version 2.0.0', claude: '2.1.293 (Claude Code)' };
+  const outputs = { node: 'v24.15.0', git: 'git version 2.20.0', gh: 'gh version 2.0.0', claude: '2.1.293 (Claude Code)', python3: 'Python 3.12.3' };
   const base = { arch: 'arm64', nodeVersion: '24.15.0', runCommand: path => outputs[basename(path)] || '/fake/CommandLineTools' };
   const mac = { ...base, platform: 'darwin', env: { HOME: home, PATH: bin, SHELL: join(bin, 'zsh') },
     applicationDirs: fakeApps(root, ['Terminal.app', 'Google Chrome.app']) };
@@ -151,6 +151,7 @@ test('full reviewed manifest can report ready on macOS, Linux and WSL2 fixture m
   const versions = Object.fromEntries(manifest.tools.filter(x => x.detection.kind === 'command').map(x => [x.detection.command, x.kind === 'prerequisite' ? x.minVersion : x.version.value]));
   const runCommand = (path, args, cwd) => {
     if (basename(path) === 'xcode-select') return '/fake/CommandLineTools';
+    if (basename(path) === 'python3') return 'Python 3.12.3';
     if (basename(path) === 'git' && args[0] === 'rev-parse') return manifest.tools.find(x => x.installLocation?.relativePath.endsWith(`/${basename(cwd)}`)).version.value;
     return `${basename(path)} ${versions[basename(path)]}`;
   };
@@ -177,14 +178,13 @@ test('full reviewed manifest can report ready on macOS, Linux and WSL2 fixture m
   assert.equal(urls(envOnly)['zoe-fleet'], tower.artifacts['linux-arm64'].url);
   assert.equal(run(['plan', '--json'], manifest, envOnly).result.plan.towerConfig, null);
   const towerTools = context => run(['check', '--json'], manifest, context).result.advisories.filter(x => x.id.startsWith('tower-')).map(x => x.id);
-  assert.deepEqual([towerTools(wsl2), towerTools(envOnly), towerTools(linux)], [['tower-python3'], [], []]);
-  assert.deepEqual(towerTools({ ...wsl2, runCommand: (path, args, cwd) => basename(path) === 'python3' ? 'Python 3.12.3' : runCommand(path, args, cwd) }), []);
+  assert.deepEqual([towerTools(wsl2), towerTools(envOnly), towerTools(linux)], [[], [], []]);
   rmSync(join(bin, 'jq'));
   const missing = run(['check', '--json'], manifest, { ...wsl2, runCommand: (path, args, cwd) => basename(path) === 'python3' ? 'Python 3.8.10' : runCommand(path, args, cwd) });
-  assert.deepEqual([missing.result.summary, missing.exitCode], ['ready', 0]);
-  assert.deepEqual(missing.result.advisories.filter(x => x.id.startsWith('tower-')).map(x => [x.id, x.status]), [['tower-python3', 'warn'], ['tower-jq', 'warn']]);
+  assert.deepEqual([missing.result.summary, missing.exitCode], ['1 gaps or unknowns', 1], 'python3 3.9 is required on every Linux install now');
+  assert.deepEqual(missing.result.advisories.filter(x => x.id.startsWith('tower-')).map(x => [x.id, x.status]), [['tower-jq', 'warn']]);
   assert.match(missing.result.advisories.find(x => x.id === 'tower-jq').reason, /sudo apt install jq/);
-  assert.match(missing.result.advisories.find(x => x.id === 'tower-python3').reason, /python3 3\.8 is older than 3\.9/);
+  assert.match(missing.result.issues.find(x => x.id === 'python3').reason, /python3 3\.8 is older than 3\.9; the kit's launchers and the tower need python3 3\.9 or newer/);
   assert.ok(run(['plan', '--json'], manifest, wsl2).result.plan.towerConfig);
   assert.equal(run(['plan', '--json'], manifest, linux).result.plan.towerConfig, null);
   const old = run(['check', '--json'], manifest, { ...wsl2, glibcVersion: '2.31' });
@@ -242,9 +242,9 @@ test('Linux and WSL2 inspect distro, libc, tools, paths and select Linux artifac
 
 test('Linux preflight reports browser and terminal without failing; WSL2 marks them Windows side', { skip: process.platform === 'win32' }, t => {
   const { home, bin, root } = tempFixture(t);
-  for (const name of ['git', 'curl', 'tar', 'unzip', 'bash', 'sh', 'sha256sum', 'herdr']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
+  for (const name of ['git', 'curl', 'tar', 'unzip', 'bash', 'sh', 'sha256sum', 'herdr', 'python3']) writeFileSync(join(bin, name), 'fixture', { mode: 0o755 });
   const fixtureManifest = { ...manifest, tools: [structuredClone(manifest.tools.find(x => x.id === 'herdr'))] };
-  const base = { platform: 'linux', arch: 'x64', libc: 'glibc', osRelease: 'ID=ubuntu\n', procVersion: 'Linux version 6.8', nodeVersion: '24.21.0', runCommand: () => 'herdr 0.9.3' };
+  const base = { platform: 'linux', arch: 'x64', libc: 'glibc', osRelease: 'ID=ubuntu\n', procVersion: 'Linux version 6.8', nodeVersion: '24.21.0', runCommand: path => basename(path) === 'python3' ? 'Python 3.12.3' : 'herdr 0.9.3' };
   const check = env => {
     const result = run(['check', '--json', '--install-root', join(root, 'kit')], fixtureManifest, { ...base, env: { HOME: home, PATH: bin, SHELL: join(bin, 'bash'), ...env } });
     const prereq = id => result.result.platform.prerequisites.find(x => x.id === id);

@@ -24,6 +24,8 @@ function fixture(t) {
   mkdirSync(home); mkdirSync(bin);
   // Person-installed and platform commands the Linux preflight looks for; gh answers only `api user` and `auth status`.
   for (const name of ['curl', 'tar', 'unzip', 'sh', 'sha256sum', 'firefox', 'xterm']) writeFileSync(join(bin, name), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  // A python3 that reports 3.12, as the Linux preflight requires; the shortcuts step finds it too.
+  writeFileSync(join(bin, 'python3'), '#!/bin/sh\n[ "$1" = --version ] && { echo Python 3.12.3; exit 0; }\nexit 1\n', { mode: 0o755 });
   writeFileSync(join(bin, 'gh'), '#!/bin/sh\nif [ "$1 $2" = "api user" ]; then echo fixture-owner; exit 0; fi\nif [ "$1 $2" = "auth status" ]; then exit 0; fi\nexit 1\n', { mode: 0o755 });
   // PATH holds only these stubs plus the real git and bash, so a removed stub is really missing.
   for (const name of ['git', 'bash']) symlinkSync(spawnSync('/bin/sh', ['-c', `command -v ${name}`], { encoding: 'utf8' }).stdout.trim(), join(bin, name));
@@ -329,7 +331,7 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
     gitIdentity: { action: 'set', name: 'Pat Example', email: 'pat@example.test' }, starterMate: { create: false }, channel: 'main' });
   assert.deepEqual(receipt.setup.paths, { root: f.root, installRoot: join(f.root, '.tools'), firstmateHome: join(f.root, 'firstmate'), treehouseRoot: f.root, towerState: join(f.root, '.zoe-fleet') });
   assert.deepEqual(Object.values(receipt.setup.steps).map(x => x.state), ['complete', 'complete', 'complete', 'complete', 'complete', 'not-selected', 'complete', 'complete']);
-  assert.equal(receipt.setup.steps.shortcuts.detail, 'not set up: needs python3 on PATH, an agent CLI, the installed kit source');
+  assert.equal(receipt.setup.steps.shortcuts.detail, 'not set up: needs an agent CLI, the installed kit source');
   const fm = join(f.root, 'firstmate'), kitBin = join(f.root, '.tools', 'releases', 'fixture-1', 'bin');
   assert.ok(c.text.endsWith(['Next steps:',
     `  1. Add these folders to the start of your PATH yourself (the kit never edits shell profiles), then open a new terminal:\n       ${join(f.root, '.tools', 'bin')}\n       ${kitBin}`,
