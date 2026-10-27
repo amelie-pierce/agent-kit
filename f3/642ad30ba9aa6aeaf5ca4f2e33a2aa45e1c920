@@ -1,0 +1,38 @@
+scripts/installer-dry-run-smoke.mjs
+  s_bdf83d923b1769::t_093243b62cc7c0 29-36
+_vaults/agent-kit/wiki/architecture/windows-entry.md
+  s_bdf83d923b1769::t_50f2b0648a5b93 12
+  s_bdf83d923b1769::t_c008b362d705ce 11
+README.md
+  s_bdf83d923b1769::t_5e7b3aef86d88c 23,33-40,42-43,246
+  s_bdf83d923b1769::t_2a3378a03adbf0 41
+  s_bdf83d923b1769::t_6276de3004797c 264,276,298
+manifests/pilot-skeleton.json
+  s_bdf83d923b1769::t_6276de3004797c 3
+docs/windows-pilot-check.md
+  s_bdf83d923b1769::t_9acb655d1e1686 1-151
+test/setup.test.mjs
+  s_bdf83d923b1769::t_feb666d4ca11ee 85-95
+src/setup.mjs
+  s_bdf83d923b1769::t_0aba9c3af61964 48,62,374,501
+install.ps1
+  s_bdf83d923b1769::t_958f37083408fb 66-72,76
+_vaults/agent-kit/wiki/architecture/single-installer.md
+  s_bdf83d923b1769::t_50f2b0648a5b93 13-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f3642ad30ba9aa6aeaf5ca4f2e33a2aa45e1c920",
+  "prompts": {},
+  "sessions": {
+    "s_bdf83d923b1769": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d9d32f42-90a0-48b4-9c2b-ee0d3e1cd28e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
