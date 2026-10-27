@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { isAbsolute, join, resolve } from 'node:path';
-import { doctor } from './doctor.mjs';
+import { doctor, firstmateDiffers } from './doctor.mjs';
 import { installPlatform, npmGroup, selected } from './install/macos.mjs';
 import { validateManifest } from './kit.mjs';
 
@@ -28,7 +28,7 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
   const oldManifest = structuredClone(manifest);
   for (const tool of oldManifest.tools) if (tool.kind !== 'prerequisite' && receipt.phases[tool.id]?.version) tool.version.value = receipt.phases[tool.id].version;
   const health = doctor(oldManifest, { installRoot: root, home, env, nodeVersion, platform, arch });
-  const unsafe = health.checks.filter(x => x.status === 'fail' && x.id !== 'firstmate' && x.id !== 'hooks' && !x.id.startsWith('prerequisite-') && !x.id.endsWith('-path') && !x.id.endsWith('-pin'));
+  const unsafe = health.checks.filter(x => x.status === 'fail' && !(x.id === 'firstmate' && x.detail === firstmateDiffers) && x.id !== 'hooks' && !x.id.startsWith('prerequisite-') && !x.id.endsWith('-path') && !x.id.endsWith('-pin'));
   if (unsafe.length) throw new Error(`owned installation fails verification: ${unsafe.map(x => x.id).join(', ')}`);
   const target = `${platform}-${arch}`;
   const changes = selected(manifest, effectiveHarness, answers.figma ?? withFigma, answers.tower ?? true).map(tool => {

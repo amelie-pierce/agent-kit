@@ -416,7 +416,9 @@ export async function applyUpgrade(plan, options = {}) {
     }
     updated.setup ||= {}; updated.setup.kit = { commit: plan.commit, path: kitTarget };
     await atomicJson(join(root, 'receipt.json'), updated);
-    return { ...plan, apply: true, status: 'upgraded', components: result.components, nextSteps };
+    const pending = !!updated.pendingUpdate || updated.release !== plan.toRelease;
+    if (pending) nextSteps.push(`release ${plan.toRelease} is pending; rerun agent-kit upgrade after the steps above`);
+    return { ...plan, apply: true, status: pending ? 'partial' : 'upgraded', components: result.components, nextSteps };
   } catch (error) {
     await atomicJson(join(root, 'receipt.json'), old);
     for (const item of oldGlobal.reverse()) {
