@@ -8,58 +8,10 @@
       "name": "Node.js",
       "profile": "core",
       "classification": "shareable",
-      "version": {
-        "kind": "release",
-        "value": "24.15.0",
-        "status": "unverified",
-        "reason": "Node 24.15.0 is the proposed minimum from the report, not a tested kit lock."
-      },
       "approvedUpstream": "https://nodejs.org/en/download",
       "license": {
         "name": "MIT",
         "reference": "https://github.com/nodejs/node/blob/main/LICENSE"
-      },
-      "runtimeMinimum": null,
-      "artifacts": {
-        "darwin-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "darwin-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "linux-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "windows-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "windows-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        }
-      },
-      "installLocation": {
-        "relativePath": ".agent-kit/runtime/node"
       },
       "detection": {
         "kind": "command",
@@ -67,65 +19,21 @@
         "args": [
           "--version"
         ]
-      }
+      },
+      "kind": "prerequisite",
+      "minVersion": "24.15.0",
+      "required": true,
+      "installDocs": "https://nodejs.org/en/download"
     },
     {
       "id": "git",
       "name": "Git",
       "profile": "core",
       "classification": "shareable",
-      "version": {
-        "kind": "release",
-        "value": "2.48.1",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
-      },
       "approvedUpstream": "https://git-scm.com/downloads",
       "license": {
         "name": "GPL-2.0-only",
         "reference": "https://github.com/git/git/blob/master/COPYING"
-      },
-      "runtimeMinimum": null,
-      "artifacts": {
-        "darwin-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "darwin-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "linux-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "windows-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "windows-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        }
-      },
-      "installLocation": {
-        "relativePath": ".agent-kit/bin"
       },
       "detection": {
         "kind": "command",
@@ -133,65 +41,21 @@
         "args": [
           "--version"
         ]
-      }
+      },
+      "kind": "prerequisite",
+      "minVersion": "2.20.0",
+      "required": true,
+      "installDocs": "https://git-scm.com/downloads"
     },
     {
       "id": "github-cli",
       "name": "GitHub CLI",
       "profile": "core",
       "classification": "per-user-login",
-      "version": {
-        "kind": "release",
-        "value": "2.83.2",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
-      },
       "approvedUpstream": "https://github.com/cli/cli",
       "license": {
         "name": "MIT",
         "reference": "https://github.com/cli/cli/blob/trunk/LICENSE"
-      },
-      "runtimeMinimum": null,
-      "artifacts": {
-        "darwin-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "darwin-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "linux-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "windows-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "windows-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        }
-      },
-      "installLocation": {
-        "relativePath": ".agent-kit/bin"
       },
       "detection": {
         "kind": "command",
@@ -199,7 +63,11 @@
         "args": [
           "--version"
         ]
-      }
+      },
+      "kind": "prerequisite",
+      "minVersion": "2.0.0",
+      "required": true,
+      "installDocs": "https://github.com/cli/cli#installation"
     },
     {
       "id": "firstmate",
@@ -1070,58 +938,10 @@
       "name": "Claude Code",
       "profile": "claude",
       "classification": "per-user-login",
-      "version": {
-        "kind": "release",
-        "value": "2.1.310",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
-      },
       "approvedUpstream": "https://code.claude.com/docs/en/setup",
       "license": {
         "name": "proprietary vendor terms",
         "reference": "https://www.anthropic.com/legal/consumer-terms"
-      },
-      "runtimeMinimum": null,
-      "artifacts": {
-        "darwin-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "darwin-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "linux-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "windows-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "windows-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        }
-      },
-      "installLocation": {
-        "relativePath": ".agent-kit/bin"
       },
       "detection": {
         "kind": "command",
@@ -1129,7 +949,11 @@
         "args": [
           "--version"
         ]
-      }
+      },
+      "kind": "prerequisite",
+      "minVersion": "2.0.0",
+      "required": true,
+      "installDocs": "https://code.claude.com/docs/en/setup"
     },
     {
       "id": "codex",
@@ -1202,64 +1026,22 @@
       "name": "Figma CLI",
       "profile": "figma",
       "classification": "per-user-login",
-      "version": {
-        "kind": "release",
-        "value": "2.2.5-make.2",
-        "status": "unverified",
-        "reason": "Observed version; compatibility and release approval are pending."
-      },
       "approvedUpstream": "https://github.com/amelie-pierce/figma-cli",
       "license": {
         "name": "MIT",
         "reference": "https://github.com/amelie-pierce/figma-cli/blob/main/LICENSE"
       },
-      "runtimeMinimum": "18.0.0",
-      "artifacts": {
-        "darwin-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "darwin-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "linux-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "linux-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "windows-arm64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        },
-        "windows-x64": {
-          "url": null,
-          "sha256": null,
-          "status": "unverified",
-          "reason": "Artifact URL and SHA-256 have not been approved or verified."
-        }
-      },
-      "installLocation": {
-        "relativePath": ".agent-kit/bin"
-      },
       "detection": {
-        "kind": "presence",
+        "kind": "command",
         "command": "figma-cli",
-        "args": []
-      }
+        "args": [
+          "--version"
+        ]
+      },
+      "kind": "prerequisite",
+      "minVersion": "2.0.0",
+      "required": false,
+      "installDocs": "https://github.com/amelie-pierce/figma-cli#readme"
     }
   ],
   "neverShip": [

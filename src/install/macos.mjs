@@ -226,7 +226,7 @@ async function checkReceipt(root, receipt, id, version, artifactSha, options = {
   return true;
 }
 function selected(manifest, harness, withFigma) {
-  return manifest.tools.filter(t => t.classification !== 'never-ship' && (t.profile === 'core' || t.profile === harness || (withFigma && t.profile === 'figma')));
+  return manifest.tools.filter(t => t.kind !== 'prerequisite' && t.classification !== 'never-ship' && (t.profile === 'core' || t.profile === harness || (withFigma && t.profile === 'figma')));
 }
 async function npmPhase(root, release, group, manifest, receipt, save, options) {
   const base = fileURLToPath(new URL(`../../manifests/${group}/`, import.meta.url));
@@ -545,7 +545,7 @@ export async function installPlatform(manifest, options = {}) {
       codexBin: (options.harness || 'claude') === 'codex' ? join(root, 'releases', release, 'npm-codex', 'node_modules', '.bin') : null,
       firstmateHome: components.some(x => x.id === 'firstmate' && ['installed', 'skipped'].includes(x.status)) ? firstmateHome : null,
       towerParity, towerLauncher, hookChanges,
-      loginSteps: selected(manifest, options.harness || 'claude', !!options.withFigma).map(t => login[t.id]).filter(Boolean),
+      loginSteps: manifest.tools.filter(t => t.classification === 'per-user-login' && (t.profile === 'core' || t.profile === (options.harness || 'claude') || (options.withFigma && t.profile === 'figma'))).map(t => login[t.id]).filter(Boolean),
       nextSteps: [
         'Codex reviews new or changed hooks interactively; review and approve them yourself when prompted.',
         'no-mistakes init installs its user-level skill when you initialize your own repository.',

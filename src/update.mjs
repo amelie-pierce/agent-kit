@@ -7,7 +7,7 @@ import { installPlatform, npmGroup } from './install/macos.mjs';
 import { validateManifest } from './kit.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
-const selected = (manifest, harness, withFigma) => manifest.tools.filter(t => t.classification !== 'never-ship' && (t.profile === 'core' || t.profile === harness || (withFigma && t.profile === 'figma')));
+const selected = (manifest, harness, withFigma) => manifest.tools.filter(t => t.kind !== 'prerequisite' && t.classification !== 'never-ship' && (t.profile === 'core' || t.profile === harness || (withFigma && t.profile === 'figma')));
 export function reviewedCheckout() {
   const cwd = new URL('..', import.meta.url);
   const git = args => spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 10000, env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' } });
@@ -26,7 +26,7 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
   if (receipt.schemaVersion !== 1 || !receipt.phases || receipt.pendingUpdate && receipt.pendingUpdate !== manifest.release) throw new Error('incompatible receipt or another update is pending');
   const effectiveHarness = receipt.phases['npm-codex'] ? 'codex' : harness;
   const oldManifest = structuredClone(manifest);
-  for (const tool of oldManifest.tools) if (receipt.phases[tool.id]?.version) tool.version.value = receipt.phases[tool.id].version;
+  for (const tool of oldManifest.tools) if (tool.kind !== 'prerequisite' && receipt.phases[tool.id]?.version) tool.version.value = receipt.phases[tool.id].version;
   const health = doctor(oldManifest, { installRoot: root, home, env, nodeVersion, platform, arch });
   const firstmate = manifest.tools.find(t => t.id === 'firstmate'), firstmateEntry = receipt.phases.firstmate;
   const handedOff = !!firstmate && firstmateEntry?.version !== firstmate.version.value && typeof firstmateEntry?.path === 'string' && isAbsolute(firstmateEntry.path) &&

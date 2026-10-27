@@ -106,9 +106,19 @@ Afterwards, open Windows Terminal with your distribution's profile and run Herdr
 
 ## Pins and approval
 
-In the manifest, `verified` means the artifact's identity and integrity were checked against the approved upstream: a source commit, a published SHA-256 digest, or registry integrity in a committed npm lock. It does not mean owner approval, and no pin field claims it. The owner approves a release by merging the PR that changes the manifest. `install` installs only `verified` pins. Unverified pins are reported and skipped.
+In the manifest, `verified` means the artifact's identity and integrity were checked against the approved upstream: a source commit, a published SHA-256 digest, or registry integrity in a committed npm lock. It does not mean owner approval, and no pin field claims it. The owner approves a release by merging the PR that changes the manifest. `install` installs only `verified` pins. Unverified pins are reported and skipped. Person-installed `kind: "prerequisite"` entries have a minimum version and vendor install link instead of a kit pin or artifact; `install` and `update` never stage them. `check`, `plan` and `doctor` test their `--version` on PATH, and a missing or old optional Figma CLI is advisory. The Figma version probe uses disposable HOME state because that CLI can initialize its own settings even for `--version`.
 
-Versions for owner approval in the `macos-pilot-2` release (tool pins and digests unchanged from `macos-pilot-1`):
+Versions for owner approval in the `macos-pilot-2` release (kit-installed pins and digests unchanged from `macos-pilot-1`):
+
+| Person-installed prerequisite | Minimum | Basis and install instructions |
+| --- | --- | --- |
+| Node.js | `24.15.0` | This is the kit's existing `engines.node` and `nodeMinimum` floor; [Node download](https://nodejs.org/en/download). |
+| Git | `2.20.0` | The kit uses `--no-optional-locks` during source verification; the [Git 2.20 manual](https://git-scm.com/docs/git/2.20.0) documents it. [Git download](https://git-scm.com/downloads). |
+| GitHub CLI | `2.0.0` | The kit's GitHub workflow needs `gh auth login` and CLI extension support; [GitHub CLI 2.0.0](https://github.com/cli/cli/releases/tag/v2.0.0) includes extensions. [Install instructions](https://github.com/cli/cli#installation). |
+| Claude Code (Claude harness) | `2.0.0` | The kit installs `SessionStart` command hooks; Claude Code 2.x is the supported hook family for this kit. Install with the [official native installer](https://code.claude.com/docs/en/setup), then sign in yourself. |
+| Figma CLI (optional) | `2.0.0` | The kit only checks the CLI's presence and version; it does not call a Figma API. [Figma CLI install instructions](https://github.com/amelie-pierce/figma-cli#readme). |
+
+The former exact-version placeholders and their unverified artifact entries are removed: Node `24.15.0`, Git `2.48.1`, GitHub CLI `2.83.2`, Claude Code `2.1.310`, and Figma CLI `2.2.5-make.2`. These values were not approved kit-distributed pins. Other target-specific unverified artifacts still appear for their own targets; the Linux fleet runtime remains reported as an advisory because Linux uses the source-built tower without that runtime.
 
 The new release label is `macos-pilot-2`. The update path may write the private `receipt.json` (0600), kit-owned `releases/<release>/` files, and previously approved global hook/skill files and Zoe launcher config (0600). These are the user-level files covered by this PR; no new tool or account pin is added.
 

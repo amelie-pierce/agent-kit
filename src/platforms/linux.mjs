@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { findOnPath, inspectCommand, inspectInstallRoot, inspectShell, inspectSource } from './macos.mjs';
+import { findOnPath, inspectCommand, inspectInstallRoot, inspectPrerequisite, inspectShell, inspectSource } from './macos.mjs';
 
 function readSystem(path) {
   try { return readFileSync(path, 'utf8'); } catch { return ''; }
@@ -55,11 +55,11 @@ export function inspectLinux(context, _manifest, selectedTools) {
   const home = context.env.HOME || '';
   const prerequisites = [inspectShell(context.env.SHELL), inspectInstallRoot(home, context.installRoot),
     inspectTerminal(context.env, identity.wsl2), inspectBrowser(context.env, identity.wsl2),
-    ...['git', 'curl', 'tar', 'unzip', 'bash', 'sh', 'sha256sum'].map(name => {
+    ...['curl', 'tar', 'unzip', 'bash', 'sh', 'sha256sum'].map(name => {
       const found = findOnPath(name, path);
       return { id: name, status: found.length ? 'pass' : 'fail', detail: found[0] || `${name} absent from PATH` };
-    })];
-  const tools = selectedTools.map(tool => tool.detection.kind === 'git-head' ? inspectSource(tool, context) : inspectCommand(tool, context));
+    }), ...selectedTools.filter(tool => tool.kind === 'prerequisite').map(tool => inspectPrerequisite(tool, context))];
+  const tools = selectedTools.filter(tool => tool.kind !== 'prerequisite').map(tool => tool.detection.kind === 'git-head' ? inspectSource(tool, context) : inspectCommand(tool, context));
   const pathConflicts = tools.filter(tool => tool.paths.length > 1).map(tool => ({ id: tool.id, paths: tool.paths }));
   return { platform, arch: context.arch, supported, ...identity, prerequisites, tools, pathConflicts,
     message: `${identity.distro}; ${identity.libc}${identity.wsl2 ? '; WSL2. Browser and terminal run on Windows; install tools inside the Linux distro.' : ''}` };

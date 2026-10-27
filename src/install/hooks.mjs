@@ -195,7 +195,7 @@ function tomlFeature(source, desired, path) {
 export function previewHooks(manifest, { home, installRoot }) {
   if (!home || !installRoot) throw new Error('hooks preview requires HOME and --install-root');
   const root = resolve(installRoot), release = manifest.release;
-  const selected = new Set(manifest.tools.filter(tool => tool.classification !== 'never-ship' && tool.profile === 'core' && tool.version.status === 'verified').map(tool => tool.id));
+  const selected = new Set(manifest.tools.filter(tool => tool.kind !== 'prerequisite' && tool.classification !== 'never-ship' && tool.profile === 'core' && tool.version.status === 'verified').map(tool => tool.id));
   const axi = new Map();
   for (const id of hookTools) if (selected.has(id)) axi.set(id, { matcher: '', hooks: [{ type: 'command', command: commandFor(root, release, id), timeout: 10 }] });
   const herdr = manifest.tools.find(tool => tool.id === 'herdr');
