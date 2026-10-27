@@ -1,0 +1,24 @@
+_vaults/agent-kit/wiki/architecture/macos-install.md
+  s_93948f6ea9b227::t_ac4557ca88d537 15
+README.md
+  s_93948f6ea9b227::t_ae431bc2208ced 112
+_vaults/agent-kit/wiki/architecture/tower-release.md
+  s_93948f6ea9b227::t_cef7e09a475509 9
+  s_93948f6ea9b227::t_ac4557ca88d537 11,13,15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cb4d25a64eb8ce57c16b0fe67d938bd0f7012e2d",
+  "prompts": {},
+  "sessions": {
+    "s_93948f6ea9b227": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7f6684a7-3eb6-44e1-acca-a3914a8a91db",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
