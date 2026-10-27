@@ -2,12 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, win32 } from 'node:path';
+import { basename, dirname, join, win32 } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, run } from '../src/kit.mjs';
 import { decodeOutput, inspectWindows, parseWslDistros, parseWslStatus } from '../src/platforms/windows.mjs';
 import { formatWindows, handoffArgv, handoffScript, kitUpstream, linuxPath, powershellCommand, windowsHandoff } from '../src/install/windows.mjs';
+import { setupHandoffScript, windowsSetup } from '../src/setup.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const manifest = JSON.parse(readFileSync(join(root, 'manifests/pilot-skeleton.json'), 'utf8'));
@@ -286,4 +287,45 @@ test('Windows arguments: --handoff and --distro are Windows-only, paths must be 
   const missing = inspectWindows(windowsContext(), { distro: 'Fedora' });
   assert.equal(prereq(missing, 'wsl-distro').status, 'fail');
   assert.equal(missing.steps[0].command, 'wsl --install -d Fedora');
+});
+
+test('windows setup: preflight first, then a pinned handoff into install.sh inside WSL with the setup flags', () => {
+  const spawned = [];
+  const spawn = (command, args) => { spawned.push([command, args]); return { status: 0 }; };
+  const notReady = windowsSetup(['--handoff'], { ...windowsContext({ services: [] }), spawn });
+  assert.equal(notReady.status, 'needs-setup');
+  assert.equal(spawned.length, 0);
+  const dirty = windowsSetup(['--handoff'], { ...windowsContext(), spawn, kitCommit: () => ({ commit, reason: 'this kit checkout has changed tracked files' }) });
+  assert.equal(dirty.status, 'unpinned');
+  const args = ['--root', '~/Agentic', '--harness', 'claude,codex', '--starter-scope', 'docs and notes', '--distro', 'Ubuntu'];
+  const preview = windowsSetup(args, { ...windowsContext(), spawn });
+  assert.equal(preview.status, 'handoff-ready');
+  assert.deepEqual(preview.argv, ['-d', 'Ubuntu', '--exec', 'bash', '-l', '-c', setupHandoffScript, 'agent-kit-setup', commit, '--root', '~/Agentic', '--harness', 'claude,codex', '--starter-scope', 'docs and notes']);
+  assert.match(formatWindows(preview), /questions are asked inside WSL[\s\S]*wsl\.exe -d Ubuntu --exec bash -l -c '.*' agent-kit-setup c{40} --root '~\/Agentic'/);
+  assert.equal(spawned.length, 0);
+  const handed = windowsSetup([...args, '--handoff'], { ...windowsContext(), spawn });
+  assert.equal(handed.status, 'handed-off');
+  assert.deepEqual(spawned, [['C:\\Windows\\System32\\wsl.exe', preview.argv]]);
+  for (const bad of [['--root', '/mnt/c/Agentic'], ['--root', 'C:\\Agentic'], ['--install-root', '//mnt/c/kit']]) assert.throws(() => windowsSetup(bad, windowsContext()), /Linux path|Windows drive/);
+  assert.throws(() => windowsSetup(['--kit-dir', 'C:\\kit'], windowsContext()), /set by install\.sh/);
+  assert.equal(setupHandoffScript.includes("'"), false, 'pastes inside PowerShell single quotes');
+});
+
+test('setup handoff script fetches install.sh at the pinned commit with gh and keeps arguments intact', { skip: process.platform === 'win32' }, t => {
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'kit-setup-handoff-')));
+  t.after(() => rmSync(base, { recursive: true, force: true }));
+  const bin = join(base, 'bin'), home = join(base, 'home'), log = join(base, 'log');
+  mkdirSync(bin); mkdirSync(home);
+  writeFileSync(join(bin, 'gh'), `#!/bin/sh\nprintf 'gh %s\\n' "$*" >> '${log}'\nprintf '%s\\n' 'for a in "$@"; do printf "arg:%s\\\\n" "$a" >> ${log}; done; printf "dir:%s\\\\n" "$(dirname "$0")" >> ${log}; exit 4'\n`, { mode: 0o755 });
+  const result = spawnSync('bash', ['-c', setupHandoffScript, 'agent-kit-setup', commit, '--root', '~/Agentic', '--starter-scope', 'two words'],
+    { encoding: 'utf8', env: { HOME: home, PATH: `${bin}:/usr/bin:/bin` } });
+  assert.equal(result.status, 4, result.stderr);
+  const lines = readFileSync(log, 'utf8').trim().split('\n');
+  assert.equal(lines[0], `gh api -H Accept:application/vnd.github.raw repos/amelie-pierce/agent-kit/contents/install.sh?ref=${commit}`);
+  assert.deepEqual(lines.filter(x => x.startsWith('arg:')).map(x => x.slice(4)), ['--commit', commit, '--root', '~/Agentic', '--starter-scope', 'two words']);
+  const dir = lines.find(x => x.startsWith('dir:')).slice(4);
+  assert.equal(readdirSync(dirname(dir)).includes(basename(dir)), false, 'the fetched install.sh is removed');
+  const noGh = spawnSync('bash', ['-c', setupHandoffScript, 'agent-kit-setup', commit], { encoding: 'utf8', env: { HOME: home, PATH: '/usr/bin:/bin' } });
+  assert.equal(noGh.status, 1);
+  assert.match(noGh.stderr, /install the GitHub CLI inside this WSL distribution/);
 });

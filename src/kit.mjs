@@ -4,6 +4,7 @@ import { inspectPlatform } from './platforms/index.mjs';
 import { previewHooks, publicHookChanges } from './install/hooks.mjs';
 import { npmGroup, towerPaths } from './install/macos.mjs';
 import { defaultLinuxFirstmateHome, defaultLinuxRoot, describeStep, linuxPath, windowsHandoff, windowsNextSteps } from './install/windows.mjs';
+import { harnessLabel, parseHarness, towerIds, usesProfile } from './harness.mjs';
 
 function compareVersions(actual, minimum) {
   const a = actual.split('.').map(Number);
@@ -50,12 +51,13 @@ export function validateManifest(manifest) {
 }
 
 export function parseArgs(argv, platform = process.platform) {
-  let command, json = false, harness = 'claude', withFigma = false, dryRun = false, handoff = false, yes = false, print = false, installRoot, firstmateHome, distro;
+  let command, json = false, harness = 'claude', withFigma = false, dryRun = false, handoff = false, yes = false, print = false, installRoot, firstmateHome, distro, root;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (['check', '--check', 'plan', 'install', 'doctor', 'update', '--update', 'secondmate-template'].includes(arg) && !command) command = arg === '--check' ? 'check' : arg === '--update' ? 'update' : arg;
     else if (arg === '--json') json = true;
-    else if (arg === '--harness' && ['claude', 'codex'].includes(argv[i + 1])) harness = argv[++i];
+    else if (arg === '--harness' && parseHarness(argv[i + 1])) harness = parseHarness(argv[++i]);
+    else if (arg === '--root' && argv[i + 1]) root = argv[++i];
     else if (arg === '--with-figma') withFigma = true;
     else if (arg === '--dry-run') dryRun = true;
     else if (arg === '--yes') yes = true;
@@ -66,7 +68,13 @@ export function parseArgs(argv, platform = process.platform) {
     else if (arg === '--distro' && /^[A-Za-z0-9._-]+$/.test(argv[i + 1] || '')) distro = argv[++i];
     else throw new Error(`unknown argument: ${arg}`);
   }
-  if (!command) throw new Error('usage: agent-kit <check|plan|install|doctor|update|secondmate-template> [--json] [--harness claude|codex] [--with-figma] [--distro <name>] [--handoff]');
+  if (!command) throw new Error('usage: agent-kit <setup|check|plan|install|doctor|update|secondmate-template> [--json] [--harness claude|codex|claude,codex] [--with-figma] [--distro <name>] [--handoff]');
+  if (root !== undefined) {
+    if (!['doctor', 'update'].includes(command)) throw new Error('--root applies only to doctor and update; use setup for a new root');
+    if (installRoot) throw new Error('--root conflicts with --install-root; pass one of them');
+    if (!isAbsolute(root)) throw new Error('--root must be absolute');
+    installRoot = join(root, '.tools');
+  }
   if (dryRun && command !== 'install') throw new Error('--dry-run applies only to install');
   if (yes && command !== 'update') throw new Error('--yes applies only to update');
   if (print && command !== 'secondmate-template') throw new Error('--print applies only to secondmate-template');
@@ -99,7 +107,8 @@ const loginSteps = {
 const advisoryPrerequisites = ['terminal', 'browser', 'virtualization'];
 
 function evaluate(manifest, context, options) {
-  const relevant = manifest.tools.filter(tool => tool.classification !== 'never-ship' && (tool.kind === 'prerequisite' && tool.profile === 'figma' || tool.profile === 'core' || tool.profile === options.harness || (options.withFigma && tool.profile === 'figma')));
+  const relevant = manifest.tools.filter(tool => tool.classification !== 'never-ship' && (options.withTower !== false || !towerIds.has(tool.id))
+    && (tool.kind === 'prerequisite' && tool.profile === 'figma' || tool.profile === 'core' || usesProfile(options.harness, tool.profile) || (options.withFigma && tool.profile === 'figma')));
   const selected = relevant.filter(tool => tool.kind !== 'prerequisite');
   const platform = inspectPlatform(context, manifest, relevant, options);
   const issues = [];
@@ -116,12 +125,12 @@ function evaluate(manifest, context, options) {
     const artifact = tool.artifacts[target];
     if (!npmGroup(tool.id) && (!artifact || artifact.status !== 'verified')) (tool.id === 'zoe-fleet-runtime' && ['linux', 'wsl2'].includes(platform.platform) ? advisories : issues).push({ status: 'unknown', id: tool.id, reason: artifact?.reason || `artifact for ${target} is not reviewed` });
   }
-  const optional = manifest.tools.filter(tool => tool.kind !== 'prerequisite' && tool.classification !== 'never-ship' && !selected.includes(tool));
+  const optional = manifest.tools.filter(tool => tool.kind !== 'prerequisite' && tool.classification !== 'never-ship' && !selected.includes(tool) && (options.withTower !== false || !towerIds.has(tool.id)));
   return { relevant, selected, optional, platform, issues, advisories, target };
 }
 
-function human(result) {
-  const lines = [`Agent Kit ${result.command}: ${result.summary}`, `Platform: ${result.platform.platform}/${result.platform.arch}; harness: ${result.harness}`];
+export function human(result) {
+  const lines = [`Agent Kit ${result.command}: ${result.summary}`, `Platform: ${result.platform.platform}/${result.platform.arch}; harness: ${harnessLabel(result.harness)}`];
   if (result.platform.message) lines.push(result.platform.message);
   if (result.command === 'plan') {
     lines.push('Person-installed prerequisites (the kit does not install these):');
@@ -186,11 +195,17 @@ export function run(argv, manifest, context) {
   validateManifest(manifest);
   const options = parseArgs(argv, context.platform);
   if (options.command === 'install') throw new Error('install is asynchronous; use the CLI install entry point');
+  return evaluatePlan(manifest, context, options);
+}
+
+// Shared by check, plan and the guided setup. Options beyond parseArgs: withTower (default true),
+// globalHooks (default true) and towerState, the tower state directory setup derives from its root.
+export function evaluatePlan(manifest, context, options) {
   const windows = context.platform === 'win32';
   if (!windows && !context.env.HOME) throw new Error('HOME must be set');
   const evaluation = evaluate(manifest, { ...context, installRoot: options.installRoot }, options);
   let globalHookChanges = [];
-  if (options.command === 'plan' && evaluation.platform.supported && !windows) {
+  if (options.command === 'plan' && evaluation.platform.supported && !windows && options.globalHooks !== false) {
     try {
       globalHookChanges = publicHookChanges(previewHooks(manifest, { home: context.env.HOME, installRoot: options.installRoot || join(context.env.HOME, '.agent-kit') }));
     } catch (error) {
@@ -202,7 +217,7 @@ export function run(argv, manifest, context) {
   if (options.command === 'plan' && evaluation.platform.supported && !windows && runtime?.artifacts[evaluation.target]?.status === 'verified') {
     try {
       const firstmateHome = canonicalPath(resolve(firstmateLocation(context, options)));
-      towerConfig = { firstmateHome, ...towerPaths(context.env, context.env.HOME, firstmateHome) };
+      towerConfig = { firstmateHome, ...towerPaths(context.env, context.env.HOME, firstmateHome, options.towerState) };
     } catch (error) {
       evaluation.issues.push({ status: 'conflict', id: 'zoe-fleet-tower', reason: error.message });
     }

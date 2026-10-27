@@ -5,6 +5,7 @@ import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep 
 import { previewHooks } from './install/hooks.mjs';
 import { npmGroup, towerPaths } from './install/macos.mjs';
 import { inspectPlatform } from './platforms/index.mjs';
+import { usesProfile } from './harness.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
 const status = (id, state, detail) => ({ id, status: state, detail });
@@ -65,11 +66,14 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
   const receiptPath = join(root, 'receipt.json'), receiptFile = safeFile(receiptPath);
   let recordedHarness = 'claude';
   if (receiptFile) {
-    try { if (JSON.parse(readFileSync(receiptPath, 'utf8')).phases?.['npm-codex']) recordedHarness = 'codex'; }
+    try {
+      const recorded = JSON.parse(readFileSync(receiptPath, 'utf8'));
+      recordedHarness = recorded.setup?.answers?.harness || (recorded.phases?.['npm-codex'] ? 'codex' : 'claude');
+    }
     catch { /* The receipt validation below reports malformed JSON. */ }
   }
   const platform = inspectPlatform({ env, platform: platformName, arch, nodeVersion, installRoot: root }, manifest,
-    manifest.tools.filter(tool => tool.kind === 'prerequisite' && (tool.profile === 'core' || tool.profile === recordedHarness || tool.profile === 'figma')));
+    manifest.tools.filter(tool => tool.kind === 'prerequisite' && (tool.profile === 'core' || usesProfile(recordedHarness, tool.profile) || tool.profile === 'figma')));
   for (const prerequisite of platform.prerequisites || []) if (!['terminal', 'browser', 'virtualization'].includes(prerequisite.id))
     checks.push(status(`prerequisite-${prerequisite.id}`, prerequisite.required === false && prerequisite.status !== 'pass' ? 'warn' : prerequisite.status, prerequisite.detail));
   if (!receiptFile) {
@@ -87,7 +91,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
   const byId = new Map(manifest.tools.map(t => [t.id, t]));
   for (const [id, entry] of Object.entries(receipt.phases)) {
     if (id === 'hooks') continue;
-    if (!byId.has(id) && !['npm', 'npm-codex', 'zoe-fleet-tower'].includes(id)) { checks.push(status(id, 'fail', 'unknown receipt phase')); continue; }
+    if (!byId.has(id) && !['npm', 'npm-codex', 'zoe-fleet-tower', 'treehouse-root'].includes(id)) { checks.push(status(id, 'fail', 'unknown receipt phase')); continue; }
     const path = phasePath(root, id, entry);
     if (!path) { checks.push(status(id, 'fail', 'unsafe receipt path')); continue; }
     if (id === 'zoe-fleet-tower') {
@@ -117,8 +121,10 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
     if (id === 'zoe-fleet-tower') checks.push(status('launcher-mode', (st.mode & 0o777) === 0o600 ? 'pass' : 'fail', 'launcher config must be private (0600)'));
     if (st.isFile() && ['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint', 'zoe-fleet'].includes(id)) {
       const found = (env.PATH || '').split(delimiter).map(dir => join(dir, basename(path))).find(p => existsSync(p));
+      // The kit's Treehouse wrapper, which pins the pool under the setup root, counts as the kit binary.
+      const wrapper = id === 'treehouse' && receipt.phases['treehouse-root'] ? phasePath(root, 'treehouse-root', receipt.phases['treehouse-root']) : null;
       let same = false;
-      try { same = !!found && realpathSync(found) === realpathSync(path); } catch { /* broken path fails precedence */ }
+      try { same = !!found && [path, wrapper].filter(Boolean).some(owned => existsSync(owned) && realpathSync(found) === realpathSync(owned)); } catch { /* broken path fails precedence */ }
       checks.push(status(`${id}-path`, !found ? 'unknown' : same ? 'pass' : 'fail', !found ? 'not on PATH' : same ? 'kit binary has PATH precedence' : 'another binary has PATH precedence'));
     }
   }

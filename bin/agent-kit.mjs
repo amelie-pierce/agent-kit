@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, run, validateManifest } from '../src/kit.mjs';
 import { formatInstall, installPlatform } from '../src/install/macos.mjs';
@@ -7,19 +8,34 @@ import { formatWindows, windowsHandoff } from '../src/install/windows.mjs';
 import { doctor, formatDoctor } from '../src/doctor.mjs';
 import { applyUpdate, formatUpdate, planUpdate, reviewedCheckout } from '../src/update.mjs';
 import { secondmateTemplate } from '../src/secondmate.mjs';
+import { setup, windowsSetup } from '../src/setup.mjs';
 
 const manifestPath = fileURLToPath(new URL('../manifests/pilot-skeleton.json', import.meta.url));
 try {
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   const argv = process.argv.slice(2);
-  const options = parseArgs(argv, process.platform);
   const context = {
     env: process.env,
     platform: process.platform,
     arch: process.arch,
     nodeVersion: process.versions.node,
   };
-  if (options.command === 'doctor') {
+  const options = argv[0] === 'setup' ? { command: 'setup' } : parseArgs(argv, process.platform);
+  // A kit copy that setup placed at <install-root>/kit/<commit> finds its own receipt.
+  const kitDir = resolve(fileURLToPath(new URL('..', import.meta.url)));
+  if (['doctor', 'update'].includes(options.command) && !options.installRoot && basename(dirname(kitDir)) === 'kit' && existsSync(join(dirname(dirname(kitDir)), 'receipt.json')))
+    options.installRoot = dirname(dirname(kitDir));
+  if (options.command === 'setup') {
+    validateManifest(manifest);
+    if (context.platform === 'win32') {
+      const result = windowsSetup(argv.slice(1), context);
+      if (result.status === 'handed-off') process.stderr.write(formatWindows(result));
+      else process.stdout.write(formatWindows(result));
+      process.exitCode = result.exitCode;
+    } else {
+      process.exitCode = await setup(manifest, { ...context, argv: argv.slice(1), input: process.stdin, output: process.stdout });
+    }
+  } else if (options.command === 'doctor') {
     validateManifest(manifest);
     if (context.platform === 'win32') throw new Error('run doctor inside the WSL2 distribution');
     const result = doctor(manifest, { installRoot: options.installRoot, home: process.env.HOME, env: process.env, nodeVersion: context.nodeVersion });

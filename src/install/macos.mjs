@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { applyHooks, previewHooks, publicHookChanges } from './hooks.mjs';
 import { linuxIdentity } from '../platforms/linux.mjs';
+import { towerIds, usesProfile } from '../harness.mjs';
 
 const exec = promisify(execFile);
 const npmIds = new Set(['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi', 'codex']);
@@ -39,7 +40,7 @@ const ownedPath = (root, ...parts) => {
   return join(root, ...parts);
 };
 const exists = async path => { try { return await lstat(path); } catch (e) { if (e.code === 'ENOENT') return null; throw e; } };
-async function atomicJson(path, value) {
+export async function atomicJson(path, value) {
   const tmp = `${path}.${randomUUID()}.tmp`;
   await writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
   await rename(tmp, path);
@@ -63,8 +64,8 @@ async function hashTree(path) {
   await walk(path);
   return sha(parts.join('\n'));
 }
-async function lock(root) {
-  const path = join(root, '.install.lock');
+export async function lock(root, name = '.install.lock') {
+  const path = join(root, name);
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const handle = await open(path, 'wx', 0o600);
@@ -166,12 +167,12 @@ async function unpackTrackedSource(archive, destination, freshHome = false) {
   if (!(await exists(join(destination, 'README.md')))) throw new Error('source archive has no README');
 }
 const gitEnv = options => ({ ...toolEnv(options.home, options.installRoot), GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' });
-const systemDirs = {
+export const systemDirs = {
   darwin: home => ['/Applications', '/Library', '/System', '/bin', '/sbin', '/usr', '/etc', '/private/etc', '/dev', '/opt', '/cores', join(home, 'Library')],
   linux: () => ['/bin', '/sbin', '/usr', '/etc', '/dev', '/opt', '/var/lib', '/var/log', '/var/cache', '/var/spool', '/var/tmp', '/var/opt', '/proc', '/sys', '/run', '/srv', '/boot', '/lib', '/lib64'],
 };
-const within = (path, parent) => path === parent || path.startsWith(parent === sep ? parent : `${parent}${sep}`);
-const newDirectory = async path => {
+export const within = (path, parent) => path === parent || path.startsWith(parent === sep ? parent : `${parent}${sep}`);
+export const newDirectory = async path => {
   const st = await exists(path);
   return !st || (st.isDirectory() && !st.isSymbolicLink() && (await readdir(path)).length === 0);
 };
@@ -225,8 +226,9 @@ async function checkReceipt(root, receipt, id, version, artifactSha, options = {
   if (digest !== entry.ownedSha256) throw new Error(`kit-owned ${id} changed; refusing overwrite`);
   return true;
 }
-function selected(manifest, harness, withFigma) {
-  return manifest.tools.filter(t => t.kind !== 'prerequisite' && t.classification !== 'never-ship' && (t.profile === 'core' || t.profile === harness || (withFigma && t.profile === 'figma')));
+export function selected(manifest, harness, withFigma, withTower = true) {
+  return manifest.tools.filter(t => t.kind !== 'prerequisite' && t.classification !== 'never-ship' && (withTower || !towerIds.has(t.id))
+    && (t.profile === 'core' || usesProfile(harness, t.profile) || (withFigma && t.profile === 'figma')));
 }
 async function npmPhase(root, release, group, manifest, receipt, save, options) {
   const base = fileURLToPath(new URL(`../../manifests/${group}/`, import.meta.url));
@@ -278,15 +280,17 @@ async function npmPhase(root, release, group, manifest, receipt, save, options) 
 }
 
 // Mirrors the runtime launcher's lookup: XDG config and a per-home state directory named by the
-// first 12 hex digits of SHA-256 over the resolved Firstmate home path.
-export function towerPaths(env, home, firstmateHome) {
+// first 12 hex digits of SHA-256 over the resolved Firstmate home path. The launcher has no config
+// override, but its setup --state records an explicit state directory, which setup puts under its root.
+export function towerPaths(env, home, firstmateHome, stateOverride) {
   const base = (key, ...fallback) => {
     if (!env[key]) return join(home, ...fallback);
     if (!isAbsolute(env[key])) throw new Error(`${key} must be an absolute path`);
     return env[key];
   };
+  if (stateOverride !== undefined && !isAbsolute(stateOverride)) throw new Error('tower state directory must be absolute');
   return { config: join(base('XDG_CONFIG_HOME', '.config'), 'zoe-fleet', 'config'),
-    state: join(base('XDG_STATE_HOME', '.local', 'state'), 'zoe-fleet', sha(firstmateHome).slice(0, 12)) };
+    state: stateOverride || join(base('XDG_STATE_HOME', '.local', 'state'), 'zoe-fleet', sha(firstmateHome).slice(0, 12)) };
 }
 // The shipped launcher's own setup writes the config into a kit staging directory; the kit then
 // checks that it names only this person's Firstmate home, kit-owned binaries and fresh fleet state.
@@ -294,7 +298,7 @@ async function towerPhase(root, release, firstmateHome, receipt, save, options) 
   const id = 'zoe-fleet-tower', entry = receipt.phases[id];
   const home = await realpath(firstmateHome);
   if (!(await exists(join(home, 'bin', 'fm-fleet-snapshot.sh')))?.isFile()) return { id, status: 'conflict', reason: 'Firstmate home lacks bin/fm-fleet-snapshot.sh; launcher not configured' };
-  const { config, state } = towerPaths(options.env || {}, options.home, home);
+  const { config, state } = towerPaths(options.env || {}, options.home, home, options.towerState);
   const current = await exists(config);
   if (current) {
     if (entry?.path === config && current.isFile() && await hashFile(config) === entry.ownedSha256) {
@@ -363,9 +367,10 @@ export async function installPlatform(manifest, options = {}) {
     if (!recordedHome && !(await newDirectory(firstmateHome))) throw new Error('--firstmate-home must be a new or empty directory; refusing to inherit it');
     const save = () => atomicJson(receiptPath, receipt);
     if (options.update && receipt.release !== release) { receipt.pendingUpdate = release; await save(); }
-    const components = [], targetKey = `${platform}-${arch}`;
+    const components = [], targetKey = `${platform}-${arch}`, harness = options.harness || 'claude';
+    const chosen = selected(manifest, harness, !!options.withFigma, options.withTower !== false);
     await mkdir(join(root, 'releases', release, 'staging'), { recursive: true, mode: 0o700 });
-    for (const tool of selected(manifest, options.harness || 'claude', !!options.withFigma)) {
+    for (const tool of chosen) {
       if (npmIds.has(tool.id)) continue;
       const a = tool.artifacts[targetKey];
       if (tool.version.status !== 'verified' || a?.status !== 'verified') {
@@ -510,12 +515,15 @@ export async function installPlatform(manifest, options = {}) {
         }
       }
     }
-    const coreNpm = selected(manifest, options.harness || 'claude', !!options.withFigma).some(t => npmIds.has(t.id) && t.id !== 'codex');
+    const coreNpm = chosen.some(t => npmIds.has(t.id) && t.id !== 'codex');
     if (coreNpm) components.push(await npmPhase(root, release, 'npm', manifest, receipt, save, options));
-    if ((options.harness || 'claude') === 'codex') components.push(await npmPhase(root, release, 'npm-codex', manifest, receipt, save, options));
-    const shouldRegister = selected(manifest, options.harness || 'claude', !!options.withFigma).some(t => npmIds.has(t.id) && t.id !== 'codex') || receipt.phases.hooks;
+    if (chosen.some(t => t.id === 'codex')) components.push(await npmPhase(root, release, 'npm-codex', manifest, receipt, save, options));
+    const shouldRegister = chosen.some(t => npmIds.has(t.id) && t.id !== 'codex') || receipt.phases.hooks;
     let hookChanges = [];
-    if (options.update && components.some(x => x.status === 'deferred' || x.status === 'conflict')) {
+    if (options.globalHooks === false) {
+      components.push({ id: 'hooks', status: 'skipped', reason: receipt.phases.hooks ? 'global hooks and skills not selected; entries registered earlier are left as they are'
+        : 'global hooks and skills not selected; no global file touched' });
+    } else if (options.update && components.some(x => x.status === 'deferred' || x.status === 'conflict')) {
       components.push({ id: 'hooks', status: 'deferred', reason: 'kit hook activation waits for all dependent components; rerun agent-kit update --yes after conflicts clear' });
     } else if (shouldRegister && (components.some(x => x.id === 'npm' && ['installed', 'skipped'].includes(x.status)) || (!coreNpm && receipt.phases.hooks))) {
       try {
@@ -538,14 +546,14 @@ export async function installPlatform(manifest, options = {}) {
       delete receipt.pendingUpdate;
       await save();
     }
-    const incomplete = components.some(x => ['unverified', 'conflict', 'deferred'].includes(x.status)) || selected(manifest, options.harness || 'claude', !!options.withFigma).some(x => x.id === 'zoe-fleet');
+    const incomplete = components.some(x => ['unverified', 'conflict', 'deferred'].includes(x.status)) || chosen.some(x => x.id === 'zoe-fleet');
     return { status: incomplete ? 'partial' : 'installed', exitCode: incomplete ? 1 : 0, components,
       receipt: receiptPath, bin: join(root, 'releases', release, 'bin'),
       npmBin: coreNpm ? join(root, 'releases', release, 'npm', 'node_modules', '.bin') : null,
-      codexBin: (options.harness || 'claude') === 'codex' ? join(root, 'releases', release, 'npm-codex', 'node_modules', '.bin') : null,
+      codexBin: chosen.some(t => t.id === 'codex') ? join(root, 'releases', release, 'npm-codex', 'node_modules', '.bin') : null,
       firstmateHome: components.some(x => x.id === 'firstmate' && ['installed', 'skipped'].includes(x.status)) ? firstmateHome : null,
       towerParity, towerLauncher, hookChanges,
-      loginSteps: manifest.tools.filter(t => t.classification === 'per-user-login' && (t.profile === 'core' || t.profile === (options.harness || 'claude') || (options.withFigma && t.profile === 'figma'))).map(t => login[t.id]).filter(Boolean),
+      loginSteps: manifest.tools.filter(t => t.classification === 'per-user-login' && (t.profile === 'core' || usesProfile(harness, t.profile) || (options.withFigma && t.profile === 'figma'))).map(t => login[t.id]).filter(Boolean),
       nextSteps: [
         'Codex reviews new or changed hooks interactively; review and approve them yourself when prompted.',
         'no-mistakes init installs its user-level skill when you initialize your own repository.',
