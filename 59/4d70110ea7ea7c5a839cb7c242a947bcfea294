@@ -1,0 +1,27 @@
+README.md
+  s_910984031772d9::t_9713b369a0c3bd 316,340
+docs/features.md
+  s_910984031772d9::t_f72232c57dbca6 50,69
+  s_910984031772d9::t_59db32a37609b1 131
+docs/user-guide.md
+  s_910984031772d9::t_e967f7b2f25a09 228,620,639,1478,1883,1902
+  s_910984031772d9::t_84be81896fdcf9 400,1447,1656
+docs/windows-pilot-check.md
+  s_910984031772d9::t_acc0911a2c24e9 93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "594d70110ea7ea7c5a839cb7c242a947bcfea294",
+  "prompts": {},
+  "sessions": {
+    "s_910984031772d9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a181eb-4ab5-73a3-8207-d97dd84f5aca",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}

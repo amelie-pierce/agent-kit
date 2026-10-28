@@ -1,0 +1,28 @@
+docs/features.md
+  s_de7495f90e2d37::t_d55808f5072b4c 46,133
+src/shell-profile.mjs
+  s_de7495f90e2d37::t_624c1eb7694492 128,134
+test/shell-profile.test.mjs
+  s_de7495f90e2d37::t_624c1eb7694492 111-115
+test/lifecycle.test.mjs
+  s_de7495f90e2d37::t_624c1eb7694492 591
+docs/user-guide.md
+  s_de7495f90e2d37::t_624c1eb7694492 228,819-820,1478,2078
+  s_de7495f90e2d37::t_1bf192dda1cea1 2079
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c2bae347ea0f0f4c2ef7be087dc766a4f4a670d6",
+  "prompts": {},
+  "sessions": {
+    "s_de7495f90e2d37": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a181ac-2e44-7d30-884d-f4a0a8732939",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}

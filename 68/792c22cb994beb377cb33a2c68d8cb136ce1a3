@@ -1,0 +1,36 @@
+test/shell-profile.test.mjs
+  s_de7495f90e2d37::t_7a3d5a89aef665 103-104
+src/update.mjs
+  s_de7495f90e2d37::t_e305ce35b0a23d 80
+src/setup.mjs
+  s_de7495f90e2d37::t_e305ce35b0a23d 23,410,602
+src/shell-profile.mjs
+  s_de7495f90e2d37::t_e305ce35b0a23d 132-133
+test/setup.test.mjs
+  s_de7495f90e2d37::t_7a3d5a89aef665 397-402
+test/lifecycle.test.mjs
+  s_de7495f90e2d37::t_7a3d5a89aef665 10-11,568-577,579-592
+  s_de7495f90e2d37::t_464197ede36639 578
+docs/user-guide.md
+  s_de7495f90e2d37::t_e305ce35b0a23d 1153,2418
+docs/features.md
+  s_de7495f90e2d37::t_e305ce35b0a23d 133-134
+src/doctor.mjs
+  s_de7495f90e2d37::t_e305ce35b0a23d 191
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "68792c22cb994beb377cb33a2c68d8cb136ce1a3",
+  "prompts": {},
+  "sessions": {
+    "s_de7495f90e2d37": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a181ac-2e44-7d30-884d-f4a0a8732939",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
