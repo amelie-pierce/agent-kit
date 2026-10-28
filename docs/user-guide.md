@@ -249,6 +249,8 @@ If you already have one of these plugins, or the `claude-plugins-official` marke
 
 On every plan, hard work stays on the strongest model the plan routes (on Claude Opus 5.5; on Codex GPT-6.1 Sol, or GPT-6 Astra in `full` on the larger plans), and checking (validation) always runs at high effort. The exact models for each plan and mode are in the token tables (A7.4).
 
+**If Codex is your only agent CLI.** Work pauses when your weekly Codex quota is used up, and resumes after the quota resets. The kit never switches to another provider you have not set up. On Codex Plus, choose `lean`.
+
 **Routing mode (2c)** is Firstmate's token strategy (A7.4). Before the question the installer shows what each mode means:
 
 ```text
@@ -1485,6 +1487,8 @@ If you already have one of these plugins, or the `claude-plugins-official` marke
 | `skip` (not sure) | Firstmate's own standard rules, unchanged. Routing mode defaults to `balanced` |
 
 On every plan, hard work stays on the strongest model the plan routes (on Claude Opus 5.5; on Codex GPT-6.1 Sol, or GPT-6 Astra in `full` on the larger plans), and checking (validation) always runs at high effort. The exact models for each plan and mode are in the token tables (B7.4).
+
+**If Codex is your only agent CLI.** Work pauses when your weekly Codex quota is used up, and resumes after the quota resets. The kit never switches to another provider you have not set up. On Codex Plus, choose `lean`.
 
 **Routing mode (2c)** is Firstmate's token strategy (B7.4). Before the question the installer shows what each mode means:
 
