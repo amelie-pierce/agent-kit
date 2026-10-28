@@ -254,8 +254,8 @@ On every plan, hard work stays on the strongest model the plan routes (on Claude
 ```text
 2c. Firstmate token strategy modes:
    full: unlock full power
-   balanced: optimize for token saving while everything still works
-   lean: harder optimization for token saving while everything still works
+   balanced: optimize for token saving while everything still work
+   lean: harder optimization for token saving while everything still work
 ```
 
 At install the kit asks Firstmate to select that strategy for the agent CLIs and plans you chose (Firstmate's own `bin/fm-strategy.sh set <mode> --plans …`). That decides which agent and model each kind of job gets, and how much Firstmate starts on its own. The kit only does this in a new Firstmate home; it never overwrites a strategy or routing rules that already exist. Press Enter for the suggested mode (`lean` or `balanced`; the kit never suggests `full`) unless you know you want another. You can switch at any time later (A7.4).
@@ -835,8 +835,8 @@ Firstmate has three token strategies. Each one sets which model each kind of wor
 | Mode | What it does | Suits you if |
 | --- | --- | --- |
 | `full` | **Unlock full power.** The strongest models your plan routes; Firstmate starts approved work, fix rounds and fresh starts on its own; second mates allowed; every update reaches you straight away | you have plenty of quota and want the most done unattended |
-| `balanced` | **Optimize for token saving while everything still works.** Cheaper models that step down further as your weekly quota runs low (tables below); light and standard jobs start on their own, hard or expensive ones need your OK with a rough cost; one automatic fix round, then it asks; second mates optional (off on the smaller plans); quiet mode while you are at the keyboard, with messages batched for up to 90 seconds | you want a sensible middle ground |
-| `lean` (also called "light") | **Harder optimization for token saving while everything still works.** The cheapest routes for each plan; every new job needs a plan and your OK; no automatic fix rounds, retries or fresh starts; one coordinator, no new second mates unless you ask; quiet mode while you are at the keyboard, with messages batched for up to 180 seconds | you want to spend as few tokens as possible |
+| `balanced` | **Optimize for token saving while everything still work.** Cheaper models that step down further as your weekly quota runs low (tables below); light and standard jobs start on their own, hard or expensive ones need your OK with a rough cost; one automatic fix round, then it asks; second mates optional (off on the smaller plans); quiet mode while you are at the keyboard, with messages batched for up to 90 seconds | you want a sensible middle ground |
+| `lean` (also called "light") | **Harder optimization for token saving while everything still work.** The cheapest routes for each plan; every new job needs a plan and your OK; no automatic fix rounds, retries or fresh starts; one coordinator, no new second mates unless you ask; quiet mode while you are at the keyboard, with messages batched for up to 180 seconds | you want to spend as few tokens as possible |
 
 **Which models each kind of job gets.** Firstmate sorts every job as light, standard or hard. The tables show the model and effort for each, as `light / standard / hard`. An arrow (`→`) means the job starts on the first route and moves to the cheaper one once less than the "steps down below" share of your weekly quota is left, so the week's quota lasts. Hard work only ever lowers its effort; it never moves to a weaker model. Checking (validation) always runs at high effort.
 
@@ -1491,8 +1491,8 @@ On every plan, hard work stays on the strongest model the plan routes (on Claude
 ```text
 2c. Firstmate token strategy modes:
    full: unlock full power
-   balanced: optimize for token saving while everything still works
-   lean: harder optimization for token saving while everything still works
+   balanced: optimize for token saving while everything still work
+   lean: harder optimization for token saving while everything still work
 ```
 
 At install the kit asks Firstmate to select that strategy for the agent CLIs and plans you chose (Firstmate's own `bin/fm-strategy.sh set <mode> --plans …`). That decides which agent and model each kind of job gets, and how much Firstmate starts on its own. The kit only does this in a new Firstmate home; it never overwrites a strategy or routing rules that already exist. Press Enter for the suggested mode (`lean` or `balanced`; the kit never suggests `full`) unless you know you want another. You can switch at any time later (B7.4).
@@ -2079,8 +2079,8 @@ Firstmate has three token strategies. Each one sets which model each kind of wor
 | Mode | What it does | Suits you if |
 | --- | --- | --- |
 | `full` | **Unlock full power.** The strongest models your plan routes; Firstmate starts approved work, fix rounds and fresh starts on its own; second mates allowed; every update reaches you straight away | you have plenty of quota and want the most done unattended |
-| `balanced` | **Optimize for token saving while everything still works.** Cheaper models that step down further as your weekly quota runs low (tables below); light and standard jobs start on their own, hard or expensive ones need your OK with a rough cost; one automatic fix round, then it asks; second mates optional (off on the smaller plans); quiet mode while you are at the keyboard, with messages batched for up to 90 seconds | you want a sensible middle ground |
-| `lean` (also called "light") | **Harder optimization for token saving while everything still works.** The cheapest routes for each plan; every new job needs a plan and your OK; no automatic fix rounds, retries or fresh starts; one coordinator, no new second mates unless you ask; quiet mode while you are at the keyboard, with messages batched for up to 180 seconds | you want to spend as few tokens as possible |
+| `balanced` | **Optimize for token saving while everything still work.** Cheaper models that step down further as your weekly quota runs low (tables below); light and standard jobs start on their own, hard or expensive ones need your OK with a rough cost; one automatic fix round, then it asks; second mates optional (off on the smaller plans); quiet mode while you are at the keyboard, with messages batched for up to 90 seconds | you want a sensible middle ground |
+| `lean` (also called "light") | **Harder optimization for token saving while everything still work.** The cheapest routes for each plan; every new job needs a plan and your OK; no automatic fix rounds, retries or fresh starts; one coordinator, no new second mates unless you ask; quiet mode while you are at the keyboard, with messages batched for up to 180 seconds | you want to spend as few tokens as possible |
 
 **Which models each kind of job gets.** Firstmate sorts every job as light, standard or hard. The tables show the model and effort for each, as `light / standard / hard`. An arrow (`→`) means the job starts on the first route and moves to the cheaper one once less than the "steps down below" share of your weekly quota is left, so the week's quota lasts. Hard work only ever lowers its effort; it never moves to a weaker model. Checking (validation) always runs at high effort.
 

@@ -257,7 +257,7 @@ test('the plan and mode questions use the approved plan ids, warn before full on
       [/2d\. Use the full-access Codex launch[^\n]*$/, '\n'],
       [/Keep it as it is[^\n]*$/, 'y\n'], [/Add optional TYPESAFE_API_KEY[^\n]*$/, 'n\n'], [/Write these changes now[^\n]*$/, 'y\n']]);
   assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
-  assert.match(c.text, /2c\. Firstmate token strategy modes:\n   full: unlock full power\n   balanced: optimize for token saving while everything still works\n   lean: harder optimization for token saving while everything still works\n/, 'the owner\'s definitions come before the question');
+  assert.match(c.text, /2c\. Firstmate token strategy modes:\n   full: unlock full power\n   balanced: optimize for token saving while everything still work\n   lean: harder optimization for token saving while everything still work\n/, 'the owner\'s definitions come before the question');
   assert.match(c.text, /2\. Agent CLIs: codex \(plan: codex plus; starter routing mode: lean\)/);
   assert.match(c.text, /2d\. Full-access Codex launch: ON - Codex workers can read and write anything your account can/, 'the default is on and the summary says so');
   assert.equal(JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8')).setup.answers.codexFullAccess, true);

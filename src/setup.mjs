@@ -26,7 +26,7 @@ export const defaultRoot = '~/Agentic';
 export const setupAnswerKeys = ['harness', 'plans', 'dispatchMode', 'codexFullAccess', 'figma', 'tower', 'globalHooks', 'herdrLayout', 'githubOwner', 'gitIdentity', 'starterMate', 'channel'];
 // Shown before the full-access answer, in the README and in the PR, word for word.
 // The owner's own one-line definitions of Firstmate's three token strategies, shown before question 2c.
-export const modeMeanings = { full: 'unlock full power', balanced: 'optimize for token saving while everything still works', lean: 'harder optimization for token saving while everything still works' };
+export const modeMeanings = { full: 'unlock full power', balanced: 'optimize for token saving while everything still work', lean: 'harder optimization for token saving while everything still work' };
 export const fullAccessWarning = 'Full-access Codex launch: Codex workers that Firstmate starts can read and write anything your user account can, run any command without asking you first, and run hooks without the hook trust review. This matches the kit owner\'s own setup. Answer no to keep Codex\'s normal sandbox and approval prompts.';
 export const steps = [
   ['kit', 'kit source at its pinned commit'],
