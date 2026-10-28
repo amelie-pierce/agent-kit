@@ -6,6 +6,9 @@ import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readF
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { reconcileProfile } from '../src/shell-profile.mjs';
+import { doctor } from '../src/doctor.mjs';
+import { extrasPaths, placeUpdateExtras } from '../src/update.mjs';
 import { applyRepair, applyUninstall, applyUpgrade, formatLifecycle, planRepair, planUninstall, planUpgrade, resolveReviewedCommit } from '../src/lifecycle.mjs';
 import { parseArgs } from '../src/kit.mjs';
 import { windowsLifecycle } from '../src/install/windows.mjs';
@@ -347,7 +350,6 @@ test('upgrade from macos-pilot-5 with only a Firstmate pin change asks for /upda
 
 test('upgrade from pilot-9 to pilot-10 shows the Firstmate re-pin, asks for /updatefirstmate first, then applies', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t), oldPin = f.git('rev-parse', 'HEAD');
-  assert.equal(bundled.release, 'pilot-10');
   writeFileSync(join(f.firstmate, 'README.md'), 'firstmate a6bc187\n');
   f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qam', 'firstmate plan ladders and quiet delivery');
   const newPin = f.git('rev-parse', 'HEAD');
@@ -360,7 +362,7 @@ test('upgrade from pilot-9 to pilot-10 shows the Firstmate re-pin, asks for /upd
   const fetchKit = async (_commit, _env, destination) => {
     await stagedKit(_commit, _env, destination);
     const target = structuredClone(f.manifest);
-    target.release = bundled.release;
+    target.release = 'pilot-10';
     target.tools.find(x => x.id === 'firstmate').version.value = newPin;
     writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
   };
@@ -389,6 +391,51 @@ test('upgrade from pilot-9 to pilot-10 shows the Firstmate re-pin, asks for /upd
   assert.equal(after.phases.firstmate.version, newPin);
   assert.equal(readFileSync(join(f.root, 'releases', 'pilot-9', 'bin', 'herdr'), 'utf8'), 'original', 'the pilot-9 release stays for rollback');
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate a6bc187\n', 'the kit never touches the home');
+});
+
+test('upgrade from pilot-10 to pilot-11 shows the Firstmate re-pin, asks for /updatefirstmate first, then applies', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t), oldPin = f.git('rev-parse', 'HEAD');
+  writeFileSync(join(f.firstmate, 'README.md'), 'firstmate 622311a\n');
+  f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qam', 'firstmate pilot-11 fixes');
+  const newPin = f.git('rev-parse', 'HEAD');
+  f.git('checkout', '-q', '--detach', oldPin);
+  renameSync(join(f.root, 'releases', 'old-release'), join(f.root, 'releases', 'pilot-10'));
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.release = 'pilot-10';
+  receipt.phases.herdr.path = 'releases/pilot-10/bin/herdr';
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const fetchKit = async (_commit, _env, destination) => {
+    await stagedKit(_commit, _env, destination);
+    const target = structuredClone(f.manifest);
+    target.release = bundled.release;
+    target.tools.find(x => x.id === 'firstmate').version.value = newPin;
+    writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
+  };
+  const args = { ...f.options, resolveCommit: () => '8'.repeat(40), fetchKit };
+  const before = readFileSync(f.receiptPath, 'utf8');
+  const plan = await planUpgrade(args);
+  t.after(() => rmSync(plan.stage, { recursive: true, force: true }));
+  assert.equal(plan.fromRelease, 'pilot-10');
+  assert.equal(plan.toRelease, 'pilot-11');
+  assert.equal(plan.firstmatePinChange, true);
+  assert.deepEqual(plan.changes.filter(x => x.from.version !== x.to.version).map(x => x.id), ['firstmate']);
+  const text = formatLifecycle(plan);
+  assert.match(text, /\nRelease: pilot-10 -> pilot-11\n/);
+  assert.match(text, new RegExp(`\\n- firstmate: ${oldPin} -> ${newPin}; `));
+  assert.match(text, /\nFirstmate pin: run \/updatefirstmate in the Firstmate home before applying\n/);
+  await assert.rejects(applyUpgrade(plan, f.options), new RegExp(`Firstmate pin changed; run /updatefirstmate from ${f.firstmate}, then rerun agent-kit upgrade`));
+  assert.equal(readFileSync(f.receiptPath, 'utf8'), before, 'nothing changes before /updatefirstmate');
+  assert.equal(existsSync(join(f.root, 'releases', 'pilot-11')), false);
+  f.git('checkout', '-q', '--detach', newPin);
+  const ready = await planUpgrade(args);
+  assert.match(formatLifecycle(ready), /\nFirstmate pin: guarded update already verified\n/);
+  const result = await applyUpgrade(ready, f.options);
+  assert.equal(result.status, 'upgraded');
+  const after = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  assert.equal(after.release, 'pilot-11');
+  assert.equal(after.phases.firstmate.version, newPin);
+  assert.equal(readFileSync(join(f.root, 'releases', 'pilot-10', 'bin', 'herdr'), 'utf8'), 'original', 'the pilot-10 release stays for rollback');
+  assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate 622311a\n', 'the kit never touches the home');
 });
 
 test('upgrade from macos-pilot-6 to the current pilot-N plans and applies without a release prefix assumption', { skip: process.platform === 'win32' }, async t => {
@@ -530,4 +577,61 @@ test('Windows lifecycle handoff executes the installed kit inside a disposable W
     { env: { ...process.env, HOME: base }, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), ['repair', '--install-root', root, '--yes']);
+});
+
+test('uninstall removes the unchanged PATH block and keeps an edited one; repair puts a removed block back', { skip: process.platform === 'win32' }, async t => {
+  const withBlock = async () => {
+    const f = fixture(t), rc = join(f.home, '.zshrc');
+    writeFileSync(rc, 'alias a=b\n');
+    const receipt = JSON.parse(readFileSync(f.receiptPath));
+    receipt.setup.answers.shellProfile = true;
+    const env = { ...f.options.env, SHELL: '/bin/zsh' };
+    const done = await reconcileProfile(receipt, f.root, { env, home: f.home, platform: 'darwin' });
+    receipt.setup.shellProfile = done.record;
+    writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+    return { f, rc, options: { ...f.options, env } };
+  };
+  const a = await withBlock();
+  assert.match(readFileSync(a.rc, 'utf8'), /# >>> agent-kit PATH >>>/);
+  assert.equal(planUninstall(a.options).shellProfile.action, 'remove the unchanged agent-kit PATH block');
+  assert.match(formatLifecycle(planUninstall(a.options)), /Shell profile PATH block: remove the unchanged/);
+  await applyUninstall(a.options);
+  assert.equal(readFileSync(a.rc, 'utf8'), 'alias a=b\n');
+  const b = await withBlock();
+  writeFileSync(b.rc, readFileSync(b.rc, 'utf8').replace('Managed by', 'Mine, managed by'));
+  assert.equal(planUninstall(b.options).shellProfile.action, 'keep changed or absent PATH block');
+  await applyUninstall(b.options);
+  assert.match(readFileSync(b.rc, 'utf8'), /Mine, managed by/);
+  const c = await withBlock();
+  writeFileSync(c.rc, 'alias a=b\n');
+  const lines = await reconcileProfile(JSON.parse(readFileSync(c.f.receiptPath)), c.f.root, { env: c.options.env, home: c.f.home, platform: 'darwin' });
+  assert.match(lines.lines[0], /not added again/, 'a block you removed stays removed outside repair');
+  const repaired = await reconcileProfile(JSON.parse(readFileSync(c.f.receiptPath)), c.f.root, { env: c.options.env, home: c.f.home, platform: 'darwin', repair: true });
+  assert.match(repaired.lines[0], /added the PATH block/);
+});
+
+test('skipped profile ownership survives repair and update, then uninstall removes the block', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t), rc = join(f.home, '.zshrc'), env = { ...f.options.env, SHELL: '/bin/zsh' }, options = { ...f.options, env };
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.setup.answers.shellProfile = true;
+  const done = await reconcileProfile(receipt, f.root, { env, home: f.home, platform: 'darwin' });
+  receipt.setup.shellProfile = done.record;
+  receipt.setup.answers.shellProfile = false;
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  assert.ok(extrasPaths(options, receipt).includes(rc));
+  await applyRepair(f.manifest, options);
+  assert.deepEqual(JSON.parse(readFileSync(f.receiptPath, 'utf8')).setup.shellProfile, done.record);
+  await placeUpdateExtras(options, f.firstmate);
+  assert.deepEqual(JSON.parse(readFileSync(f.receiptPath, 'utf8')).setup.shellProfile, done.record);
+  assert.equal(planUninstall(options).shellProfile.action, 'remove the unchanged agent-kit PATH block');
+  await applyUninstall(options);
+  assert.equal(existsSync(rc), false);
+});
+
+test('doctor checks a running Herdr with a prior-release receipt', { skip: process.platform === 'win32' }, t => {
+  const f = fixture(t);
+  const report = doctor(f.manifest, { ...f.options, herdrPath: { servers: () => [7], serverPath: () => '/usr/bin' } });
+  assert.equal(report.checks.find(row => row.id === 'herdr-path-env').status, 'warn');
+  assert.equal(report.checks.find(row => row.id === 'shell-path').status, 'fail');
+  assert.equal(report.checks.some(row => row.id === 'shell-profile'), false);
 });

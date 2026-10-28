@@ -37,3 +37,5 @@ Ownership: the kit writes or selects only when neither the rules file nor `confi
 - A changed file or a strategy the kit did not select releases ownership.
 
 Doctor's `jev` row checks the key line (set / not set only), well-formed rules, a usable never-send list, the resolver script, and `jq curl quota-axi awk grep sed tr` on PATH. It warns rather than fails (src/dispatch.mjs `jevReadiness`; src/doctor.mjs). A clear resolver answer also needs quota-axi to measure the signed-in provider. Unmeasured quota escalates, which is the person's own sign-in and outside the kit. `scripts/jev-resolve-smoke.mjs` proves keys-then-resolve against the pinned Firstmate with stubbed curl and quota-axi.
+
+Updated 2026-10-28 (pilot-11): the pinned Firstmate strategy plans and templates now use GPT-6 Sol for every Codex Sol route, while GPT-6.1 Terra remains in standard work. The kit leaves its single-route compatibility bridge for older homes unchanged; current homes render from Firstmate through `--plans` (manifests/pilot-skeleton.json:76; README.md:100; README.md:445).

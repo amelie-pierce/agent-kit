@@ -34,7 +34,7 @@ try {
   assert.deepEqual([body.readUInt32BE(0), body.readUInt16LE(18)], [0x7f454c46, 0x3e], 'zoe-fleet is a Linux x64 ELF');
   const version = spawnSync(binary, ['--version'], { encoding: 'utf8', timeout: 30_000 });
   assert.equal(version.status, 0, version.stderr);
-  assert.match(version.stdout, /fc45c4d9ea1d/);
+  assert.match(version.stdout, new RegExp(subset.tools.find(x => x.id === 'zoe-fleet').version.value.slice(0, 12)));
   assert.equal(statSync(join(home, '.config', 'zoe-fleet', 'config')).mode & 0o777, 0o600);
   const second = await installPlatform(subset, options);
   assert.deepEqual(phases.map(id => second.components.find(x => x.id === id)?.status), Array(4).fill('skipped'));

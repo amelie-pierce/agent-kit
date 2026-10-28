@@ -9,6 +9,8 @@ import { artifactFor } from './platforms/linux.mjs';
 import { usesProfile } from './harness.mjs';
 import { jevReadiness } from './dispatch.mjs';
 import { shortcutsHealth } from './shortcuts.mjs';
+import { herdrPathHealth } from './herdr-path.mjs';
+import { foldersOf, shellHealth } from './shell-profile.mjs';
 // The only Firstmate the kit installs and updates from: the owner's fork.
 export const firstmateFork = 'https://github.com/pikenguyen227/firstmate';
 
@@ -79,7 +81,7 @@ function versionAtLeast(actual, minimum) {
   for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] > b[i];
   return true;
 }
-export function doctor(manifest, { installRoot, home, env = process.env, nodeVersion = process.versions.node, platform: platformName = process.platform, arch = process.arch } = {}) {
+export function doctor(manifest, { installRoot, home, env = process.env, herdrPath = {}, installing = false, nodeVersion = process.versions.node, platform: platformName = process.platform, arch = process.arch } = {}) {
   if (!installRoot || !isAbsolute(installRoot)) throw new Error('doctor requires an absolute --install-root');
   const root = resolve(installRoot), checks = [];
   if (existsSync(root) && (!lstatSync(root).isDirectory() || lstatSync(root).isSymbolicLink())) throw new Error('doctor requires a plain kit root directory');
@@ -185,6 +187,8 @@ export function doctor(manifest, { installRoot, home, env = process.env, nodeVer
     checks.push(status('firstmate-fork', fork ? 'pass' : 'warn', fork ? `firstmate origin: ${origin} (approved fork)` : `firstmate origin: ${origin || 'unreadable'}; expected the approved fork ${firstmateFork}`));
   }
   checks.push(...shortcutsHealth(receipt, root));
+  checks.push(...shellHealth(receipt, root, { env, platform: platformName, installing }));
+  checks.push(herdrPathHealth(foldersOf(receipt, root), { platform: platformName, ...herdrPath }));
   for (const path of receipt.phases['npm-figma']?.skills || []) {
     let owner = null;
     try { owner = JSON.parse(readFileSync(join(path, '.figma-cli-skill.json'), 'utf8')).owner; } catch { /* reported */ }

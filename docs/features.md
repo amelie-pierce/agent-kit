@@ -1,6 +1,6 @@
 # Agent Kit: all features
 
-This page lists every function the kit supports today, checked against the kit on `main` (release `pilot-10`; release names have the form `pilot-N`, and older releases were named `macos-pilot-N`). Every row describes the released kit.
+This page lists the functions in this `pilot-11` candidate worktree. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`. The owner approves a release by merging its manifest PR.
 
 **How to read the support columns.** **Yes**: works today. **Partial**: works with a limit, explained in the row. **No**: not supported.
 
@@ -27,7 +27,7 @@ In the commands below, `AK` is your kit command file, `<root>/.tools/kit/<commit
 | Unattended install | No questions: uses saved answers, then flags, then the shown defaults (including the full-access Codex launch on and the Herdr layout on). Never sets a key | `--yes` | Yes | Yes | Yes |
 | Choose the root folder | Sets the root without asking question 1 | `--root <folder>` | Yes | Yes | Yes |
 | Choose the update channel | `releases` (approved releases, default) or `main` | `--channel releases` or `--channel main` | Yes | Yes | Yes |
-| Answer a question by flag | One flag per question except the key: `--harness codex\|claude\|claude,codex`, `--claude-plan <id>`, `--codex-plan <id>`, `--dispatch-mode lean\|balanced\|full`, `--codex-full-access`/`--no-codex-full-access`, `--no-figma`/`--with-figma`, `--no-tower`/`--with-tower`, `--no-global-hooks`/`--global-hooks`, `--no-herdr-layout`/`--herdr-layout`, `--github-owner <name>`, `--git-name <name>`, `--git-email <email>`, `--starter-mate <name>`, `--starter-scope <text>`, `--no-starter-mate` | Add to the installer command | Yes | Yes | Yes |
+| Answer a question by flag | Set any non-secret setup answer with its matching flag; see [README Questions](../README.md#questions) | Add the flag to the installer command | Yes | Yes | Yes |
 | Accept a non-empty root | Allows an unattended install into a root that already holds other files (an interactive run asks instead) | `--allow-existing-root` | Yes | Yes | Yes |
 | Override a derived path | Places the kit or the Firstmate home somewhere other than inside the root | `--install-root <dir>`, `--firstmate-home <dir>` | Yes | Yes | Yes |
 | Choose the WSL distribution | Hands over to this distribution instead of your default one | `install.ps1 --distro <name>` | No | No | Yes |
@@ -35,7 +35,7 @@ In the commands below, `AK` is your kit command file, `<root>/.tools/kit/<commit
 | Use a local kit checkout | Uses a clean local copy of the kit instead of fetching it (kit development and CI) | `--kit-dir <dir>` | Yes | Yes | Yes |
 | Help | Prints the installer's flags. `install.ps1` has no help flag | `bash install.sh --help` | Yes | Yes | No |
 
-**The 8 setup steps:** 1 kit source at its pinned commit; 2 pinned tools, Firstmate home (with its strategy selected), tower and global hooks; 3 Treehouse wrapper; 4 the kit's commands, Herdr keys, layout and plugins, Claude plugins and the starter help page; 5 git name and email; 6 starter second mate; 7 sign-ins you do yourself; 8 health check.
+**The 8 setup steps:** see the [Mac and Linux guide](user-guide.md#a26-the-eight-steps) or [Ubuntu guide](user-guide.md#b210-the-eight-steps), including the selected shell profile block in step 4.
 
 ## 2. Agent Kit commands
 
@@ -43,11 +43,11 @@ Run these with `node "$AK" <command>`. On Windows, run them in your **Ubuntu** t
 
 | Function | What it does | Command | macOS | Linux | Windows (WSL2) |
 | --- | --- | --- | --- | --- | --- |
-| Doctor | Health check: every kit file present and unchanged, PATH order, hooks, permissions, Firstmate version, and a `jev` row (`PASS jev: ready (key set, rules present)`, or `WARN jev: not ready: <reason>`, never a failure and never the key). Also rows for the Firstmate origin (`firstmate origin: … (approved fork)`), the full-access answer (`codex full-access launch: on\|off`), each kit command, the Herdr keys and layout blocks, the Herdr plugins, the tower's start-up entry, the help page, the Claude plugins and the Figma skills; these are `PASS` or `WARN`, never `FAIL`. Changes nothing. Sign-ins and the live fleet always show as `UNKNOWN` | `node "$AK" doctor` | Yes | Yes | Yes |
+| Doctor | Health check: every kit file present and unchanged, PATH order, hooks, permissions, Firstmate version, and a `jev` row (`PASS jev: ready (key set, rules present)`, or `WARN jev: not ready: <reason>`, never a failure and never the key). Also rows for the Firstmate origin (`firstmate origin: … (approved fork)`), the full-access answer (`codex full-access launch: on\|off`), each kit command, the Herdr keys and layout blocks, the Herdr plugins, a `shell-path` row for every installed receipt (`FAIL` when this terminal lacks a kit folder; open a new terminal after install), a `shell-profile` row when a profile choice or kit-owned block was recorded (`FAIL` when its effective PATH line lacks a kit folder), a `herdr-path-env` row (`WARN` when a running Herdr server started without the kit folders on its PATH; `PASS` when Herdr is not running or cannot be read; it only reads), the tower's start-up entry, the help page, the Claude plugins and the Figma skills. The informational rows are `PASS` or `WARN`, never `FAIL`. Changes nothing. Sign-ins and the live fleet always show as `UNKNOWN` | `node "$AK" doctor` | Yes | Yes | Yes |
 | Doctor as JSON | The same report, machine-readable, to redact and share | `node "$AK" doctor --json` | Yes | Yes | Yes |
 | Repair | Re-checks and re-downloads your current release, backs up and replaces changed kit files, and puts back the kit's hooks, skill links, tower config, Treehouse wrapper, kit commands, Herdr keys and layout blocks, Herdr plugin entries, the tower's start-up entry, a deleted help page, the Figma skills and the Claude plugins it added. Selects your strategy again only if Firstmate's rules and strategy are both missing. Leaves your Firstmate home, `.env`, key and your own edits as they are and reports any local changes | `node "$AK" repair` | Yes | Yes | Yes |
 | Reinstall | Same as repair | `node "$AK" reinstall` | Yes | Yes | Yes |
-| Upgrade | Run only when the person who shared this guide asks you to. Moves to the newest approved release on your saved channel. Shows a plan, asks only new questions (for example 2d and 5a when moving to `pilot-9`; none when moving to `pilot-10`), keeps your key, refreshes Firstmate's strategy or the starter rules only while unchanged, places anything the release adds, and puts kit files, commands and Herdr files back if a step fails. Data and state changes are not rolled back | `node "$AK" upgrade` | Yes | Yes | Yes |
+| Upgrade | Run only when the person who shared this guide asks you to. Moves to the newest approved release on your saved channel. Shows a plan, asks only questions without saved answers, keeps your key, refreshes Firstmate's strategy or the starter rules only while unchanged, places anything the release adds, and puts kit files, commands and Herdr files back if a step fails. Data and state changes are not rolled back | `node "$AK" upgrade` | Yes | Yes | Yes |
 | Update | Same as upgrade; run only when asked | `node "$AK" update` | Yes | Yes | Yes |
 | Uninstall | Removes the kit's programs, hooks, skill links, unchanged tower config, unchanged Treehouse wrapper, unchanged kit commands, unchanged Herdr keys and layout blocks, its Herdr plugin entries, the tower's start-up entry, an unchanged help page, the Figma skills, the Claude plugins and marketplaces it added, and unchanged starter rules from older releases. The programs and every edited file go into a private backup under `<root>/agent-kit-uninstall/`. Keeps your root, Firstmate home (including `.env` and the strategy chosen at install), projects, second mates and tower state | `node "$AK" uninstall` | Yes | Yes | Yes |
 | Uninstall and remove `.env` | Also removes the Firstmate home's `.env` file, with the key. You must type its exact path, in a real terminal | `node "$AK" uninstall --remove-env` | Yes | Yes | Yes |
@@ -66,7 +66,7 @@ Run these with `node "$AK" <command>`. On Windows, run them in your **Ubuntu** t
 
 **Before repair, upgrade or uninstall:** they refuse while Herdr, the no-mistakes daemon or the tower is running, including when you start them from a pane inside Herdr. Each names the step to take (`herdr server stop`, `no-mistakes daemon stop`, or closing the tower's Fleet pane). The kit never stops these itself.
 
-**Upgrade also refuses** while your Firstmate home has uncommitted changes to tracked files, is not on the Firstmate version the kit expects, or has an `origin` other than the approved Firstmate copy (the kit owner's). When a release changes the Firstmate version (as `pilot-9` and `pilot-10` do), applying stops until `/updatefirstmate` has run in the home. Moving to `pilot-10` also has Firstmate set up the strategy the kit selected again with the new models, if nobody changed it. After an upgrade, point `AK` at the new kit copy and change the release folder in your PATH line.
+**Upgrade also refuses** while your Firstmate home has uncommitted changes to tracked files, is not on the Firstmate version the kit expects, or has an `origin` other than the approved Firstmate copy (the kit owner's). When a release changes the Firstmate version (as `pilot-9`, `pilot-10` and `pilot-11` do), applying stops until `/updatefirstmate` has run in the home. Moving to `pilot-10` or `pilot-11` also has Firstmate set up the strategy the kit selected again with the new models, if nobody changed it. After an upgrade, point `AK` at the new kit copy. An unchanged kit-owned PATH block is refreshed; if you skipped question 5b, change the release folder in your PATH line yourself.
 
 ## 3. The install questions
 
@@ -82,6 +82,7 @@ Run these with `node "$AK" <command>`. On Windows, run them in your **Ubuntu** t
 | 4 | Fleet tower | yes | `--no-tower` | Partial | Partial | Partial |
 | 5 | Register global hooks and skills, and with them the kit's commands, Herdr keys, Herdr plugins and Claude plugins | yes | `--no-global-hooks` | Yes | Yes | Yes |
 | 5a | Herdr layout (only with 5): the kit owner's Herdr theme, sidebar, tab bar and pane settings; your own settings win | yes | `--no-herdr-layout` | Yes | Yes | Yes |
+| 5b | Shell profile PATH block: one marked block in your zsh or bash profile (inside Ubuntu on Windows), exact text shown on the summary screen, removed by uninstall while unchanged | yes | `--no-shell-profile`, `--shell-profile` | Yes | Yes | Yes |
 | 6 | GitHub account or organization for your projects (recorded only) | your `gh` login | `--github-owner <name>` | Yes | Yes | Yes |
 | 7 | Git name and email: keep, or set with `git config --global` | keep | `--git-name`, `--git-email` | Yes | Yes | Yes |
 | 8 | Create a starter second mate now | no | `--starter-mate <name> --starter-scope <text>` | Yes | Yes | Yes |
@@ -102,7 +103,7 @@ Every download is checked against a fixed checksum. Nothing is started and no on
 
 | Item | What it is | How you use it | macOS | Linux | Windows (WSL2) |
 | --- | --- | --- | --- | --- | --- |
-| Firstmate home | Your own Firstmate, at the version the kit pins (`a6bc1877`), from the kit owner's approved copy of Firstmate, in `<root>/firstmate`. Its `origin` is that approved copy, so `/updatefirstmate` updates from it; doctor's `firstmate-fork` row checks it | Start it inside Herdr (section 4b) | Yes | Yes | Yes |
+| Firstmate home | Your own Firstmate, at the version the kit pins (`622311a5`), from the kit owner's approved copy of Firstmate, in `<root>/firstmate`. Its `origin` is that approved copy, so `/updatefirstmate` updates from it; doctor's `firstmate-fork` row checks it | Start it inside Herdr (section 4b) | Yes | Yes | Yes |
 | Firstmate strategy | Your routing mode (2c) selected through Firstmate's own `fm-strategy.sh --plans`, plus the kit's `check` and `research` rules. Only in a home with no strategy or rules yet | Question 2c | Yes | Yes | Yes |
 | Herdr 0.9.3 | The terminal workspace the agents run in | `herdr` | Yes | Yes | Yes |
 | Treehouse 2.3.0 | Gives each worker its own clean copy of a repo; a kit wrapper keeps the copies under `<root>/.treehouse` | Used by Firstmate | Yes | Yes | Yes |
@@ -126,6 +127,8 @@ Every download is checked against a fixed checksum. Nothing is started and no on
 | Private record | `<root>/.tools/receipt.json`: what was installed and your answers (including plan names, routing mode, the full-access and layout answers, and digests of the kit's commands and Herdr blocks); paths only, never secrets. For the key it records only set or not set | Read by doctor, repair, upgrade and uninstall | Yes | Yes | Yes |
 
 **You install these yourself; the kit only checks them:** Node.js 24.15.0 or newer, git 2.20.0 or newer, the GitHub CLI 2.0.0 or newer, and python3 3.9 or newer (on macOS from the Xcode Command Line Tools; on Linux and in Ubuntu, `sudo apt install python3`). On macOS also Homebrew, the Xcode Command Line Tools and jq. Optional: Claude Code 2.1.293 or newer, and Figma Desktop. On Windows you also set up WSL2 with Ubuntu 22.04 or newer yourself, and install git, Node.js and `gh` on both Windows and Ubuntu (inside Ubuntu, Node.js from nvm or NodeSource, not `apt install nodejs`). On Windows with the tower chosen, jq inside Ubuntu (`sudo apt install -y jq`); a missing jq is a `tower-jq` warning and does not stop the install.
+
+**The PATH block (question 5b).** The kit offers a marked zsh or bash profile block and checks whether a running Herdr can see the kit folders; it never stops Herdr. `--no-shell-profile` skips adding a block on a new install and preserves an existing kit-owned block on a rerun; `--shell-profile` explicitly turns it on. If you change your login shell, uninstall the kit and reinstall it from the new shell. See the guide's [Mac and Linux instructions](user-guide.md#a24-the-questions) or [Ubuntu instructions](user-guide.md#b28-the-questions) for the profile path, repair, doctor and uninstall behavior.
 
 ### 4b. The kit's commands (question 5)
 
@@ -268,7 +271,7 @@ Kit-managed keys are added only with question 5, never replace a key you bound y
 - **The tower on Ubuntu older than 22.04** inside WSL2: only the tower is refused.
 - **Installing prerequisites:** the kit never installs Node.js, git, `gh`, python3, jq, Homebrew, Xcode tools, Claude Code, Figma Desktop or WSL2, and never runs `sudo`.
 - **Signing in:** the kit never signs you in or out and never reads, prints or stores a password or token, including for Claude plugins that connect to an account.
-- **Editing your shell profile:** you add the PATH line yourself, and after an upgrade you change it yourself.
+- **Editing any other part of your shell profile:** the kit writes only its own marked PATH block (section 4). Shells other than zsh and bash get no block; you add the PATH line yourself.
 - **Starting anything:** the kit never starts or stops Herdr, the tower, the no-mistakes daemon or agents, and never reloads Herdr's settings.
 - **Changing Herdr while it runs:** the kit adds its Herdr plugins only while Herdr is stopped.
 - **Relay and mail settings** in Firstmate: not set up by the kit.

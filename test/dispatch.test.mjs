@@ -499,7 +499,7 @@ const ladderRules = { rules: [
     { harness: 'codex', model: 'gpt-6-luna', effort: 'high', ...floor(35) }, { harness: 'codex', model: 'gpt-6-luna', effort: 'medium', ...floor(20) }] },
   { when: 'Hard work', select: 'ladder', strategy: 'hard', use: [
     { harness: 'claude', model: 'claude-opus-5-5', effort: 'high', ...floor(35) }, { harness: 'claude', model: 'claude-opus-5-5', effort: 'medium' },
-    { harness: 'codex', model: 'gpt-6.1-sol', effort: 'high', ...floor(35) }, { harness: 'codex', model: 'gpt-6.1-sol', effort: 'medium' }] },
+    { harness: 'codex', model: 'gpt-6-sol', effort: 'high', ...floor(35) }, { harness: 'codex', model: 'gpt-6-sol', effort: 'medium' }] },
 ] };
 const keys = rule => [rule.use].flat().map(p => `${p.harness}:${p.model}:${p.effort}`);
 

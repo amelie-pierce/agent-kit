@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "release": "pilot-10",
+  "release": "pilot-11",
   "nodeMinimum": "24.15.0",
   "tools": [
     {
@@ -76,7 +76,7 @@
       "classification": "shareable",
       "version": {
         "kind": "git-commit",
-        "value": "a6bc187783a5921b74c57c800a19ee2135479653",
+        "value": "622311a564865e8fb5a5cfdf1b92ee97ce3711b5",
         "status": "verified",
         "reason": "Commit verified on approved upstream."
       },
@@ -88,26 +88,26 @@
       "runtimeMinimum": null,
       "artifacts": {
         "darwin-arm64": {
-          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/a6bc187783a5921b74c57c800a19ee2135479653",
-          "sha256": "cd01c5b7bc48234280e2f4806333fd7fd0e262e9ef05d8bf58936680d3e5993f",
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/622311a564865e8fb5a5cfdf1b92ee97ce3711b5",
+          "sha256": "c5d84ffad31cf0cf72ae6f3d653c65ef25fb5319c8c0a5f1a2f48ef7c4cd50d1",
           "status": "verified",
           "reason": "SHA-256 computed from the pinned GitHub source archive."
         },
         "darwin-x64": {
-          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/a6bc187783a5921b74c57c800a19ee2135479653",
-          "sha256": "cd01c5b7bc48234280e2f4806333fd7fd0e262e9ef05d8bf58936680d3e5993f",
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/622311a564865e8fb5a5cfdf1b92ee97ce3711b5",
+          "sha256": "c5d84ffad31cf0cf72ae6f3d653c65ef25fb5319c8c0a5f1a2f48ef7c4cd50d1",
           "status": "verified",
           "reason": "SHA-256 computed from the pinned GitHub source archive."
         },
         "linux-arm64": {
-          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/a6bc187783a5921b74c57c800a19ee2135479653",
-          "sha256": "cd01c5b7bc48234280e2f4806333fd7fd0e262e9ef05d8bf58936680d3e5993f",
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/622311a564865e8fb5a5cfdf1b92ee97ce3711b5",
+          "sha256": "c5d84ffad31cf0cf72ae6f3d653c65ef25fb5319c8c0a5f1a2f48ef7c4cd50d1",
           "status": "verified",
           "reason": "SHA-256 of pinned source archive, shared across supported hosts."
         },
         "linux-x64": {
-          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/a6bc187783a5921b74c57c800a19ee2135479653",
-          "sha256": "cd01c5b7bc48234280e2f4806333fd7fd0e262e9ef05d8bf58936680d3e5993f",
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/622311a564865e8fb5a5cfdf1b92ee97ce3711b5",
+          "sha256": "c5d84ffad31cf0cf72ae6f3d653c65ef25fb5319c8c0a5f1a2f48ef7c4cd50d1",
           "status": "verified",
           "reason": "SHA-256 of pinned source archive, shared across supported hosts."
         },
@@ -209,9 +209,9 @@
       "classification": "shareable",
       "version": {
         "kind": "git-commit",
-        "value": "fc45c4d9ea1de0af27092f26eaa8f5008881f01e",
+        "value": "b1736f30d34e0ace87eb871b3d6fd1cc79f17c84",
         "status": "verified",
-        "reason": "Commit verified on approved upstream; release tags fleet-v0.2.0-fc45c4d9ea1d and fleet-v0.2.0-fc45c4d9ea1d-linux resolve to it."
+        "reason": "Commit verified on approved upstream; release tags fleet-v0.2.0-b1736f30d34e and fleet-v0.2.0-b1736f30d34e-linux resolve to it."
       },
       "approvedUpstream": "https://github.com/pikenguyen227/zoetrope",
       "license": {
@@ -221,43 +221,43 @@
       "runtimeMinimum": null,
       "artifacts": {
         "darwin-arm64": {
-          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-fc45c4d9ea1d/zoe-fleet-0.2.0-fc45c4d9ea1d-aarch64-apple-darwin.tar.gz",
-          "sha256": "067ff921f660840b3cf4f0ab84a7a0500a8b2705f25f0164f1b3f970ca413e65",
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-b1736f30d34e/zoe-fleet-0.2.0-b1736f30d34e-aarch64-apple-darwin.tar.gz",
+          "sha256": "d3c8396a02b6610314bfece66b3afb8f37f3399995b5a76ea4db46d89530162d",
           "kind": "release-archive",
           "status": "verified",
           "reason": "SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
         },
         "darwin-x64": {
-          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-fc45c4d9ea1d/zoe-fleet-0.2.0-fc45c4d9ea1d-x86_64-apple-darwin.tar.gz",
-          "sha256": "f167a67bab048fb06a2c7e0e5254ba497c19249eda94441f3a08ed92e6f47a27",
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-b1736f30d34e/zoe-fleet-0.2.0-b1736f30d34e-x86_64-apple-darwin.tar.gz",
+          "sha256": "97b2eb396862c152c5329079d2e293a163f95fdd8a9fb5a44e822d6566ca1a09",
           "kind": "release-archive",
           "status": "verified",
           "reason": "SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
         },
         "linux-arm64": {
-          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/fc45c4d9ea1de0af27092f26eaa8f5008881f01e",
-          "sha256": "249efdac00b2acbaff71739e942be03c4fa0479aa69a90d597539e5679271fb7",
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/b1736f30d34e0ace87eb871b3d6fd1cc79f17c84",
+          "sha256": "5843ffdb9b258b31ec26b5b74233b983aacfd9e65aaf35bafbff697fac1bad22",
           "kind": "source-archive",
           "status": "verified",
-          "reason": "fleet-v0.2.0-fc45c4d9ea1d has no Linux asset; SHA-256 of the pinned source archive for the cargo build fallback."
+          "reason": "fleet-v0.2.0-b1736f30d34e has no Linux asset for standalone Linux; SHA-256 of the pinned source archive for the cargo build fallback."
         },
         "linux-x64": {
-          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/fc45c4d9ea1de0af27092f26eaa8f5008881f01e",
-          "sha256": "249efdac00b2acbaff71739e942be03c4fa0479aa69a90d597539e5679271fb7",
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/b1736f30d34e0ace87eb871b3d6fd1cc79f17c84",
+          "sha256": "5843ffdb9b258b31ec26b5b74233b983aacfd9e65aaf35bafbff697fac1bad22",
           "kind": "source-archive",
           "status": "verified",
-          "reason": "fleet-v0.2.0-fc45c4d9ea1d has no Linux asset; SHA-256 of the pinned source archive for the cargo build fallback."
+          "reason": "fleet-v0.2.0-b1736f30d34e has no Linux asset for standalone Linux; SHA-256 of the pinned source archive for the cargo build fallback."
         },
         "wsl2-arm64": {
-          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-fc45c4d9ea1d-linux/zoe-fleet-0.2.0-fc45c4d9ea1d-aarch64-unknown-linux-gnu.tar.gz",
-          "sha256": "c22035f08c5f23631ebc87cac6d5116f86cae894d22f68bda60389d860609a3e",
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-b1736f30d34e-linux/zoe-fleet-0.2.0-b1736f30d34e-aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "927bd47f3768b7af53e3f4881949151dfd98c2a72082ce3b3f09090995232629",
           "kind": "release-archive",
           "status": "verified",
           "reason": "WSL2 only (glibc 2.35, Ubuntu 22.04 or newer); SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
         },
         "wsl2-x64": {
-          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-fc45c4d9ea1d-linux/zoe-fleet-0.2.0-fc45c4d9ea1d-x86_64-unknown-linux-gnu.tar.gz",
-          "sha256": "8085a73f24d6290df078e4e7edf34ea00ab712288e9fbbd72ff50c50bb549a45",
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-b1736f30d34e-linux/zoe-fleet-0.2.0-b1736f30d34e-x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "a70d73f9064672c546bd05eb5f810de326e0e97b966dd676f844e6a0cf950465",
           "kind": "release-archive",
           "status": "verified",
           "reason": "WSL2 only (glibc 2.35, Ubuntu 22.04 or newer); SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
@@ -294,9 +294,9 @@
       "classification": "shareable",
       "version": {
         "kind": "release",
-        "value": "fleet-v0.2.0-fc45c4d9ea1d",
+        "value": "fleet-v0.2.0-b1736f30d34e",
         "status": "verified",
-        "reason": "Release fleet-v0.2.0-fc45c4d9ea1d at commit fc45c4d9ea1de0af27092f26eaa8f5008881f01e; maintainers' automated acceptance passed, hands-on acceptance is pending."
+        "reason": "Release fleet-v0.2.0-b1736f30d34e at commit b1736f30d34e0ace87eb871b3d6fd1cc79f17c84; automated Phase A passed, hands-on acceptance remains pending."
       },
       "approvedUpstream": "https://github.com/pikenguyen227/zoetrope",
       "license": {
@@ -306,15 +306,15 @@
       "runtimeMinimum": null,
       "artifacts": {
         "darwin-arm64": {
-          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-fc45c4d9ea1d/zoetrope-fleet-runtime-0.2.0-fc45c4d9ea1d.tar.gz",
-          "sha256": "48b30346cec0ab1174e296745154defade431b1fb66da6a88c992b383a4e381a",
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-b1736f30d34e/zoetrope-fleet-runtime-0.2.0-b1736f30d34e.tar.gz",
+          "sha256": "88794ffa9597d10be30b80d4f6b169127fd2ec3b78682c7d45514d38ed610017",
           "kind": "release-archive",
           "status": "verified",
           "reason": "SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
         },
         "darwin-x64": {
-          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-fc45c4d9ea1d/zoetrope-fleet-runtime-0.2.0-fc45c4d9ea1d.tar.gz",
-          "sha256": "48b30346cec0ab1174e296745154defade431b1fb66da6a88c992b383a4e381a",
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-b1736f30d34e/zoetrope-fleet-runtime-0.2.0-b1736f30d34e.tar.gz",
+          "sha256": "88794ffa9597d10be30b80d4f6b169127fd2ec3b78682c7d45514d38ed610017",
           "kind": "release-archive",
           "status": "verified",
           "reason": "SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
@@ -323,27 +323,27 @@
           "url": null,
           "sha256": null,
           "status": "unverified",
-          "reason": "fleet-v0.2.0-fc45c4d9ea1d has no Linux tower release; Linux keeps the source-built tower without the fleet runtime."
+          "reason": "fleet-v0.2.0-b1736f30d34e has no Linux tower release for standalone Linux; Linux keeps the source-built tower without the fleet runtime."
         },
         "linux-x64": {
           "url": null,
           "sha256": null,
           "status": "unverified",
-          "reason": "fleet-v0.2.0-fc45c4d9ea1d has no Linux tower release; Linux keeps the source-built tower without the fleet runtime."
+          "reason": "fleet-v0.2.0-b1736f30d34e has no Linux tower release for standalone Linux; Linux keeps the source-built tower without the fleet runtime."
         },
         "wsl2-arm64": {
-          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-fc45c4d9ea1d/zoetrope-fleet-runtime-0.2.0-fc45c4d9ea1d.tar.gz",
-          "sha256": "48b30346cec0ab1174e296745154defade431b1fb66da6a88c992b383a4e381a",
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-b1736f30d34e/zoetrope-fleet-runtime-0.2.0-b1736f30d34e.tar.gz",
+          "sha256": "88794ffa9597d10be30b80d4f6b169127fd2ec3b78682c7d45514d38ed610017",
           "kind": "release-archive",
           "status": "verified",
-          "reason": "WSL2 only; architecture-independent runtime archive from fleet-v0.2.0-fc45c4d9ea1d. SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
+          "reason": "WSL2 only; architecture-independent runtime archive from fleet-v0.2.0-b1736f30d34e. SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
         },
         "wsl2-x64": {
-          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-fc45c4d9ea1d/zoetrope-fleet-runtime-0.2.0-fc45c4d9ea1d.tar.gz",
-          "sha256": "48b30346cec0ab1174e296745154defade431b1fb66da6a88c992b383a4e381a",
+          "url": "https://github.com/pikenguyen227/zoetrope/releases/download/fleet-v0.2.0-b1736f30d34e/zoetrope-fleet-runtime-0.2.0-b1736f30d34e.tar.gz",
+          "sha256": "88794ffa9597d10be30b80d4f6b169127fd2ec3b78682c7d45514d38ed610017",
           "kind": "release-archive",
           "status": "verified",
-          "reason": "WSL2 only; architecture-independent runtime archive from fleet-v0.2.0-fc45c4d9ea1d. SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
+          "reason": "WSL2 only; architecture-independent runtime archive from fleet-v0.2.0-b1736f30d34e. SHA-256 reproduced from the downloaded release asset; matches the release SHA256SUMS."
         },
         "windows-arm64": {
           "url": null,

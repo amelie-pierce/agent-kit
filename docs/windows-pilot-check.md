@@ -90,10 +90,9 @@ Plan about 45 minutes. Use a normal (not administrator) PowerShell window unless
    ```
 
    Success: both `Test-Path` lines print `False`, and both dry runs are refused with a message that the root must be a Linux path inside WSL or stay off the Windows drive under `/mnt`.
-10. **Runtime smoke.** Open Windows Terminal with the Ubuntu profile. Add the folders the installer printed under `Add these folders to the start of your PATH yourself` for this shell only:
+10. **Runtime smoke.** Open a new Windows Terminal tab with the Ubuntu profile. It reads the kit's PATH block if question 5b added one. If you skipped question 5b or the installer could not edit your profile, add the folders from its final PATH instructions in this shell first ([B2.11](user-guide.md#b211-add-the-kit-to-your-path-in-ubuntu)). Then run:
 
     ```sh
-    export PATH="<first printed folder>:<second printed folder>:$PATH"
     herdr --version
     treehouse --version
     no-mistakes --version
