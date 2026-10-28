@@ -1,6 +1,6 @@
 # Agent Kit: all features
 
-This page lists every function the kit supports today, checked against the kit on `main` (release `pilot-11`; release names have the form `pilot-N`, and older releases were named `macos-pilot-N`). Every row describes the released kit.
+This page lists the functions in this `pilot-11` candidate worktree. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`. The owner approves a release by merging its manifest PR.
 
 **How to read the support columns.** **Yes**: works today. **Partial**: works with a limit, explained in the row. **No**: not supported.
 
