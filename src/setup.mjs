@@ -402,6 +402,10 @@ async function placeWrapper(paths, receipt, receiptPath, release) {
   return { state: 'complete', detail: `TREEHOUSE_ROOT=${paths.treehouseRoot}` };
 }
 
+export const finishLine = (failed, partial) => failed
+  ? 'Agent Kit setup finished with failures.\nIf the failure says an older copy of a tool comes first on PATH, open a new terminal and run doctor again.'
+  : `Agent Kit setup ${partial ? 'finished; some tools are partial and are retried on rerun' : 'complete'}.`;
+
 // What to do after setup, in order; the guide's "After a successful install: start it up" section walks through it.
 export function nextSteps({ answers, paths, install, kit, shortcuts, profile = null, herdr = null }) {
   const agents = harnessProfiles(answers.harness), keys = new Set(shortcuts?.keys?.bound || []);
@@ -597,7 +601,7 @@ export async function setup(manifest, ctx) {
         return { state: health.exitCode ? 'failed' : 'complete', detail: health.exitCode ? `failing: ${health.checks.filter(x => x.status === 'fail').map(x => x.id).join(', ')}` : 'pass' };
       });
       const partial = (await readReceipt(receiptPath)).setup.steps.tools.state !== 'complete';
-      output.write(`\nAgent Kit setup ${failed ? 'finished with failures' : partial ? 'finished; some tools are partial and are retried on rerun' : 'complete'}.\n`);
+      output.write(`\n${finishLine(failed, partial)}\n`);
       const finished = await readReceipt(receiptPath);
       if (!answers.shellProfile && finished.setup.shellProfile) profile = planProfile({ folders: foldersOf(finished, paths.installRoot), env, home, platform, want: true, record: finished.setup.shellProfile });
       // Read-only: a running Herdr that started before the kit folders were on PATH; the installer never stops it.

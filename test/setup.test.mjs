@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { withOwnerTiers } from '../src/dispatch.mjs';
-import { charterText, checkRoot, derivePaths, expandRoot, parseSetupArgs, resumeSummary, setup, wrapperScript } from '../src/setup.mjs';
+import { finishLine, charterText, checkRoot, derivePaths, expandRoot, parseSetupArgs, resumeSummary, setup, wrapperScript } from '../src/setup.mjs';
 import { doctor } from '../src/doctor.mjs';
 import { planRemoveProfile, renderProfileBlock } from '../src/shell-profile.mjs';
 import { parseHarness } from '../src/harness.mjs';
@@ -551,4 +551,10 @@ test('the summary shows the exact PATH block, --no-shell-profile skips it, and a
   assert.match(stale.text, /  4\. Herdr is already running and cannot see the kit tools[^\n]*\n       a\. quit the agents[^\n]*\n       b\. run: herdr server stop\n       c\. open a new terminal[^\n]*\n       d\. run: herdr\n/);
   assert.match(stale.text, /WARN herdr-path-env: the running Herdr server cannot see/);
   assert.doesNotMatch(stale.text, /\/usr\/bin/, 'no environment value is printed');
+});
+
+test('a setup that finishes with failures tells you to open a new terminal and run doctor again', () => {
+  assert.equal(finishLine(true, false), 'Agent Kit setup finished with failures.\nIf the failure says an older copy of a tool comes first on PATH, open a new terminal and run doctor again.');
+  assert.equal(finishLine(false, false), 'Agent Kit setup complete.');
+  assert.equal(finishLine(false, true), 'Agent Kit setup finished; some tools are partial and are retried on rerun.');
 });

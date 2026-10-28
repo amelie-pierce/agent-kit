@@ -317,7 +317,7 @@ The install ends with one of:
 
 - `Agent Kit setup complete.`
 - `Agent Kit setup finished; some tools are partial and are retried on rerun.`
-- `Agent Kit setup finished with failures.`
+- `Agent Kit setup finished with failures.` If its next line says an older copy of a tool comes first on PATH, open a new terminal and run doctor again.
 
 It then prints a short `Next steps:` list. **Save it**, especially:
 
@@ -1569,7 +1569,7 @@ The install ends with one of:
 
 - `Agent Kit setup complete.`
 - `Agent Kit setup finished; some tools are partial and are retried on rerun.`
-- `Agent Kit setup finished with failures.`
+- `Agent Kit setup finished with failures.` If its next line says an older copy of a tool comes first on PATH, open a new terminal and run doctor again.
 
 It then prints a short `Next steps:` list. **Save it**, especially:
 
