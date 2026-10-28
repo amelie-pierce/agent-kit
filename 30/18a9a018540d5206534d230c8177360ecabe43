@@ -1,0 +1,48 @@
+src/shell-profile.mjs
+  s_ac5a42f4e4dce9::t_927f01e1f2ef32 19,107,133,161-172
+  s_ac5a42f4e4dce9::t_995124e20d4a2a 15-18,20,66,74,78-79,84,87-106,108-109,123-125,128-132,134-136,149,151,153-160
+src/update.mjs
+  s_ac5a42f4e4dce9::t_bb54bfc6ff377a 88,104,114-115
+  s_ac5a42f4e4dce9::t_289fe32a3bd896 10,70,84-85,99-103,105
+src/setup.mjs
+  s_ac5a42f4e4dce9::t_f8138690d2c413 581
+_vaults/agent-kit/wiki/architecture/shell-profile.md
+  s_ac5a42f4e4dce9::t_d3f3b9950fe15d 23
+  s_ac5a42f4e4dce9::t_dbeff98f93d8a9 1-22,24-25
+test/setup.test.mjs
+  s_ac5a42f4e4dce9::t_51097ec11b04ff 403-404,406-408
+  s_ac5a42f4e4dce9::t_94b0137661bea4 405
+test/shell-profile.test.mjs
+  s_ac5a42f4e4dce9::t_8d24707be05a98 2,6,138-230
+test/lifecycle.test.mjs
+  s_ac5a42f4e4dce9::t_11838f7050bdea 5,631-637,642-653
+  s_ac5a42f4e4dce9::t_89627632d6680b 638-641
+  s_ac5a42f4e4dce9::t_83debe7b996837 654-655
+docs/features.md
+  s_ac5a42f4e4dce9::t_dbeff98f93d8a9 131
+docs/user-guide.md
+  s_ac5a42f4e4dce9::t_db9e7cc0e534f7 1491
+  s_ac5a42f4e4dce9::t_dbeff98f93d8a9 229
+src/lifecycle.mjs
+  s_ac5a42f4e4dce9::t_289fe32a3bd896 533,538
+  s_ac5a42f4e4dce9::t_89627632d6680b 164-166,168-169,172-176,346
+  s_ac5a42f4e4dce9::t_927f01e1f2ef32 18,418-423,437,535-537,542-546,553
+_vaults/agent-kit/wiki/architecture/index.md
+  s_ac5a42f4e4dce9::t_dbeff98f93d8a9 21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3018a9a018540d5206534d230c8177360ecabe43",
+  "prompts": {},
+  "sessions": {
+    "s_ac5a42f4e4dce9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f43f839d-52d8-4b41-8c56-bc8dd52dce8c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
