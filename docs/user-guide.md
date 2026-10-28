@@ -225,7 +225,7 @@ The list of files and links it will touch is shown before the question. Your own
 
 **About question 5a: the Herdr layout.** Yes adds the kit owner's Herdr look as one marked block in your Herdr settings: the gruvbox theme, sidebar, tab bar and pane settings, new panes opening in your root folder, and Herdr's first-run tour turned off. A section you already set yourself is left out and named. Uninstall removes the block.
 
-**About question 5b: the PATH block.** Yes adds **one marked block** at the end of your zsh profile (`~/.zshrc`; for bash `~/.bash_profile` on a Mac or `~/.bashrc` on Linux), chosen from your login shell. Other shells are left alone. The summary shows the exact block under "Files outside the root". It is the same `export PATH=…` line as in A2.7, between `# >>> agent-kit PATH >>>` and `# <<< agent-kit PATH <<<`. The file is backed up first and nothing outside the block is changed; running the installer again never adds a second block, and repair and upgrade keep the block current when the release folder changes. Uninstall removes the block if you have not edited it, and says so if you have. On a new install, say `n` or use `--no-shell-profile` to skip the block and add the line from A2.7 yourself. `--shell-profile` turns it on explicitly. On a rerun, skipping leaves an existing kit block in place for uninstall.
+**About question 5b: the PATH block.** Yes adds **one marked block** at the end of your zsh profile (`~/.zshrc`; for bash `~/.bash_profile` on a Mac or `~/.bashrc` on Linux), chosen from your login shell. Other shells, symlinked profiles and profiles with damaged kit markers are left alone. The summary shows the exact block under "Files outside the root". It is the same `export PATH=…` line as in A2.7, between `# >>> agent-kit PATH >>>` and `# <<< agent-kit PATH <<<`. An existing file is backed up first and nothing outside the block is changed; running the installer again never adds a second block, and repair and upgrade keep an unchanged block current when the release folder changes. Uninstall removes the block if you have not edited it, and says so if you have. On a new install, say `n` or use `--no-shell-profile` to skip the block and add the line from A2.7 yourself. `--shell-profile` turns it on explicitly. On a rerun, skipping leaves an existing kit block in place for uninstall.
 
 **The Claude plugins** (only if you chose Claude Code and said yes to 5). The kit installs them with your own `claude` command, from fixed versions the kit owner reviewed:
 
@@ -397,7 +397,7 @@ codex login
 herdr
 ```
 
-**If Herdr was already running** (for example from before the install), it still has its old PATH and your agents will not find the kit's tools. Stop it with `herdr server stop`, then start it again with `herdr` from the Terminal window that has the PATH line.
+**If Herdr was already running and the installer says it cannot see the kit tools,** let your agents finish, stop Herdr with `herdr server stop`, then start it again with `herdr` from a new Terminal window that has the PATH line.
 
 **5. Start Firstmate.** Pick one way, inside Herdr:
 
@@ -617,7 +617,7 @@ node "$AK" upgrade
 
 1. Asks GitHub, with your own sign-in, for the newest release on your saved channel (`releases` by default).
 2. Shows what changes: the release name, each tool's version, the tower release, whether the Firstmate version the kit expects changes, and any new questions.
-3. Reuses your saved answers and asks only new questions. For example, moving from `pilot-8` to `pilot-9` asks 2d (the full-access Codex launch, with its warning; default yes) and 5a (Herdr layout; default yes) once. With `--yes` both take their defaults. Moving from `pilot-9` to `pilot-10` asks 5b (the PATH block; default yes) once.
+3. Reuses your saved answers and asks only questions without saved answers. For example, moving from `pilot-8` to `pilot-9` asks 2d (the full-access Codex launch, with its warning; default yes) and 5a (Herdr layout; default yes) once. A kit version with question 5b asks it once if your receipt has no PATH-block answer. With `--yes` new questions take their defaults.
 4. Asks `Apply this plan now? (y/N)`. (`--yes` applies without asking.)
 5. Installs the new release next to the old one, then switches over. If a step fails, it puts back the kit's files, its record, its hook and skill registrations, and its commands and Herdr files as they were. **Changes to data and state are not rolled back**; the plan says so before you apply it.
 
@@ -636,7 +636,7 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 **After an upgrade:**
 
 - Set `AK` to the new kit copy (A6).
-- Change `<release>` in your PATH line (A2.7) to the new release name from the plan's `Release: <old> -> <new>` line. The old release folder stays in place, so until you do this your PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
+- If you skipped question 5b, change `<release>` in your PATH line (A2.7) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (A6.1).
 
 **Moving from `pilot-9` to `pilot-10`**, when you are asked to:
@@ -1444,7 +1444,7 @@ The other questions are asked after the handoff (still in the same window). Ever
 | 4 | Fleet tower | yes | say `n` if you do not need the tower, or your Ubuntu is older than 22.04 (B9) |
 | 5 | Register global hooks and skills (this also covers the kit's commands, Herdr keys, Herdr plugins and Claude plugins) | yes | say `n` only if you want none of these (see below) |
 | 5a | Herdr layout (only if you said yes to 5) | yes | say `n` to keep Herdr's own look |
-| 5b | Add the kit's PATH block to your shell profile | yes | say `n` if you manage your own PATH and will add the line from A2.7 yourself |
+| 5b | Add the kit's PATH block to your shell profile | yes | say `n` if you manage your own PATH and will add the line from B2.11 yourself |
 | 6 | GitHub account or organization for your projects | your `gh` login | you work under an organization. Recorded only; nothing is created on GitHub |
 | 7 | Git name and email: keep as is? | keep | your **Ubuntu** git name or email is wrong. Changing it runs `git config --global` inside Ubuntu |
 | 8 | Create a starter second mate now? | no | you already know what your first second mate will do (see B7.6) |
@@ -1475,7 +1475,7 @@ The default is **yes**, as on the kit owner's own setup. Read the warning before
 
 The list of files and links it will touch is shown before the question. Your own hooks, settings, keys and plugins stay. Each file is backed up first. If you already have your own skill with one of the same names, this step stops and reports a conflict instead of overwriting it. With `n`, none of the above is set up: no kit commands, no Herdr keys, no plugins.
 
-**About question 5b: the PATH block.** Yes adds **one marked block** at the end of your Ubuntu profile (`~/.bashrc` for bash, or `~/.zshrc` for zsh), chosen from your login shell inside Ubuntu. It never touches the Windows profile, and other shells are left alone. The summary shows the exact block under "Files outside the root". It is the same `export PATH=…` line as in B2.11, between `# >>> agent-kit PATH >>>` and `# <<< agent-kit PATH <<<`. The file is backed up first and nothing outside the block is changed; running the installer again never adds a second block, and repair and upgrade keep the block current when the release folder changes. Uninstall removes the block if you have not edited it, and says so if you have. On a new install, say `n` or use `--no-shell-profile` to skip the block and add the line from B2.11 yourself. `--shell-profile` turns it on explicitly. On a rerun, skipping leaves an existing kit block in place for uninstall.
+**About question 5b: the PATH block.** Yes adds **one marked block** at the end of your Ubuntu profile (`~/.bashrc` for bash, or `~/.zshrc` for zsh), chosen from your login shell inside Ubuntu. It never touches the Windows profile; other shells, symlinked profiles and profiles with damaged kit markers are left alone. The summary shows the exact block under "Files outside the root". It is the same `export PATH=…` line as in B2.11, between `# >>> agent-kit PATH >>>` and `# <<< agent-kit PATH <<<`. An existing file is backed up first and nothing outside the block is changed; running the installer again never adds a second block, and repair and upgrade keep an unchanged block current when the release folder changes. Uninstall removes the block if you have not edited it, and says so if you have. On a new install, say `n` or use `--no-shell-profile` to skip the block and add the line from B2.11 yourself. `--shell-profile` turns it on explicitly. On a rerun, skipping leaves an existing kit block in place for uninstall.
 
 **About question 5a: the Herdr layout.** Yes adds the kit owner's Herdr look as one marked block in your Herdr settings inside Ubuntu: the gruvbox theme, sidebar, tab bar and pane settings, new panes opening in your root folder, and Herdr's first-run tour turned off. A section you already set yourself is left out and named. Uninstall removes the block.
 
@@ -1653,7 +1653,7 @@ codex login
 herdr
 ```
 
-**If Herdr was already running** (for example from before the install), it still has its old PATH and your agents will not find the kit's tools. Inside Ubuntu, stop it with `herdr server stop`, then start it again with `herdr` from the Ubuntu tab that has the PATH line.
+**If Herdr was already running and the installer says it cannot see the kit tools,** let your agents finish, stop Herdr inside Ubuntu with `herdr server stop`, then start it again with `herdr` from a new Ubuntu tab that has the PATH line.
 
 **5. Start Firstmate.** Pick one way, inside Herdr:
 
@@ -1880,7 +1880,7 @@ node "$AK" upgrade
 
 1. Asks GitHub, with your own **Ubuntu** sign-in, for the newest release on your saved channel (`releases` by default).
 2. Shows what changes: the release name, each tool's version, the tower release, whether the Firstmate version the kit expects changes, and any new questions.
-3. Reuses your saved answers and asks only new questions. For example, moving from `pilot-8` to `pilot-9` asks 2d (the full-access Codex launch, with its warning; default yes) and 5a (Herdr layout; default yes) once. With `--yes` both take their defaults. Moving from `pilot-9` to `pilot-10` asks 5b (the PATH block; default yes) once.
+3. Reuses your saved answers and asks only questions without saved answers. For example, moving from `pilot-8` to `pilot-9` asks 2d (the full-access Codex launch, with its warning; default yes) and 5a (Herdr layout; default yes) once. A kit version with question 5b asks it once if your receipt has no PATH-block answer. With `--yes` new questions take their defaults.
 4. Asks `Apply this plan now? (y/N)`. (`--yes` applies without asking.)
 5. Installs the new release next to the old one, then switches over. If a step fails, it puts back the kit's files, its record, its hook and skill registrations, and its commands and Herdr files as they were. **Changes to data and state are not rolled back**; the plan says so before you apply it.
 
@@ -1899,7 +1899,7 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 **After an upgrade:**
 
 - Set `AK` to the new kit copy (B6).
-- Change `<release>` in your Ubuntu PATH line (B2.11) to the new release name from the plan's `Release: <old> -> <new>` line. The old release folder stays in place, so until you do this your PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
+- If you skipped question 5b, change `<release>` in your Ubuntu PATH line (B2.11) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (B6.1).
 
 **Moving from `pilot-9` to `pilot-10`**, when you are asked to:
