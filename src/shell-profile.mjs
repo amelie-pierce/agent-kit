@@ -130,7 +130,21 @@ export function shellHealth(receipt, root, { env, platform = process.platform, i
   const onPath = new Set((env.PATH || '').split(posix.delimiter)), missing = folders.filter(f => !onPath.has(f));
   const text = record?.path && plainFile(record.path) ? readFileSync(record.path, 'utf8') : '', block = splitProfile(text).block;
   const activeLines = block?.split('\n').slice(1, -1).filter(line => line.trim() && !line.trimStart().startsWith('#'));
-  const blockHas = activeLines?.length === 1 && activeLines[0] === renderProfileBlock(folders).split('\n')[2];
+  let blockPath = null;
+  for (const line of activeLines || []) {
+    const assignment = /^\s*(?:export\s+)?PATH=(.*)$/.exec(line);
+    if (!assignment) continue;
+    const next = new Set();
+    for (const entry of assignment[1].trim().split(':')) {
+      if (entry === '"$PATH"' || entry === '$PATH' || entry === '"${PATH}"' || entry === '${PATH}') {
+        for (const folder of blockPath || []) next.add(folder);
+      } else if (/^'(?:[^']|'\\'')*'$/.test(entry)) next.add(entry.slice(1, -1).replaceAll("'\\''", "'"));
+      else if (/^"[^"$`\\]*"$/.test(entry)) next.add(entry.slice(1, -1));
+      else if (/^[^'"`\s$\\;|&(){}<>]+$/.test(entry)) next.add(entry);
+    }
+    blockPath = next;
+  }
+  const blockHas = blockPath !== null && folders.every(folder => blockPath.has(folder));
   if (receipt.setup?.answers?.shellProfile || record) rows.push({ id: 'shell-profile', status: blockHas ? 'pass' : 'fail',
     detail: blockHas ? `${record.path} holds the kit's PATH block` : `${record?.path || 'your shell profile'} lacks the kit's PATH block or it misses a kit folder; agent-kit repair puts it back` });
   if (!installing) rows.push({ id: 'shell-path', status: !missing.length ? 'pass' : 'fail',

@@ -111,6 +111,13 @@ test('doctor rows fail when the block or this shell lacks the folders', posixOnl
   receipt.setup.shellProfile = await applyProfile(plan(f), f.root);
   assert.deepEqual(rows({ PATH: '/usr/bin' }), { 'shell-profile': 'pass', 'shell-path': 'fail' });
   assert.deepEqual(rows({ PATH: [...f.folders, '/usr/bin'].join(':') }), { 'shell-profile': 'pass', 'shell-path': 'pass' });
+  const edited = renderProfileBlock(f.folders).replace(':"$PATH"', `:'/opt/custom/bin':"$PATH"`);
+  writeFileSync(f.rc, `${edited}\n`);
+  assert.equal(rows({ PATH: f.folders.join(':') })['shell-profile'], 'pass', 'an added PATH entry keeps the kit folders effective');
+  writeFileSync(f.rc, `${edited.replace(`'${f.folders[1]}'`, `"${f.folders[1]}"`)}\n`);
+  assert.equal(rows({ PATH: f.folders.join(':') })['shell-profile'], 'pass', 'a literal double-quoted kit folder is effective');
+  writeFileSync(f.rc, `${edited.replace(`'${f.folders[1]}':`, '')}\n`);
+  assert.equal(rows({ PATH: f.folders.join(':') })['shell-profile'], 'fail', 'dropping one kit folder fails');
   writeFileSync(f.rc, `${renderProfileBlock(f.folders).replace(endMark, `export PATH=/usr/bin\n${endMark}`)}\n`);
   assert.equal(rows({ PATH: [...f.folders].join(':') })['shell-profile'], 'fail', 'a later PATH assignment makes the block ineffective');
   writeFileSync(f.rc, `${beginMark}\n# ${renderProfileBlock(f.folders).split('\n')[2]}\n${endMark}\n`);
