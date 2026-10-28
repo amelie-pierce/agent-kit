@@ -1,0 +1,21 @@
+_vaults/agent-kit/wiki/architecture/index.md
+  s_e97ce827427dff::t_63f249d63e4604 21
+_vaults/agent-kit/wiki/architecture/shell-profile.md
+  s_e97ce827427dff::t_66fce0e1d61010 23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "176d5ebbcf8de2ff4136ffbf29d8956c8ed16d0e",
+  "prompts": {},
+  "sessions": {
+    "s_e97ce827427dff": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18318-fa4d-7973-8583-0e4c4e3c3d0d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
