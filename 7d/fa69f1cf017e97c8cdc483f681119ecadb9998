@@ -1,0 +1,23 @@
+test/shell-profile.test.mjs
+  s_2cc6ce9f2e194a::t_d47f4f8972b3ac 117-118
+  s_2cc6ce9f2e194a::t_808349c14f8468 114-116,119-120
+src/shell-profile.mjs
+  s_2cc6ce9f2e194a::t_d47f4f8972b3ac 142
+  s_2cc6ce9f2e194a::t_808349c14f8468 133-141,143-147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7dfa69f1cf017e97c8cdc483f681119ecadb9998",
+  "prompts": {},
+  "sessions": {
+    "s_2cc6ce9f2e194a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18217-f71e-70a1-b707-1d252aa67934",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
