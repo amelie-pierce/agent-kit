@@ -130,6 +130,8 @@ Every download is checked against a fixed checksum. Nothing is started and no on
 
 **The PATH block (question 5b).** The kit adds one marked block to your shell profile (zsh `~/.zshrc`; bash `~/.bash_profile` on a Mac, `~/.bashrc` on Linux and in Ubuntu), backed up first, never duplicated, refreshed by repair and upgrade while unchanged, and removed by uninstall while unchanged. At the end of install the kit also checks, read-only, whether a running Herdr can see the kit folders and prints how to restart it if not; it never stops Herdr itself.
 
+If you change your login shell, uninstall the kit and reinstall it from the new shell so the PATH block goes into the new shell's profile.
+
 ### 4b. The kit's commands (question 5)
 
 Written into `<root>/.tools/bin` from your receipt. They run once that folder is first on your PATH. Repair rewrites changed ones, uninstall removes unchanged ones.

@@ -20,7 +20,7 @@ import { envManaged, hiddenKey, keyStatus, writeKey } from './keys.mjs';
 import { kitKeys, placeKitExtras } from './shortcuts.mjs';
 import { processRunning } from './update.mjs';
 import { herdrPathHealth } from './herdr-path.mjs';
-import { foldersOf, kitFolders, profileTarget, reconcileProfile, renderProfileBlock, saveProfileRecord } from './shell-profile.mjs';
+import { foldersOf, kitFolders, planProfile, profileTarget, reconcileProfile, renderProfileBlock, saveProfileRecord } from './shell-profile.mjs';
 import { applyStarter, strategyTakesPlans, defaultMode, describeStarter, fullWarnings, loadPlanTable, modes, planIds, planStarter, previewStarter, providersOf } from './dispatch.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
@@ -407,7 +407,7 @@ export function nextSteps({ answers, paths, install, kit, shortcuts, profile = n
   const agents = harnessProfiles(answers.harness), keys = new Set(shortcuts?.keys?.bound || []);
   const shortcut = kitKeys.filter(k => agents.includes(k.mode) && keys.has(k.key)).map(k => `${k.key} for ${k.mode}`);
   return ['Next steps:',
-    ...(['add', 'refresh', 'verify'].includes(profile?.action) ? [`  1. Open a new terminal. The kit put its PATH block in ${profile.path}, so every new terminal finds the kit tools (undo it with agent-kit uninstall).`]
+    ...((profile?.action === 'verify' || answers.shellProfile && ['add', 'refresh'].includes(profile?.action)) ? [`  1. Open a new terminal. The kit put its PATH block in ${profile.path}, so every new terminal finds the kit tools (undo it with agent-kit uninstall).`]
       : [`  1. Add these folders to the start of your PATH yourself (${answers.shellProfile ? profile?.detail || 'the kit did not change your shell profile' : 'you chose not to let the kit edit your shell profile'}), then open a new terminal:\n       ${[dirname(paths.wrapper), install.bin, install.npmBin, install.codexBin, install.figmaBin].filter(Boolean).join('\n       ')}`]),
     ...(kit.commit ? [`  2. Health check later: node ${join(paths.kit, 'bin', 'agent-kit.mjs')} doctor --install-root ${paths.installRoot}`]
       : ['  2. Health check later: node bin/agent-kit.mjs doctor --install-root ' + paths.installRoot + ' from this checkout']),
@@ -599,6 +599,7 @@ export async function setup(manifest, ctx) {
       const partial = (await readReceipt(receiptPath)).setup.steps.tools.state !== 'complete';
       output.write(`\nAgent Kit setup ${failed ? 'finished with failures' : partial ? 'finished; some tools are partial and are retried on rerun' : 'complete'}.\n`);
       const finished = await readReceipt(receiptPath);
+      if (!answers.shellProfile && finished.setup.shellProfile) profile = planProfile({ folders: foldersOf(finished, paths.installRoot), env, home, platform, want: true, record: finished.setup.shellProfile });
       // Read-only: a running Herdr that started before the kit folders were on PATH; the installer never stops it.
       const herdr = herdrPathHealth(foldersOf(finished, paths.installRoot), { platform, ...ctx.herdrPath });
       output.write(nextSteps({ answers, paths, install, kit, shortcuts: finished.setup.shortcuts, profile, herdr }));

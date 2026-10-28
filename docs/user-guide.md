@@ -1150,6 +1150,7 @@ No real Mac has run the tower, the session graph or the automatic opening from t
 
 ### A10.2 PATH and Terminal
 
+- **Changing your login shell:** uninstall the kit, then reinstall it from the new shell so its PATH block goes into that shell's profile.
 - **`herdr` or `codex` not found, or an old version runs:** the PATH line from A2.7 is missing or not first. If you said yes to question 5b the kit put it in your profile: open a new Terminal window, or run `agent-kit repair` if the block is gone. Otherwise add it to `~/.zshrc` yourself.
 - **`firstmate`, `fm-mate` or `fm-help` not found:** `<root>/.tools/bin` is not on your PATH (A2.7), or you said `n` to question 5.
 - **`Open a Herdr pane, then run firstmate (or press Ctrl+B, then F).`:** `firstmate` only starts Firstmate inside Herdr. Run `herdr` first.
@@ -2414,6 +2415,7 @@ Everything else (Firstmate, Herdr, the crew, second mates) works without the tow
 
 ### B10.2 Windows and WSL2
 
+- **Changing your Ubuntu login shell:** uninstall the kit, then reinstall it from the new shell so its PATH block goes into that shell's profile.
 - **Install looks frozen:** it is almost always the QuickEdit selection (B2.4). Press **Esc**. Use Windows Terminal to avoid it.
 - **WSL2 not ready:** `install.ps1` prints the exact command to run yourself. Common ones:
 

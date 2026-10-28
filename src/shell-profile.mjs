@@ -129,7 +129,8 @@ export function shellHealth(receipt, root, { env, platform = process.platform, i
   const folders = foldersOf(receipt, root), rows = [], record = receipt.setup?.shellProfile;
   const onPath = new Set((env.PATH || '').split(delimiter)), missing = folders.filter(f => !onPath.has(f));
   const text = record?.path && plainFile(record.path) ? readFileSync(record.path, 'utf8') : '', block = splitProfile(text).block;
-  const blockHas = block !== null && block.split('\n').includes(renderProfileBlock(folders).split('\n')[2]);
+  const activeLines = block?.split('\n').slice(1, -1).filter(line => line.trim() && !line.trimStart().startsWith('#'));
+  const blockHas = activeLines?.length === 1 && activeLines[0] === renderProfileBlock(folders).split('\n')[2];
   if (receipt.setup.answers.shellProfile || record) rows.push({ id: 'shell-profile', status: blockHas ? 'pass' : 'fail',
     detail: blockHas ? `${record.path} holds the kit's PATH block` : `${record?.path || 'your shell profile'} lacks the kit's PATH block or it misses a kit folder; agent-kit repair puts it back` });
   if (!installing) rows.push({ id: 'shell-path', status: !missing.length ? 'pass' : 'fail',

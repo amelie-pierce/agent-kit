@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { reconcileProfile } from '../src/shell-profile.mjs';
+import { doctor } from '../src/doctor.mjs';
+import { extrasPaths, placeUpdateExtras } from '../src/update.mjs';
 import { applyRepair, applyUninstall, applyUpgrade, formatLifecycle, planRepair, planUninstall, planUpgrade, resolveReviewedCommit } from '../src/lifecycle.mjs';
 import { parseArgs } from '../src/kit.mjs';
 import { windowsLifecycle } from '../src/install/windows.mjs';
@@ -562,4 +564,29 @@ test('uninstall removes the unchanged PATH block and keeps an edited one; repair
   assert.match(lines.lines[0], /not added again/, 'a block you removed stays removed outside repair');
   const repaired = await reconcileProfile(JSON.parse(readFileSync(c.f.receiptPath)), c.f.root, { env: c.options.env, home: c.f.home, platform: 'darwin', repair: true });
   assert.match(repaired.lines[0], /added the PATH block/);
+});
+
+test('skipped profile ownership survives repair and update, then uninstall removes the block', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t), rc = join(f.home, '.zshrc'), env = { ...f.options.env, SHELL: '/bin/zsh' }, options = { ...f.options, env };
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.setup.answers.shellProfile = true;
+  const done = await reconcileProfile(receipt, f.root, { env, home: f.home, platform: 'darwin' });
+  receipt.setup.shellProfile = done.record;
+  receipt.setup.answers.shellProfile = false;
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  assert.ok(extrasPaths(options, receipt).includes(rc));
+  await applyRepair(f.manifest, options);
+  assert.deepEqual(JSON.parse(readFileSync(f.receiptPath, 'utf8')).setup.shellProfile, done.record);
+  await placeUpdateExtras(options, f.firstmate);
+  assert.deepEqual(JSON.parse(readFileSync(f.receiptPath, 'utf8')).setup.shellProfile, done.record);
+  assert.equal(planUninstall(options).shellProfile.action, 'remove the unchanged agent-kit PATH block');
+  await applyUninstall(options);
+  assert.equal(existsSync(rc), false);
+});
+
+test('doctor checks a running Herdr with a prior-release receipt', { skip: process.platform === 'win32' }, t => {
+  const f = fixture(t);
+  const report = doctor(f.manifest, { ...f.options, herdrPath: { servers: () => [7], serverPath: () => '/usr/bin' } });
+  assert.equal(report.checks.find(row => row.id === 'herdr-path-env').status, 'warn');
+  assert.equal(report.checks.some(row => row.id === 'shell-profile'), false);
 });

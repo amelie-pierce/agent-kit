@@ -394,6 +394,12 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   assert.deepEqual(afterSkip.setup.shellProfile, receipt.setup.shellProfile);
   assert.equal(readFileSync(join(f.home, '.bashrc'), 'utf8'), rc);
   assert.equal(planRemoveProfile(afterSkip.setup.shellProfile).action, 'remove the unchanged agent-kit PATH block');
+  assert.match(skippedProfile.text, /1\. Open a new terminal\. The kit put its PATH block/);
+  assert.doesNotMatch(skippedProfile.text, /1\. Add these folders to the start of your PATH yourself/);
+  writeFileSync(join(f.home, '.bashrc'), rc.replace(/^export PATH=/m, '# export PATH='));
+  const skippedBroken = f.ctx(['--yes', '--root', f.root, '--no-shell-profile']);
+  assert.equal(await setup(f.fixtureManifest, skippedBroken), 1, skippedBroken.text);
+  assert.match(skippedBroken.text, /1\. Add these folders to the start of your PATH yourself/);
 });
 
 test('a failed step stops safely; the rerun prints the resume summary, re-verifies done steps and redoes only the failure', posixOnly, async t => {

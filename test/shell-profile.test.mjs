@@ -100,6 +100,8 @@ test('doctor rows fail when the block or this shell lacks the folders', posixOnl
   receipt.setup.shellProfile = await applyProfile(plan(f), f.root);
   assert.deepEqual(rows({ PATH: '/usr/bin' }), { 'shell-profile': 'pass', 'shell-path': 'fail' });
   assert.deepEqual(rows({ PATH: [...f.folders, '/usr/bin'].join(':') }), { 'shell-profile': 'pass', 'shell-path': 'pass' });
+  writeFileSync(f.rc, `${renderProfileBlock(f.folders).replace(endMark, `export PATH=/usr/bin\n${endMark}`)}\n`);
+  assert.equal(rows({ PATH: [...f.folders].join(':') })['shell-profile'], 'fail', 'a later PATH assignment makes the block ineffective');
   writeFileSync(f.rc, `${beginMark}\n# ${renderProfileBlock(f.folders).split('\n')[2]}\n${endMark}\n`);
   assert.deepEqual(rows({ PATH: '/usr/bin' }), { 'shell-profile': 'fail', 'shell-path': 'fail' });
   writeFileSync(f.rc, `${beginMark}\nexport PATH='/somewhere/else':"$PATH"\n${endMark}\n`);

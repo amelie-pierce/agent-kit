@@ -188,7 +188,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, herdrPa
   }
   checks.push(...shortcutsHealth(receipt, root));
   checks.push(...shellHealth(receipt, root, { env, platform: platformName, installing }));
-  if (receipt.setup?.answers?.shellProfile !== undefined) checks.push(herdrPathHealth(foldersOf(receipt, root), { platform: platformName, ...herdrPath }));
+  checks.push(herdrPathHealth(foldersOf(receipt, root), { platform: platformName, ...herdrPath }));
   for (const path of receipt.phases['npm-figma']?.skills || []) {
     let owner = null;
     try { owner = JSON.parse(readFileSync(join(path, '.figma-cli-skill.json'), 'utf8')).owner; } catch { /* reported */ }
