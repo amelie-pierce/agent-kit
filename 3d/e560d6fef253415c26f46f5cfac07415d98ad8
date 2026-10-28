@@ -1,0 +1,30 @@
+docs/user-guide.md
+  s_6fd95859a31d02::t_d64a6ea55af08a 5
+README.md
+  s_6fd95859a31d02::t_2a6c4da400a7f3 498
+  s_6fd95859a31d02::t_d64a6ea55af08a 316
+  s_6fd95859a31d02::t_871a769a1c5971 448,502,507
+docs/features.md
+  s_6fd95859a31d02::t_d64a6ea55af08a 3
+docs/zoetrope-followups.md
+  s_6fd95859a31d02::t_2703046bdb01fa 5,14
+  s_6fd95859a31d02::t_ad8fbc6155ad2b 15
+docs/windows-pilot-check.md
+  s_6fd95859a31d02::t_1c2ee231f29ced 93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3de560d6fef253415c26f46f5cfac07415d98ad8",
+  "prompts": {},
+  "sessions": {
+    "s_6fd95859a31d02": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a182ca-faae-7212-b4de-11237d47ddfb",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
