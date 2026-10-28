@@ -1,0 +1,22 @@
+docs/features.md
+  s_bd537d7a0b5325::t_c42fc58450acf7 97-98
+docs/user-guide.md
+  s_bd537d7a0b5325::t_c42fc58450acf7 252-253,865-866,1493-1494,2113
+  s_bd537d7a0b5325::t_f56aa5b696acb2 2114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7817e79571d13a6b776e9de7512a6b6c0e902ad4",
+  "prompts": {},
+  "sessions": {
+    "s_bd537d7a0b5325": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "19025328-95b8-466d-87d5-668bb12f4f00",
+        "model": "claude-haiku-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
