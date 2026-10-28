@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { delimiter } from 'node:path';
+import { posix } from 'node:path';
 
 // Read-only look at a running Herdr server: does its PATH hold the kit's tool folder? Only the yes/no
 // leaves this module; no environment value is ever printed.
@@ -31,7 +31,7 @@ export function herdrPathHealth(folders, { servers = herdrServers, serverPath = 
     let path = null;
     try { path = serverPath(pid, platform); } catch { /* unreadable */ }
     if (path === null) { blind = true; continue; }
-    const seen = new Set(path.split(delimiter)), missing = folders.filter(f => !seen.has(f));
+    const seen = new Set(path.split(posix.delimiter)), missing = folders.filter(f => !seen.has(f));
     if (missing.length) return { id, status: 'warn', stale: true, detail: `the running Herdr server cannot see ${missing.length} of the kit tool folders (it started before they were on your PATH); ${herdrRestartHint}` };
   }
   return blind ? { id, status: 'pass', detail: 'running; its environment cannot be read here, not checked' }

@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { lstatSync, readFileSync } from 'node:fs';
 import { chmod, mkdir, rename, rm, writeFile } from 'node:fs/promises';
-import { basename, delimiter, dirname, join } from 'node:path';
+import { basename, dirname, join, posix } from 'node:path';
 import { atomicJson } from './install/macos.mjs';
 
 // The kit's PATH line, as one marked block in the teammate's zsh or bash profile. Never any other shell, never
@@ -15,8 +15,8 @@ const plainFile = path => { const s = stat(path); return !!s && s.isFile() && !s
 
 // installRoot is <root>/.tools; groups are the npm phases the release holds.
 export function kitFolders(installRoot, release, groups = ['npm']) {
-  const npm = group => join(installRoot, 'releases', release, group, 'node_modules', '.bin');
-  return [join(installRoot, 'bin'), join(installRoot, 'releases', release, 'bin'), ...['npm', 'npm-codex', 'npm-figma'].filter(g => groups.includes(g)).map(npm)];
+  const npm = group => posix.join(installRoot, 'releases', release, group, 'node_modules', '.bin');
+  return [posix.join(installRoot, 'bin'), posix.join(installRoot, 'releases', release, 'bin'), ...['npm', 'npm-codex', 'npm-figma'].filter(g => groups.includes(g)).map(npm)];
 }
 export const groupsOf = receipt => ['npm', 'npm-codex', 'npm-figma'].filter(g => receipt?.phases?.[g]);
 export const foldersOf = (receipt, installRoot) => kitFolders(installRoot, receipt.release, groupsOf(receipt));
@@ -25,9 +25,9 @@ export const renderProfileBlock = folders => [beginMark, '# Managed by Agent Kit
 
 // zsh -> ~/.zshrc; bash -> ~/.bashrc, or ~/.bash_profile on a Mac (the file bash reads there). Anything else: no target.
 export function profileTarget(env, home, platform = process.platform) {
-  const shell = basename(env.SHELL || '');
-  if (shell === 'zsh') return { shell, path: join(home, '.zshrc') };
-  if (shell === 'bash') return { shell, path: join(home, platform === 'darwin' ? '.bash_profile' : '.bashrc') };
+  const shell = posix.basename(env.SHELL || '');
+  if (shell === 'zsh') return { shell, path: posix.join(home, '.zshrc') };
+  if (shell === 'bash') return { shell, path: posix.join(home, platform === 'darwin' ? '.bash_profile' : '.bashrc') };
   return { shell: shell || 'unknown', path: null };
 }
 
@@ -127,7 +127,7 @@ export async function removeProfile(root, plan) {
 export function shellHealth(receipt, root, { env, platform = process.platform, installing = false } = {}) {
   if (platform === 'win32') return [];
   const folders = foldersOf(receipt, root), rows = [], record = receipt.setup?.shellProfile;
-  const onPath = new Set((env.PATH || '').split(delimiter)), missing = folders.filter(f => !onPath.has(f));
+  const onPath = new Set((env.PATH || '').split(posix.delimiter)), missing = folders.filter(f => !onPath.has(f));
   const text = record?.path && plainFile(record.path) ? readFileSync(record.path, 'utf8') : '', block = splitProfile(text).block;
   const activeLines = block?.split('\n').slice(1, -1).filter(line => line.trim() && !line.trimStart().startsWith('#'));
   const blockHas = activeLines?.length === 1 && activeLines[0] === renderProfileBlock(folders).split('\n')[2];

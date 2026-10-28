@@ -23,6 +23,17 @@ test('zsh and bash choose their profile; other shells get none', () => {
   assert.equal(profileTarget({}, '/h', 'linux').path, null);
 });
 
+test('Unix kit folders and current-shell PATH use Unix separators on every host', () => {
+  const root = '/h/Agentic/.tools';
+  const folders = kitFolders(root, 'r1', ['npm']);
+  assert.deepEqual(folders, [
+    `${root}/bin`, `${root}/releases/r1/bin`, `${root}/releases/r1/npm/node_modules/.bin`,
+  ]);
+  const receipt = { release: 'r1', phases: { npm: {} }, setup: { answers: {} } };
+  assert.deepEqual(shellHealth(receipt, root, { env: { PATH: folders.join(':') }, platform: 'linux' }).map(r => [r.id, r.status]), [['shell-path', 'pass']]);
+  assert.deepEqual(shellHealth(receipt, root, { env: { PATH: folders[0] }, platform: 'linux' }).map(r => [r.id, r.status]), [['shell-path', 'fail']]);
+});
+
 test('the block is added once, keeps your lines, backs up first and a rerun changes nothing', posixOnly, async t => {
   const f = fixture(t);
   writeFileSync(f.rc, 'alias a=b\nexport X=1');
