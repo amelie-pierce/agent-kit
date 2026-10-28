@@ -27,7 +27,7 @@ In the commands below, `AK` is your kit command file, `<root>/.tools/kit/<commit
 | Unattended install | No questions: uses saved answers, then flags, then the shown defaults (including the full-access Codex launch on and the Herdr layout on). Never sets a key | `--yes` | Yes | Yes | Yes |
 | Choose the root folder | Sets the root without asking question 1 | `--root <folder>` | Yes | Yes | Yes |
 | Choose the update channel | `releases` (approved releases, default) or `main` | `--channel releases` or `--channel main` | Yes | Yes | Yes |
-| Answer a question by flag | One flag per question except the key: `--harness codex\|claude\|claude,codex`, `--claude-plan <id>`, `--codex-plan <id>`, `--dispatch-mode lean\|balanced\|full`, `--codex-full-access`/`--no-codex-full-access`, `--no-figma`/`--with-figma`, `--no-tower`/`--with-tower`, `--no-global-hooks`/`--global-hooks`, `--no-herdr-layout`/`--herdr-layout`, `--github-owner <name>`, `--git-name <name>`, `--git-email <email>`, `--starter-mate <name>`, `--starter-scope <text>`, `--no-starter-mate` | Add to the installer command | Yes | Yes | Yes |
+| Answer a question by flag | Set any non-secret setup answer with its matching flag; see [README Questions](../README.md#questions) | Add the flag to the installer command | Yes | Yes | Yes |
 | Accept a non-empty root | Allows an unattended install into a root that already holds other files (an interactive run asks instead) | `--allow-existing-root` | Yes | Yes | Yes |
 | Override a derived path | Places the kit or the Firstmate home somewhere other than inside the root | `--install-root <dir>`, `--firstmate-home <dir>` | Yes | Yes | Yes |
 | Choose the WSL distribution | Hands over to this distribution instead of your default one | `install.ps1 --distro <name>` | No | No | Yes |
@@ -35,7 +35,7 @@ In the commands below, `AK` is your kit command file, `<root>/.tools/kit/<commit
 | Use a local kit checkout | Uses a clean local copy of the kit instead of fetching it (kit development and CI) | `--kit-dir <dir>` | Yes | Yes | Yes |
 | Help | Prints the installer's flags. `install.ps1` has no help flag | `bash install.sh --help` | Yes | Yes | No |
 
-**The 8 setup steps:** 1 kit source at its pinned commit; 2 pinned tools, Firstmate home (with its strategy selected), tower and global hooks; 3 Treehouse wrapper; 4 the kit's commands, Herdr keys, layout and plugins, Claude plugins and the starter help page; 5 git name and email; 6 starter second mate; 7 sign-ins you do yourself; 8 health check.
+**The 8 setup steps:** see the [Mac and Linux guide](user-guide.md#a26-the-eight-steps) or [Ubuntu guide](user-guide.md#b210-the-eight-steps), including the selected shell profile block in step 4.
 
 ## 2. Agent Kit commands
 

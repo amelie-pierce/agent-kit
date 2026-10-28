@@ -301,7 +301,7 @@ After you answer `y`, each step prints `Step N of 8:` and then a result.
 | 1 | Places the kit itself at its reviewed commit | `complete` |
 | 2 | Downloads and checks every tool, creates your Firstmate home and selects its strategy (2c), sets up the tower, hooks and (with Figma) the Figma CLI | `complete` (see note) |
 | 3 | Installs the Treehouse wrapper so worker copies go under your root | `complete` |
-| 4 | The kit's commands, Herdr keys, layout and plugins, the Claude plugins, and your starter help page | `complete: keys …` (it names the keys it added) |
+| 4 | The kit's commands, Herdr keys, layout and plugins, the Claude plugins, your starter help page, and the PATH block if you chose 5b | `complete` (it names what it added) |
 | 5 | Your git name and email | `complete: kept as it is` (or set) |
 | 6 | Starter second mate | `not-selected` unless you asked for one |
 | 7 | Shows the sign-ins you do yourself | `complete: shown` |
@@ -309,7 +309,7 @@ After you answer `y`, each step prints `Step N of 8:` and then a result.
 
 **Note on step 2:** you will see `Agent Kit install: partial`. That is expected while the tower shows `hands-on acceptance pending` (see A9). Every other component should say `installed`.
 
-**Note on step 4:** it lists each piece it placed. If Herdr was running, it says the Herdr plugins were not added yet: stop Herdr with `herdr server stop` and run the installer again (A5). If you had already bound one of the kit's keys yourself, it says it skipped that key. With `n` to question 5 this step says `not-selected`.
+**Note on step 4:** it lists each piece it placed. If Herdr was running, it says the Herdr plugins were not added yet: stop Herdr with `herdr server stop` and run the installer again (A5). If you had already bound one of the kit's keys yourself, it says it skipped that key. With `n` to both questions 5 and 5b, this step says `not-selected`; question 5b is independent of question 5.
 
 Every download is checked against a fixed checksum before use. No service or agent is started.
 
@@ -451,6 +451,7 @@ Everything lives under your root folder:
 
 Outside the root:
 
+- Your zsh or bash profile gets the kit's marked PATH block if you chose question 5b (A2.4).
 - `~/.config/zoe-fleet/config`: the tower's launcher settings (if you chose the tower).
 - The hook and skill files from question 5 (if you chose them).
 - Your Herdr settings: `~/.config/herdr/config.toml` gets the kit's marked keys block, the layout block (5a) and the session graph's own keys block; `~/.config/herdr/plugins.json` gets the kit's three plugin entries (question 5).
@@ -1553,7 +1554,7 @@ After you answer `y`, each step prints `Step N of 8:` and then a result.
 | 1 | Places the kit itself at its reviewed commit | `complete` |
 | 2 | Downloads and checks every tool, creates your Firstmate home and selects its strategy (2c), sets up hooks, the tower if you chose it, and (with Figma) the Figma CLI | `complete` (see note) |
 | 3 | Installs the Treehouse wrapper so worker copies go under your root | `complete` |
-| 4 | The kit's commands, Herdr keys, layout and plugins, the Claude plugins, and your starter help page | `complete: keys …` (it names the keys it added) |
+| 4 | The kit's commands, Herdr keys, layout and plugins, the Claude plugins, your starter help page, and the PATH block if you chose 5b | `complete` (it names what it added) |
 | 5 | Your git name and email | `complete: kept as it is` (or set) |
 | 6 | Starter second mate | `not-selected` unless you asked for one |
 | 7 | Shows the sign-ins you do yourself | `complete: shown` |
@@ -1561,7 +1562,7 @@ After you answer `y`, each step prints `Step N of 8:` and then a result.
 
 **Note on step 2:** with the tower, the tower installs inside Ubuntu like on macOS and shows `tower: installed from verified release; hands-on acceptance pending`, plus a `Tower launcher:` line with the launcher path. You will also see `Agent Kit install: partial`: that is only the testing label explained in B9, and setup still ends with `Agent Kit setup complete.` Every other component should say `installed`. If your Ubuntu is older than 22.04, the tower line says `refused: the WSL2 tower release needs Ubuntu 22.04 or newer` instead and step 2 reports `partial` (B10.1); everything else still installs.
 
-**Note on step 4:** it lists each piece it placed. If Herdr was running inside Ubuntu, it says the Herdr plugins were not added yet: stop Herdr with `herdr server stop` and run `install.ps1` again (B5). If you had already bound one of the kit's keys yourself, it says it skipped that key. With `n` to question 5 this step says `not-selected`.
+**Note on step 4:** it lists each piece it placed. If Herdr was running inside Ubuntu, it says the Herdr plugins were not added yet: stop Herdr with `herdr server stop` and run `install.ps1` again (B5). If you had already bound one of the kit's keys yourself, it says it skipped that key. With `n` to both questions 5 and 5b, this step says `not-selected`; question 5b is independent of question 5.
 
 Every download is checked against a fixed checksum before use. No service or agent is started.
 
@@ -1707,6 +1708,7 @@ Everything lives under your root folder **inside Ubuntu** (default `/home/<you>/
 
 Outside the root (all inside Ubuntu):
 
+- Your zsh or bash profile gets the kit's marked PATH block if you chose question 5b (B2.8).
 - `~/.config/zoe-fleet/config`: the tower's launcher settings (if you chose the tower).
 - The hook and skill files from question 5 (if you chose them).
 - Your Herdr settings: `~/.config/herdr/config.toml` gets the kit's marked keys block, the layout block (5a) and the session graph's own keys block; `~/.config/herdr/plugins.json` gets the kit's three plugin entries (question 5).
