@@ -1,0 +1,19 @@
+src/lifecycle.mjs
+  s_9adc07bb17d8e5::t_ee868b70aafa3f 147-149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "85888702709d606e27b74c14115aede515341251",
+  "prompts": {},
+  "sessions": {
+    "s_9adc07bb17d8e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "850a1548-2635-4e72-95dd-dedb4c65bd7a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
