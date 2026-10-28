@@ -628,7 +628,7 @@ test('skipped profile ownership survives repair and update, then uninstall remov
   assert.equal(existsSync(rc), false);
 });
 
-test('a profile edited under repair, update and uninstall twice is left as the person saved it and the command fails', { skip: process.platform === 'win32' }, async t => {
+test('a profile edited under repair, update and uninstall once is left as saved and the command fails', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t), rc = join(f.home, '.zshrc'), env = { ...f.options.env, SHELL: '/bin/zsh' };
   writeFileSync(rc, 'alias a=b\n');
   const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
@@ -637,20 +637,20 @@ test('a profile edited under repair, update and uninstall twice is left as the p
   const options = { ...f.options, env, beforeProfileReplace: path => appendFileSync(path, 'export MINE=1\n') };
   const repaired = await applyRepair(f.manifest, options);
   assert.equal(repaired.status, 'partial');
-  assert.ok(repaired.shortcuts.includes(`Shell profile: ${rc} changed while the kit was updating its PATH block, and again on a second try; the kit left it exactly as it is. Save and close any editor or tool writing it, then run agent-kit repair`));
+  assert.ok(repaired.shortcuts.includes(`Shell profile: ${rc} changed while the kit was updating its PATH block; left unchanged. Save the file, then re-run the command.`));
   assert.match(formatLifecycle(repaired), /: partial/);
-  assert.equal(readFileSync(rc, 'utf8'), 'alias a=b\nexport MINE=1\nexport MINE=1\n');
+  assert.equal(readFileSync(rc, 'utf8'), 'alias a=b\nexport MINE=1\n');
   const lines = await placeUpdateExtras(options, f.firstmate);
   assert.equal(lines.profileChanged, true);
   assert.ok(lines.some(line => line.startsWith(`Shell profile: ${rc} changed`)));
-  assert.equal(readFileSync(rc, 'utf8'), 'alias a=b\n' + 'export MINE=1\n'.repeat(4));
+  assert.equal(readFileSync(rc, 'utf8'), 'alias a=b\n' + 'export MINE=1\n'.repeat(2));
   await applyRepair(f.manifest, { ...options, beforeProfileReplace: undefined });
   const placed = readFileSync(rc, 'utf8');
   assert.match(placed, /# >>> agent-kit PATH >>>/);
   const result = await applyUninstall(options);
   assert.equal(result.status, 'partial');
-  assert.equal(readFileSync(rc, 'utf8'), placed + 'export MINE=1\n'.repeat(2));
-  assert.match(formatLifecycle(result), new RegExp(`Shell profile PATH block: left untouched because it changed while the kit was removing its PATH block, twice; remove the block yourself; ${rc}`));
+  assert.equal(readFileSync(rc, 'utf8'), placed + 'export MINE=1\n');
+  assert.match(formatLifecycle(result), new RegExp(`Shell profile PATH block: left untouched because it changed while the kit was removing its PATH block; save the file, then re-run the command; if uninstall has finished, remove the block yourself; ${rc}`));
 });
 
 test('doctor checks a running Herdr with a prior-release receipt', { skip: process.platform === 'win32' }, t => {

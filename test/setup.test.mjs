@@ -400,12 +400,12 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   const skippedBroken = f.ctx(['--yes', '--root', f.root, '--no-shell-profile']);
   assert.equal(await setup(f.fixtureManifest, skippedBroken), 1, skippedBroken.text);
   assert.match(skippedBroken.text, /1\. Add these folders to the start of your PATH yourself/);
-  // A profile the person keeps saving while the step writes it: the step stops, nonzero, with the file as they left it.
+  // A profile the person saves while the step writes it: the step stops, nonzero, with the file as they left it.
   writeFileSync(join(f.home, '.bashrc'), 'alias a=b\n');
   const busy = Object.assign(f.ctx(['--yes', '--root', f.root, '--shell-profile']), { beforeProfileReplace: path => writeFileSync(path, `${readFileSync(path, 'utf8')}export MINE=1\n`) });
   assert.equal(await setup(f.fixtureManifest, busy), 1, busy.text);
-  assert.equal(readFileSync(join(f.home, '.bashrc'), 'utf8'), 'alias a=b\nexport MINE=1\nexport MINE=1\n');
-  assert.ok(busy.text.includes(`failed: ${join(f.home, '.bashrc')} changed while the kit was updating its PATH block, and again on a second try; the kit left it exactly as it is.`), busy.text);
+  assert.equal(readFileSync(join(f.home, '.bashrc'), 'utf8'), 'alias a=b\nexport MINE=1\n');
+  assert.ok(busy.text.includes(`failed: ${join(f.home, '.bashrc')} changed while the kit was updating its PATH block; left unchanged. Save the file, then re-run the command.`), busy.text);
 });
 
 test('a failed step stops safely; the rerun prints the resume summary, re-verifies done steps and redoes only the failure', posixOnly, async t => {

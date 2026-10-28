@@ -16,7 +16,7 @@ const plainFile = path => { const s = stat(path); return !!s && s.isFile() && !s
 export const profileState = path => !stat(path) ? 'absent' : plainFile(path) ? sha(readFileSync(path)) : 'other';
 // Raised when the profile no longer holds what the kit read; nothing was written.
 export class ProfileChanged extends Error {
-  constructor(path, message = `${path} changed while the kit was updating it; left unchanged`) { super(message); this.path = path; }
+  constructor(path) { super(`${path} changed while the kit was updating its PATH block; left unchanged. Save the file, then re-run the command.`); this.path = path; }
 }
 
 // installRoot is <root>/.tools; groups are the npm phases the release holds.
@@ -99,14 +99,6 @@ async function replaceProfile(path, expected, next, beforeReplace) {
     if (tmp) await rename(tmp, path); else await rm(path, { force: true });
   } finally { if (tmp) await rm(tmp, { force: true }); }
 }
-// One fresh plan after a concurrent edit; a second edit stops with the file untouched.
-async function retryOnce(path, attempt) {
-  try { return await attempt(false); } catch (error) { if (!(error instanceof ProfileChanged)) throw error; }
-  try { return await attempt(true); } catch (error) {
-    if (!(error instanceof ProfileChanged)) throw error;
-    throw new ProfileChanged(path, `${path} changed while the kit was updating its PATH block, and again on a second try; the kit left it exactly as it is. Save and close any editor or tool writing it, then run agent-kit repair`);
-  }
-}
 async function backup(root, path) {
   const dir = join(root, 'backups', 'shell-profile');
   await mkdir(dir, { recursive: true, mode: 0o700 });
@@ -120,17 +112,16 @@ export function describeProfile(plan) {
 }
 
 // Setup step, repair and upgrade: keep the block current for an install that chose it. Returns lines, or null.
-// A profile that changes under the kit twice throws ProfileChanged, so the command exits nonzero; any other
+// A profile that changes under the kit throws ProfileChanged, so the command exits nonzero; any other
 // problem is reported as a line.
 export async function reconcileProfile(receipt, root, { env = process.env, home = env.HOME, platform = process.platform, repair = false, beforeReplace } = {}) {
   if (platform === 'win32' || receipt.setup?.answers?.shellProfile !== true) return null;
   const prior = receipt.setup?.shellProfile || null;
   let plan, record;
-  const attempt = async () => {
+  try {
     plan = planProfile({ folders: foldersOf(receipt, root), env, home, platform, want: true, record: prior, repair });
     record = await applyProfile(plan, root, { beforeReplace });
-  };
-  try { await retryOnce(prior?.path || profileTarget(env, home, platform).path, attempt); } catch (error) {
+  } catch (error) {
     if (error instanceof ProfileChanged) throw error;
     return { lines: [`Shell profile: not updated; ${error.message}`], plan, record: prior };
   }
@@ -148,16 +139,11 @@ export function planRemoveProfile(record) {
   if (!record?.path) return null;
   const bytes = plainFile(record.path) ? readFileSync(record.path) : null, text = bytes?.toString('utf8') ?? null, found = text === null ? null : splitProfile(text);
   const unchanged = !!found?.block && record.blockSha256 === sha(found.block);
-  return { path: record.path, action: unchanged ? 'remove the unchanged agent-kit PATH block' : 'keep changed or absent PATH block', text, state: bytes ? sha(bytes) : profileState(record.path), created: !!record.created, record };
+  return { path: record.path, action: unchanged ? 'remove the unchanged agent-kit PATH block' : 'keep changed or absent PATH block', text, state: bytes ? sha(bytes) : profileState(record.path), created: !!record.created };
 }
-// Like reconcileProfile, a second concurrent edit throws ProfileChanged with the file untouched.
 export async function removeProfile(root, plan, { beforeReplace } = {}) {
-  if (!plan) return;
-  await retryOnce(plan.path, async fresh => {
-    const current = fresh ? planRemoveProfile(plan.record) : plan;
-    if (current?.action !== 'remove the unchanged agent-kit PATH block') return;
-    await applyProfile({ action: 'remove', path: current.path, text: current.text, state: current.state, created: current.created }, root, { beforeReplace });
-  });
+  if (plan?.action !== 'remove the unchanged agent-kit PATH block') return;
+  await applyProfile({ action: 'remove', path: plan.path, text: plan.text, state: plan.state, created: plan.created }, root, { beforeReplace });
 }
 
 // Upgrade rollback: the bytes captured before the upgrade (null: absent) go back only while the profile differs
@@ -166,7 +152,7 @@ export async function restoreProfile(path, before, record, { beforeReplace } = {
   const old = before === null ? 'absent' : sha(before), bytes = plainFile(path) ? readFileSync(path) : null, now = bytes ? sha(bytes) : profileState(path);
   if (now === old) return null;
   const text = bytes?.toString('utf8') ?? null, block = text === null ? null : splitProfile(text).block;
-  const stays = `${path} changed during the upgrade, so the rollback left it as it is now`;
+  const stays = `${path} changed during the upgrade, so the rollback left it as it is now. Save the file, then re-run the command.`;
   if (block === null || sha(block) !== record?.blockSha256 || text !== withBlock(before?.toString('utf8') ?? '', block)) return stays;
   try { await replaceProfile(path, now, before, beforeReplace); } catch (error) { if (error instanceof ProfileChanged) return stays; throw error; }
   return null;

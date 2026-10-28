@@ -143,59 +143,55 @@ const reconcile = (f, beforeReplace, record = null) => reconcileProfile({ ...pro
 const editsOnCall = (...calls) => { let n = 0; return path => { n += 1; if (calls.includes(n)) appendFileSync(path, `export EDIT_${n}=1\n`); }; };
 const leftovers = f => readdirSync(f.home).filter(name => name.endsWith('.tmp'));
 
-test('an edit between the read and the write is kept: the kit plans again from the new text once', posixOnly, async t => {
+test('an edit between the read and the write stops the add and leaves the new text', posixOnly, async t => {
   const f = fixture(t);
   writeFileSync(f.rc, 'alias a=b\n');
-  const done = await reconcile(f, editsOnCall(1));
+  await assert.rejects(reconcile(f, editsOnCall(1)), error => error instanceof ProfileChanged && error.message.includes(f.rc) && error.message.includes('re-run the command'));
   const text = readFileSync(f.rc, 'utf8');
-  assert.equal(text, `alias a=b\nexport EDIT_1=1\n\n${renderProfileBlock(f.folders)}\n`);
-  assert.equal(done.plan.action, 'add');
-  assert.equal(splitProfile(text).block, renderProfileBlock(f.folders));
+  assert.equal(text, 'alias a=b\nexport EDIT_1=1\n');
   assert.deepEqual(leftovers(f), []);
+  assert.ok(readdirSync(join(f.root, 'backups', 'shell-profile')).length >= 1, 'the backup still comes before the modification attempt');
 });
 
-test('a profile that changes again on the second try is left exactly as the person last saved it', posixOnly, async t => {
+test('an edit to an absent profile stops the add without replacing the new file', posixOnly, async t => {
   const f = fixture(t);
-  writeFileSync(f.rc, 'alias a=b\n');
-  await assert.rejects(reconcile(f, editsOnCall(1, 2)), error => error instanceof ProfileChanged && error.message.includes(f.rc) && /again on a second try; the kit left it exactly as it is/.test(error.message));
-  assert.equal(readFileSync(f.rc, 'utf8'), 'alias a=b\nexport EDIT_1=1\nexport EDIT_2=1\n');
+  await assert.rejects(reconcile(f, path => writeFileSync(path, 'export MINE=1\n')), ProfileChanged);
+  assert.equal(readFileSync(f.rc, 'utf8'), 'export MINE=1\n');
   assert.deepEqual(leftovers(f), []);
-  assert.ok(readdirSync(join(f.root, 'backups', 'shell-profile')).length >= 1, 'the backup still comes before the first modification attempt');
 });
 
-test('the second plan honours what the edit did: an edited block is kept, a new symlink is skipped', posixOnly, async t => {
+test('a concurrent block edit or symlink stops refresh without replacing the profile', posixOnly, async t => {
   const f = fixture(t);
   const record = (await reconcile(f)).record;
   const next = { ...profileReceipt, release: 'r2' };
   const editBlock = path => writeFileSync(path, readFileSync(path, 'utf8').replace('Managed by', 'Mine, managed by'));
-  let calls = 0;
-  const kept = await reconcileProfile({ ...next, setup: { ...next.setup, shellProfile: record } }, f.root, { env: f.env, home: f.home, platform: 'linux', beforeReplace: path => { if (!calls++) editBlock(path); } });
-  assert.equal(kept.plan.action, 'keep');
+  await assert.rejects(reconcileProfile({ ...next, setup: { ...next.setup, shellProfile: record } }, f.root, { env: f.env, home: f.home, platform: 'linux', beforeReplace: editBlock }), ProfileChanged);
   assert.match(readFileSync(f.rc, 'utf8'), /Mine, managed by/);
   assert.match(readFileSync(f.rc, 'utf8'), /releases\/r1\//);
   const g = fixture(t), real = join(g.home, 'dotfiles-zshrc');
   writeFileSync(g.rc, 'alias a=b\n');
-  const swapped = await reconcile(g, path => { if (lstatSync(path).isSymbolicLink()) return; writeFileSync(real, 'mine\n'); rmSync(path); symlinkSync(real, path); });
-  assert.equal(swapped.plan.action, 'skip');
+  await assert.rejects(reconcile(g, path => { writeFileSync(real, 'mine\n'); rmSync(path); symlinkSync(real, path); }), ProfileChanged);
   assert.equal(lstatSync(g.rc).isSymbolicLink(), true);
   assert.equal(readFileSync(real, 'utf8'), 'mine\n');
+  assert.deepEqual([...leftovers(f), ...leftovers(g)], []);
 });
 
-test('uninstall retries once after an edit and otherwise leaves the profile untouched', posixOnly, async t => {
+test('uninstall stops on the first edit and leaves each profile untouched', posixOnly, async t => {
   const f = fixture(t);
   writeFileSync(f.rc, 'alias a=b\n');
   const record = await applyProfile(plan(f), f.root);
-  await removeProfile(f.root, planRemoveProfile(record), { beforeReplace: editsOnCall(1) });
-  assert.equal(readFileSync(f.rc, 'utf8'), 'alias a=b\nexport EDIT_1=1\n');
+  const before = readFileSync(f.rc, 'utf8');
+  await assert.rejects(removeProfile(f.root, planRemoveProfile(record), { beforeReplace: editsOnCall(1) }), ProfileChanged);
+  assert.equal(readFileSync(f.rc, 'utf8'), `${before}export EDIT_1=1\n`);
   const g = fixture(t);
   writeFileSync(g.rc, 'alias a=b\n');
-  const rec = await applyProfile(plan(g), g.root), before = readFileSync(g.rc, 'utf8');
-  await assert.rejects(removeProfile(g.root, planRemoveProfile(rec), { beforeReplace: editsOnCall(1, 2) }), ProfileChanged);
-  assert.equal(readFileSync(g.rc, 'utf8'), `${before}export EDIT_1=1\nexport EDIT_2=1\n`);
+  const rec = await applyProfile(plan(g), g.root), gBefore = readFileSync(g.rc, 'utf8');
+  await assert.rejects(removeProfile(g.root, planRemoveProfile(rec), { beforeReplace: editsOnCall(1) }), ProfileChanged);
+  assert.equal(readFileSync(g.rc, 'utf8'), `${gBefore}export EDIT_1=1\n`);
   const h = fixture(t);
   const created = await applyProfile(plan(h), h.root);
-  await assert.rejects(removeProfile(h.root, planRemoveProfile(created), { beforeReplace: editsOnCall(1, 2) }), ProfileChanged);
-  assert.match(readFileSync(h.rc, 'utf8'), /EDIT_2/, 'a file the kit created is not deleted once the person wrote to it');
+  await assert.rejects(removeProfile(h.root, planRemoveProfile(created), { beforeReplace: editsOnCall(1) }), ProfileChanged);
+  assert.match(readFileSync(h.rc, 'utf8'), /EDIT_1/, 'a file the kit created is not deleted once the person wrote to it');
   assert.deepEqual([...leftovers(f), ...leftovers(g), ...leftovers(h)], []);
 });
 

@@ -12,9 +12,9 @@ The kit owns one marked block between `# >>> agent-kit PATH >>>` and `# <<< agen
 
 Every write goes through `replaceProfile`: the new text is written to a temp file beside the profile with the profile's mode, then the profile's sha256 (or `absent` / `other` for a non-plain file) is compared with the value the plan read, and only on a match is the temp file renamed over it (or the kit-created file removed). On a mismatch it raises `ProfileChanged` and writes nothing (src/shell-profile.mjs:16-20; src/shell-profile.mjs:79-101). A small window between that compare and the rename remains; no lock is taken.
 
-`retryOnce` plans again from the fresh file once; a second change stops with the file untouched and a message naming it (src/shell-profile.mjs:103-110). The backup into `<root>/backups/shell-profile` still happens before each write attempt (src/shell-profile.mjs:79-87).
+The first detected change stops the write with the file untouched and a message naming it. The backup into `<root>/backups/shell-profile` still happens before the write attempt.
 
-Callers and how a second change surfaces:
+Callers and how a detected change surfaces:
 
 - Setup step 4 lets `ProfileChanged` fail the step, so setup stops and exits 1 (src/setup.mjs:578-585).
 - Repair flags the reconcile lines and returns status `partial`, so the CLI exits 1 without rolling back the repair (src/lifecycle.mjs:164-176; src/lifecycle.mjs:346).

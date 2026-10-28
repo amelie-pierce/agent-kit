@@ -166,7 +166,7 @@ async function reconcileShortcuts(root, options, repair) {
   return profile.profileChanged ? Object.assign(lines, { profileChanged: true }) : lines.length ? lines : null;
 }
 // The PATH block follows the shell profile answer; like the shortcuts, a problem here never rolls back. A profile
-// that changed under the kit twice stays untouched and is flagged so the command exits nonzero.
+// that changed under the kit stays untouched and is flagged so the command exits nonzero.
 async function reconcileShellProfile(root, options, repair) {
   const { receipt } = receiptAt(root), env = options.env || process.env;
   let done;
@@ -415,11 +415,11 @@ export async function applyUninstall(options = {}) {
   await removePlugin(planRemovePlugin(root, shortcuts?.plugin, shortcuts?.keys?.path || herdrConfigPath(options.env || process.env, options.home)), {
     env: { ...(options.env || process.env), HOME: options.home }, herdr: receipt.phases.herdr?.path ? join(root, receipt.phases.herdr.path) : null });
   await removeShortcuts(root, planRemoveShortcuts(root, shortcuts, plan.removeFirstmateHome ? null : plan.firstmate));
-  // A profile that changes under the kit twice stays exactly as it is; the rest of the uninstall goes on.
+  // A profile that changes under the kit stays exactly as it is; the rest of the uninstall goes on.
   let profileKept = null;
   try { await removeProfile(root, planRemoveProfile(receipt.setup?.shellProfile), { beforeReplace: options.beforeProfileReplace }); } catch (error) {
     if (!(error instanceof ProfileChanged)) throw error;
-    profileKept = { path: error.path, action: 'left untouched because it changed while the kit was removing its PATH block, twice; remove the block yourself' };
+    profileKept = { path: error.path, action: 'left untouched because it changed while the kit was removing its PATH block; save the file, then re-run the command; if uninstall has finished, remove the block yourself' };
   }
   removeClaudePlugins(shortcuts?.claudePlugins, { claude: shortcuts?.realClaude, env: options.env || process.env, home: options.home, run: options.runClaude });
   for (const name of ['kit', 'releases', 'npm-cache', 'cargo-home', 'empty-user.npmrc', 'empty-global.npmrc']) {

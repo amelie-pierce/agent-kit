@@ -1,6 +1,6 @@
 # Agent Kit: all features
 
-This page lists the functions in this `pilot-11` candidate worktree. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`. The owner approves a release by merging its manifest PR.
+This page lists the functions in the released `pilot-11` kit. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`. The owner approves a release by merging its manifest PR.
 
 **How to read the support columns.** **Yes**: works today. **Partial**: works with a limit, explained in the row. **No**: not supported.
 
@@ -128,7 +128,7 @@ Every download is checked against a fixed checksum. Nothing is started and no on
 
 **You install these yourself; the kit only checks them:** Node.js 24.15.0 or newer, git 2.20.0 or newer, the GitHub CLI 2.0.0 or newer, and python3 3.9 or newer (on macOS from the Xcode Command Line Tools; on Linux and in Ubuntu, `sudo apt install python3`). On macOS also Homebrew, the Xcode Command Line Tools and jq. Optional: Claude Code 2.1.293 or newer, and Figma Desktop. On Windows you also set up WSL2 with Ubuntu 22.04 or newer yourself, and install git, Node.js and `gh` on both Windows and Ubuntu (inside Ubuntu, Node.js from nvm or NodeSource, not `apt install nodejs`). On Windows with the tower chosen, jq inside Ubuntu (`sudo apt install -y jq`); a missing jq is a `tower-jq` warning and does not stop the install.
 
-**The PATH block (question 5b).** The kit offers a marked zsh or bash profile block and checks whether a running Herdr can see the kit folders; it never stops Herdr. `--no-shell-profile` skips adding a block on a new install and preserves an existing kit-owned block on a rerun; `--shell-profile` explicitly turns it on. The kit never overwrites a profile edit made while it writes: it replaces the file only if it still holds what the kit read, starts again once from your new text, and otherwise leaves the file as you saved it and exits with an error. If you change your login shell, uninstall the kit and reinstall it from the new shell. See the guide's [Mac and Linux instructions](user-guide.md#a24-the-questions) or [Ubuntu instructions](user-guide.md#b28-the-questions) for the profile path, repair, doctor and uninstall behavior.
+**The PATH block (question 5b).** The kit offers a marked zsh or bash profile block and checks whether a running Herdr can see the kit folders; it never stops Herdr. `--no-shell-profile` skips adding a block on a new install and preserves an existing kit-owned block on a rerun; `--shell-profile` explicitly turns it on. If the profile changed since the kit read it, the kit leaves your edit untouched, names the file, and exits with an error so you can re-run the command. A save between the kit's final check and its file replacement can still be lost. If you change your login shell, uninstall the kit and reinstall it from the new shell. See the guide's [Mac and Linux instructions](user-guide.md#a24-the-questions) or [Ubuntu instructions](user-guide.md#b28-the-questions) for the profile path, repair, doctor and uninstall behavior.
 
 ### 4b. The kit's commands (question 5)
 

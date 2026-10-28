@@ -82,7 +82,7 @@ export function extrasPaths(options, receipt) {
 }
 // The kit extras and, for a home that now takes fm-strategy.sh --plans, the person's strategy; a problem with
 // them never fails the update. Returns the lines to report, flagged profileChanged when the shell profile changed
-// under the kit twice and was left untouched, which makes the command exit nonzero.
+// under the kit and was left untouched, which makes the command exit nonzero.
 export async function placeUpdateExtras(options, firstmateHome, noMistakesBin = null) {
   const root = resolve(options.installRoot), receiptPath = join(root, 'receipt.json'), kitPath = ownKit();
   let shortcuts = null, profileChanged = null;
