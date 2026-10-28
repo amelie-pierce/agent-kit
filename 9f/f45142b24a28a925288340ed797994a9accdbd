@@ -1,0 +1,64 @@
+src/herdr-path.mjs
+  s_a3d36a021c4404::t_c9094d35a04b31 3,24-25,35-36,39,41
+  s_a3d36a021c4404::t_5422f852bf40c7 1-2,4-23,26-34,37-38,40
+src/update.mjs
+  s_a3d36a021c4404::t_24c68eb2a1573b 10,80
+  s_a3d36a021c4404::t_7e1afb65835499 98-99
+docs/features.md
+  s_a3d36a021c4404::t_0fa3d5599c987a 46,274
+  s_a3d36a021c4404::t_bb85fc276fc580 85,131
+  s_a3d36a021c4404::t_1ad04d7502a008 132
+README.md
+  s_a3d36a021c4404::t_bb85fc276fc580 79,314-323
+  s_a3d36a021c4404::t_0fa3d5599c987a 62,368
+  s_a3d36a021c4404::t_6f48686af6fb82 324
+test/herdr-path.test.mjs
+  s_a3d36a021c4404::t_3c78f3b86a3835 1-4,6-10,14-38
+  s_a3d36a021c4404::t_19673a514e5ca8 5,11-13
+test/shell-profile.test.mjs
+  s_a3d36a021c4404::t_607174d24e9d7a 1-108
+src/shell-profile.mjs
+  s_a3d36a021c4404::t_53a2978af2cd08 40,44,47,49-51
+  s_a3d36a021c4404::t_9721b75356931b 1-39,41-43,45-46,48,52-138
+test/lifecycle.test.mjs
+  s_a3d36a021c4404::t_2597c0309df638 535-565
+  s_a3d36a021c4404::t_74f7582fc0cfb5 9
+test/setup.test.mjs
+  s_a3d36a021c4404::t_a671002d02d350 48,348,351,357,359-361
+  s_a3d36a021c4404::t_7e1afb65835499 13
+  s_a3d36a021c4404::t_73ade5a0a90b42 180
+  s_a3d36a021c4404::t_e6f949b55b0230 358
+  s_a3d36a021c4404::t_1f555d92b32c65 524-528,530-541
+  s_a3d36a021c4404::t_40fe7a406dd7ad 529
+  s_a3d36a021c4404::t_11b8a2fab56bac 329,344,387
+src/doctor.mjs
+  s_a3d36a021c4404::t_5422f852bf40c7 12
+  s_a3d36a021c4404::t_c9094d35a04b31 13,84,190-191
+docs/user-guide.md
+  s_a3d36a021c4404::t_ab64e44c36ffd0 44,195,228-229,324-325,339,564-566,620,681,1153,1233,1444,1475-1476,1573-1574,1588,1824-1826,1880,1941
+  s_a3d36a021c4404::t_0fa3d5599c987a 365,1618
+  s_a3d36a021c4404::t_423ef80270d0d3 400-401,1157,1653,2435
+  s_a3d36a021c4404::t_20c125ec3587e3 1654
+src/setup.mjs
+  s_a3d36a021c4404::t_8fc47f59a27464 22-23,28,46,72,256-257,305,309,314,337-342,505
+  s_a3d36a021c4404::t_e20fb5d84f4659 406,410-411,415-417,573-581,584,594,601-604
+  s_a3d36a021c4404::t_11b8a2fab56bac 582-583
+src/lifecycle.mjs
+  s_a3d36a021c4404::t_7e1afb65835499 18,157-173,370,379,386,412,558
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9ff45142b24a28a925288340ed797994a9accdbd",
+  "prompts": {},
+  "sessions": {
+    "s_a3d36a021c4404": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61721add-e698-4abe-ac35-208e84573c1a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
