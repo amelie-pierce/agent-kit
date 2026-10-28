@@ -26,7 +26,7 @@ Updated 2026-10-28 (pilot-10, Firstmate a6bc1877): Firstmate's own `bin/strategi
 - A local sweep rendered every plan x mode with a6bc1877's `fm-strategy.sh` for both providers (189 homes), and all passed the resolver's own rules check after `withOwnerTiers`. pilot-9's version failed it on Max 20x balanced.
 - `/updatefirstmate` fast-forwards tracked files only and leaves `config/` alone (Firstmate `.agents/skills/updatefirstmate/SKILL.md`), so after the guarded re-pin the kit's `reselect` still sees its recorded digests.
 - `manifests/plan-models.json` stays the bridge's single-route table plus plan ids, default modes and full warnings; it does not mirror Firstmate's ladders.
-- Question 2c prints the owner's mode definitions first (src/setup.mjs:29, src/setup.mjs:230).
+- Question 2c prints the owner's mode definitions first (src/setup.mjs:28, src/setup.mjs:230).
 - `scripts/jev-resolve-smoke.mjs` now keys a Claude Max 20x balanced home, so CI's run of the pinned resolver validates a ladder file that carries the owner tiers.
 
 Ownership: the kit writes or selects only when neither the rules file nor `config/strategy` exists, by hard-linking a temp file so a file that appears concurrently is never replaced. It records `setup.dispatch` with the template, agent CLIs, plans and a digest; a native selection adds `via: 'fm-strategy'` and `strategySha256`. The record moves as follows (src/dispatch.mjs `planStarter`, `applyStarter`, `selectStrategy`, `starterRemovable`; src/lifecycle.mjs `reconcileStarter`, `planUninstall`).
