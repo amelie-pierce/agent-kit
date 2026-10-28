@@ -6,6 +6,7 @@ import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readF
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { reconcileProfile } from '../src/shell-profile.mjs';
 import { applyRepair, applyUninstall, applyUpgrade, formatLifecycle, planRepair, planUninstall, planUpgrade, resolveReviewedCommit } from '../src/lifecycle.mjs';
 import { parseArgs } from '../src/kit.mjs';
 import { windowsLifecycle } from '../src/install/windows.mjs';
@@ -530,4 +531,35 @@ test('Windows lifecycle handoff executes the installed kit inside a disposable W
     { env: { ...process.env, HOME: base }, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), ['repair', '--install-root', root, '--yes']);
+});
+
+test('uninstall removes the unchanged PATH block and keeps an edited one; repair puts a removed block back', { skip: process.platform === 'win32' }, async t => {
+  const withBlock = async () => {
+    const f = fixture(t), rc = join(f.home, '.zshrc');
+    writeFileSync(rc, 'alias a=b\n');
+    const receipt = JSON.parse(readFileSync(f.receiptPath));
+    receipt.setup.answers.shellProfile = true;
+    const env = { ...f.options.env, SHELL: '/bin/zsh' };
+    const done = await reconcileProfile(receipt, f.root, { env, home: f.home, platform: 'darwin' });
+    receipt.setup.shellProfile = done.record;
+    writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+    return { f, rc, options: { ...f.options, env } };
+  };
+  const a = await withBlock();
+  assert.match(readFileSync(a.rc, 'utf8'), /# >>> agent-kit PATH >>>/);
+  assert.equal(planUninstall(a.options).shellProfile.action, 'remove the unchanged agent-kit PATH block');
+  assert.match(formatLifecycle(planUninstall(a.options)), /Shell profile PATH block: remove the unchanged/);
+  await applyUninstall(a.options);
+  assert.equal(readFileSync(a.rc, 'utf8'), 'alias a=b\n');
+  const b = await withBlock();
+  writeFileSync(b.rc, readFileSync(b.rc, 'utf8').replace('Managed by', 'Mine, managed by'));
+  assert.equal(planUninstall(b.options).shellProfile.action, 'keep changed or absent PATH block');
+  await applyUninstall(b.options);
+  assert.match(readFileSync(b.rc, 'utf8'), /Mine, managed by/);
+  const c = await withBlock();
+  writeFileSync(c.rc, 'alias a=b\n');
+  const lines = await reconcileProfile(JSON.parse(readFileSync(c.f.receiptPath)), c.f.root, { env: c.options.env, home: c.f.home, platform: 'darwin' });
+  assert.match(lines.lines[0], /not added again/, 'a block you removed stays removed outside repair');
+  const repaired = await reconcileProfile(JSON.parse(readFileSync(c.f.receiptPath)), c.f.root, { env: c.options.env, home: c.f.home, platform: 'darwin', repair: true });
+  assert.match(repaired.lines[0], /added the PATH block/);
 });

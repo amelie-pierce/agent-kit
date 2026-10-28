@@ -19,11 +19,13 @@ import { inspectWindows } from './platforms/windows.mjs';
 import { envManaged, hiddenKey, keyStatus, writeKey } from './keys.mjs';
 import { kitKeys, placeKitExtras } from './shortcuts.mjs';
 import { processRunning } from './update.mjs';
+import { herdrPathHealth } from './herdr-path.mjs';
+import { foldersOf, kitFolders, profileTarget, reconcileProfile, renderProfileBlock, saveProfileRecord } from './shell-profile.mjs';
 import { applyStarter, strategyTakesPlans, defaultMode, describeStarter, fullWarnings, loadPlanTable, modes, planIds, planStarter, previewStarter, providersOf } from './dispatch.mjs';
 
 const sha = data => createHash('sha256').update(data).digest('hex');
 export const defaultRoot = '~/Agentic';
-export const setupAnswerKeys = ['harness', 'plans', 'dispatchMode', 'codexFullAccess', 'figma', 'tower', 'globalHooks', 'herdrLayout', 'githubOwner', 'gitIdentity', 'starterMate', 'channel'];
+export const setupAnswerKeys = ['harness', 'plans', 'dispatchMode', 'codexFullAccess', 'figma', 'tower', 'globalHooks', 'herdrLayout', 'shellProfile', 'githubOwner', 'gitIdentity', 'starterMate', 'channel'];
 // The owner's own one-line definitions of Firstmate's three token strategies, shown before question 2c.
 export const modeMeanings = { full: 'unlock full power', balanced: 'optimize for token saving while everything still work', lean: 'harder optimization for token saving while everything still work' };
 // Shown before the full-access answer, in the README and in the PR, word for word.
@@ -41,7 +43,7 @@ export const steps = [
 const valueFlags = ['--root', '--install-root', '--firstmate-home', '--harness', '--claude-plan', '--codex-plan', '--dispatch-mode', '--github-owner', '--git-name', '--git-email', '--starter-mate', '--starter-scope',
   '--channel', '--kit-dir', '--kit-commit', '--distro'];
 const booleanFlags = ['--with-figma', '--no-figma', '--with-tower', '--no-tower', '--global-hooks', '--no-global-hooks', '--codex-full-access', '--no-codex-full-access',
-  '--herdr-layout', '--no-herdr-layout', '--no-starter-mate', '--yes', '--reconfigure',
+  '--herdr-layout', '--no-herdr-layout', '--shell-profile', '--no-shell-profile', '--no-starter-mate', '--yes', '--reconfigure',
   '--dry-run', '--handoff', '--allow-existing-root'];
 const oneLine = (value, flag, max) => {
   if (typeof value !== 'string' || !value.trim() || value.length > max || /[\0-\x1f\x7f]/.test(value)) throw new Error(`${flag} must be one line of at most ${max} characters`);
@@ -67,7 +69,7 @@ export function parseSetupArgs(argv, platform = process.platform) {
     } else if (booleanFlags.includes(arg)) flags[arg.slice(2)] = true;
     else throw new Error(`unknown setup argument: ${arg}`);
   }
-  for (const [a, b] of [['with-figma', 'no-figma'], ['with-tower', 'no-tower'], ['global-hooks', 'no-global-hooks'], ['codex-full-access', 'no-codex-full-access'], ['herdr-layout', 'no-herdr-layout'], ['starter-mate', 'no-starter-mate']])
+  for (const [a, b] of [['with-figma', 'no-figma'], ['with-tower', 'no-tower'], ['global-hooks', 'no-global-hooks'], ['codex-full-access', 'no-codex-full-access'], ['herdr-layout', 'no-herdr-layout'], ['shell-profile', 'no-shell-profile'], ['starter-mate', 'no-starter-mate']])
     if (flags[a] !== undefined && flags[b] !== undefined) throw new Error(`--${a} and --${b} conflict`);
   if (flags['starter-scope'] !== undefined && flags['no-starter-mate']) throw new Error('--starter-scope conflicts with --no-starter-mate');
   if (flags.handoff && flags['dry-run']) throw new Error('--handoff applies only without --dry-run');
@@ -251,6 +253,8 @@ export async function collectAnswers(flags, saved, ctx, io, paths) {
   await toggle('globalHooks', 'global-hooks', 'no-global-hooks', 5, 'Register these kit hooks and skills');
   if (answers.globalHooks) await toggle('herdrLayout', 'herdr-layout', 'no-herdr-layout', '5a', 'Herdr layout: the kit\'s theme, sidebar, tab bar and pane settings in your Herdr config (settings you already have win)');
   else if (flags['herdr-layout']) throw new Error('--herdr-layout needs global hooks and skills');
+  // The PATH block in the zsh or bash profile; independent of the global hooks answer, on by default.
+  await toggle('shellProfile', 'shell-profile', 'no-shell-profile', '5b', 'Add the kit\'s PATH block to your zsh or bash profile so every new terminal finds the kit tools (backed up first; uninstall removes it)');
   if (flags['github-owner'] !== undefined) answers.githubOwner = flags['github-owner'];
   else if (want('githubOwner')) {
     const login = githubLogin(env);
@@ -298,15 +302,16 @@ export async function collectAnswers(flags, saved, ctx, io, paths) {
   return { answers, current, gitStale: yes ? stale : null, channelOverride };
 }
 
+const summaryFolders = (paths, answers, release) => kitFolders(paths.installRoot, release, ['npm', ...(harnessProfiles(answers.harness).includes('codex') ? ['npm-codex'] : []), ...(answers.figma ? ['npm-figma'] : [])]);
 const shellQuote = value => `'${value.replaceAll("'", "'\\''")}'`;
 const yesNo = value => value ? 'on' : 'off';
 const indent = text => `${text.trimEnd().replace(/^/gm, '  ')}\n`;
-export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, env = {}, keyPlan = { managed: true, status: 'not set' } }) {
+export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, env = {}, platform = process.platform, release = '<release>', keyPlan = { managed: true, status: 'not set' } }) {
   const g = answers.gitIdentity, tower = plan.plan?.towerConfig;
   const lines = ['', 'Agent Kit setup summary. Nothing has been written yet.', 'Answers:',
     `  1. Root folder: ${paths.root}`, `  2. Agent CLIs: ${harnessLabel(answers.harness)} (plan: ${Object.entries(answers.plans || {}).map(([cli, id]) => `${cli} ${id === 'not-sure' ? 'skip' : id}`).join(', ') || 'skip'}; starter routing mode: ${answers.dispatchMode})`,
     ...(answers.codexFullAccess !== undefined ? [`  2d. Full-access Codex launch: ${answers.codexFullAccess ? 'ON - Codex workers can read and write anything your account can, run commands without asking and run hooks without the trust review' : 'off (Codex keeps its normal sandbox and approvals)'}`] : []), `  3. Figma support: ${yesNo(answers.figma)}`, `  4. Fleet tower: ${yesNo(answers.tower)}`,
-    `  5. Global hooks and skills: ${yesNo(answers.globalHooks)}`, ...(answers.globalHooks ? [`  5a. Herdr layout settings: ${yesNo(answers.herdrLayout !== false)}`] : []), `  6. GitHub owner: ${answers.githubOwner || 'none'} (recorded only; nothing is created on GitHub)`,
+    `  5. Global hooks and skills: ${yesNo(answers.globalHooks)}`, ...(answers.globalHooks ? [`  5a. Herdr layout settings: ${yesNo(answers.herdrLayout !== false)}`] : []), `  5b. Shell profile PATH block: ${yesNo(answers.shellProfile)}`, `  6. GitHub owner: ${answers.githubOwner || 'none'} (recorded only; nothing is created on GitHub)`,
     `  7. Git identity: ${g.action === 'set' ? `set user.name "${g.name}" and user.email "${g.email}" with git config --global` : `keep (${gitCurrent.name || 'no name'} <${gitCurrent.email || 'no email'}>)`}${gitStale ? `; your saved "${gitStale.name}" <${gitStale.email}> was not applied because git's value changed since (pass --git-name and --git-email, or --reconfigure, to change it)` : ''}`,
     `  8. Starter second mate: ${answers.starterMate.create ? `${answers.starterMate.id}: ${answers.starterMate.scope}` : 'no'}`, `  9. Update channel: ${answers.channel}${channelOverride ? ` (from --channel; your saved answer was ${channelOverride})` : ''}`,
     ...(keyPlan.managed ? [`  10. Optional TYPESAFE_API_KEY: ${keyPlan.status} (Firstmate home .env; without it Jev routing is off and normal dispatch rules apply)`]
@@ -329,6 +334,12 @@ export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, chan
   const herdrKeys = plan.plan?.herdrKeys;
   if (answers.globalHooks && herdrKeys?.keys.length) outside.push(`  ${herdrKeys.path}: agent-kit keys block (${herdrKeys.keys.map(k => `${k.key} ${k.command}`).join(', ')}; keys you already bound are skipped; backed up first; uninstall removes the block)`,
     ...herdrKeys.notes.map(note => `    ${note}`));
+  if (answers.shellProfile) {
+    const target = profileTarget(env, home, platform);
+    if (target.path) outside.push(`  ${target.path}: one marked PATH block, added at the end (existing file backed up first; nothing else in it is changed; uninstall removes the block if you have not edited it). The block:`,
+      ...renderProfileBlock(summaryFolders(paths, answers, release)).split('\n').map(line => `    ${line}`));
+    else outside.push(`  no shell profile: your login shell (${target.shell}) is not zsh or bash, so the kit leaves it alone and the next steps show the PATH line to add yourself`);
+  }
   if (answers.tower && tower) outside.push(`  ${tower.config}: tower launcher config, private 0600 (the launcher has no config override, so it stays in this XDG location)`);
   if (g.action === 'set' && (g.name !== gitCurrent.name || g.email !== gitCurrent.email)) outside.push(`  ${join(home, '.gitconfig')} (or your git global config): user.name and user.email`);
   lines.push(...(outside.length ? outside : ['  none']));
@@ -392,15 +403,18 @@ async function placeWrapper(paths, receipt, receiptPath, release) {
 }
 
 // What to do after setup, in order; the guide's "After a successful install: start it up" section walks through it.
-export function nextSteps({ answers, paths, install, kit, shortcuts }) {
+export function nextSteps({ answers, paths, install, kit, shortcuts, profile = null, herdr = null }) {
   const agents = harnessProfiles(answers.harness), keys = new Set(shortcuts?.keys?.bound || []);
   const shortcut = kitKeys.filter(k => agents.includes(k.mode) && keys.has(k.key)).map(k => `${k.key} for ${k.mode}`);
   return ['Next steps:',
-    `  1. Add these folders to the start of your PATH yourself (the kit never edits shell profiles), then open a new terminal:\n       ${[dirname(paths.wrapper), install.bin, install.npmBin, install.codexBin, install.figmaBin].filter(Boolean).join('\n       ')}`,
+    ...(['add', 'refresh', 'verify'].includes(profile?.action) ? [`  1. Open a new terminal. The kit put its PATH block in ${profile.path}, so every new terminal finds the kit tools (undo it with agent-kit uninstall).`]
+      : [`  1. Add these folders to the start of your PATH yourself (${answers.shellProfile ? profile?.detail || 'the kit did not change your shell profile' : 'you chose not to let the kit edit your shell profile'}), then open a new terminal:\n       ${[dirname(paths.wrapper), install.bin, install.npmBin, install.codexBin, install.figmaBin].filter(Boolean).join('\n       ')}`]),
     ...(kit.commit ? [`  2. Health check later: node ${join(paths.kit, 'bin', 'agent-kit.mjs')} doctor --install-root ${paths.installRoot}`]
       : ['  2. Health check later: node bin/agent-kit.mjs doctor --install-root ' + paths.installRoot + ' from this checkout']),
     `  3. Sign in to ${agents.join(' and ')} yourself in that terminal; the kit never signs in for you.`,
-    '  4. Start Herdr: herdr',
+    ...(herdr?.stale ? ['  4. Herdr is already running and cannot see the kit tools, so restart it before you start Firstmate. The installer does not stop it for you, because that ends every agent running in it:',
+      '       a. quit the agents you have open in Herdr (let their work finish first)', '       b. run: herdr server stop', '       c. open a new terminal (inside Ubuntu on Windows)', '       d. run: herdr']
+      : ['  4. Start Herdr: herdr']),
     `  5. In a Herdr pane, start ${agents.join(' or ')} in your Firstmate home: cd ${shellQuote(paths.firstmateHome)} && ${agents[0]}${shortcut.length ? ` (or press ${shortcut.join(', ')})` : ''}`,
     'Start-up walkthrough: see "After a successful install: start it up" in the Agent Kit guide.', ''].join('\n');
 }
@@ -488,7 +502,7 @@ export async function setup(manifest, ctx) {
     const context = { env, platform, arch: ctx.arch, nodeVersion: ctx.nodeVersion, procVersion: ctx.procVersion, osRelease: ctx.osRelease, libc: ctx.libc, glibcVersion: ctx.glibcVersion, runCommand: ctx.runCommand, applicationDirs: ctx.applicationDirs };
     const plan = evaluatePlan(manifest, context, options).result;
     const blockers = blocking(plan);
-    output.write(formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, env, keyPlan }));
+    output.write(formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, env, platform, release: manifest.release, keyPlan }));
     if (blockers.length) {
       output.write('Install these yourself first, then rerun the installer (the kit never installs them):\n');
       for (const issue of blockers) output.write(`  - ${issue.id}: ${issue.reason}\n`);
@@ -556,7 +570,18 @@ export async function setup(manifest, ctx) {
       });
       receipt = await readReceipt(receiptPath);
       await stepRun(2, () => placeWrapper(paths, receipt, receiptPath, manifest.release));
-      await stepRun(3, () => placeShortcuts(answers, paths, receiptPath, manifest.release, { env, home, check: ctx.herdrCheck, isRunning: ctx.isRunning || processRunning }, output));
+      let profile = null;
+      await stepRun(3, async () => {
+        const shortcuts = await placeShortcuts(answers, paths, receiptPath, manifest.release, { env, home, check: ctx.herdrCheck, isRunning: ctx.isRunning || processRunning }, output);
+        if (!answers.shellProfile) return shortcuts;
+        const done = await reconcileProfile(await readReceipt(receiptPath), paths.installRoot, { env, home, platform, repair: true });
+        if (!done) return shortcuts;
+        profile = done.plan;
+        for (const line of done.lines) output.write(`  ${line}\n`);
+        await saveProfileRecord(paths.installRoot, done.record);
+        if (['skip', 'none'].includes(done.plan.action)) return shortcuts;
+        return { state: 'complete', detail: [shortcuts.state === 'not-selected' ? '' : shortcuts.detail, `shell profile ${done.plan.action}`].filter(Boolean).join('; ') };
+      });
       await stepRun(4, async () => applyGitIdentity(answers.gitIdentity, env));
       await stepRun(5, async () => answers.starterMate.create ? seedStarter(answers.starterMate, paths, env, install.bin) : { state: 'not-selected' });
       await stepRun(6, async () => {
@@ -566,14 +591,17 @@ export async function setup(manifest, ctx) {
         return { state: 'complete', detail: 'shown' };
       });
       await stepRun(7, async () => {
-        const health = doctor(manifest, { installRoot: paths.installRoot, home, env, nodeVersion: ctx.nodeVersion, platform, arch: ctx.arch });
+        const health = doctor(manifest, { installRoot: paths.installRoot, home, env, nodeVersion: ctx.nodeVersion, platform, arch: ctx.arch, installing: true, herdrPath: ctx.herdrPath });
         output.write(indent(formatDoctor(health)));
         if (health.exitCode) failed = true;
         return { state: health.exitCode ? 'failed' : 'complete', detail: health.exitCode ? `failing: ${health.checks.filter(x => x.status === 'fail').map(x => x.id).join(', ')}` : 'pass' };
       });
       const partial = (await readReceipt(receiptPath)).setup.steps.tools.state !== 'complete';
       output.write(`\nAgent Kit setup ${failed ? 'finished with failures' : partial ? 'finished; some tools are partial and are retried on rerun' : 'complete'}.\n`);
-      output.write(nextSteps({ answers, paths, install, kit, shortcuts: (await readReceipt(receiptPath)).setup.shortcuts }));
+      const finished = await readReceipt(receiptPath);
+      // Read-only: a running Herdr that started before the kit folders were on PATH; the installer never stops it.
+      const herdr = herdrPathHealth(foldersOf(finished, paths.installRoot), { platform, ...ctx.herdrPath });
+      output.write(nextSteps({ answers, paths, install, kit, shortcuts: finished.setup.shortcuts, profile, herdr }));
       return failed || partial ? 1 : 0;
     } catch (error) {
       if (error.reported) return 1;

@@ -43,7 +43,7 @@ Run these with `node "$AK" <command>`. On Windows, run them in your **Ubuntu** t
 
 | Function | What it does | Command | macOS | Linux | Windows (WSL2) |
 | --- | --- | --- | --- | --- | --- |
-| Doctor | Health check: every kit file present and unchanged, PATH order, hooks, permissions, Firstmate version, and a `jev` row (`PASS jev: ready (key set, rules present)`, or `WARN jev: not ready: <reason>`, never a failure and never the key). Also rows for the Firstmate origin (`firstmate origin: … (approved fork)`), the full-access answer (`codex full-access launch: on\|off`), each kit command, the Herdr keys and layout blocks, the Herdr plugins, the tower's start-up entry, the help page, the Claude plugins and the Figma skills; these are `PASS` or `WARN`, never `FAIL`. Changes nothing. Sign-ins and the live fleet always show as `UNKNOWN` | `node "$AK" doctor` | Yes | Yes | Yes |
+| Doctor | Health check: every kit file present and unchanged, PATH order, hooks, permissions, Firstmate version, and a `jev` row (`PASS jev: ready (key set, rules present)`, or `WARN jev: not ready: <reason>`, never a failure and never the key). Also rows for the Firstmate origin (`firstmate origin: … (approved fork)`), the full-access answer (`codex full-access launch: on\|off`), each kit command, the Herdr keys and layout blocks, the Herdr plugins, `shell-profile` and `shell-path` rows (`FAIL` when the profile block or this terminal's PATH lacks a kit folder, `WARN` while a new terminal is pending), a `herdr-path-env` row (`WARN` when a running Herdr server started without the kit folders on its PATH; `PASS` when Herdr is not running or cannot be read; it only reads), the tower's start-up entry, the help page, the Claude plugins and the Figma skills; these are `PASS` or `WARN`, never `FAIL`. Changes nothing. Sign-ins and the live fleet always show as `UNKNOWN` | `node "$AK" doctor` | Yes | Yes | Yes |
 | Doctor as JSON | The same report, machine-readable, to redact and share | `node "$AK" doctor --json` | Yes | Yes | Yes |
 | Repair | Re-checks and re-downloads your current release, backs up and replaces changed kit files, and puts back the kit's hooks, skill links, tower config, Treehouse wrapper, kit commands, Herdr keys and layout blocks, Herdr plugin entries, the tower's start-up entry, a deleted help page, the Figma skills and the Claude plugins it added. Selects your strategy again only if Firstmate's rules and strategy are both missing. Leaves your Firstmate home, `.env`, key and your own edits as they are and reports any local changes | `node "$AK" repair` | Yes | Yes | Yes |
 | Reinstall | Same as repair | `node "$AK" reinstall` | Yes | Yes | Yes |
@@ -82,6 +82,7 @@ Run these with `node "$AK" <command>`. On Windows, run them in your **Ubuntu** t
 | 4 | Fleet tower | yes | `--no-tower` | Partial | Partial | Partial |
 | 5 | Register global hooks and skills, and with them the kit's commands, Herdr keys, Herdr plugins and Claude plugins | yes | `--no-global-hooks` | Yes | Yes | Yes |
 | 5a | Herdr layout (only with 5): the kit owner's Herdr theme, sidebar, tab bar and pane settings; your own settings win | yes | `--no-herdr-layout` | Yes | Yes | Yes |
+| 5b | Shell profile PATH block: one marked block in your zsh or bash profile (inside Ubuntu on Windows), exact text shown on the summary screen, removed by uninstall while unchanged | yes | `--no-shell-profile`, `--shell-profile` | Yes | Yes | Yes |
 | 6 | GitHub account or organization for your projects (recorded only) | your `gh` login | `--github-owner <name>` | Yes | Yes | Yes |
 | 7 | Git name and email: keep, or set with `git config --global` | keep | `--git-name`, `--git-email` | Yes | Yes | Yes |
 | 8 | Create a starter second mate now | no | `--starter-mate <name> --starter-scope <text>` | Yes | Yes | Yes |
@@ -126,6 +127,8 @@ Every download is checked against a fixed checksum. Nothing is started and no on
 | Private record | `<root>/.tools/receipt.json`: what was installed and your answers (including plan names, routing mode, the full-access and layout answers, and digests of the kit's commands and Herdr blocks); paths only, never secrets. For the key it records only set or not set | Read by doctor, repair, upgrade and uninstall | Yes | Yes | Yes |
 
 **You install these yourself; the kit only checks them:** Node.js 24.15.0 or newer, git 2.20.0 or newer, the GitHub CLI 2.0.0 or newer, and python3 3.9 or newer (on macOS from the Xcode Command Line Tools; on Linux and in Ubuntu, `sudo apt install python3`). On macOS also Homebrew, the Xcode Command Line Tools and jq. Optional: Claude Code 2.1.293 or newer, and Figma Desktop. On Windows you also set up WSL2 with Ubuntu 22.04 or newer yourself, and install git, Node.js and `gh` on both Windows and Ubuntu (inside Ubuntu, Node.js from nvm or NodeSource, not `apt install nodejs`). On Windows with the tower chosen, jq inside Ubuntu (`sudo apt install -y jq`); a missing jq is a `tower-jq` warning and does not stop the install.
+
+**The PATH block (question 5b).** The kit adds one marked block to your shell profile (zsh `~/.zshrc`; bash `~/.bash_profile` on a Mac, `~/.bashrc` on Linux and in Ubuntu), backed up first, never duplicated, refreshed by repair and upgrade while unchanged, and removed by uninstall while unchanged. At the end of install the kit also checks, read-only, whether a running Herdr can see the kit folders and prints how to restart it if not; it never stops Herdr itself.
 
 ### 4b. The kit's commands (question 5)
 
@@ -268,7 +271,7 @@ Kit-managed keys are added only with question 5, never replace a key you bound y
 - **The tower on Ubuntu older than 22.04** inside WSL2: only the tower is refused.
 - **Installing prerequisites:** the kit never installs Node.js, git, `gh`, python3, jq, Homebrew, Xcode tools, Claude Code, Figma Desktop or WSL2, and never runs `sudo`.
 - **Signing in:** the kit never signs you in or out and never reads, prints or stores a password or token, including for Claude plugins that connect to an account.
-- **Editing your shell profile:** you add the PATH line yourself, and after an upgrade you change it yourself.
+- **Editing any other part of your shell profile:** the kit writes only its own marked PATH block (section 4). Shells other than zsh and bash get no block; you add the PATH line yourself.
 - **Starting anything:** the kit never starts or stops Herdr, the tower, the no-mistakes daemon or agents, and never reloads Herdr's settings.
 - **Changing Herdr while it runs:** the kit adds its Herdr plugins only while Herdr is stopped.
 - **Relay and mail settings** in Firstmate: not set up by the kit.

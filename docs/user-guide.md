@@ -41,7 +41,7 @@ Agent Kit sets up your own personal agent workspace on your own computer:
 
 **You sign in to everything yourself**: GitHub, Codex, Claude Code, Figma, and any Claude plugin that connects to an account (Atlassian, Figma, Context7). The kit never asks for, reads, prints or stores a password or sign-in token. Its only secret is the optional `TYPESAFE_API_KEY`, which you type yourself at a hidden prompt and which the kit never shows.
 
-**The kit never:** edits your shell profile (`.zshrc`, `.bashrc`, …), runs `sudo`, needs administrator rights, starts services or agents, signs you in or out, installs Node, git, gh, python3, Homebrew, Xcode tools or WSL for you, or touches an existing Firstmate home. In your Herdr settings it writes only its own marked blocks, and settings you already have win.
+**The kit never:** edits anything in your shell profile except its own marked PATH block (question 5b, which you can skip), runs `sudo`, needs administrator rights, starts services or agents, signs you in or out, installs Node, git, gh, python3, Homebrew, Xcode tools or WSL for you, or touches an existing Firstmate home. In your Herdr settings it writes only its own marked blocks, and settings you already have win.
 
 **Not part of the kit:** git-ai, claude-mem, tode and the terminal-browser app and skill. The kit owner left these out on purpose.
 
@@ -192,6 +192,7 @@ Every question shows its default in brackets. Press Enter to accept it.
 | 4 | Fleet tower | yes | say `n` if you already have your own tower set up (`~/.config/zoe-fleet/config` exists) |
 | 5 | Register global hooks and skills (this also covers the kit's commands, Herdr keys, Herdr plugins and Claude plugins) | yes | say `n` only if you want none of these (see below) |
 | 5a | Herdr layout (only if you said yes to 5) | yes | say `n` to keep Herdr's own look |
+| 5b | Add the kit's PATH block to your shell profile | yes | say `n` if you manage your own PATH and will add the line from A2.7 yourself |
 | 6 | GitHub account or organization for your projects | your `gh` login | you work under an organization. Recorded only; nothing is created on GitHub |
 | 7 | Git name and email: keep as is? | keep | your git name or email is wrong. Changing it runs `git config --global` |
 | 8 | Create a starter second mate now? | no | you already know what your first second mate will do (see A7.6) |
@@ -223,6 +224,8 @@ The default is **yes**, as on the kit owner's own setup. Read the warning before
 The list of files and links it will touch is shown before the question. Your own hooks, settings, keys and plugins stay. Each file is backed up first. If you already have your own skill with one of the same names, this step stops and reports a conflict instead of overwriting it. With `n`, none of the above is set up: no kit commands, no Herdr keys, no plugins.
 
 **About question 5a: the Herdr layout.** Yes adds the kit owner's Herdr look as one marked block in your Herdr settings: the gruvbox theme, sidebar, tab bar and pane settings, new panes opening in your root folder, and Herdr's first-run tour turned off. A section you already set yourself is left out and named. Uninstall removes the block.
+
+**About question 5b: the PATH block.** Yes adds **one marked block** at the end of your zsh profile (`~/.zshrc`; for bash `~/.bash_profile` on a Mac or `~/.bashrc` on Linux), chosen from your login shell. Other shells are left alone. The summary shows the exact block under "Files outside the root". It is the same `export PATH=…` line as in A2.7, between `# >>> agent-kit PATH >>>` and `# <<< agent-kit PATH <<<`. The file is backed up first and nothing outside the block is changed; running the installer again never adds a second block, and repair and upgrade keep the block current when the release folder changes. Uninstall removes the block if you have not edited it, and says so if you have. Say `n` and the kit does not touch the profile; add the line from A2.7 yourself.
 
 **The Claude plugins** (only if you chose Claude Code and said yes to 5). The kit installs them with your own `claude` command, from fixed versions the kit owner reviewed:
 
@@ -318,7 +321,8 @@ The install ends with one of:
 
 It then prints a short `Next steps:` list. **Save it**, especially:
 
-- **Step 1: the folders to add to your PATH.** The kit never edits your shell profile, so you add them yourself (A2.7).
+- **Step 1: your PATH.** With question 5b answered yes, it says `Open a new terminal` and names the profile file the kit added its PATH block to. With `n` (or an unsupported shell) it lists the folders to add yourself (A2.7).
+- **Step 4, only if needed:** if Herdr was already running and cannot see the kit tools, the list shows how to restart it (A3 step 4). The installer never stops Herdr for you.
 - **Step 2: the `Health check later:` line.** This is your doctor command (A6.1).
 
 Steps 3 to 5 are the start-up steps in A3. The list ends with `Start-up walkthrough: see "After a successful install: start it up" in the Agent Kit guide.`: that is section A3 of this guide.
@@ -332,7 +336,7 @@ R="$HOME/Agentic"
 export PATH="$R/.tools/bin:$R/.tools/releases/<release>/bin:$R/.tools/releases/<release>/npm/node_modules/.bin:$R/.tools/releases/<release>/npm-codex/node_modules/.bin:$PATH"
 ```
 
-With Figma, the fifth folder is `$R/.tools/releases/<release>/npm-figma/node_modules/.bin`. Use the exact folders your installer printed. Run this in a Terminal window to try it. When you are happy, add the same `export` line to your own `~/.zshrc`.
+With Figma, the fifth folder is `$R/.tools/releases/<release>/npm-figma/node_modules/.bin`. Use the exact folders your installer printed. Run this in a Terminal window to try it. With question 5b answered yes, the kit has already added this line to your profile as a marked block and you can skip this section. Otherwise, when you are happy, add the same `export` line to your own `~/.zshrc`.
 
 **Keep `<root>/.tools/bin` first.** It holds the kit's own commands (A6.6), the Treehouse wrapper, the `zoe` program the session graph needs, and, if you chose them, the kit's `codex` (full-access launch) and `claude` (tower) commands. If another folder comes first, those do not run.
 
@@ -358,7 +362,7 @@ Never send your sign-in codes, tokens or screenshots of them to anyone, includin
 
 Do this once your install ends with `Agent Kit setup complete.` (or `finished; some tools are partial`, when the only partial item is the tower). Replace `~/Agentic` with your own root if you chose another one.
 
-**1. Open a new Terminal window and check your PATH.** Add the `export PATH=…` line first if you have not yet (A2.7). Then:
+**1. Open a new Terminal window and check your PATH.** If you said yes to question 5b the kit already put the PATH block in your profile; otherwise add the `export PATH=…` line first (A2.7). Then:
 
 ```sh
 command -v herdr no-mistakes codex treehouse firstmate fm-help
@@ -392,6 +396,8 @@ codex login
 ```sh
 herdr
 ```
+
+**If Herdr was already running** (for example from before the install), it still has its old PATH and your agents will not find the kit's tools. Stop it with `herdr server stop`, then start it again with `herdr` from the Terminal window that has the PATH line.
 
 **5. Start Firstmate.** Pick one way, inside Herdr:
 
@@ -555,6 +561,9 @@ These rows cover what `pilot-9` added. Each is `PASS` or `WARN`, never `FAIL`: t
 | `launcher-<name>` (one per kit command, A6.6) | the command matches what the kit wrote | changed or missing; run repair |
 | `herdr-keys`, `herdr-layout` | the kit's marked blocks are in your Herdr settings | missing (repair restores it) or changed by you (left as you edited it) |
 | `herdr-plugin-…`, `zoe`, `zoetrope-keys` | the Herdr plugins, the `zoe` program and the session graph's keys are in place | stop Herdr, then run repair |
+| `shell-profile` (if you said yes to 5b) | the kit's PATH block is in your shell profile and holds every kit folder | `FAIL`: the block was removed or misses a folder; run repair |
+| `shell-path` | this terminal's PATH holds every kit folder | `WARN` right after install or repair (open a new terminal); `FAIL` if neither the terminal nor the profile has them |
+| `herdr-path-env` | `PASS` when Herdr is not running (or cannot be read), or its PATH holds every kit folder | `WARN`: Herdr started before the kit folders were on your PATH. Quit your agents, run `herdr server stop`, open a new terminal and start `herdr` there (inside Ubuntu on Windows). Doctor only reads; it never stops Herdr |
 | `fleet-autostart` (with the tower) | the start-up entry that opens the tower's tab is in place | run repair |
 | `captain-help` | your help page exists | it was deleted; ask Firstmate to write one, or run repair |
 | `claude-marketplace-…`, `claude-plugin-…` (with Claude Code) | the Claude plugins are installed and turned on | a plugin is turned off, or your own marketplace is at a different version than the kit's |
@@ -608,7 +617,7 @@ node "$AK" upgrade
 
 1. Asks GitHub, with your own sign-in, for the newest release on your saved channel (`releases` by default).
 2. Shows what changes: the release name, each tool's version, the tower release, whether the Firstmate version the kit expects changes, and any new questions.
-3. Reuses your saved answers and asks only new questions. For example, moving from `pilot-8` to `pilot-9` asks 2d (the full-access Codex launch, with its warning; default yes) and 5a (Herdr layout; default yes) once. With `--yes` both take their defaults. Moving from `pilot-9` to `pilot-10` asks nothing new.
+3. Reuses your saved answers and asks only new questions. For example, moving from `pilot-8` to `pilot-9` asks 2d (the full-access Codex launch, with its warning; default yes) and 5a (Herdr layout; default yes) once. With `--yes` both take their defaults. Moving from `pilot-9` to `pilot-10` asks 5b (the PATH block; default yes) once.
 4. Asks `Apply this plan now? (y/N)`. (`--yes` applies without asking.)
 5. Installs the new release next to the old one, then switches over. If a step fails, it puts back the kit's files, its record, its hook and skill registrations, and its commands and Herdr files as they were. **Changes to data and state are not rolled back**; the plan says so before you apply it.
 
@@ -669,7 +678,7 @@ It shows a plan and asks before changing anything.
 - Your root folder, your Firstmate home and its projects, your second mates, and the tower's state.
 - Firstmate's strategy and routing rules chosen at install: they are Firstmate's own settings.
 - A private backup of everything it removed and a record of the uninstall, under `<root>/agent-kit-uninstall/`. Delete that folder yourself later if you want the space back.
-- Your sign-ins, Node, git, gh, Claude Code, Xcode tools, Homebrew, and your shell profile. Remove the kit's `export PATH` line from `~/.zshrc` yourself.
+- Your sign-ins, Node, git, gh, Claude Code, Xcode tools, Homebrew, and the rest of your shell profile. Uninstall removes only the kit's marked PATH block, and only if you have not edited it. If you did, it keeps the block and tells you; remove the `export PATH` line yourself.
 - Your Firstmate home's `.env` file (with your key, if you added one), as part of the home.
 
 **Also removing the `.env` file** (and with it your key):
@@ -1141,10 +1150,11 @@ No real Mac has run the tower, the session graph or the automatic opening from t
 
 ### A10.2 PATH and Terminal
 
-- **`herdr` or `codex` not found, or an old version runs:** the PATH line from A2.7 is missing or not first. Add it to `~/.zshrc` and open a new Terminal window.
+- **`herdr` or `codex` not found, or an old version runs:** the PATH line from A2.7 is missing or not first. If you said yes to question 5b the kit put it in your profile: open a new Terminal window, or run `agent-kit repair` if the block is gone. Otherwise add it to `~/.zshrc` yourself.
 - **`firstmate`, `fm-mate` or `fm-help` not found:** `<root>/.tools/bin` is not on your PATH (A2.7), or you said `n` to question 5.
 - **`Open a Herdr pane, then run firstmate (or press Ctrl+B, then F).`:** `firstmate` only starts Firstmate inside Herdr. Run `herdr` first.
 - **`Exit the current coordinator cleanly before switching.`:** Firstmate is already running in this home. Switch to its tab, or quit it, before starting another.
+- **Firstmate says treehouse, no-mistakes, gh-axi or other tools are missing, or doctor shows `WARN herdr-path-env`:** Herdr was already running before you added the PATH line, so it kept its old PATH. Run `herdr server stop`, then start `herdr` again from a Terminal window that has the PATH line (A2.7).
 - **A Herdr key does nothing:** check `fm-help` for the keys you actually got. Press `Ctrl+B Shift+R` to reload Herdr's settings, or restart Herdr. The session graph keys need Herdr started from a Terminal window whose PATH has `<root>/.tools/bin` first.
 - **Changes to `~/.zshrc` do nothing:** open a new Terminal window, or run `source ~/.zshrc`.
 
@@ -1220,7 +1230,7 @@ Your own install is that first real run. When you are done, send your pilot feed
 On Linux (glibc, x64 or arm64) the kit uses the same `install.sh` and the same commands as Part A, with these differences:
 
 - **Prerequisites:** no Xcode tools or Homebrew. Install Node.js 24.15.0 or newer, git, the GitHub CLI and **python3 3.9 or newer** (required; for example `sudo apt install python3`) with your package manager or from <https://nodejs.org/en/download> and <https://cli.github.com>.
-- **PATH:** add the `export` line to `~/.bashrc` (or your own shell's profile) instead of `~/.zshrc`.
+- **PATH:** the kit's PATH block goes into `~/.bashrc` (bash) or `~/.zshrc` (zsh) for you if you said yes to question 5b. By hand, add the `export` line to `~/.bashrc` (or your own shell's profile) instead of `~/.zshrc`.
 - **Home path** in diagnostics is `/home/<you>`.
 - **No tower launcher yet.** There is no reviewed Linux tower release. The kit builds the tower program from its checked source only if you already have Rust (`cargo`) installed, and it never configures a launcher, so A9 does not apply and `~/.config/zoe-fleet/config` is not written. If you say yes to the tower (question 4), step 2 reports `partial` because of this; that is expected. Say `n` if you do not need it. Without a tower launcher there is no `zoe-fleet-open`, no automatic tower tab and no tower Fleet plugin; whether the session graph keys work on standalone Linux is not confirmed.
 - The kit's commands, the other Herdr keys and plugins, the layout and the Claude plugins work as in Part A.
@@ -1431,6 +1441,7 @@ The other questions are asked after the handoff (still in the same window). Ever
 | 4 | Fleet tower | yes | say `n` if you do not need the tower, or your Ubuntu is older than 22.04 (B9) |
 | 5 | Register global hooks and skills (this also covers the kit's commands, Herdr keys, Herdr plugins and Claude plugins) | yes | say `n` only if you want none of these (see below) |
 | 5a | Herdr layout (only if you said yes to 5) | yes | say `n` to keep Herdr's own look |
+| 5b | Add the kit's PATH block to your shell profile | yes | say `n` if you manage your own PATH and will add the line from A2.7 yourself |
 | 6 | GitHub account or organization for your projects | your `gh` login | you work under an organization. Recorded only; nothing is created on GitHub |
 | 7 | Git name and email: keep as is? | keep | your **Ubuntu** git name or email is wrong. Changing it runs `git config --global` inside Ubuntu |
 | 8 | Create a starter second mate now? | no | you already know what your first second mate will do (see B7.6) |
@@ -1460,6 +1471,8 @@ The default is **yes**, as on the kit owner's own setup. Read the warning before
 - with Figma, links the Figma CLI's three skills (`figma-cli`, `figma-make`, `figma-make-team`).
 
 The list of files and links it will touch is shown before the question. Your own hooks, settings, keys and plugins stay. Each file is backed up first. If you already have your own skill with one of the same names, this step stops and reports a conflict instead of overwriting it. With `n`, none of the above is set up: no kit commands, no Herdr keys, no plugins.
+
+**About question 5b: the PATH block.** Yes adds **one marked block** at the end of your Ubuntu profile (`~/.bashrc` for bash, or `~/.zshrc` for zsh), chosen from your login shell inside Ubuntu. It never touches the Windows profile, and other shells are left alone. The summary shows the exact block under "Files outside the root". It is the same `export PATH=…` line as in B2.11, between `# >>> agent-kit PATH >>>` and `# <<< agent-kit PATH <<<`. The file is backed up first and nothing outside the block is changed; running the installer again never adds a second block, and repair and upgrade keep the block current when the release folder changes. Uninstall removes the block if you have not edited it, and says so if you have. Say `n` and the kit does not touch the profile; add the line from B2.11 yourself.
 
 **About question 5a: the Herdr layout.** Yes adds the kit owner's Herdr look as one marked block in your Herdr settings inside Ubuntu: the gruvbox theme, sidebar, tab bar and pane settings, new panes opening in your root folder, and Herdr's first-run tour turned off. A section you already set yourself is left out and named. Uninstall removes the block.
 
@@ -1557,7 +1570,8 @@ The install ends with one of:
 
 It then prints a short `Next steps:` list. **Save it**, especially:
 
-- **Step 1: the folders to add to your PATH** inside Ubuntu. The kit never edits your shell profile, so you add them yourself (B2.11).
+- **Step 1: your PATH** inside Ubuntu. With question 5b answered yes, it says `Open a new terminal` and names the Ubuntu profile file the kit added its PATH block to. With `n` (or an unsupported shell) it lists the folders to add yourself (B2.11).
+- **Step 4, only if needed:** if Herdr was already running inside Ubuntu and cannot see the kit tools, the list shows how to restart it (B3 step 4). The installer never stops Herdr for you.
 - **Step 2: the `Health check later:` line.** This is your doctor command (B6.1).
 
 Steps 3 to 5 are the start-up steps in B3 (do them in Ubuntu, not PowerShell). The list ends with `Start-up walkthrough: see "After a successful install: start it up" in the Agent Kit guide.`: that is section B3 of this guide.
@@ -1571,7 +1585,7 @@ R="$HOME/Agentic"
 export PATH="$R/.tools/bin:$R/.tools/releases/<release>/bin:$R/.tools/releases/<release>/npm/node_modules/.bin:$R/.tools/releases/<release>/npm-codex/node_modules/.bin:$PATH"
 ```
 
-With Figma, the fifth folder is `$R/.tools/releases/<release>/npm-figma/node_modules/.bin`. Use the exact folders your installer printed. Run this in an **Ubuntu** terminal to try it. When you are happy, add the same `export` line to `~/.bashrc` **inside Ubuntu**.
+With Figma, the fifth folder is `$R/.tools/releases/<release>/npm-figma/node_modules/.bin`. Use the exact folders your installer printed. Run this in an **Ubuntu** terminal to try it. With question 5b answered yes, the kit has already added this line to your Ubuntu profile as a marked block and you can skip this section. Otherwise, when you are happy, add the same `export` line to `~/.bashrc` **inside Ubuntu**.
 
 **Keep `<root>/.tools/bin` first.** It holds the kit's own commands (B6.6), the Treehouse wrapper, the `zoe` program the session graph needs, and, if you chose them, the kit's `codex` (full-access launch) and `claude` (tower) commands. If another folder comes first, those do not run.
 
@@ -1601,7 +1615,7 @@ Never send your sign-in codes, tokens or screenshots of them to anyone, includin
 
 Do this once your install ends with `Agent Kit setup complete.` (or `finished; some tools are partial`, when the only partial item is the tower). Everything below happens **in Ubuntu**, not in PowerShell. Replace `~/Agentic` with your own root if you chose another one.
 
-**1. Open Ubuntu in Windows Terminal and check your PATH.** Open **Windows Terminal**, choose the **Ubuntu** profile from the drop-down next to the tab, and add the `export PATH=…` line to `~/.bashrc` first if you have not yet (B2.11). Then, in a new Ubuntu tab:
+**1. Open Ubuntu in Windows Terminal and check your PATH.** Open **Windows Terminal**, choose the **Ubuntu** profile from the drop-down next to the tab, and then, in a new Ubuntu tab (if you said yes to question 5b the kit already put the PATH block in your Ubuntu profile; otherwise add the `export PATH=…` line to `~/.bashrc` first, B2.11):
 
 ```sh
 command -v herdr no-mistakes codex treehouse firstmate fm-help
@@ -1635,6 +1649,8 @@ codex login
 ```sh
 herdr
 ```
+
+**If Herdr was already running** (for example from before the install), it still has its old PATH and your agents will not find the kit's tools. Inside Ubuntu, stop it with `herdr server stop`, then start it again with `herdr` from the Ubuntu tab that has the PATH line.
 
 **5. Start Firstmate.** Pick one way, inside Herdr:
 
@@ -1805,6 +1821,9 @@ These rows cover what `pilot-9` added. Each is `PASS` or `WARN`, never `FAIL`: t
 | `launcher-<name>` (one per kit command, B6.6) | the command matches what the kit wrote | changed or missing; run repair |
 | `herdr-keys`, `herdr-layout` | the kit's marked blocks are in your Herdr settings | missing (repair restores it) or changed by you (left as you edited it) |
 | `herdr-plugin-…`, `zoe`, `zoetrope-keys` | the Herdr plugins, the `zoe` program and the session graph's keys are in place | stop Herdr, then run repair |
+| `shell-profile` (if you said yes to 5b) | the kit's PATH block is in your shell profile and holds every kit folder | `FAIL`: the block was removed or misses a folder; run repair |
+| `shell-path` | this terminal's PATH holds every kit folder | `WARN` right after install or repair (open a new terminal); `FAIL` if neither the terminal nor the profile has them |
+| `herdr-path-env` | `PASS` when Herdr is not running (or cannot be read), or its PATH holds every kit folder | `WARN`: Herdr started before the kit folders were on your PATH. Quit your agents, run `herdr server stop`, open a new terminal and start `herdr` there (inside Ubuntu on Windows). Doctor only reads; it never stops Herdr |
 | `fleet-autostart` (with the tower) | the start-up entry that opens the tower's tab is in place | run repair |
 | `captain-help` | your help page exists | it was deleted; ask Firstmate to write one, or run repair |
 | `claude-marketplace-…`, `claude-plugin-…` (with Claude Code) | the Claude plugins are installed and turned on | a plugin is turned off, or your own marketplace is at a different version than the kit's |
@@ -1858,7 +1877,7 @@ node "$AK" upgrade
 
 1. Asks GitHub, with your own **Ubuntu** sign-in, for the newest release on your saved channel (`releases` by default).
 2. Shows what changes: the release name, each tool's version, the tower release, whether the Firstmate version the kit expects changes, and any new questions.
-3. Reuses your saved answers and asks only new questions. For example, moving from `pilot-8` to `pilot-9` asks 2d (the full-access Codex launch, with its warning; default yes) and 5a (Herdr layout; default yes) once. With `--yes` both take their defaults. Moving from `pilot-9` to `pilot-10` asks nothing new.
+3. Reuses your saved answers and asks only new questions. For example, moving from `pilot-8` to `pilot-9` asks 2d (the full-access Codex launch, with its warning; default yes) and 5a (Herdr layout; default yes) once. With `--yes` both take their defaults. Moving from `pilot-9` to `pilot-10` asks 5b (the PATH block; default yes) once.
 4. Asks `Apply this plan now? (y/N)`. (`--yes` applies without asking.)
 5. Installs the new release next to the old one, then switches over. If a step fails, it puts back the kit's files, its record, its hook and skill registrations, and its commands and Herdr files as they were. **Changes to data and state are not rolled back**; the plan says so before you apply it.
 
@@ -1919,7 +1938,7 @@ It shows a plan and asks before changing anything.
 - Your root folder, your Firstmate home and its projects, your second mates, and the tower's state.
 - Firstmate's strategy and routing rules chosen at install: they are Firstmate's own settings.
 - A private backup of everything it removed and a record of the uninstall, under `<root>/agent-kit-uninstall/`. Delete that folder yourself later if you want the space back.
-- Your sign-ins, Node, git, gh and Claude Code (on both Windows and Ubuntu), WSL2 and Ubuntu themselves, and your shell profile. Remove the kit's `export PATH` line from `~/.bashrc` in Ubuntu yourself.
+- Your sign-ins, Node, git, gh and Claude Code (on both Windows and Ubuntu), WSL2 and Ubuntu themselves, and the rest of your shell profile. Uninstall removes only the kit's marked PATH block in Ubuntu, and only if you have not edited it. If you did, it keeps the block and tells you; remove the `export PATH` line yourself.
 - Your Firstmate home's `.env` file (with your key, if you added one), as part of the home.
 
 **Also removing the `.env` file** (and with it your key):
@@ -2413,6 +2432,7 @@ Everything else (Firstmate, Herdr, the crew, second mates) works without the tow
 - **`herdr`, `codex`, `firstmate`, `fm-mate` or `node "$AK"` not found:** you are probably in PowerShell. Open the **Ubuntu** terminal. If it still fails there, check your Ubuntu PATH (B2.11) and open a new Ubuntu terminal. `firstmate`, `fm-mate` and `fm-help` are also missing if you said `n` to question 5.
 - **`Open a Herdr pane, then run firstmate (or press Ctrl+B, then F).`:** `firstmate` only starts Firstmate inside Herdr. Run `herdr` first.
 - **`Exit the current coordinator cleanly before switching.`:** Firstmate is already running in this home. Switch to its tab, or quit it, before starting another.
+- **Firstmate says treehouse, no-mistakes, gh-axi or other tools are missing, or doctor shows `WARN herdr-path-env`:** Herdr was already running before you added the PATH line, so it kept its old PATH. Inside Ubuntu, run `herdr server stop`, then start `herdr` again from an Ubuntu tab that has the PATH line (B2.11).
 - **A Herdr key does nothing:** check `fm-help` for the keys you actually got. Press `Ctrl+B Shift+R` to reload Herdr's settings, or restart Herdr. The session graph keys need Herdr started from an Ubuntu terminal whose PATH has `<root>/.tools/bin` first. If a `Ctrl+B Shift+…` key still does nothing in Windows Terminal, use the matching command (B6.6) and tell the person who shared this guide.
 - **`run fm-mate inside the WSL2 distribution`** (or the same for `keys` or `jev`): you ran the kit from PowerShell. Run it in Ubuntu.
 - **More than one Linux distribution:** the installer uses your default WSL distribution. To use another one, add `--distro <name>` to the `install.ps1` command line.

@@ -7,6 +7,7 @@ import { doctor, firstmateIssue, gitCheck } from './doctor.mjs';
 import { atomicJson, installPlatform, npmGroup, selected } from './install/macos.mjs';
 import { herdrConfigPath, ownedFiles, placeKitExtras, shortcutInputs } from './shortcuts.mjs';
 import { pluginsPath, zoeFile } from './herdr-plugin.mjs';
+import { profileTarget, reconcileProfile, saveProfileRecord } from './shell-profile.mjs';
 import { applyStarter, describeStarter, harnessOf, modeOf, planStarter, plansOf, strategyTakesPlans } from './dispatch.mjs';
 import { validateManifest } from './kit.mjs';
 import { artifactFor, artifactTarget, linuxIdentity } from './platforms/linux.mjs';
@@ -76,7 +77,7 @@ export function extrasPaths(options, receipt) {
   const root = resolve(options.installRoot), env = options.env || process.env, home = options.home || env.HOME, prior = receipt.setup?.shortcuts || null;
   const inputs = shortcutInputs(receipt, root, env, prior, ownKit()), firstmate = inputs.firstmateHome;
   return [...new Set([...ownedFiles(inputs, root).map(f => f.file), ...Object.keys(prior?.files || {}), zoeFile])].map(file => join(root, file))
-    .concat(prior?.keys?.path || herdrConfigPath(env, home), prior?.plugin?.registry || pluginsPath(env, home),
+    .concat(prior?.shellProfile?.path || profileTarget(env, home).path || [], prior?.keys?.path || herdrConfigPath(env, home), prior?.plugin?.registry || pluginsPath(env, home),
       firstmate ? [join(firstmate, '.claude', 'settings.local.json'), join(firstmate, '.git', 'info', 'exclude'), join(firstmate, 'data', 'captain-help.md')] : []);
 }
 // The kit extras and, for a home that now takes fm-strategy.sh --plans, the person's strategy; a problem with
@@ -94,6 +95,8 @@ export async function placeUpdateExtras(options, firstmateHome, noMistakesBin = 
       await atomicJson(receiptPath, current);
     }
     shortcuts = extras.lines;
+    const profile = await reconcileProfile(JSON.parse(readFileSync(receiptPath, 'utf8')), root, { env: options.env || process.env, home: options.home, platform: options.platform || process.platform });
+    if (profile) { await saveProfileRecord(root, profile.record); shortcuts.push(...profile.lines); }
     // A home that now takes fm-strategy.sh --plans gets the person's strategy, as a new install does.
     const current = JSON.parse(readFileSync(receiptPath, 'utf8'));
     if (!current.setup?.dispatch && firstmateHome && strategyTakesPlans(firstmateHome)) {

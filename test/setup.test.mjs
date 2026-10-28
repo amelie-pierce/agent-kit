@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { withOwnerTiers } from '../src/dispatch.mjs';
 import { charterText, checkRoot, derivePaths, expandRoot, parseSetupArgs, resumeSummary, setup, wrapperScript } from '../src/setup.mjs';
 import { doctor } from '../src/doctor.mjs';
+import { renderProfileBlock } from '../src/shell-profile.mjs';
 import { parseHarness } from '../src/harness.mjs';
 import { parseArgs } from '../src/kit.mjs';
 
@@ -44,7 +45,7 @@ function fixture(t) {
   const installOptions = { fetchArtifact: async (url, target) => { downloads.push(url); writeFileSync(target, artifacts[url]); } };
   const ctx = (argv, input = '') => {
     const chunks = [];
-    return { argv, env, platform: 'linux', arch: 'x64', nodeVersion: '24.21.0', libc: 'glibc', procVersion: 'Linux version 6.8.0-generic', osRelease: 'PRETTY_NAME="Fixture Linux"',
+    return { argv, env, platform: 'linux', arch: 'x64', nodeVersion: '24.21.0', libc: 'glibc', procVersion: 'Linux version 6.8.0-generic', osRelease: 'PRETTY_NAME="Fixture Linux"', herdrPath: { servers: () => [] },
       input: Readable.from(input ? [input] : []), output: new Writable({ write(chunk, _enc, done) { chunks.push(chunk.toString()); done(); } }), installOptions,
       get text() { return chunks.join(''); } };
   };
@@ -176,7 +177,7 @@ const keyInstall = async (_manifest, options) => {
 function ttyCtx(f, argv, replies) {
   const input = new PassThrough(); input.isTTY = true; input.setRawMode = () => {};
   const chunks = [];
-  const c = { ...f.ctx(argv), input, installPlatform: keyInstall, output: new Writable({ write(chunk, _enc, done) {
+  const c = { ...f.ctx(argv.includes('--shell-profile') ? argv : ['--no-shell-profile', ...argv]), input, installPlatform: keyInstall, output: new Writable({ write(chunk, _enc, done) {
     chunks.push(chunk.toString());
     const next = replies[0];
     if (next && next[0].test(chunks.join(''))) { replies.shift(); setImmediate(() => input.write(next[1])); }
@@ -325,7 +326,7 @@ test('the add-later key hint keeps a custom install root and pastes as shell arg
 test('scripted answers drive every prompt; nothing is written before yes; answers are saved without secrets', posixOnly, async t => {
   const f = fixture(t);
   const kit = kitCheckout(t, f.base);
-  const answers = [f.root, 'y', '', '', 'n', 'n', 'n', 'y', '', 'my-org', 'n', 'Pat Example', 'pat@example.test', 'y', 'n', 'main'];
+  const answers = [f.root, 'y', '', '', 'n', 'n', 'n', 'y', '', '', 'my-org', 'n', 'Pat Example', 'pat@example.test', 'y', 'n', 'main'];
   const declined = f.ctx(['--kit-dir', kit.dir, '--kit-commit', kit.commit], [...answers, 'n', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, declined), 1);
   assert.match(declined.text, /Cancelled; nothing was written/);
@@ -340,19 +341,24 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   const receipt = JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8'));
   assert.equal(statSync(join(f.root, '.tools', 'receipt.json')).mode & 0o777, 0o600);
   assert.match(c.text, /2d\. Full-access Codex launch: Codex workers that Firstmate starts can read and write anything your user account can, run any command without asking you first, and run hooks without the hook trust review\./);
-  assert.deepEqual(receipt.setup.answers, { root: f.root, harness: 'codex', plans: { codex: 'not-sure' }, dispatchMode: 'balanced', codexFullAccess: false, figma: false, tower: false, globalHooks: true, herdrLayout: true, githubOwner: 'my-org',
+  assert.deepEqual(receipt.setup.answers, { root: f.root, harness: 'codex', plans: { codex: 'not-sure' }, dispatchMode: 'balanced', codexFullAccess: false, figma: false, tower: false, globalHooks: true, herdrLayout: true, shellProfile: true, githubOwner: 'my-org',
     gitIdentity: { action: 'set', name: 'Pat Example', email: 'pat@example.test' }, starterMate: { create: false }, channel: 'main' });
   assert.deepEqual(receipt.setup.paths, { root: f.root, installRoot: join(f.root, '.tools'), firstmateHome: join(f.root, 'firstmate'), treehouseRoot: f.root, towerState: join(f.root, '.zoe-fleet') });
   assert.deepEqual(Object.values(receipt.setup.steps).map(x => x.state), ['complete', 'complete', 'complete', 'complete', 'complete', 'not-selected', 'complete', 'complete']);
-  assert.equal(receipt.setup.steps.shortcuts.detail, 'not set up: needs an agent CLI, the installed kit source');
+  assert.equal(receipt.setup.steps.shortcuts.detail, 'not set up: needs an agent CLI, the installed kit source; shell profile add');
   const fm = join(f.root, 'firstmate'), kitBin = join(f.root, '.tools', 'releases', 'fixture-1', 'bin');
   assert.ok(c.text.endsWith(['Next steps:',
-    `  1. Add these folders to the start of your PATH yourself (the kit never edits shell profiles), then open a new terminal:\n       ${join(f.root, '.tools', 'bin')}\n       ${kitBin}`,
+    `  1. Open a new terminal. The kit put its PATH block in ${join(f.home, '.bashrc')}, so every new terminal finds the kit tools (undo it with agent-kit uninstall).`,
     `  2. Health check later: node ${join(kitCopyOf(f, kit), 'bin', 'agent-kit.mjs')} doctor --install-root ${join(f.root, '.tools')}`,
     '  3. Sign in to codex yourself in that terminal; the kit never signs in for you.',
     '  4. Start Herdr: herdr',
     `  5. In a Herdr pane, start codex in your Firstmate home: cd '${fm}' && codex`,
     'Start-up walkthrough: see "After a successful install: start it up" in the Agent Kit guide.', ''].join('\n')), c.text.slice(-1200));
+  const rc = readFileSync(join(f.home, '.bashrc'), 'utf8');
+  assert.equal(rc, `${renderProfileBlock([join(f.root, '.tools', 'bin'), kitBin])}\n`);
+  assert.match(c.text, /5b\. Shell profile PATH block: on/);
+  assert.equal(receipt.setup.shellProfile.path, join(f.home, '.bashrc'));
+  assert.equal(receipt.setup.shellProfile.created, true);
   assert.doesNotMatch(JSON.stringify(receipt), /token|password|secret/i);
   const gitconfig = readFileSync(join(f.home, '.gitconfig'), 'utf8');
   assert.match(gitconfig, /name = Pat Example/);
@@ -378,7 +384,7 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   assert.equal(await setup(f.fixtureManifest, override), 0, override.text);
   assert.match(override.text, /9\. Update channel: releases \(from --channel; your saved answer was main\)/);
   // --reconfigure asks again.
-  const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, '', '', '', 'n', 'n', 'n', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
+  const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, '', '', '', 'n', 'n', 'n', '', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, reconfigure), 0, reconfigure.text);
   assert.match(reconfigure.text, /3\. Figma support: check/);
 });
@@ -514,4 +520,22 @@ test('the kit Treehouse wrapper sets only the default root and still lets --root
   writeFileSync(wrapper, wrapperScript(join(f.base, "it's root"), fake), { mode: 0o755 });
   const out = spawnSync(wrapper, ['get', '--root', '/explicit'], { encoding: 'utf8', env: { PATH: '/usr/bin:/bin' } }).stdout;
   assert.equal(out, `${join(f.base, "it's root")}|get --root /explicit\n`);
+});
+
+test('the summary shows the exact PATH block, --no-shell-profile skips it, and a stale Herdr gets restart steps without anything being stopped', posixOnly, async t => {
+  const f = fixture(t), rc = join(f.home, '.bashrc');
+  const run = (argv, herdrPath) => Object.assign(f.ctx(['--yes', '--root', f.root, '--no-tower', '--no-global-hooks', ...argv]), { installPlatform: keyInstall, herdrPath });
+  const skipped = run(['--no-shell-profile'], { servers: () => [] });
+  assert.equal(await setup(f.fixtureManifest, skipped), 0, skipped.text);
+  assert.match(skipped.text, /5b\. Shell profile PATH block: off/);
+  assert.equal(existsSync(rc), false);
+  assert.match(skipped.text, /you chose not to let the kit edit your shell profile/);
+  rmSync(f.root, { recursive: true, force: true });
+  const stale = run(['--shell-profile'], { servers: () => [41], serverPath: () => '/usr/bin' });
+  await setup(f.fixtureManifest, stale);
+  assert.match(stale.text, new RegExp(`${rc.replaceAll('.', '\\.')}: one marked PATH block, added at the end[^\\n]*\\n    # >>> agent-kit PATH >>>`));
+  assert.match(readFileSync(rc, 'utf8'), /^# >>> agent-kit PATH >>>\n/);
+  assert.match(stale.text, /  4\. Herdr is already running and cannot see the kit tools[^\n]*\n       a\. quit the agents[^\n]*\n       b\. run: herdr server stop\n       c\. open a new terminal[^\n]*\n       d\. run: herdr\n/);
+  assert.match(stale.text, /WARN herdr-path-env: the running Herdr server cannot see/);
+  assert.doesNotMatch(stale.text, /\/usr\/bin/, 'no environment value is printed');
 });
