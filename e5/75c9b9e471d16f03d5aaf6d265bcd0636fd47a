@@ -1,0 +1,47 @@
+_vaults/agent-kit/wiki/architecture/tower-release.md
+  s_a0022e465dc823::t_1a3a6d90debd4e 20-21
+  s_a0022e465dc823::t_4de8dcb1b8ea1d 9
+_vaults/agent-kit/wiki/architecture/starter-dispatch-rules.md
+  s_a0022e465dc823::t_1a3a6d90debd4e 40-41
+test/kit.test.mjs
+  s_a0022e465dc823::t_e5075bb5c63560 38-42,45
+  s_a0022e465dc823::t_099f6b36dae2e7 44,47-48,50-51,55,57
+docs/user-guide.md
+  s_a0022e465dc823::t_959f8ae492c675 5,12,23,381,409,635,646-654,878,887,1172,1649,1677,1910,1921-1929,2149,2158,2465
+  s_a0022e465dc823::t_1adfc6370511ff 254,415,1518,1683
+  s_a0022e465dc823::t_c084d89ed1db3d 645,1920
+manifests/pilot-skeleton.json
+  s_a0022e465dc823::t_1adfc6370511ff 339,346
+  s_a0022e465dc823::t_47a861f93b936d 242,249,326,332
+  s_a0022e465dc823::t_cd58b97fcacb17 3,79,91-92,97-98,103-104,109-110,212,214,224-225,231-232,238-239,245-246,252-253,259-260,297,299,309-310,316-317,335-336,342-343
+test/dispatch.test.mjs
+  s_a0022e465dc823::t_099f6b36dae2e7 502
+test/lifecycle.test.mjs
+  s_a0022e465dc823::t_1adfc6370511ff 365
+  s_a0022e465dc823::t_099f6b36dae2e7 396-438
+  s_a0022e465dc823::t_0f5c924c770ab4 439-440
+docs/features.md
+  s_a0022e465dc823::t_959f8ae492c675 3,106
+  s_a0022e465dc823::t_4de8dcb1b8ea1d 69
+README.md
+  s_a0022e465dc823::t_c4c3ab6a7b396b 254,500,530
+  s_a0022e465dc823::t_c084d89ed1db3d 102,108,340-341,385,387,445-453,509-510,513,528
+  s_a0022e465dc823::t_6bf871761b927d 107,504,511-512
+  s_a0022e465dc823::t_843cde346e9155 454
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e575c9b9e471d16f03d5aaf6d265bcd0636fd47a",
+  "prompts": {},
+  "sessions": {
+    "s_a0022e465dc823": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18256-e30d-7fa0-96f6-1aa9a2ba71c7",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
