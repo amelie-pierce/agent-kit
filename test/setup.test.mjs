@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { withOwnerTiers } from '../src/dispatch.mjs';
 import { charterText, checkRoot, derivePaths, expandRoot, parseSetupArgs, resumeSummary, setup, wrapperScript } from '../src/setup.mjs';
 import { doctor } from '../src/doctor.mjs';
-import { renderProfileBlock } from '../src/shell-profile.mjs';
+import { planRemoveProfile, renderProfileBlock } from '../src/shell-profile.mjs';
 import { parseHarness } from '../src/harness.mjs';
 import { parseArgs } from '../src/kit.mjs';
 
@@ -387,6 +387,13 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, '', '', '', 'n', 'n', 'n', '', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, reconfigure), 0, reconfigure.text);
   assert.match(reconfigure.text, /3\. Figma support: check/);
+  const skippedProfile = f.ctx(['--yes', '--root', f.root, '--no-shell-profile']);
+  assert.equal(await setup(f.fixtureManifest, skippedProfile), 0, skippedProfile.text);
+  const afterSkip = JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8'));
+  assert.equal(afterSkip.setup.answers.shellProfile, false);
+  assert.deepEqual(afterSkip.setup.shellProfile, receipt.setup.shellProfile);
+  assert.equal(readFileSync(join(f.home, '.bashrc'), 'utf8'), rc);
+  assert.equal(planRemoveProfile(afterSkip.setup.shellProfile).action, 'remove the unchanged agent-kit PATH block');
 });
 
 test('a failed step stops safely; the rerun prints the resume summary, re-verifies done steps and redoes only the failure', posixOnly, async t => {

@@ -92,17 +92,22 @@ test('uninstall removes only an unchanged block and a file the kit created', pos
   assert.match(readFileSync(f3.rc, 'utf8'), /Mine, managed by/);
 });
 
-test('doctor rows: FAIL when the block or this shell lacks the folders, WARN while a new terminal is pending', posixOnly, async t => {
+test('doctor rows fail when the block or this shell lacks the folders', posixOnly, async t => {
   const f = fixture(t);
   const receipt = { release: 'r1', phases: { npm: {}, 'npm-codex': {} }, setup: { answers: { shellProfile: true } } };
   const rows = env => Object.fromEntries(shellHealth(receipt, f.root, { env, platform: 'linux' }).map(r => [r.id, r.status]));
   assert.deepEqual(rows({ PATH: '/usr/bin' }), { 'shell-profile': 'fail', 'shell-path': 'fail' });
   receipt.setup.shellProfile = await applyProfile(plan(f), f.root);
-  assert.deepEqual(rows({ PATH: '/usr/bin' }), { 'shell-profile': 'pass', 'shell-path': 'warn' });
+  assert.deepEqual(rows({ PATH: '/usr/bin' }), { 'shell-profile': 'pass', 'shell-path': 'fail' });
   assert.deepEqual(rows({ PATH: [...f.folders, '/usr/bin'].join(':') }), { 'shell-profile': 'pass', 'shell-path': 'pass' });
+  writeFileSync(f.rc, `${beginMark}\n# ${renderProfileBlock(f.folders).split('\n')[2]}\n${endMark}\n`);
+  assert.deepEqual(rows({ PATH: '/usr/bin' }), { 'shell-profile': 'fail', 'shell-path': 'fail' });
+  writeFileSync(f.rc, `${beginMark}\nexport PATH='/somewhere/else':"$PATH"\n${endMark}\n`);
+  assert.equal(rows({ PATH: [...f.folders].join(':') })['shell-profile'], 'fail');
   writeFileSync(f.rc, '');
   assert.equal(rows({ PATH: [...f.folders].join(':') })['shell-profile'], 'fail');
   assert.deepEqual(shellHealth({ ...receipt, setup: { answers: {} } }, f.root, { env: {} }), [], 'older installs show no new rows');
   const skipped = { ...receipt, setup: { answers: { shellProfile: false } } };
-  assert.deepEqual(shellHealth(skipped, f.root, { env: { PATH: '/usr/bin' }, installing: true }).map(r => r.status), ['warn']);
+  assert.deepEqual(shellHealth(skipped, f.root, { env: { PATH: '/usr/bin' }, platform: 'linux' }).map(r => r.status), ['fail']);
+  assert.deepEqual(shellHealth(skipped, f.root, { env: { PATH: '/usr/bin' }, platform: 'linux', installing: true }), [], 'setup waits for a new shell before testing its PATH');
 });

@@ -27,12 +27,13 @@ test('herdr-path-env prints no environment value', () => {
   assert.equal(out.includes(secret), false);
 });
 
-test('process source finds the default server and reads only its PATH', () => {
+test('process source finds default and named servers, including paths with spaces', () => {
   const ps = (cmd, args) => ({ status: 0, stdout: args[0] === 'eww'
-    ? 'herdr server HOME=/h TOKEN=abc PATH=/a:/b SHELL=/bin/zsh\n'
-    : ' 10 /x/bin/herdr server\n 11 herdr server --session lab\n 12 /usr/bin/python3 herdr-sync.py\n 13 -/x/bin/herdr\n' });
-  assert.deepEqual(herdrServers(ps), [10]);
-  assert.equal(herdrServerPath(10, 'darwin', ps), '/a:/b');
+    ? 'herdr server HOME=/h TOKEN=abc PATH=/Users/Teammate Name/Agentic/.tools/bin:/a:/b SHELL=/bin/zsh\n'
+    : ' 10 /x/bin/herdr server\n 11 herdr server --session lab\n 12 /Users/Teammate Name/Agentic/.tools/bin/herdr server --session team\n 13 /usr/bin/python3 herdr-sync.py\n 14 -/x/bin/herdr\n' });
+  assert.deepEqual(herdrServers(ps), [10, 11, 12]);
+  assert.equal(herdrServerPath(10, 'darwin', ps), '/Users/Teammate Name/Agentic/.tools/bin:/a:/b');
+  assert.equal(herdrPathHealth(['/Users/Teammate Name/Agentic/.tools/bin'], { servers: () => [12], serverPath: pid => herdrServerPath(pid, 'darwin', ps), platform: 'darwin' }).status, 'pass');
   assert.equal(herdrServerPath(10, 'win32', ps), null);
   assert.equal(herdrServers(() => ({ status: 1, stdout: '' })), null);
 });

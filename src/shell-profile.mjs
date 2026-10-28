@@ -129,10 +129,10 @@ export function shellHealth(receipt, root, { env, platform = process.platform, i
   const folders = foldersOf(receipt, root), rows = [], record = receipt.setup?.shellProfile;
   const onPath = new Set((env.PATH || '').split(delimiter)), missing = folders.filter(f => !onPath.has(f));
   const text = record?.path && plainFile(record.path) ? readFileSync(record.path, 'utf8') : '', block = splitProfile(text).block;
-  const blockHas = block !== null && folders.every(f => block.includes(quote(f)));
-  if (receipt.setup.answers.shellProfile) rows.push({ id: 'shell-profile', status: blockHas ? 'pass' : 'fail',
+  const blockHas = block !== null && block.split('\n').includes(renderProfileBlock(folders).split('\n')[2]);
+  if (receipt.setup.answers.shellProfile || record) rows.push({ id: 'shell-profile', status: blockHas ? 'pass' : 'fail',
     detail: blockHas ? `${record.path} holds the kit's PATH block` : `${record?.path || 'your shell profile'} lacks the kit's PATH block or it misses a kit folder; agent-kit repair puts it back` });
-  rows.push({ id: 'shell-path', status: !missing.length ? 'pass' : installing || (receipt.setup.answers.shellProfile && blockHas) ? 'warn' : 'fail',
-    detail: !missing.length ? 'this shell sees every kit tool folder' : `this shell does not see ${missing.length} kit tool folder${missing.length > 1 ? 's' : ''}${blockHas ? '; open a new terminal so it reads the profile' : installing ? '; add them to your PATH (see the next steps)' : '; add the PATH line from the guide or run agent-kit repair'}` });
+  if (!installing) rows.push({ id: 'shell-path', status: !missing.length ? 'pass' : 'fail',
+    detail: !missing.length ? 'this shell sees every kit tool folder' : `this shell does not see ${missing.length} kit tool folder${missing.length > 1 ? 's' : ''}${blockHas ? '; open a new terminal so it reads the profile' : '; add the PATH line from the guide or run agent-kit repair'}` });
   return rows;
 }

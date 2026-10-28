@@ -561,8 +561,8 @@ These rows cover what `pilot-9` added. Each is `PASS` or `WARN`, never `FAIL`: t
 | `launcher-<name>` (one per kit command, A6.6) | the command matches what the kit wrote | changed or missing; run repair |
 | `herdr-keys`, `herdr-layout` | the kit's marked blocks are in your Herdr settings | missing (repair restores it) or changed by you (left as you edited it) |
 | `herdr-plugin-…`, `zoe`, `zoetrope-keys` | the Herdr plugins, the `zoe` program and the session graph's keys are in place | stop Herdr, then run repair |
-| `shell-profile` (if you said yes to 5b) | the kit's PATH block is in your shell profile and holds every kit folder | `FAIL`: the block was removed or misses a folder; run repair |
-| `shell-path` | this terminal's PATH holds every kit folder | `WARN` right after install or repair (open a new terminal); `FAIL` if neither the terminal nor the profile has them |
+| `shell-profile` (if you said yes to 5b, or an earlier install left a kit-owned block) | an effective PATH line in the kit's profile block holds every kit folder | `FAIL`: the block was removed or misses a folder; run repair after choosing 5b |
+| `shell-path` | this terminal's PATH holds every kit folder | `FAIL` if this terminal lacks a folder; open a new terminal after install or repair |
 | `herdr-path-env` | `PASS` when Herdr is not running (or cannot be read), or its PATH holds every kit folder | `WARN`: Herdr started before the kit folders were on your PATH. Quit your agents, run `herdr server stop`, open a new terminal and start `herdr` there (inside Ubuntu on Windows). Doctor only reads; it never stops Herdr |
 | `fleet-autostart` (with the tower) | the start-up entry that opens the tower's tab is in place | run repair |
 | `captain-help` | your help page exists | it was deleted; ask Firstmate to write one, or run repair |
@@ -1821,8 +1821,8 @@ These rows cover what `pilot-9` added. Each is `PASS` or `WARN`, never `FAIL`: t
 | `launcher-<name>` (one per kit command, B6.6) | the command matches what the kit wrote | changed or missing; run repair |
 | `herdr-keys`, `herdr-layout` | the kit's marked blocks are in your Herdr settings | missing (repair restores it) or changed by you (left as you edited it) |
 | `herdr-plugin-…`, `zoe`, `zoetrope-keys` | the Herdr plugins, the `zoe` program and the session graph's keys are in place | stop Herdr, then run repair |
-| `shell-profile` (if you said yes to 5b) | the kit's PATH block is in your shell profile and holds every kit folder | `FAIL`: the block was removed or misses a folder; run repair |
-| `shell-path` | this terminal's PATH holds every kit folder | `WARN` right after install or repair (open a new terminal); `FAIL` if neither the terminal nor the profile has them |
+| `shell-profile` (if you said yes to 5b, or an earlier install left a kit-owned block) | an effective PATH line in the kit's profile block holds every kit folder | `FAIL`: the block was removed or misses a folder; run repair after choosing 5b |
+| `shell-path` | this terminal's PATH holds every kit folder | `FAIL` if this terminal lacks a folder; open a new terminal after install or repair |
 | `herdr-path-env` | `PASS` when Herdr is not running (or cannot be read), or its PATH holds every kit folder | `WARN`: Herdr started before the kit folders were on your PATH. Quit your agents, run `herdr server stop`, open a new terminal and start `herdr` there (inside Ubuntu on Windows). Doctor only reads; it never stops Herdr |
 | `fleet-autostart` (with the tower) | the start-up entry that opens the tower's tab is in place | run repair |
 | `captain-help` | your help page exists | it was deleted; ask Firstmate to write one, or run repair |

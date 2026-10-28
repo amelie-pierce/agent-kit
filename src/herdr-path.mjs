@@ -8,8 +8,7 @@ export function herdrServers(run = spawnSync) {
   const r = run('ps', ['-A', '-o', 'pid=,args='], { encoding: 'utf8', timeout: 10000, maxBuffer: 1024 * 1024 });
   if (r.status !== 0) return null;
   return r.stdout.split('\n').map(line => /^\s*(\d+)\s+(.*)$/.exec(line)).filter(Boolean)
-    // The default server only: `herdr server`, not a named `--session` one.
-    .filter(([, , args]) => /^(?:\S*\/)?herdr server(?:\s|$)/.test(args) && !/--session/.test(args)).map(([, pid]) => Number(pid));
+    .filter(([, , args]) => /^(?:\/.*\/)?herdr server(?:\s|$)/.test(args)).map(([, pid]) => Number(pid));
 }
 // The server's PATH from its process environment, or null when it cannot be read.
 export function herdrServerPath(pid, platform = process.platform, run = spawnSync) {
@@ -19,7 +18,7 @@ export function herdrServerPath(pid, platform = process.platform, run = spawnSyn
   if (platform !== 'darwin') return null;
   const r = run('ps', ['eww', '-o', 'command=', '-p', String(pid)], { encoding: 'utf8', timeout: 10000, maxBuffer: 1024 * 1024 });
   if (r.status !== 0 || !r.stdout.trim()) return null;
-  return /(?:^|\s)PATH=(\S*)/.exec(r.stdout)?.[1] ?? null;
+  return /(?:^|\s)PATH=(.*?)(?=\s+[A-Za-z_][A-Za-z_0-9]*=|\s*$)/.exec(r.stdout.trim())?.[1] ?? null;
 }
 export function herdrPathHealth(folders, { servers = herdrServers, serverPath = herdrServerPath, platform = process.platform } = {}) {
   const id = 'herdr-path-env';

@@ -523,7 +523,7 @@ export async function setup(manifest, ctx) {
       receipt = await updateReceipt(receiptPath, manifest.release, r => {
         r.setup = { version: 1, answers, paths: { root: paths.root, installRoot: paths.installRoot, firstmateHome: paths.firstmateHome, treehouseRoot: paths.treehouseRoot, towerState: paths.towerState },
           kit: kit.commit ? { commit: kit.commit, path: paths.kit } : r.setup?.kit || null, steps: r.setup?.steps || {}, ...(r.setup?.dispatch ? { dispatch: r.setup.dispatch } : {}),
-          ...(r.setup?.shortcuts ? { shortcuts: r.setup.shortcuts } : {}) };
+          ...(r.setup?.shortcuts ? { shortcuts: r.setup.shortcuts } : {}), ...(r.setup?.shellProfile ? { shellProfile: r.setup.shellProfile } : {}) };
       });
       const stepRun = async (index, fn) => {
         const [id, label] = steps[index];
