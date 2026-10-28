@@ -1,0 +1,48 @@
+docs/features.md
+  s_c510ce8348e851::t_2eecf77dd25d3b 1-2,4-49,51-68,70-78,80-94,96-102,104-220,222-226,228-274
+  s_c510ce8348e851::t_6d87799cf83cc8 3,50,69,79,95,103,221,227
+_vaults/agent-kit/wiki/architecture/index.md
+  s_c510ce8348e851::t_01e31ec5e47978 21
+_vaults/agent-kit/wiki/architecture/starter-dispatch-rules.md
+  s_c510ce8348e851::t_01e31ec5e47978 4,23-29
+  s_c510ce8348e851::t_834d38798d2639 30-31
+src/setup.mjs
+  s_c510ce8348e851::t_8c266674c8b7ba 28-29,230
+docs/user-guide.md
+  s_c510ce8348e851::t_3e691799fffd13 633,635,861,1881,1883,2105
+  s_c510ce8348e851::t_1ea8ab98f3c2af 5,11,22,246,250,252,254-262,374,609,621,631-632,634,636-639,736,837-860,862-870,872,1212,1483,1487,1489,1491-1499,1615,1857,1869,1879-1880,1882,1884-1887,1978,2081-2104,2106-2114,2116,2481
+  s_c510ce8348e851::t_2eecf77dd25d3b 1-4,6-10,12-21,23-245,247-249,251,253,263-373,375-608,610-620,622-630,640-735,737-836,871,873-1211,1213-1482,1484-1486,1488,1490,1500-1614,1616-1856,1858-1868,1870-1878,1888-1977,1979-2080,2115,2117-2480,2482-2483
+src/dispatch.mjs
+  s_c510ce8348e851::t_7bdbd816f25035 120-125,128,130-131,134-137
+  s_c510ce8348e851::t_ffd88cd3103095 276-277
+test/dispatch.test.mjs
+  s_c510ce8348e851::t_8117b255175fbf 493-528
+test/setup.test.mjs
+  s_c510ce8348e851::t_8c266674c8b7ba 260
+README.md
+  s_c510ce8348e851::t_27e97d8f15e083 483,511
+  s_c510ce8348e851::t_ab47a3b027ec15 335-341,438-448,487
+  s_c510ce8348e851::t_0b980c974349d3 5-6,73,100-108,253
+test/lifecycle.test.mjs
+  s_c510ce8348e851::t_8de9f7ea9ba2c0 348-394,396,413,415,418,420
+manifests/pilot-skeleton.json
+  s_c510ce8348e851::t_87051579e3035a 3,79,91-92,97-98,103-104,109-110
+scripts/jev-resolve-smoke.mjs
+  s_c510ce8348e851::t_84c379e9651664 11,47,76-77,80,88-95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "98d2c9b21a7956971484b5c0071104f9c35cf1f1",
+  "prompts": {},
+  "sessions": {
+    "s_c510ce8348e851": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6043699-ec41-41ba-8bc3-9eaee4ffb2e7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
