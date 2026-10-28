@@ -125,13 +125,13 @@ export async function removeProfile(root, plan) {
 
 // Doctor rows. `installing` is the setup run: the terminal that started the installer has not seen the block yet.
 export function shellHealth(receipt, root, { env, platform = process.platform, installing = false } = {}) {
-  if (platform === 'win32' || receipt.setup?.answers?.shellProfile === undefined) return [];
+  if (platform === 'win32') return [];
   const folders = foldersOf(receipt, root), rows = [], record = receipt.setup?.shellProfile;
   const onPath = new Set((env.PATH || '').split(delimiter)), missing = folders.filter(f => !onPath.has(f));
   const text = record?.path && plainFile(record.path) ? readFileSync(record.path, 'utf8') : '', block = splitProfile(text).block;
   const activeLines = block?.split('\n').slice(1, -1).filter(line => line.trim() && !line.trimStart().startsWith('#'));
   const blockHas = activeLines?.length === 1 && activeLines[0] === renderProfileBlock(folders).split('\n')[2];
-  if (receipt.setup.answers.shellProfile || record) rows.push({ id: 'shell-profile', status: blockHas ? 'pass' : 'fail',
+  if (receipt.setup?.answers?.shellProfile || record) rows.push({ id: 'shell-profile', status: blockHas ? 'pass' : 'fail',
     detail: blockHas ? `${record.path} holds the kit's PATH block` : `${record?.path || 'your shell profile'} lacks the kit's PATH block or it misses a kit folder; agent-kit repair puts it back` });
   if (!installing) rows.push({ id: 'shell-path', status: !missing.length ? 'pass' : 'fail',
     detail: !missing.length ? 'this shell sees every kit tool folder' : `this shell does not see ${missing.length} kit tool folder${missing.length > 1 ? 's' : ''}${blockHas ? '; open a new terminal so it reads the profile' : '; add the PATH line from the guide or run agent-kit repair'}` });

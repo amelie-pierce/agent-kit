@@ -225,7 +225,7 @@ The list of files and links it will touch is shown before the question. Your own
 
 **About question 5a: the Herdr layout.** Yes adds the kit owner's Herdr look as one marked block in your Herdr settings: the gruvbox theme, sidebar, tab bar and pane settings, new panes opening in your root folder, and Herdr's first-run tour turned off. A section you already set yourself is left out and named. Uninstall removes the block.
 
-**About question 5b: the PATH block.** Yes adds **one marked block** at the end of your zsh profile (`~/.zshrc`; for bash `~/.bash_profile` on a Mac or `~/.bashrc` on Linux), chosen from your login shell. Other shells are left alone. The summary shows the exact block under "Files outside the root". It is the same `export PATH=…` line as in A2.7, between `# >>> agent-kit PATH >>>` and `# <<< agent-kit PATH <<<`. The file is backed up first and nothing outside the block is changed; running the installer again never adds a second block, and repair and upgrade keep the block current when the release folder changes. Uninstall removes the block if you have not edited it, and says so if you have. Say `n` and the kit does not touch the profile; add the line from A2.7 yourself.
+**About question 5b: the PATH block.** Yes adds **one marked block** at the end of your zsh profile (`~/.zshrc`; for bash `~/.bash_profile` on a Mac or `~/.bashrc` on Linux), chosen from your login shell. Other shells are left alone. The summary shows the exact block under "Files outside the root". It is the same `export PATH=…` line as in A2.7, between `# >>> agent-kit PATH >>>` and `# <<< agent-kit PATH <<<`. The file is backed up first and nothing outside the block is changed; running the installer again never adds a second block, and repair and upgrade keep the block current when the release folder changes. Uninstall removes the block if you have not edited it, and says so if you have. On a new install, say `n` or use `--no-shell-profile` to skip the block and add the line from A2.7 yourself. `--shell-profile` turns it on explicitly. On a rerun, skipping leaves an existing kit block in place for uninstall.
 
 **The Claude plugins** (only if you chose Claude Code and said yes to 5). The kit installs them with your own `claude` command, from fixed versions the kit owner reviewed:
 
@@ -815,6 +815,8 @@ Firstmate:
 **Nothing merges without your word.** Firstmate brings you the PR; you review it and say `merge it` when you are happy.
 
 Some tasks are **investigations** instead of code changes. Those end with a written report rather than a PR.
+
+On Codex, Firstmate only notices updates while you are talking to it. Ask "how is everything?" now and then, or use the Claude Captain when you want automatic notifications.
 
 You can watch any worker in its Herdr tab, or type into it if you need to.
 
@@ -1473,7 +1475,7 @@ The default is **yes**, as on the kit owner's own setup. Read the warning before
 
 The list of files and links it will touch is shown before the question. Your own hooks, settings, keys and plugins stay. Each file is backed up first. If you already have your own skill with one of the same names, this step stops and reports a conflict instead of overwriting it. With `n`, none of the above is set up: no kit commands, no Herdr keys, no plugins.
 
-**About question 5b: the PATH block.** Yes adds **one marked block** at the end of your Ubuntu profile (`~/.bashrc` for bash, or `~/.zshrc` for zsh), chosen from your login shell inside Ubuntu. It never touches the Windows profile, and other shells are left alone. The summary shows the exact block under "Files outside the root". It is the same `export PATH=…` line as in B2.11, between `# >>> agent-kit PATH >>>` and `# <<< agent-kit PATH <<<`. The file is backed up first and nothing outside the block is changed; running the installer again never adds a second block, and repair and upgrade keep the block current when the release folder changes. Uninstall removes the block if you have not edited it, and says so if you have. Say `n` and the kit does not touch the profile; add the line from B2.11 yourself.
+**About question 5b: the PATH block.** Yes adds **one marked block** at the end of your Ubuntu profile (`~/.bashrc` for bash, or `~/.zshrc` for zsh), chosen from your login shell inside Ubuntu. It never touches the Windows profile, and other shells are left alone. The summary shows the exact block under "Files outside the root". It is the same `export PATH=…` line as in B2.11, between `# >>> agent-kit PATH >>>` and `# <<< agent-kit PATH <<<`. The file is backed up first and nothing outside the block is changed; running the installer again never adds a second block, and repair and upgrade keep the block current when the release folder changes. Uninstall removes the block if you have not edited it, and says so if you have. On a new install, say `n` or use `--no-shell-profile` to skip the block and add the line from B2.11 yourself. `--shell-profile` turns it on explicitly. On a rerun, skipping leaves an existing kit block in place for uninstall.
 
 **About question 5a: the Herdr layout.** Yes adds the kit owner's Herdr look as one marked block in your Herdr settings inside Ubuntu: the gruvbox theme, sidebar, tab bar and pane settings, new panes opening in your root folder, and Herdr's first-run tour turned off. A section you already set yourself is left out and named. Uninstall removes the block.
 
@@ -2072,6 +2074,8 @@ Firstmate:
 **Nothing merges without your word.** Firstmate brings you the PR; you review it and say `merge it` when you are happy.
 
 Some tasks are **investigations** instead of code changes. Those end with a written report rather than a PR.
+
+On Codex, Firstmate only notices updates while you are talking to it. Ask "how is everything?" now and then, or use the Claude Captain when you want automatic notifications.
 
 You can watch any worker in its Herdr tab, or type into it if you need to.
 

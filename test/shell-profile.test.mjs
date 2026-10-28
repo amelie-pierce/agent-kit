@@ -108,7 +108,11 @@ test('doctor rows fail when the block or this shell lacks the folders', posixOnl
   assert.equal(rows({ PATH: [...f.folders].join(':') })['shell-profile'], 'fail');
   writeFileSync(f.rc, '');
   assert.equal(rows({ PATH: [...f.folders].join(':') })['shell-profile'], 'fail');
-  assert.deepEqual(shellHealth({ ...receipt, setup: { answers: {} } }, f.root, { env: {} }), [], 'older installs show no new rows');
+  const older = { ...receipt, setup: { answers: {} } };
+  assert.deepEqual(shellHealth(older, f.root, { env: { PATH: '/usr/bin' }, platform: 'linux' }).map(r => [r.id, r.status]), [['shell-path', 'fail']]);
+  assert.deepEqual(shellHealth(older, f.root, { env: { PATH: f.folders.join(':') }, platform: 'linux' }).map(r => [r.id, r.status]), [['shell-path', 'pass']]);
+  assert.deepEqual(shellHealth({ ...receipt, setup: undefined }, f.root, { env: { PATH: '/usr/bin' }, platform: 'linux' }).map(r => [r.id, r.status]), [['shell-path', 'fail']]);
+  assert.deepEqual(shellHealth(older, f.root, { env: { PATH: '/usr/bin' }, platform: 'linux', installing: true }), []);
   const skipped = { ...receipt, setup: { answers: { shellProfile: false } } };
   assert.deepEqual(shellHealth(skipped, f.root, { env: { PATH: '/usr/bin' }, platform: 'linux' }).map(r => r.status), ['fail']);
   assert.deepEqual(shellHealth(skipped, f.root, { env: { PATH: '/usr/bin' }, platform: 'linux', installing: true }), [], 'setup waits for a new shell before testing its PATH');

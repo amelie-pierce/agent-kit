@@ -588,5 +588,6 @@ test('doctor checks a running Herdr with a prior-release receipt', { skip: proce
   const f = fixture(t);
   const report = doctor(f.manifest, { ...f.options, herdrPath: { servers: () => [7], serverPath: () => '/usr/bin' } });
   assert.equal(report.checks.find(row => row.id === 'herdr-path-env').status, 'warn');
+  assert.equal(report.checks.find(row => row.id === 'shell-path').status, 'fail');
   assert.equal(report.checks.some(row => row.id === 'shell-profile'), false);
 });
