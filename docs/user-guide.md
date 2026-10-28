@@ -2,13 +2,14 @@
 
 ## Status of this guide
 
-This guide describes the kit as it is on `main` today: release `pilot-10`. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`. Every section matches the released kit. `pilot-10` is the release teammates install.
+This guide describes release `pilot-11`. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`. Every section matches the released kit. `pilot-11` is the release teammates install.
 
 | Release | What it added |
 | --- | --- |
 | `pilot-8` | Windows readiness fixes and the tower on Windows (inside Ubuntu) |
 | `pilot-9` | Firstmate from the kit owner's approved copy, set up with your plan and routing mode at install; the kit's own commands (`firstmate`, `fm-mate`, `fm-help`, `fm-jev` and others); Herdr keyboard shortcuts, plugins and look; the Claude Code plugin set; the Figma CLI and its skills; a starter help page; and the full-access Codex launch question (on by default) |
 | `pilot-10` | A newer Firstmate: `balanced` and `lean` are cheaper on large plans and step down to cheaper models as your weekly quota runs low, on Claude and Codex; quiet mode now delivers Firstmate's messages reliably on Claude Code and Codex (the `pilot-9` `/quiet off` workaround is gone); question 2c shows what each mode means |
+| `pilot-11` | Firstmate fixes for Codex models, quiet entry replay, batch restart and honest Codex monitoring; the updated Zoe fleet tower; the installer's PATH block and stale-Herdr guidance |
 
 **This is a pilot.** No one has yet installed this release on a real Mac or a real Windows PC. You, the first teammates, running it on your own computers, are the hands-on test. Please send back what you saw (section 4).
 
@@ -19,7 +20,7 @@ This guide describes the kit as it is on `main` today: release `pilot-10`. Relea
 
 Each track is complete on its own. You do not need to read the other one.
 
-In this guide, `<root>` means the root folder you choose during install (default `~/Agentic`). `<release>` is the kit release name, such as `pilot-10` (older releases were named `macos-pilot-N`, for example `macos-pilot-6`). `<commit>` is the 40-character kit commit the installer prints. `<you>` is your own user name.
+In this guide, `<root>` means the root folder you choose during install (default `~/Agentic`). `<release>` is the kit release name, such as `pilot-11` (older releases were named `macos-pilot-N`, for example `macos-pilot-6`). `<commit>` is the 40-character kit commit the installer prints. `<you>` is your own user name.
 
 ---
 
@@ -250,7 +251,7 @@ If you already have one of these plugins, or the `claude-plugins-official` marke
 | **Pay per use:** `api` (an API key, including usage-based Enterprise) | Cheaper models for light work, as on smaller plans. Routing mode defaults to `lean` |
 | `skip` (not sure) | Firstmate's own standard rules, unchanged. Routing mode defaults to `balanced` |
 
-On every plan, hard work stays on the strongest model the plan routes (on Claude Opus 5.5; on Codex GPT-6.1 Sol, or GPT-6 Astra in `full` on the larger plans), and checking (validation) always runs at high effort. The exact models for each plan and mode are in the token tables (A7.4).
+On every plan, hard work stays on the strongest model the plan routes (on Claude Opus 5.5; on Codex GPT-6 Sol, or GPT-6 Astra in `full` on the larger plans), and checking (validation) always runs at high effort. The exact models for each plan and mode are in the token tables (A7.4).
 
 **If Codex is your only agent CLI.** Work pauses when your weekly Codex quota is used up, and resumes after the quota resets. The kit never switches to another provider you have not set up. On Codex Plus, choose `lean`.
 
@@ -377,7 +378,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-10)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-11)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
 
 **3. Sign in to your agent CLIs yourself.** In the same Terminal window:
 
@@ -405,12 +406,13 @@ herdr
 - **The command:** in a Herdr pane, type `firstmate codex` (or `firstmate claude`).
 - **By hand:** in a Herdr pane, `cd ~/Agentic/firstmate`, then `codex` (or `claude`).
 
-The key and the command open a **Control Tower** workspace with a **Captain (Codex)** or **Captain (Claude)** tab and start Firstmate there, in your Firstmate home. If that tab is already running something, they only switch to it. `firstmate` refuses to start a second Firstmate while one is already running in this home; quit that one first.
+The key and the command open a **Control Tower** workspace with a **Captain (Codex)** or **Captain (Claude)** tab and start Firstmate there, in your Firstmate home. If that tab is already running something, they only switch to it. Only one Firstmate can run in a home; do not open both Captain tabs at once.
 
 The first time Codex starts it asks you to review the kit's hooks (`/hooks`); review and approve them yourself (A2.8). With the tower and Claude Code, the tower's **Team** tab also opens on its own the first time Firstmate starts in Claude Code (A9).
 
 **6. Say hello to Firstmate.** Your agent reads Firstmate's instructions and becomes your first mate; you are the **captain**.
 
+- **Codex check-in:** Firstmate checks in only while you talk to it; it does not monitor the crew in the background.
 - **What to say:** anything. `ahoy` is fine, or go straight to a request such as `look at my GitHub project <your-github-login>/<project>`. In Codex, if Firstmate does not report on its own, say `start up`.
 - **What its startup check shows:** Firstmate runs its own startup check first and tells you in plain words whether its tools are ready. On a fresh kit install everything it needs is already there. On the very first start it has no notes or projects yet; that is normal.
 - **Answering its first questions:** if it says a tool is missing and asks to install it, answer yes only if you expect that tool; if unsure, say no and ask the person who shared this guide. If it asks you to sign in to GitHub, run `gh auth login` yourself in a normal Terminal window, never in the chat. For anything else, answer in plain words; you can always say "not now".
@@ -630,7 +632,7 @@ Upgrade **refuses before changing anything** if your Firstmate home:
 - is not on the Firstmate version the kit expects, or
 - has an `origin` remote other than the approved Firstmate copy the kit uses (the kit owner's copy, which doctor's `firstmate-fork` row names).
 
-It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (A10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. (`pilot-9` and `pilot-10` are such releases.)
+It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (A10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. (`pilot-9`, `pilot-10` and `pilot-11` are such releases.)
 
 Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is running.
 
@@ -639,6 +641,16 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - Set `AK` to the new kit copy (A6).
 - If you skipped question 5b, change `<release>` in your PATH line (A2.7) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (A6.1).
+
+**Moving from `pilot-10` to `pilot-11`**, when you are asked to:
+
+1. Run upgrade. The plan shows `Release: pilot-10 -> pilot-11`, changed Firstmate and tower lines, `- firstmate: a6bc1877… -> 622311a5…` (with the full commit numbers), and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`.
+2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
+3. Start Herdr and Firstmate again (A3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (A10.3).
+4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
+5. If you never changed the token strategy the kit set up, upgrade has Firstmate set it up again with the current Codex models (A7.4). If you changed it, it is left alone; run `bin/fm-strategy.sh set <your mode>` in your Firstmate home to get the current models.
+6. Do the "After an upgrade" steps above. The Codex GPT-6.1 Sol workaround is no longer needed: Firstmate now routes Sol to GPT-6 Sol. The updated tower adds current model prices.
+
 
 **Moving from `pilot-9` to `pilot-10`**, when you are asked to:
 
@@ -863,7 +875,7 @@ Claude Code (Haiku, Sonnet and Opus are the 5.5 models):
 | `api` | Sonnet low / Opus medium / Opus high | Haiku medium / Sonnet medium / Opus high | Haiku medium / Sonnet medium / Opus high |
 | `skip` | Sonnet low / Opus medium / Opus high | the same | the same |
 
-Codex (Luna and Astra are GPT-6; Terra and Sol are GPT-6.1):
+Codex (Luna, Sol and Astra are GPT-6; Terra is GPT-6.1):
 
 | Your plan | `full` | `balanced` | `lean` |
 | --- | --- | --- | --- |
@@ -872,7 +884,7 @@ Codex (Luna and Astra are GPT-6; Terra and Sol are GPT-6.1):
 | `api` | Luna high / Sol medium / Astra medium | Luna high / Sol medium / Sol high | Luna high / Terra medium / Sol high |
 | `skip` | Luna high / Sol medium / Astra medium | Luna high / Sol medium / Sol high | the same as `balanced` |
 
-On a subscription plan there is also a last floor for light and standard work: below it, that work moves to your other agent CLI, or Firstmate asks you first if you only have one. The floors are, for light and standard work, Claude Pro 30% and 20%, Max 5x 20% and 10%, Max 20x 15% and 5%, Codex Plus 30% and 20%, and Codex Pro 20% and 10% (the seat plans follow the plan they share a row with). API keys have no floors. Firstmate reads how much quota is left through `quota-axi`, so stepping down needs you signed in to that agent CLI. Terra needs Codex CLI 0.159.0 or newer, which the kit's 0.164.0 is; where Terra is not available, GPT-6.1 Sol at low effort is the fallback, and where your workspace has not turned on GPT-6.1 Sol, GPT-6 Sol is (`bin/fm-strategy.sh show` notes both).
+On a subscription plan there is also a last floor for light and standard work: below it, that work moves to your other agent CLI, or Firstmate asks you first if you only have one. The floors are, for light and standard work, Claude Pro 30% and 20%, Max 5x 20% and 10%, Max 20x 15% and 5%, Codex Plus 30% and 20%, and Codex Pro 20% and 10% (the seat plans follow the plan they share a row with). API keys have no floors. Firstmate reads how much quota is left through `quota-axi`, so stepping down needs you signed in to that agent CLI. Terra needs Codex CLI 0.159.0 or newer, which the kit's 0.164.0 is; if Terra is unavailable in an interactive session, choose an available model explicitly (`bin/fm-strategy.sh show` notes this).
 
 **Quiet mode in `balanced` and `lean`.** While you are at the keyboard, these two modes put Firstmate in its quiet mode (`/quiet`):
 
@@ -1157,7 +1169,7 @@ No real Mac has run the tower, the session graph or the automatic opening from t
 - **`herdr` or `codex` not found, or an old version runs:** the PATH line from A2.7 is missing or not first. If you said yes to question 5b the kit put it in your profile: open a new Terminal window, or run `agent-kit repair` if the block is gone. Otherwise add it to `~/.zshrc` yourself.
 - **`firstmate`, `fm-mate` or `fm-help` not found:** `<root>/.tools/bin` is not on your PATH (A2.7), or you said `n` to question 5.
 - **`Open a Herdr pane, then run firstmate (or press Ctrl+B, then F).`:** `firstmate` only starts Firstmate inside Herdr. Run `herdr` first.
-- **`Exit the current coordinator cleanly before switching.`:** Firstmate is already running in this home. Switch to its tab, or quit it, before starting another.
+- **`Exit the current coordinator cleanly before switching.`:** Only one Firstmate can run in a home; do not open both Captain tabs at once. Switch to its tab, or quit it, before starting another.
 - **Firstmate says treehouse, no-mistakes, gh-axi or other tools are missing, or doctor shows `WARN herdr-path-env`:** Herdr was already running before you added the PATH line, so it kept its old PATH. Run `herdr server stop`, then start `herdr` again from a Terminal window that has the PATH line (A2.7).
 - **A Herdr key does nothing:** check `fm-help` for the keys you actually got. Press `Ctrl+B Shift+R` to reload Herdr's settings, or restart Herdr. The session graph keys need Herdr started from a Terminal window whose PATH has `<root>/.tools/bin` first.
 - **Changes to `~/.zshrc` do nothing:** open a new Terminal window, or run `source ~/.zshrc`.
@@ -1503,7 +1515,7 @@ If you already have one of these plugins, or the `claude-plugins-official` marke
 | **Pay per use:** `api` (an API key, including usage-based Enterprise) | Cheaper models for light work, as on smaller plans. Routing mode defaults to `lean` |
 | `skip` (not sure) | Firstmate's own standard rules, unchanged. Routing mode defaults to `balanced` |
 
-On every plan, hard work stays on the strongest model the plan routes (on Claude Opus 5.5; on Codex GPT-6.1 Sol, or GPT-6 Astra in `full` on the larger plans), and checking (validation) always runs at high effort. The exact models for each plan and mode are in the token tables (B7.4).
+On every plan, hard work stays on the strongest model the plan routes (on Claude Opus 5.5; on Codex GPT-6 Sol, or GPT-6 Astra in `full` on the larger plans), and checking (validation) always runs at high effort. The exact models for each plan and mode are in the token tables (B7.4).
 
 **If Codex is your only agent CLI.** Work pauses when your weekly Codex quota is used up, and resumes after the quota resets. The kit never switches to another provider you have not set up. On Codex Plus, choose `lean`.
 
@@ -1634,7 +1646,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-10)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-11)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
 
 **3. Sign in to your agent CLIs yourself, inside Ubuntu.** Signing in on Windows does not count here.
 
@@ -1662,12 +1674,13 @@ herdr
 - **The command:** in a Herdr pane, type `firstmate codex` (or `firstmate claude`).
 - **By hand:** in a Herdr pane, `cd ~/Agentic/firstmate`, then `codex` (or `claude`).
 
-The key and the command open a **Control Tower** workspace with a **Captain (Codex)** or **Captain (Claude)** tab and start Firstmate there, in your Firstmate home. If that tab is already running something, they only switch to it. `firstmate` refuses to start a second Firstmate while one is already running in this home; quit that one first.
+The key and the command open a **Control Tower** workspace with a **Captain (Codex)** or **Captain (Claude)** tab and start Firstmate there, in your Firstmate home. If that tab is already running something, they only switch to it. Only one Firstmate can run in a home; do not open both Captain tabs at once.
 
 The first time Codex starts it asks you to review the kit's hooks (`/hooks`); review and approve them yourself (B2.12). With the tower and Claude Code, the tower's **Team** tab also opens on its own the first time Firstmate starts in Claude Code (B9).
 
 **6. Say hello to Firstmate.** Your agent reads Firstmate's instructions and becomes your first mate; you are the **captain**.
 
+- **Codex check-in:** Firstmate checks in only while you talk to it; it does not monitor the crew in the background.
 - **What to say:** anything. `ahoy` is fine, or go straight to a request such as `look at my GitHub project <your-github-login>/<project>`. In Codex, if Firstmate does not report on its own, say `start up`.
 - **What its startup check shows:** Firstmate runs its own startup check first and tells you in plain words whether its tools are ready. On a fresh kit install everything it needs is already there. On the very first start it has no notes or projects yet; that is normal.
 - **Answering its first questions:** if it says a tool is missing and asks to install it, answer yes only if you expect that tool; if unsure, say no and ask the person who shared this guide. If it asks you to sign in to GitHub, run `gh auth login` yourself in a normal Ubuntu tab, never in the chat. For anything else, answer in plain words; you can always say "not now".
@@ -1894,7 +1907,7 @@ Upgrade **refuses before changing anything** if your Firstmate home:
 - is not on the Firstmate version the kit expects, or
 - has an `origin` remote other than the approved Firstmate copy the kit uses (the kit owner's copy, which doctor's `firstmate-fork` row names).
 
-It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (B10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. (`pilot-9` and `pilot-10` are such releases.)
+It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (B10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. (`pilot-9`, `pilot-10` and `pilot-11` are such releases.)
 
 Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is running inside Ubuntu.
 
@@ -1903,6 +1916,16 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - Set `AK` to the new kit copy (B6).
 - If you skipped question 5b, change `<release>` in your Ubuntu PATH line (B2.11) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (B6.1).
+
+**Moving from `pilot-10` to `pilot-11`**, when you are asked to:
+
+1. Run upgrade. The plan shows `Release: pilot-10 -> pilot-11`, changed Firstmate and tower lines, `- firstmate: a6bc1877… -> 622311a5…` (with the full commit numbers), and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`.
+2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
+3. Start Herdr and Firstmate again (B3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (B10.3).
+4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
+5. If you never changed the token strategy the kit set up, upgrade has Firstmate set it up again with the current Codex models (B7.4). If you changed it, it is left alone; run `bin/fm-strategy.sh set <your mode>` in your Firstmate home to get the current models.
+6. Do the "After an upgrade" steps above. The Codex GPT-6.1 Sol workaround is no longer needed: Firstmate now routes Sol to GPT-6 Sol. The updated tower adds current model prices.
+
 
 **Moving from `pilot-9` to `pilot-10`**, when you are asked to:
 
@@ -2123,7 +2146,7 @@ Claude Code (Haiku, Sonnet and Opus are the 5.5 models):
 | `api` | Sonnet low / Opus medium / Opus high | Haiku medium / Sonnet medium / Opus high | Haiku medium / Sonnet medium / Opus high |
 | `skip` | Sonnet low / Opus medium / Opus high | the same | the same |
 
-Codex (Luna and Astra are GPT-6; Terra and Sol are GPT-6.1):
+Codex (Luna, Sol and Astra are GPT-6; Terra is GPT-6.1):
 
 | Your plan | `full` | `balanced` | `lean` |
 | --- | --- | --- | --- |
@@ -2132,7 +2155,7 @@ Codex (Luna and Astra are GPT-6; Terra and Sol are GPT-6.1):
 | `api` | Luna high / Sol medium / Astra medium | Luna high / Sol medium / Sol high | Luna high / Terra medium / Sol high |
 | `skip` | Luna high / Sol medium / Astra medium | Luna high / Sol medium / Sol high | the same as `balanced` |
 
-On a subscription plan there is also a last floor for light and standard work: below it, that work moves to your other agent CLI, or Firstmate asks you first if you only have one. The floors are, for light and standard work, Claude Pro 30% and 20%, Max 5x 20% and 10%, Max 20x 15% and 5%, Codex Plus 30% and 20%, and Codex Pro 20% and 10% (the seat plans follow the plan they share a row with). API keys have no floors. Firstmate reads how much quota is left through `quota-axi`, so stepping down needs you signed in to that agent CLI. Terra needs Codex CLI 0.159.0 or newer, which the kit's 0.164.0 is; where Terra is not available, GPT-6.1 Sol at low effort is the fallback, and where your workspace has not turned on GPT-6.1 Sol, GPT-6 Sol is (`bin/fm-strategy.sh show` notes both).
+On a subscription plan there is also a last floor for light and standard work: below it, that work moves to your other agent CLI, or Firstmate asks you first if you only have one. The floors are, for light and standard work, Claude Pro 30% and 20%, Max 5x 20% and 10%, Max 20x 15% and 5%, Codex Plus 30% and 20%, and Codex Pro 20% and 10% (the seat plans follow the plan they share a row with). API keys have no floors. Firstmate reads how much quota is left through `quota-axi`, so stepping down needs you signed in to that agent CLI. Terra needs Codex CLI 0.159.0 or newer, which the kit's 0.164.0 is; if Terra is unavailable in an interactive session, choose an available model explicitly (`bin/fm-strategy.sh show` notes this).
 
 **Quiet mode in `balanced` and `lean`.** While you are at the keyboard, these two modes put Firstmate in its quiet mode (`/quiet`):
 
@@ -2439,7 +2462,7 @@ Everything else (Firstmate, Herdr, the crew, second mates) works without the tow
 - **Node, git or gh "not found" after the handoff:** install them **inside Ubuntu** too, and sign in there with `gh auth login`. Windows and Ubuntu are separate. Run the check in B2.2 step 3.
 - **`herdr`, `codex`, `firstmate`, `fm-mate` or `node "$AK"` not found:** you are probably in PowerShell. Open the **Ubuntu** terminal. If it still fails there, check your Ubuntu PATH (B2.11) and open a new Ubuntu terminal. `firstmate`, `fm-mate` and `fm-help` are also missing if you said `n` to question 5.
 - **`Open a Herdr pane, then run firstmate (or press Ctrl+B, then F).`:** `firstmate` only starts Firstmate inside Herdr. Run `herdr` first.
-- **`Exit the current coordinator cleanly before switching.`:** Firstmate is already running in this home. Switch to its tab, or quit it, before starting another.
+- **`Exit the current coordinator cleanly before switching.`:** Only one Firstmate can run in a home; do not open both Captain tabs at once. Switch to its tab, or quit it, before starting another.
 - **Firstmate says treehouse, no-mistakes, gh-axi or other tools are missing, or doctor shows `WARN herdr-path-env`:** Herdr was already running before you added the PATH line, so it kept its old PATH. Inside Ubuntu, run `herdr server stop`, then start `herdr` again from an Ubuntu tab that has the PATH line (B2.11).
 - **A Herdr key does nothing:** check `fm-help` for the keys you actually got. Press `Ctrl+B Shift+R` to reload Herdr's settings, or restart Herdr. The session graph keys need Herdr started from an Ubuntu terminal whose PATH has `<root>/.tools/bin` first. If a `Ctrl+B Shift+…` key still does nothing in Windows Terminal, use the matching command (B6.6) and tell the person who shared this guide.
 - **`run fm-mate inside the WSL2 distribution`** (or the same for `keys` or `jev`): you ran the kit from PowerShell. Run it in Ubuntu.

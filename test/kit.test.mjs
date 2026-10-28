@@ -35,20 +35,26 @@ function tempFixture(t) {
 
 test('bundled manifest keeps verified source commits and macOS/Linux digests', () => {
   validateManifest(manifest);
+  assert.equal(manifest.release, 'pilot-11');
+  const firstmate = manifest.tools.find(x => x.id === 'firstmate');
+  assert.equal(firstmate.version.value, '622311a564865e8fb5a5cfdf1b92ee97ce3711b5');
+  assert.equal(firstmate.approvedUpstream, 'https://github.com/pikenguyen227/firstmate');
+  assert.equal(firstmate.artifacts['darwin-arm64'].sha256, 'c5d84ffad31cf0cf72ae6f3d653c65ef25fb5319c8c0a5f1a2f48ef7c4cd50d1');
   const tower = manifest.tools.find(x => x.id === 'zoe-fleet'), runtime = manifest.tools.find(x => x.id === 'zoe-fleet-runtime');
-  assert.equal(tower.version.value, 'fc45c4d9ea1de0af27092f26eaa8f5008881f01e');
+  assert.equal(tower.version.value, 'b1736f30d34e0ace87eb871b3d6fd1cc79f17c84');
+  assert.equal(tower.artifacts['linux-arm64'].sha256, '5843ffdb9b258b31ec26b5b74233b983aacfd9e65aaf35bafbff697fac1bad22');
   assert.deepEqual(['darwin-arm64', 'darwin-x64', 'linux-arm64', 'linux-x64'].map(target => tower.artifacts[target].kind), ['release-archive', 'release-archive', 'source-archive', 'source-archive']);
-  assert.equal(tower.artifacts['darwin-arm64'].sha256, '067ff921f660840b3cf4f0ab84a7a0500a8b2705f25f0164f1b3f970ca413e65');
-  assert.equal(tower.artifacts['darwin-x64'].sha256, 'f167a67bab048fb06a2c7e0e5254ba497c19249eda94441f3a08ed92e6f47a27');
+  assert.equal(tower.artifacts['darwin-arm64'].sha256, 'd3c8396a02b6610314bfece66b3afb8f37f3399995b5a76ea4db46d89530162d');
+  assert.equal(tower.artifacts['darwin-x64'].sha256, '97b2eb396862c152c5329079d2e293a163f95fdd8a9fb5a44e822d6566ca1a09');
   for (const target of ['darwin-arm64', 'darwin-x64']) {
-    assert.match(tower.artifacts[target].url, /^https:\/\/github\.com\/pikenguyen227\/zoetrope\/releases\/download\/fleet-v0\.2\.0-fc45c4d9ea1d\//);
-    assert.equal(runtime.artifacts[target].sha256, '48b30346cec0ab1174e296745154defade431b1fb66da6a88c992b383a4e381a');
+    assert.match(tower.artifacts[target].url, /^https:\/\/github\.com\/pikenguyen227\/zoetrope\/releases\/download\/fleet-v0\.2\.0-b1736f30d34e\//);
+    assert.equal(runtime.artifacts[target].sha256, '88794ffa9597d10be30b80d4f6b169127fd2ec3b78682c7d45514d38ed610017');
   }
   assert.deepEqual(['linux-arm64', 'linux-x64'].map(target => runtime.artifacts[target].status), ['unverified', 'unverified']);
   assert.deepEqual(['wsl2-arm64', 'wsl2-x64'].map(target => [tower.artifacts[target].kind, tower.artifacts[target].sha256]),
-    [['release-archive', 'c22035f08c5f23631ebc87cac6d5116f86cae894d22f68bda60389d860609a3e'], ['release-archive', '8085a73f24d6290df078e4e7edf34ea00ab712288e9fbbd72ff50c50bb549a45']]);
+    [['release-archive', '927bd47f3768b7af53e3f4881949151dfd98c2a72082ce3b3f09090995232629'], ['release-archive', 'a70d73f9064672c546bd05eb5f810de326e0e97b966dd676f844e6a0cf950465']]);
   for (const target of ['wsl2-arm64', 'wsl2-x64']) {
-    assert.match(tower.artifacts[target].url, /^https:\/\/github\.com\/pikenguyen227\/zoetrope\/releases\/download\/fleet-v0\.2\.0-fc45c4d9ea1d-linux\//);
+    assert.match(tower.artifacts[target].url, /^https:\/\/github\.com\/pikenguyen227\/zoetrope\/releases\/download\/fleet-v0\.2\.0-b1736f30d34e-linux\//);
     assert.deepEqual(runtime.artifacts[target], { ...runtime.artifacts['darwin-arm64'], reason: runtime.artifacts[target].reason });
   }
   assert.ok(manifest.tools.filter(x => x.artifacts && !['zoe-fleet', 'zoe-fleet-runtime', 'zoetrope-herdr-plugin', 'herdr-plugin-manager'].includes(x.id)).every(x => !Object.keys(x.artifacts).some(target => target.startsWith('wsl2-'))));
