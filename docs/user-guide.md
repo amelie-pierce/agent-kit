@@ -249,6 +249,8 @@ If you already have one of these plugins, or the `claude-plugins-official` marke
 
 On every plan, hard work stays on the strongest model the plan routes (on Claude Opus 5.5; on Codex GPT-6.1 Sol, or GPT-6 Astra in `full` on the larger plans), and checking (validation) always runs at high effort. The exact models for each plan and mode are in the token tables (A7.4).
 
+**If Codex is your only agent CLI.** Work pauses when your weekly Codex quota is used up, and resumes after the quota resets. The kit never switches to another provider you have not set up. On Codex Plus, choose `lean`.
+
 **Routing mode (2c)** is Firstmate's token strategy (A7.4). Before the question the installer shows what each mode means:
 
 ```text
@@ -859,6 +861,8 @@ Codex (Luna and Astra are GPT-6; Terra and Sol are GPT-6.1):
 | `skip` | Luna high / Sol medium / Astra medium | Luna high / Sol medium / Sol high | the same as `balanced` |
 
 On a subscription plan there is also a last floor for light and standard work: below it, that work moves to your other agent CLI, or Firstmate asks you first if you only have one. The floors are, for light and standard work, Claude Pro 30% and 20%, Max 5x 20% and 10%, Max 20x 15% and 5%, Codex Plus 30% and 20%, and Codex Pro 20% and 10% (the seat plans follow the plan they share a row with). API keys have no floors. Firstmate reads how much quota is left through `quota-axi`, so stepping down needs you signed in to that agent CLI. Terra needs Codex CLI 0.159.0 or newer, which the kit's 0.164.0 is; where Terra is not available, GPT-6.1 Sol at low effort is the fallback, and where your workspace has not turned on GPT-6.1 Sol, GPT-6 Sol is (`bin/fm-strategy.sh show` notes both).
+
+**If Codex is your only agent CLI.** Work pauses when your weekly Codex quota is used up, and resumes after the quota resets. The kit never switches to another provider you have not set up. On Codex Plus, choose `lean`.
 
 **Quiet mode in `balanced` and `lean`.** While you are at the keyboard, these two modes put Firstmate in its quiet mode (`/quiet`):
 
@@ -1486,6 +1490,8 @@ If you already have one of these plugins, or the `claude-plugins-official` marke
 
 On every plan, hard work stays on the strongest model the plan routes (on Claude Opus 5.5; on Codex GPT-6.1 Sol, or GPT-6 Astra in `full` on the larger plans), and checking (validation) always runs at high effort. The exact models for each plan and mode are in the token tables (B7.4).
 
+**If Codex is your only agent CLI.** Work pauses when your weekly Codex quota is used up, and resumes after the quota resets. The kit never switches to another provider you have not set up. On Codex Plus, choose `lean`.
+
 **Routing mode (2c)** is Firstmate's token strategy (B7.4). Before the question the installer shows what each mode means:
 
 ```text
@@ -2103,6 +2109,8 @@ Codex (Luna and Astra are GPT-6; Terra and Sol are GPT-6.1):
 | `skip` | Luna high / Sol medium / Astra medium | Luna high / Sol medium / Sol high | the same as `balanced` |
 
 On a subscription plan there is also a last floor for light and standard work: below it, that work moves to your other agent CLI, or Firstmate asks you first if you only have one. The floors are, for light and standard work, Claude Pro 30% and 20%, Max 5x 20% and 10%, Max 20x 15% and 5%, Codex Plus 30% and 20%, and Codex Pro 20% and 10% (the seat plans follow the plan they share a row with). API keys have no floors. Firstmate reads how much quota is left through `quota-axi`, so stepping down needs you signed in to that agent CLI. Terra needs Codex CLI 0.159.0 or newer, which the kit's 0.164.0 is; where Terra is not available, GPT-6.1 Sol at low effort is the fallback, and where your workspace has not turned on GPT-6.1 Sol, GPT-6 Sol is (`bin/fm-strategy.sh show` notes both).
+
+**If Codex is your only agent CLI.** Work pauses when your weekly Codex quota is used up, and resumes after the quota resets. The kit never switches to another provider you have not set up. On Codex Plus, choose `lean`.
 
 **Quiet mode in `balanced` and `lean`.** While you are at the keyboard, these two modes put Firstmate in its quiet mode (`/quiet`):
 

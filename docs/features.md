@@ -94,6 +94,8 @@ Question 4 is Partial everywhere: see section 6. On Windows, question 1 is asked
 
 **What the plan choice means.** In `balanced` and `lean`, every subscription plan gets cheaper models for light and standard work (Claude: Haiku and Sonnet; Codex: Luna and Terra), and each kind of work steps down to a cheaper route as the week's quota runs low: below 50% on the smaller plans (Claude Pro, Team Standard, Enterprise standard; ChatGPT Plus, Business Standard) and below 35% on the larger ones (Claude Max 5x, Max 20x, Team Premium, Enterprise premium; ChatGPT Pro, Business Premium, Enterprise/Edu). `full` keeps stronger models for standard work (Opus; Sol). `api` (pay per use) gets cheaper models for light work and no step-down. `skip` keeps Firstmate's own rules. Hard work stays on the strongest model the plan routes and only lowers its effort; checking always runs at high effort. The guide's token tables (A7.4 or B7.4) list every plan and mode. Only plan names are saved; the kit never checks your account. At install the kit runs Firstmate's own `bin/fm-strategy.sh set <mode> --providers <set> --plans …` in a new home, then adds two extra rules, `check` (the plan's light route at low effort) and `research` (the plan's hard route), which step down with the work they copy. It never selects a strategy over one that already exists.
 
+**If Codex is your only agent CLI.** Work pauses when your weekly Codex quota is used up, and resumes after the quota resets. The kit never switches to another provider you have not set up. On Codex Plus, choose `lean`.
+
 ## 4. What gets installed
 
 Every download is checked against a fixed checksum. Nothing is started and no one is signed in.
