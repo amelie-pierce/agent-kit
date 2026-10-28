@@ -117,15 +117,24 @@ export const ownerTiers = [
   { id: 'research', when: 'Open-ended research or investigation across several sources before any change is planned', from: 'hard',
     why: 'Research rewards the strongest route the plan already uses for hard work.' },
 ];
-export function withOwnerTiers(body) {
+// A source tier may be a ladder (select "ladder": each provider's routes from stronger to cheaper, each but the
+// last with its own step-down floor). The owner rule keeps that select so it steps down as the tier does. A
+// route the low effort makes identical to a later one is dropped, keeping the later floor (the plan's), since
+// Firstmate's resolver rejects a rule that repeats a harness, model and effort. refresh replaces owner rules
+// still exactly as the kit worded them, for a re-render of rules the kit recorded as unchanged.
+export function withOwnerTiers(body, { refresh = false } = {}) {
   const value = JSON.parse(body), rules = Array.isArray(value.rules) ? value.rules : null;
   if (!rules) return body;
+  const same = (a, b) => a.harness === b.harness && (a.model ?? null) === (b.model ?? null) && (a.effort ?? null) === (b.effort ?? null);
   for (const tier of ownerTiers) {
-    if (rules.some(rule => rule.when === tier.when)) continue;
+    const at = rules.findIndex(rule => rule.when === tier.when);
+    if (at !== -1 && !(refresh && !rules[at].strategy && rules[at].why === tier.why)) continue;
     const source = rules.find(rule => rule.strategy === tier.from);
     if (!source) continue;
-    const use = [source.use].flat().map(profile => ({ ...profile, ...(tier.effort ? { effort: tier.effort } : {}) }));
-    rules.push({ when: tier.when, use: Array.isArray(source.use) ? use : use[0], why: tier.why });
+    const routes = [source.use].flat().map(profile => ({ ...profile, ...(tier.effort ? { effort: tier.effort } : {}) }));
+    const use = routes.filter((profile, i) => !routes.slice(i + 1).some(later => same(profile, later)));
+    const rule = { when: tier.when, use: Array.isArray(source.use) ? use : use[0], ...(source.select ? { select: source.select } : {}), why: tier.why };
+    if (at === -1) rules.push(rule); else rules[at] = rule;
   }
   return `${JSON.stringify(value, null, 2)}\n`;
 }
@@ -264,7 +273,8 @@ async function selectStrategy(plan) {
   }
   if (!selected) return { ...plan, action: 'skip', detail: `fm-strategy.sh ${plan.argv.slice(0, 2).join(' ')} failed: ${last(r)}` };
   if (plainFile(plan.path)) {
-    const before = readFileSync(plan.path, 'utf8'), after = withOwnerTiers(before);
+    // Only rules the kit recorded as unchanged reach here, so its owner rules follow the new render.
+    const before = readFileSync(plan.path, 'utf8'), after = withOwnerTiers(before, { refresh: true });
     if (after !== before) { const temp = `${plan.path}.agent-kit-${randomUUID()}.tmp`; await writeFile(temp, after, { flag: 'wx' }); await rename(temp, plan.path); }
   }
   const sha256 = fileSha(plan.path), strategySha256 = fileSha(strategy);

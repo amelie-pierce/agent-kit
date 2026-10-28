@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "release": "pilot-9",
+  "release": "pilot-10",
   "nodeMinimum": "24.15.0",
   "tools": [
     {
@@ -76,7 +76,7 @@
       "classification": "shareable",
       "version": {
         "kind": "git-commit",
-        "value": "e823c61f684bc78cc8f2de4dd92f8b40651c764e",
+        "value": "a6bc187783a5921b74c57c800a19ee2135479653",
         "status": "verified",
         "reason": "Commit verified on approved upstream."
       },
@@ -88,26 +88,26 @@
       "runtimeMinimum": null,
       "artifacts": {
         "darwin-arm64": {
-          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/e823c61f684bc78cc8f2de4dd92f8b40651c764e",
-          "sha256": "636ecdf6060fc3890eead54ac5cb01f938a6042633c0e198b11aee4f1e644161",
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/a6bc187783a5921b74c57c800a19ee2135479653",
+          "sha256": "cd01c5b7bc48234280e2f4806333fd7fd0e262e9ef05d8bf58936680d3e5993f",
           "status": "verified",
           "reason": "SHA-256 computed from the pinned GitHub source archive."
         },
         "darwin-x64": {
-          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/e823c61f684bc78cc8f2de4dd92f8b40651c764e",
-          "sha256": "636ecdf6060fc3890eead54ac5cb01f938a6042633c0e198b11aee4f1e644161",
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/a6bc187783a5921b74c57c800a19ee2135479653",
+          "sha256": "cd01c5b7bc48234280e2f4806333fd7fd0e262e9ef05d8bf58936680d3e5993f",
           "status": "verified",
           "reason": "SHA-256 computed from the pinned GitHub source archive."
         },
         "linux-arm64": {
-          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/e823c61f684bc78cc8f2de4dd92f8b40651c764e",
-          "sha256": "636ecdf6060fc3890eead54ac5cb01f938a6042633c0e198b11aee4f1e644161",
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/a6bc187783a5921b74c57c800a19ee2135479653",
+          "sha256": "cd01c5b7bc48234280e2f4806333fd7fd0e262e9ef05d8bf58936680d3e5993f",
           "status": "verified",
           "reason": "SHA-256 of pinned source archive, shared across supported hosts."
         },
         "linux-x64": {
-          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/e823c61f684bc78cc8f2de4dd92f8b40651c764e",
-          "sha256": "636ecdf6060fc3890eead54ac5cb01f938a6042633c0e198b11aee4f1e644161",
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/a6bc187783a5921b74c57c800a19ee2135479653",
+          "sha256": "cd01c5b7bc48234280e2f4806333fd7fd0e262e9ef05d8bf58936680d3e5993f",
           "status": "verified",
           "reason": "SHA-256 of pinned source archive, shared across supported hosts."
         },

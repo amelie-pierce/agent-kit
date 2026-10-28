@@ -345,9 +345,55 @@ test('upgrade from macos-pilot-5 with only a Firstmate pin change asks for /upda
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate update\n');
 });
 
-test('upgrade from macos-pilot-6 to pilot-9 plans and applies without a release prefix assumption', { skip: process.platform === 'win32' }, async t => {
+test('upgrade from pilot-9 to pilot-10 shows the Firstmate re-pin, asks for /updatefirstmate first, then applies', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t), oldPin = f.git('rev-parse', 'HEAD');
+  assert.equal(bundled.release, 'pilot-10');
+  writeFileSync(join(f.firstmate, 'README.md'), 'firstmate a6bc187\n');
+  f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qam', 'firstmate plan ladders and quiet delivery');
+  const newPin = f.git('rev-parse', 'HEAD');
+  f.git('checkout', '-q', '--detach', oldPin);
+  renameSync(join(f.root, 'releases', 'old-release'), join(f.root, 'releases', 'pilot-9'));
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.release = 'pilot-9';
+  receipt.phases.herdr.path = 'releases/pilot-9/bin/herdr';
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const fetchKit = async (_commit, _env, destination) => {
+    await stagedKit(_commit, _env, destination);
+    const target = structuredClone(f.manifest);
+    target.release = bundled.release;
+    target.tools.find(x => x.id === 'firstmate').version.value = newPin;
+    writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
+  };
+  const args = { ...f.options, resolveCommit: () => '8'.repeat(40), fetchKit };
+  const before = readFileSync(f.receiptPath, 'utf8');
+  const plan = await planUpgrade(args);
+  t.after(() => rmSync(plan.stage, { recursive: true, force: true }));
+  assert.equal(plan.fromRelease, 'pilot-9');
+  assert.equal(plan.toRelease, 'pilot-10');
+  assert.equal(plan.firstmatePinChange, true);
+  assert.deepEqual(plan.changes.filter(x => x.from.version !== x.to.version).map(x => x.id), ['firstmate']);
+  const text = formatLifecycle(plan);
+  assert.match(text, /\nRelease: pilot-9 -> pilot-10\n/);
+  assert.match(text, new RegExp(`\\n- firstmate: ${oldPin} -> ${newPin}; `));
+  assert.match(text, /\nFirstmate pin: run \/updatefirstmate in the Firstmate home before applying\n/);
+  await assert.rejects(applyUpgrade(plan, f.options), new RegExp(`Firstmate pin changed; run /updatefirstmate from ${f.firstmate}, then rerun agent-kit upgrade`));
+  assert.equal(readFileSync(f.receiptPath, 'utf8'), before, 'nothing changes before /updatefirstmate');
+  assert.equal(existsSync(join(f.root, 'releases', 'pilot-10')), false);
+  f.git('checkout', '-q', '--detach', newPin);
+  const ready = await planUpgrade(args);
+  assert.match(formatLifecycle(ready), /\nFirstmate pin: guarded update already verified\n/);
+  const result = await applyUpgrade(ready, f.options);
+  assert.equal(result.status, 'upgraded');
+  const after = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  assert.equal(after.release, 'pilot-10');
+  assert.equal(after.phases.firstmate.version, newPin);
+  assert.equal(readFileSync(join(f.root, 'releases', 'pilot-9', 'bin', 'herdr'), 'utf8'), 'original', 'the pilot-9 release stays for rollback');
+  assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate a6bc187\n', 'the kit never touches the home');
+});
+
+test('upgrade from macos-pilot-6 to the current pilot-N plans and applies without a release prefix assumption', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t), commit = '7'.repeat(40);
-  assert.equal(bundled.release, 'pilot-9');
+  assert.match(bundled.release, /^pilot-\d+$/);
   renameSync(join(f.root, 'releases', 'old-release'), join(f.root, 'releases', 'macos-pilot-6'));
   const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
   receipt.release = 'macos-pilot-6';
@@ -364,14 +410,14 @@ test('upgrade from macos-pilot-6 to pilot-9 plans and applies without a release 
   const plan = await planUpgrade({ ...f.options, resolveCommit: () => commit, fetchKit });
   t.after(() => rmSync(plan.stage, { recursive: true, force: true }));
   assert.equal(plan.fromRelease, 'macos-pilot-6');
-  assert.equal(plan.toRelease, 'pilot-9');
+  assert.equal(plan.toRelease, bundled.release);
   assert.equal(plan.firstmatePinChange, false);
-  assert.match(formatLifecycle(plan), /\nRelease: macos-pilot-6 -> pilot-9\n/);
+  assert.match(formatLifecycle(plan), new RegExp(`\\nRelease: macos-pilot-6 -> ${bundled.release}\\n`));
   const result = await applyUpgrade(plan, f.options);
   assert.equal(result.status, 'upgraded');
-  assert.equal(JSON.parse(readFileSync(f.receiptPath, 'utf8')).release, 'pilot-9');
+  assert.equal(JSON.parse(readFileSync(f.receiptPath, 'utf8')).release, bundled.release);
   assert.ok(Array.isArray(result.shortcuts), 'the new kit placed its extras once the upgrade could no longer roll back');
-  assert.equal(readFileSync(join(f.root, 'releases', 'pilot-9', 'bin', 'herdr'), 'utf8'), 'restored');
+  assert.equal(readFileSync(join(f.root, 'releases', bundled.release, 'bin', 'herdr'), 'utf8'), 'restored');
   assert.equal(readFileSync(join(f.root, 'releases', 'macos-pilot-6', 'bin', 'herdr'), 'utf8'), 'original');
   assert.equal(readFileSync(envPath, 'utf8'), 'TYPESAFE_API_KEY=fixture-secret-123\n');
 });

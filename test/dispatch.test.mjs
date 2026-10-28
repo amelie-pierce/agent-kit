@@ -490,6 +490,42 @@ test('a native selection is recorded by digest, verified by a dry run, refreshed
   assert.equal(restored.record.sha256, sha(readFileSync(f.rules)));
 });
 
+// The shape Firstmate's fm-strategy.sh renders for Claude Max 20x and Codex Pro balanced since its plan
+// ladders: each tier lists a provider's routes from stronger to cheaper and declares select "ladder".
+const floor = min_percent => ({ floor: { scope: 'all_models', min_percent } });
+const ladderRules = { rules: [
+  { when: 'Light work', select: 'ladder', strategy: 'light', use: [
+    { harness: 'claude', model: 'claude-haiku-5-5', effort: 'medium', ...floor(35) }, { harness: 'claude', model: 'claude-haiku-5-5', effort: 'low', ...floor(15) },
+    { harness: 'codex', model: 'gpt-6-luna', effort: 'high', ...floor(35) }, { harness: 'codex', model: 'gpt-6-luna', effort: 'medium', ...floor(20) }] },
+  { when: 'Hard work', select: 'ladder', strategy: 'hard', use: [
+    { harness: 'claude', model: 'claude-opus-5-5', effort: 'high', ...floor(35) }, { harness: 'claude', model: 'claude-opus-5-5', effort: 'medium' },
+    { harness: 'codex', model: 'gpt-6.1-sol', effort: 'high', ...floor(35) }, { harness: 'codex', model: 'gpt-6.1-sol', effort: 'medium' }] },
+] };
+const keys = rule => [rule.use].flat().map(p => `${p.harness}:${p.model}:${p.effort}`);
+
+test('owner tiers follow a ladder: check never repeats a harness, model and effort, and both keep select ladder', () => {
+  const rules = JSON.parse(withOwnerTiers(`${JSON.stringify(ladderRules)}\n`)).rules;
+  const [check, research] = rules.slice(2);
+  assert.equal(check.when, ownerTiers[0].when);
+  assert.deepEqual(check.use, [{ harness: 'claude', model: 'claude-haiku-5-5', effort: 'low', ...floor(15) }, { harness: 'codex', model: 'gpt-6-luna', effort: 'low', ...floor(20) }],
+    'low effort collapses each ladder to one route that keeps the plan floor');
+  assert.equal(check.select, 'ladder');
+  assert.deepEqual(research.use, ladderRules.rules[1].use, 'research steps down with the hard ladder');
+  assert.equal(research.select, 'ladder');
+  for (const rule of rules) assert.equal(new Set(keys(rule)).size, keys(rule).length, `Firstmate's resolver rejects a repeated profile in ${rule.when}`);
+  assert.equal(JSON.parse(withOwnerTiers(`${JSON.stringify({ rules: [template.dispatch.rules[2]] })}\n`)).rules[1].select, undefined, 'a tier without select gets none');
+});
+
+test('a re-render refreshes only the owner rules still worded as the kit wrote them', () => {
+  const stale = [{ when: ownerTiers[0].when, use: [{ harness: 'claude', model: 'claude-sonnet-5-5', effort: 'low' }], why: ownerTiers[0].why },
+    { when: ownerTiers[1].when, use: [{ harness: 'claude', model: 'claude-opus-5-5', effort: 'high' }], why: 'my own research route' }];
+  const body = `${JSON.stringify({ rules: [...ladderRules.rules, ...stale] })}\n`;
+  assert.equal(withOwnerTiers(body), `${JSON.stringify(JSON.parse(body), null, 2)}\n`, 'without refresh existing owner rules stay');
+  const [check, research] = JSON.parse(withOwnerTiers(body, { refresh: true })).rules.slice(2);
+  assert.deepEqual(keys(check), ['claude:claude-haiku-5-5:low', 'codex:gpt-6-luna:low']);
+  assert.deepEqual(research, stale[1], 'an owner rule the person reworded is theirs');
+});
+
 test('an unchanged bridge file moves to the native selection once the home takes --plans; an edited one is kept and named', posixOnly, async t => {
   const f = firstmateHome(t), log = join(f.base, 'argv');
   writeFileSync(join(f.home, 'bin', 'strategies', 'lean.json'), JSON.stringify(slots));
