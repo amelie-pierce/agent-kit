@@ -1,0 +1,24 @@
+docs/user-guide.md
+  s_a3d36a021c4404::t_cb2ebe36d7f528 320,1572
+test/setup.test.mjs
+  s_a3d36a021c4404::t_cb2ebe36d7f528 11,555-559
+  s_a3d36a021c4404::t_510f1b6e1060e7 560
+src/setup.mjs
+  s_a3d36a021c4404::t_cb2ebe36d7f528 405-408,604
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3d9a9590dcd9f82b6c1df9e7924cffa58049ce5e",
+  "prompts": {},
+  "sessions": {
+    "s_a3d36a021c4404": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61721add-e698-4abe-ac35-208e84573c1a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
