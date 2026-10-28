@@ -20,6 +20,6 @@ Callers and how a detected change surfaces:
 - Repair flags the reconcile lines and returns status `partial`, so the CLI exits 1 without rolling back the repair (src/lifecycle.mjs:164-176; src/lifecycle.mjs:346).
 - `placeUpdateExtras` flags its lines `profileChanged`; update exits 1 and upgrade returns `partial`, again without a rollback (src/update.mjs:83-115; src/lifecycle.mjs:533).
 - Uninstall finishes everything else, keeps the profile and returns `partial` (src/lifecycle.mjs:418-437).
-- Upgrade rollback restores the captured profile bytes only when the current file differs from them by nothing but the block the new kit recorded; otherwise it leaves the file and appends the reason to the upgrade error (src/shell-profile.mjs:162-173; src/lifecycle.mjs:534-548).
+- Upgrade rollback restores the captured profile bytes only when the current file differs from them by nothing but the block the new kit recorded; otherwise it leaves the file and appends the reason to the upgrade error (src/shell-profile.mjs:149-159; src/lifecycle.mjs:534-548).
 
 Tests inject an edit between read and replace through the `beforeReplace` hook, passed as `beforeProfileReplace` on lifecycle, update and setup options (test/shell-profile.test.mjs; test/lifecycle.test.mjs; test/setup.test.mjs).
