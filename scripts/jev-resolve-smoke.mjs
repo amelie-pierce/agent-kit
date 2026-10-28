@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { strategyTakesPlans } from '../src/dispatch.mjs';
 
 // End-to-end proof that typing a key into `agent-kit keys` is the only step Jev routing needs: the kit writes
-// the key and its plan-fitted starter rules (Claude Pro, lean) into a copy of the pinned Firstmate, and that Firstmate's own
+// the key and its plan-fitted starter rules (Claude Max 20x, balanced: quota ladders) into a copy of the pinned Firstmate, and that Firstmate's own
 // bin/fm-dispatch-resolve.sh then returns a clear profile from those rules. curl and quota-axi are stubs on
 // PATH, so nothing reaches typesafe.ai and the key is an obvious placeholder.
 // AGENT_KIT_FIRSTMATE_SRC may name an already extracted pinned Firstmate; otherwise the pinned archive is
@@ -44,7 +44,7 @@ try {
   const gitEnv = { HOME: home, PATH: process.env.PATH, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
   assert.equal(run('git', ['init', '-q', firstmate], { env: gitEnv }).status, 0);
   writeFileSync(join(tools, 'receipt.json'), `${JSON.stringify({ schemaVersion: 1, release: manifest.release, phases: {},
-    setup: { answers: { harness: 'claude', plans: { claude: 'pro' }, dispatchMode: 'lean' }, paths: { root, installRoot: tools, firstmateHome: firstmate } } })}\n`, { mode: 0o600 });
+    setup: { answers: { harness: 'claude', plans: { claude: 'max20x' }, dispatchMode: 'balanced' }, paths: { root, installRoot: tools, firstmateHome: firstmate } } })}\n`, { mode: 0o600 });
 
   // The one step: agent-kit keys on a terminal, key typed at the hidden prompt. Replies reach python on stdin.
   const driver = `
@@ -73,11 +73,11 @@ sys.exit(os.waitstatus_to_exitcode(status))
   // A Firstmate whose fm-strategy.sh takes --plans selects the strategy itself; an older one gets the kit's bridge file.
   const native = strategyTakesPlans(firstmate);
   if (native) {
-    assert.match(keys.stdout, /Starter dispatch rules: selected Firstmate's lean strategy for claude fitted to your plan \(claude pro\) with bin\/fm-strategy\.sh set lean --providers claude --plans claude=pro --yes/);
-    assert.match(readFileSync(join(firstmate, 'config', 'strategy'), 'utf8'), /^plans=claude=pro$/m);
+    assert.match(keys.stdout, /Starter dispatch rules: selected Firstmate's balanced strategy for claude fitted to your plan \(claude max20x\) with bin\/fm-strategy\.sh set balanced --providers claude --plans claude=max20x --yes/);
+    assert.match(readFileSync(join(firstmate, 'config', 'strategy'), 'utf8'), /^plans=claude=max20x$/m);
     assert.equal(JSON.parse(readFileSync(join(tools, 'receipt.json'), 'utf8')).setup.dispatch.via, 'fm-strategy');
   } else {
-    assert.match(keys.stdout, /Starter dispatch rules: wrote Firstmate's lean rules for claude fitted to your plan \(claude pro\)/);
+    assert.match(keys.stdout, /Starter dispatch rules: wrote Firstmate's balanced rules for claude fitted to your plan \(claude max20x\)/);
     assert.equal(existsSync(join(firstmate, 'config', 'strategy')), false);
   }
   assert.equal((keys.stdout + keys.stderr).includes(placeholder), false, 'keys never shows the value');
@@ -85,7 +85,14 @@ sys.exit(os.waitstatus_to_exitcode(status))
   const pick = rules.rules.findIndex(rule => rule.strategy === 'standard');
   assert.ok(pick >= 0, 'balanced rules include the standard tier');
   const expected = [rules.rules[pick].use].flat()[0];
-  assert.deepEqual(expected, { harness: 'claude', model: 'claude-sonnet-5-5', effort: 'medium', floor: { scope: 'all_models', min_percent: 20 } }, 'Claude Pro lean standard tier');
+  // Since Firstmate a6bc1877 the tier is a ladder: Sonnet medium while 35% of the week remains, then Sonnet low.
+  // The resolver below validates the whole file, so a clear answer also proves the kit's check and research
+  // rules (copied from the light and hard ladders) passed its schema check.
+  if (native) {
+    assert.deepEqual(expected, { harness: 'claude', model: 'claude-sonnet-5-5', effort: 'medium', floor: { scope: 'all_models', min_percent: 35 } }, 'Claude Max 20x balanced standard tier');
+    assert.equal(rules.rules[pick].select, 'ladder');
+    assert.equal(rules.rules.filter(rule => !rule.strategy && rule.select === 'ladder').length, 2, 'check and research follow their ladders');
+  } else assert.deepEqual(expected, { harness: 'claude', model: 'claude-opus-5-5', effort: 'medium', floor: { scope: 'all_models', min_percent: 5 } }, 'Claude Max 20x balanced standard tier on the bridge');
 
   // Stubs: curl answers as typesafe.ai would and records whether the key arrived on fd 3; quota-axi reports room.
   const stubs = join(base, 'stubs'); mkdirSync(stubs);
