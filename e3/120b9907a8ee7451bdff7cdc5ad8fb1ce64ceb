@@ -1,0 +1,19 @@
+scripts/wsl2-tower-smoke.mjs
+  s_43e8f32447df2d::t_cbe2094d674a5f 37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e3120b9907a8ee7451bdff7cdc5ad8fb1ce64ceb",
+  "prompts": {},
+  "sessions": {
+    "s_43e8f32447df2d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a182d1-e157-7243-909f-daee70ca9dfa",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
