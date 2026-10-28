@@ -1,0 +1,21 @@
+_vaults/agent-kit/wiki/architecture/starter-dispatch-rules.md
+  s_b3678b05bf8bee::t_2bba97c6825917 29
+src/setup.mjs
+  s_b3678b05bf8bee::t_1a16288a71a2b5 29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a2a77a71051d0f0a17d9b818a70c70347761b612",
+  "prompts": {},
+  "sessions": {
+    "s_b3678b05bf8bee": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "530044d3-8449-471d-9ed4-3adf9fec2f94",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
