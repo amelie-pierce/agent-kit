@@ -1,0 +1,38 @@
+test/setup.test.mjs
+  s_1f0aa066d0c671::t_84ec7d04e5f7df 403,407-408
+test/lifecycle.test.mjs
+  s_1f0aa066d0c671::t_84ec7d04e5f7df 631,640,642,646,652-653
+src/update.mjs
+  s_1f0aa066d0c671::t_49442006f7e2fa 85
+docs/features.md
+  s_1f0aa066d0c671::t_7c170b028ccee9 3,131
+src/shell-profile.mjs
+  s_1f0aa066d0c671::t_227a0ad335c177 142
+  s_1f0aa066d0c671::t_9bae4329eea9c4 19,115,121,124,145-146,155
+test/shell-profile.test.mjs
+  s_1f0aa066d0c671::t_5a0788988c95ce 146,149,151,153,156,158-159,163,168,173,176,179,183-185,189,193-194
+  s_1f0aa066d0c671::t_84ec7d04e5f7df 188,190
+docs/user-guide.md
+  s_1f0aa066d0c671::t_7c170b028ccee9 5
+  s_1f0aa066d0c671::t_f5c068549985b6 229,1491
+src/lifecycle.mjs
+  s_1f0aa066d0c671::t_9bae4329eea9c4 169,418,422
+_vaults/agent-kit/wiki/architecture/shell-profile.md
+  s_1f0aa066d0c671::t_7c170b028ccee9 15,17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "db04e3344fcac4739376b1ffdce78d1b90518cb5",
+  "prompts": {},
+  "sessions": {
+    "s_1f0aa066d0c671": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1830d-0b8e-7a93-9946-42550559c33f",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
