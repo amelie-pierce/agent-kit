@@ -1,0 +1,31 @@
+docs/user-guide.md
+  s_c92d5395a29678::t_c9285484612570 14,18-19,653,1944
+manifests/pilot-skeleton.json
+  s_c92d5395a29678::t_2d6e8e785d7fb3 1221,1223
+README.md
+  s_c92d5395a29678::t_0894d272752a95 215
+  s_c92d5395a29678::t_c9285484612570 453,523
+test/kit.test.mjs
+  s_c92d5395a29678::t_2d6e8e785d7fb3 375,1249
+  s_c92d5395a29678::t_0894d272752a95 1250-1251
+manifests/npm-figma/package.json
+  s_c92d5395a29678::t_2d6e8e785d7fb3 6
+manifests/npm-figma/package-lock.json
+  s_c92d5395a29678::t_85b4658ad86ace 11,16-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dba471e2522fcb19638c84beb93475bb515f4998",
+  "prompts": {},
+  "sessions": {
+    "s_c92d5395a29678": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a186b2-b5cd-7310-87ab-7c8f31c13048",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
