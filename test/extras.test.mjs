@@ -245,6 +245,7 @@ test('a kit-owned Figma marketplace moves to the new pin and can restore its pil
   assert.ok(calls.includes('plugin marketplace remove amelie-pierce --scope user --json'));
   assert.ok(calls.includes(`plugin marketplace add ${market.repo}#${market.commit} --scope user --json`));
   assert.equal(upgraded.record.marketRevisions['amelie-pierce'], market.commit);
+  assert.equal(upgraded.record.previousMarketRevisions['amelie-pierce'], old);
   assert.equal(readFileSync(join(dir, '.gcs-sha'), 'utf8').trim(), market.commit);
   assert.equal(claudePluginsHealth(upgraded.record, f.env, f.home, { harness: 'claude', figma: true }).find(r => r.id === 'claude-marketplace-amelie-pierce').status, 'pass');
   setRevision(old);
@@ -255,6 +256,30 @@ test('a kit-owned Figma marketplace moves to the new pin and can restore its pil
   assert.equal(readFileSync(join(dir, '.gcs-sha'), 'utf8').trim(), old);
   assert.equal(failed.record.marketRevisions['amelie-pierce'], undefined);
   assert.ok(failed.lines.some(line => line.includes('previous revision restored')));
+});
+
+test('repair and uninstall leave a user replacement of a formerly kit-owned Figma marketplace', posixOnly, async t => {
+  const f = fixture(t), market = pluginTable().marketplaces.find(m => m.name === 'amelie-pierce');
+  const dir = join(f.base, 'figma-marketplace'), replacement = 'b'.repeat(40);
+  mkdirSync(dir, { recursive: true });
+  mkdirSync(join(f.home, '.claude', 'plugins'), { recursive: true });
+  writeFileSync(join(f.home, '.claude', 'plugins', 'known_marketplaces.json'), JSON.stringify({ 'amelie-pierce': { installLocation: dir } }));
+  writeFileSync(join(dir, '.gcs-sha'), `${replacement}\n`);
+  const record = { markets: ['amelie-pierce'], marketRevisions: { 'amelie-pierce': market.commit }, previousMarketRevisions: { 'amelie-pierce': 'cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942' }, plugins: ['figma-cli@amelie-pierce'], patches: [] };
+  const calls = [], run = args => { calls.push(args.join(' ')); return { status: 0, stdout: '{"outcome":"ok","message":"ok"}\n' }; };
+  const repaired = await placeClaudePlugins({ harness: 'claude', figma: true }, { claude: '/bin/claude', env: f.env, home: f.home, record, run });
+  assert.ok(!calls.some(line => line.includes('amelie-pierce')));
+  assert.ok(!repaired.record.markets.includes('amelie-pierce'));
+  assert.ok(!repaired.record.plugins.includes('figma-cli@amelie-pierce'));
+  assert.ok(!repaired.record.previousMarketRevisions['amelie-pierce']);
+  assert.equal(readFileSync(join(dir, '.gcs-sha'), 'utf8').trim(), replacement);
+  calls.length = 0;
+  const oldTable = { ...pluginTable(), marketplaces: [{ ...market, commit: record.previousMarketRevisions['amelie-pierce'] }], patches: [] };
+  await placeClaudePlugins({ harness: 'claude', figma: true }, { claude: '/bin/claude', env: f.env, home: f.home, record, run, table: oldTable });
+  assert.ok(!calls.some(line => line.includes('amelie-pierce')));
+  calls.length = 0;
+  removeClaudePlugins(record, { claude: '/bin/claude', env: f.env, home: f.home, run });
+  assert.ok(!calls.some(line => line.includes('amelie-pierce')));
 });
 
 test('an existing user-added Figma marketplace stays at its own revision', posixOnly, async t => {
@@ -368,7 +393,18 @@ test('the owner\'s Claude plugins are installed by pinned marketplace commit wit
   assert.ok(!calls.some(c => c.includes('claude-mem')), 'excluded by the owner');
   assert.ok(!result.record.plugins.includes('superpowers@claude-plugins-official'));
   assert.deepEqual(await placeClaudePlugins({ harness: 'codex' }, { claude: '/bin/claude', env: f.env, home: f.home, run }), { lines: [], record: null }, 'Codex only: nothing');
-  assert.ok(removeClaudePlugins(result.record, { claude: '/bin/claude', run }).every(line => /uninstalled|removed/.test(line)));
+  const known = {};
+  for (const name of result.record.markets) {
+    const location = join(f.base, name);
+    mkdirSync(location, { recursive: true });
+    writeFileSync(join(location, '.gcs-sha'), `${result.record.marketRevisions[name]}\n`);
+    known[name] = { installLocation: location };
+  }
+  mkdirSync(join(f.home, '.claude', 'plugins'), { recursive: true });
+  writeFileSync(join(f.home, '.claude', 'plugins', 'known_marketplaces.json'), JSON.stringify(known));
+  const removed = removeClaudePlugins(result.record, { claude: '/bin/claude', env: f.env, home: f.home, run });
+  assert.equal(removed.length, result.record.plugins.length + result.record.markets.length);
+  assert.ok(removed.every(line => /uninstalled|removed/.test(line)));
   // The SessionEnd edit applies only to the byte-identical pinned hooks.json.
   const patch = table.patches[0], hooks = join(f.home, '.claude', 'plugins', 'cache', 'openai-codex', 'codex', '1.0.6', 'hooks');
   mkdirSync(hooks, { recursive: true });

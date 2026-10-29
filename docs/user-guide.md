@@ -246,7 +246,7 @@ The list of files and links it will touch is shown before the question. Your own
 | `context7` | it may ask for your own Context7 key; the kit never writes one |
 | `figma-cli` (only with Figma) | nothing |
 
-If you already have one of these plugins or marketplaces, the kit leaves yours as it is; doctor warns if your marketplace revision differs from the kit's pin. On upgrade or repair, the kit refreshes a marketplace only when its receipt records kit ownership and its installed revision differs from the pin. A failed refresh attempts to restore the previous revision. Uninstall removes only what the kit added.
+If you already have one of these plugins or marketplaces, the kit leaves yours as it is; doctor warns if your marketplace revision differs from the kit's pin. Upgrade and repair refresh a receipt-owned marketplace only when its installed revision still matches the recorded kit revision. Pilot-12 receipts without a revision use their ownership record. The receipt keeps the prior revision after a successful refresh; a failed refresh attempts to restore it. A downgrade from pilot-13 to pilot-12 through the pilot-13 kit restores that prior revision only if the installed revision still matches the receipt. A user replacement under the same name is left untouched by repair, downgrade and uninstall.
 
 **The plan questions (2a, 2b, 2c).** The kit asks which subscription you have for each agent CLI you chose, so that Firstmate (and Jev, once you add the key) picks models your plan can afford. Only the plan's name is saved; the kit never checks your account. If you are not sure, press Enter for `skip`.
 
@@ -1526,7 +1526,7 @@ The list of files and links it will touch is shown before the question. Your own
 | `context7` | it may ask for your own Context7 key; the kit never writes one |
 | `figma-cli` (only with Figma) | nothing |
 
-If you already have one of these plugins or marketplaces, the kit leaves yours as it is; doctor warns if your marketplace revision differs from the kit's pin. On upgrade or repair, the kit refreshes a marketplace only when its receipt records kit ownership and its installed revision differs from the pin. A failed refresh attempts to restore the previous revision. Uninstall removes only what the kit added.
+If you already have one of these plugins or marketplaces, the kit leaves yours as it is; doctor warns if your marketplace revision differs from the kit's pin. Upgrade and repair refresh a receipt-owned marketplace only when its installed revision still matches the recorded kit revision. Pilot-12 receipts without a revision use their ownership record. The receipt keeps the prior revision after a successful refresh; a failed refresh attempts to restore it. A downgrade from pilot-13 to pilot-12 through the pilot-13 kit restores that prior revision only if the installed revision still matches the receipt. A user replacement under the same name is left untouched by repair, downgrade and uninstall.
 
 **The plan questions (2a, 2b, 2c).** The kit asks which subscription you have for each agent CLI you chose, so that Firstmate (and Jev, once you add the key) picks models your plan can afford. Only the plan's name is saved; the kit never checks your account. If you are not sure, press Enter for `skip`.
 

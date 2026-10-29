@@ -14,7 +14,7 @@ import { envManaged, keyStatus } from './keys.mjs';
 import { applyStarter, harnessOf, modeOf, planStarter, plansOf, starterRemovable } from './dispatch.mjs';
 import { herdrConfigPath, placeKitExtras, planRemoveShortcuts, removeShortcuts } from './shortcuts.mjs';
 import { planRemovePlugin, removePlugin } from './herdr-plugin.mjs';
-import { removeClaudePlugins } from './claude-plugins.mjs';
+import { placeClaudePlugins, removeClaudePlugins } from './claude-plugins.mjs';
 import { ProfileChanged, planRemoveProfile, profileTarget, reconcileProfile, removeProfile, restoreProfile, saveProfileRecord } from './shell-profile.mjs';
 
 const repo = 'amelie-pierce/agent-kit';
@@ -529,6 +529,21 @@ export async function applyUpgrade(plan, options = {}) {
     await atomicJson(join(root, 'receipt.json'), updated);
     // Past every check that rolls back: what the new kit places from here stays tracked in the receipt.
     const shortcuts = await target.placeUpdateExtras({ ...options, installRoot: root, isRunning: () => false }, homeOf(updated));
+    const priorMarkets = old.setup?.shortcuts?.claudePlugins;
+    if (plan.fromRelease === 'pilot-13' && plan.toRelease === 'pilot-12' && priorMarkets?.previousMarketRevisions) {
+      const table = JSON.parse(readFileSync(join(kitTarget, 'manifests', 'claude-plugins.json'), 'utf8'));
+      table.marketplaces = table.marketplaces.filter(m => priorMarkets.previousMarketRevisions[m.name]).map(m => ({ ...m, commit: priorMarkets.previousMarketRevisions[m.name] }));
+      table.patches = [];
+      if (table.marketplaces.length) {
+        const restored = await placeClaudePlugins(old.setup.answers || {}, { claude: old.setup.shortcuts.realClaude, env: options.env || process.env,
+          home: options.home || options.env?.HOME || process.env.HOME, record: priorMarkets, run: options.runClaude, table });
+        const current = receiptAt(root).receipt;
+        current.setup ||= {}; current.setup.shortcuts ||= {};
+        current.setup.shortcuts.claudePlugins = restored.record;
+        await atomicJson(join(root, 'receipt.json'), current);
+        if (Array.isArray(shortcuts)) shortcuts.push(...restored.lines);
+      }
+    }
     const dispatch = await reconcileStarter(root, homeOf(updated), 'upgrade');
     return { ...plan, apply: true, status: shortcuts?.profileChanged ? 'partial' : 'upgraded', components: result.components, dispatch, shortcuts };
   } catch (error) {

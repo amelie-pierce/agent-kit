@@ -12,6 +12,7 @@ import { extrasPaths, placeUpdateExtras } from '../src/update.mjs';
 import { applyRepair, applyUninstall, applyUpgrade, formatLifecycle, planRepair, planUninstall, planUpgrade, resolveReviewedCommit } from '../src/lifecycle.mjs';
 import { parseArgs } from '../src/kit.mjs';
 import { windowsLifecycle } from '../src/install/windows.mjs';
+import { placeClaudePlugins, pluginTable } from '../src/claude-plugins.mjs';
 
 const sha = body => createHash('sha256').update(body).digest('hex');
 const bundled = JSON.parse(readFileSync(new URL('../manifests/pilot-skeleton.json', import.meta.url)));
@@ -436,6 +437,56 @@ test('upgrade from pilot-12 to pilot-13 shows the Firstmate re-pin, asks for /up
   assert.equal(after.phases.firstmate.version, newPin);
   assert.equal(readFileSync(join(f.root, 'releases', 'pilot-12', 'bin', 'herdr'), 'utf8'), 'original', 'the pilot-12 release stays for rollback');
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate 21b2158\n', 'the kit never touches the home');
+});
+
+test('a successful pilot-13 Figma marketplace refresh restores the pilot-12 revision on downgrade', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t), market = pluginTable().marketplaces.find(m => m.name === 'amelie-pierce');
+  const oldPin = 'cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942';
+  const dir = join(f.base, 'figma-marketplace'), knownPath = join(f.home, '.claude', 'plugins', 'known_marketplaces.json');
+  mkdirSync(dir, { recursive: true });
+  mkdirSync(join(f.home, '.claude', 'plugins'), { recursive: true });
+  const setRevision = revision => {
+    writeFileSync(knownPath, JSON.stringify({ 'amelie-pierce': { installLocation: dir } }));
+    writeFileSync(join(dir, '.gcs-sha'), `${revision}\n`);
+  };
+  const calls = [];
+  const runClaude = args => {
+    calls.push(args.join(' '));
+    if (args[2] === 'remove' && args[3] === 'amelie-pierce') rmSync(knownPath);
+    if (args[2] === 'add' && args[3].startsWith(market.repo)) setRevision(args[3].split('#')[1]);
+    return { status: 0, stdout: '{"outcome":"ok","message":"ok"}\n' };
+  };
+  setRevision(oldPin);
+  const legacy = { markets: ['amelie-pierce'], plugins: ['figma-cli@amelie-pierce'], patches: [] };
+  const upgraded = await placeClaudePlugins({ harness: 'claude', figma: true }, { claude: '/bin/claude', env: f.options.env, home: f.home, record: legacy, run: runClaude });
+  assert.equal(upgraded.record.marketRevisions['amelie-pierce'], market.commit);
+  assert.equal(upgraded.record.previousMarketRevisions['amelie-pierce'], oldPin);
+  renameSync(join(f.root, 'releases', 'old-release'), join(f.root, 'releases', 'pilot-13'));
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.release = 'pilot-13';
+  receipt.phases.herdr.path = 'releases/pilot-13/bin/herdr';
+  receipt.setup.answers.figma = true;
+  receipt.setup.shortcuts = { realClaude: '/bin/claude', claudePlugins: upgraded.record };
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const fetchKit = async (_commit, _env, destination) => {
+    await stagedKit(_commit, _env, destination);
+    writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify({ ...f.manifest, release: 'pilot-12' })}\n`);
+    const oldTable = pluginTable();
+    oldTable.marketplaces.find(m => m.name === 'amelie-pierce').commit = oldPin;
+    writeFileSync(join(destination, 'manifests', 'claude-plugins.json'), `${JSON.stringify(oldTable)}\n`);
+  };
+  calls.length = 0;
+  const plan = await planUpgrade({ ...f.options, resolveCommit: () => '9'.repeat(40), fetchKit });
+  const result = await applyUpgrade(plan, { ...f.options, runClaude });
+  assert.equal(result.status, 'upgraded');
+  assert.ok(calls.includes('plugin marketplace remove amelie-pierce --scope user --json'));
+  assert.ok(calls.includes(`plugin marketplace add ${market.repo}#${oldPin} --scope user --json`));
+  assert.equal(readFileSync(join(dir, '.gcs-sha'), 'utf8').trim(), oldPin);
+  const after = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  assert.equal(after.release, 'pilot-12');
+  assert.equal(after.setup.shortcuts.claudePlugins.marketRevisions['amelie-pierce'], oldPin);
+  assert.equal(after.setup.shortcuts.claudePlugins.previousMarketRevisions['amelie-pierce'], market.commit);
+  assert.ok(existsSync(join(f.root, 'releases', 'pilot-13')));
 });
 
 test('upgrade from macos-pilot-6 to the current pilot-N plans and applies without a release prefix assumption', { skip: process.platform === 'win32' }, async t => {

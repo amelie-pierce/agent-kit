@@ -21,27 +21,43 @@ const readJson = path => { try { return JSON.parse(readFileSync(path, 'utf8')); 
 const knownMarkets = (env, home) => readJson(join(configDir(env, home), 'plugins', 'known_marketplaces.json'));
 // What the person already has: enabled plugins in their user settings and the marketplaces Claude Code knows.
 function existing(env, home) {
-  return { plugins: new Set(Object.keys(readJson(join(configDir(env, home), 'settings.json')).enabledPlugins || {})), markets: new Set(Object.keys(knownMarkets(env, home))) };
+  return { plugins: new Set(Object.keys(readJson(join(configDir(env, home), 'settings.json')).enabledPlugins || {})) };
 }
 const lastJson = text => { try { return JSON.parse(text.trim().split('\n').pop()); } catch { return null; } };
+function marketOwnership(record, name, known) {
+  if (!(record?.markets || []).includes(name)) return { status: 'user', revision: marketRevision(known[name]?.installLocation) };
+  if (!known[name]) return { status: 'missing', revision: null };
+  const revision = marketRevision(known[name].installLocation);
+  if (!revision) return { status: 'unknown', revision: null };
+  return { status: record?.marketRevisions?.[name] && record.marketRevisions[name] !== revision ? 'replaced' : 'owned', revision };
+}
 
-export async function placeClaudePlugins(answers, { claude, env = process.env, home = env.HOME, record = null, run } = {}) {
-  const lines = [], next = { markets: [...(record?.markets || [])], marketRevisions: { ...(record?.marketRevisions || {}) }, plugins: [...(record?.plugins || [])], patches: [...(record?.patches || [])] };
-  const wanted = wantedPlugins(pluginTable(), answers);
+export async function placeClaudePlugins(answers, { claude, env = process.env, home = env.HOME, record = null, run, table = pluginTable() } = {}) {
+  const lines = [], next = { markets: [...(record?.markets || [])], marketRevisions: { ...(record?.marketRevisions || {}) }, previousMarketRevisions: { ...(record?.previousMarketRevisions || {}) }, plugins: [...(record?.plugins || [])], patches: [...(record?.patches || [])] };
+  const wanted = wantedPlugins(table, answers);
   if (!wanted.length) return { lines, record: record || null };
   if (!claude) return { lines: ['Claude plugins: not installed; the claude CLI was not found on PATH'], record };
   const call = run || ((args) => spawnSync(claude, args, { env: { ...env, HOME: home }, encoding: 'utf8', timeout: 300000 }));
-  const have = existing(env, home);
-  const known = knownMarkets(env, home);
+  const have = existing(env, home), known = knownMarkets(env, home), skipped = new Set();
   for (const market of [...new Set(wanted.map(w => w.market))]) {
-    const owned = next.markets.includes(market.name);
-    const installed = have.markets.has(market.name) ? marketRevision(known[market.name]?.installLocation) : null;
-    if (owned && have.markets.has(market.name) && installed !== market.commit) {
-      if (!installed) { lines.push(`Claude plugins: marketplace ${market.name} revision unknown; left in place`); continue; }
+    const ownership = marketOwnership(record, market.name, known), owned = ownership.status === 'owned' || ownership.status === 'missing', installed = ownership.revision;
+    if (ownership.status === 'replaced' || ownership.status === 'unknown') {
+      skipped.add(market.name);
+      if (ownership.status === 'replaced') {
+        next.markets = next.markets.filter(name => name !== market.name);
+        next.plugins = next.plugins.filter(id => !id.endsWith(`@${market.name}`));
+        next.patches = next.patches.filter(id => !table.patches.some(p => p.id === id && p.plugin.endsWith(`@${market.name}`)));
+        delete next.marketRevisions[market.name];
+        delete next.previousMarketRevisions[market.name];
+      }
+      lines.push(`Claude plugins: marketplace ${market.name} ${ownership.status === 'replaced' ? 'no longer matches the kit receipt' : 'revision unknown'}; left in place`);
+      continue;
+    }
+    if (owned && known[market.name] && installed !== market.commit) {
       const removed = call(['plugin', 'marketplace', 'remove', market.name, '--scope', 'user', '--json']);
       if (removed.status !== 0 || lastJson(removed.stdout || '')?.outcome !== 'ok') { lines.push(`Claude plugins: marketplace ${market.name} not refreshed; removal failed`); continue; }
     }
-    if (!have.markets.has(market.name) || (owned && installed && installed !== market.commit)) {
+    if (!known[market.name] || (owned && installed && installed !== market.commit)) {
       const r = call(['plugin', 'marketplace', 'add', `${market.repo}#${market.commit}`, '--scope', 'user', '--json']), out = lastJson(r.stdout || '');
       if (r.status !== 0 || out?.outcome !== 'ok') {
         if (owned && installed) {
@@ -51,6 +67,7 @@ export async function placeClaudePlugins(answers, { claude, env = process.env, h
         continue;
       }
       if (!next.markets.includes(market.name)) next.markets.push(market.name);
+      if (owned && installed && installed !== market.commit) next.previousMarketRevisions[market.name] = installed;
       lines.push(`Claude plugins: ${owned ? 'refreshed' : 'added'} marketplace ${market.name} from ${market.repo} at ${market.commit.slice(0, 12)} (${market.license})`);
     }
     if (next.markets.includes(market.name)) next.marketRevisions[market.name] = market.commit;
@@ -63,7 +80,7 @@ export async function placeClaudePlugins(answers, { claude, env = process.env, h
       lines.push(`Claude plugins: ${/already installed/i.test(out.message || '') ? 'present' : 'installed'} ${id}`);
     }
   }
-  for (const patch of pluginTable().patches) if (next.plugins.includes(patch.plugin)) {
+  for (const patch of table.patches) if (next.plugins.includes(patch.plugin) && !skipped.has(patch.plugin.split('@')[1])) {
     const result = await applyPatch(patch, configDir(env, home));
     if (result.applied && !next.patches.includes(patch.id)) next.patches.push(patch.id);
     lines.push(`Claude plugins: ${patch.id}: ${result.detail}`);
@@ -110,8 +127,10 @@ export function removeClaudePlugins(record, { claude, env = process.env, home = 
   if (!record || !claude) return [];
   const call = run || ((args) => spawnSync(claude, args, { env: { ...env, HOME: home }, encoding: 'utf8', timeout: 300000 }));
   const lines = [];
-  for (const id of record.plugins || []) lines.push(`${id}: ${call(['plugin', 'uninstall', id, '--scope', 'user', '--json']).status === 0 ? 'uninstalled' : 'left in place (uninstall failed)'}`);
-  for (const name of record.markets || []) lines.push(`marketplace ${name}: ${call(['plugin', 'marketplace', 'remove', name, '--scope', 'user', '--json']).status === 0 ? 'removed' : 'left in place (remove failed)'}`);
+  const known = knownMarkets(env, home);
+  const safe = name => !(record.markets || []).includes(name) || marketOwnership(record, name, known).status === 'owned';
+  for (const id of record.plugins || []) if (safe(id.split('@')[1])) lines.push(`${id}: ${call(['plugin', 'uninstall', id, '--scope', 'user', '--json']).status === 0 ? 'uninstalled' : 'left in place (uninstall failed)'}`);
+  for (const name of record.markets || []) if (safe(name)) lines.push(`marketplace ${name}: ${call(['plugin', 'marketplace', 'remove', name, '--scope', 'user', '--json']).status === 0 ? 'removed' : 'left in place (remove failed)'}`);
   return lines;
 }
 
@@ -126,9 +145,11 @@ function marketRevision(location) {
 export function claudePluginsHealth(record, env, home, answers = {}) {
   const settings = readJson(join(configDir(env, home), 'settings.json')), known = knownMarkets(env, home);
   const markets = [...new Set(wantedPlugins(pluginTable(), answers).map(w => w.market))].filter(m => known[m.name] || (record?.markets || []).includes(m.name)).map(m => {
-    const owned = (record?.markets || []).includes(m.name), revision = marketRevision(known[m.name]?.installLocation);
-    return { id: `claude-marketplace-${m.name}`, status: revision === m.commit ? 'pass' : 'warn', detail: revision === m.commit ? `${owned ? 'kit-owned' : 'your'} ${m.name} marketplace is at the kit's pinned ${m.commit}`
-      : `${owned ? 'kit-owned' : 'your own'} ${m.name} marketplace is at ${revision || 'an unknown revision'}, not the kit's pinned ${m.commit}; ${owned ? 'agent-kit repair refreshes it' : 'its plugins follow your revision'}` };
+    const ownership = marketOwnership(record, m.name, known), owned = ownership.status !== 'user' && ownership.status !== 'replaced', revision = ownership.revision;
+    return { id: `claude-marketplace-${m.name}`, status: revision === m.commit && ownership.status !== 'replaced' ? 'pass' : 'warn', detail: ownership.status === 'replaced'
+      ? `${m.name} marketplace is at ${revision}; it no longer matches the kit receipt and is left untouched`
+      : revision === m.commit ? `${owned ? 'kit-owned' : 'your'} ${m.name} marketplace is at the kit's pinned ${m.commit}`
+        : `${owned ? 'kit-owned' : 'your own'} ${m.name} marketplace is at ${revision || 'an unknown revision'}, not the kit's pinned ${m.commit}; ${owned ? 'agent-kit repair refreshes it' : 'its plugins follow your revision'}` };
   });
   return [...markets, ...(record?.plugins || []).map(id => ({ id: `claude-plugin-${id}`, status: settings.enabledPlugins?.[id] ? 'pass' : 'warn',
     detail: settings.enabledPlugins?.[id] ? `${id} enabled in your Claude settings` : `${id} is not enabled; agent-kit repair installs it again` }))];
