@@ -1,0 +1,30 @@
+test/kit.test.mjs
+  s_c92d5395a29678::t_bc0dd012ea19d8 38,40,42
+README.md
+  s_c92d5395a29678::t_bc0dd012ea19d8 107,254,340-341,449-453
+  s_c92d5395a29678::t_cfb671dcf7d6a7 454
+manifests/pilot-skeleton.json
+  s_c92d5395a29678::t_bc0dd012ea19d8 3,79,91-92,97-98,103-104,109-110
+docs/features.md
+  s_c92d5395a29678::t_bc0dd012ea19d8 3,69,106
+docs/user-guide.md
+  s_c92d5395a29678::t_bc0dd012ea19d8 5,14,25,383,637,647-654,1667,1928
+  s_c92d5395a29678::t_4b8ecd40a78a50 1938-1944
+  s_c92d5395a29678::t_6596435a04b0e0 1945
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "49156bd3bd67e596d305da1356f0269f69bdb491",
+  "prompts": {},
+  "sessions": {
+    "s_c92d5395a29678": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a186b2-b5cd-7310-87ab-7c8f31c13048",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
