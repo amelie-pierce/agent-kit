@@ -303,6 +303,7 @@ test('the owner\'s Claude plugins are installed by pinned marketplace commit wit
   const calls = [];
   const run = args => { calls.push(args.join(' ')); return { status: 0, stdout: `${JSON.stringify({ outcome: 'ok', message: 'Successfully done' })}\n` }; };
   const table = pluginTable();
+  assert.equal(table.marketplaces.find(m => m.name === 'amelie-pierce').commit, '5ec32192dc67127d23df9020a7cf00565908aab8');
   const result = await placeClaudePlugins({ harness: 'claude', figma: false }, { claude: '/bin/claude', env: f.env, home: f.home, run });
   assert.ok(calls.includes('plugin marketplace add openai/codex-plugin-cc#db52e28f4d9ded852ab3942cea316258ae4ef346 --scope user --json'));
   assert.ok(calls.includes(`plugin marketplace add anthropics/claude-plugins-official#${table.marketplaces.find(m => m.name === 'claude-plugins-official').commit} --scope user --json`));

@@ -374,9 +374,9 @@
       "classification": "shareable",
       "version": {
         "kind": "git-commit",
-        "value": "c80eef892902b31202957cf479befca919b3305c",
+        "value": "b1736f30d34e0ace87eb871b3d6fd1cc79f17c84",
         "status": "verified",
-        "reason": "The herdr-plugin/ directory (plugin id furkankly.zoetrope) at pikenguyen227/zoetrope main c80eef89 (#44, the zoe path fallback); it drives zoe, which the kit provides from the pinned zoe-fleet binary built at fc45c4d. Since fc45c4d no runtime or launcher file changed."
+        "reason": "The herdr-plugin/ directory (plugin id furkankly.zoetrope) at pikenguyen227/zoetrope main b1736f30; it is unchanged from c80eef89 and uses the same commit as the pinned Zoe fleet tower and runtime."
       },
       "approvedUpstream": "https://github.com/pikenguyen227/zoetrope",
       "license": {
@@ -386,18 +386,18 @@
       "runtimeMinimum": null,
       "artifacts": {
         "darwin-arm64": {
-          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/c80eef892902b31202957cf479befca919b3305c",
-          "sha256": "c533e712ba8cfa4c2f7f17e8d59bbcba8d51cda7275e2eb1ed23c09f70d9b81c",
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/b1736f30d34e0ace87eb871b3d6fd1cc79f17c84",
+          "sha256": "5843ffdb9b258b31ec26b5b74233b983aacfd9e65aaf35bafbff697fac1bad22",
           "kind": "source-archive",
           "status": "verified",
-          "reason": "SHA-256 reproduced from two downloads of the codeload archive at c80eef89; only herdr-plugin/ is installed."
+          "reason": "SHA-256 reproduced from the downloaded codeload archive at b1736f30; only herdr-plugin/ is installed."
         },
         "darwin-x64": {
-          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/c80eef892902b31202957cf479befca919b3305c",
-          "sha256": "c533e712ba8cfa4c2f7f17e8d59bbcba8d51cda7275e2eb1ed23c09f70d9b81c",
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/b1736f30d34e0ace87eb871b3d6fd1cc79f17c84",
+          "sha256": "5843ffdb9b258b31ec26b5b74233b983aacfd9e65aaf35bafbff697fac1bad22",
           "kind": "source-archive",
           "status": "verified",
-          "reason": "SHA-256 reproduced from two downloads of the codeload archive at c80eef89; only herdr-plugin/ is installed."
+          "reason": "SHA-256 reproduced from the downloaded codeload archive at b1736f30; only herdr-plugin/ is installed."
         },
         "linux-arm64": {
           "url": null,
@@ -412,18 +412,18 @@
           "reason": "The plugin drives the zoe binary from the zoe-fleet release, which has no reviewed native Linux build here; WSL2 uses its own release."
         },
         "wsl2-arm64": {
-          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/c80eef892902b31202957cf479befca919b3305c",
-          "sha256": "c533e712ba8cfa4c2f7f17e8d59bbcba8d51cda7275e2eb1ed23c09f70d9b81c",
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/b1736f30d34e0ace87eb871b3d6fd1cc79f17c84",
+          "sha256": "5843ffdb9b258b31ec26b5b74233b983aacfd9e65aaf35bafbff697fac1bad22",
           "kind": "source-archive",
           "status": "verified",
-          "reason": "SHA-256 reproduced from two downloads of the codeload archive at c80eef89; only herdr-plugin/ is installed."
+          "reason": "SHA-256 reproduced from the downloaded codeload archive at b1736f30; only herdr-plugin/ is installed."
         },
         "wsl2-x64": {
-          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/c80eef892902b31202957cf479befca919b3305c",
-          "sha256": "c533e712ba8cfa4c2f7f17e8d59bbcba8d51cda7275e2eb1ed23c09f70d9b81c",
+          "url": "https://codeload.github.com/pikenguyen227/zoetrope/tar.gz/b1736f30d34e0ace87eb871b3d6fd1cc79f17c84",
+          "sha256": "5843ffdb9b258b31ec26b5b74233b983aacfd9e65aaf35bafbff697fac1bad22",
           "kind": "source-archive",
           "status": "verified",
-          "reason": "SHA-256 reproduced from two downloads of the codeload archive at c80eef89; only herdr-plugin/ is installed."
+          "reason": "SHA-256 reproduced from the downloaded codeload archive at b1736f30; only herdr-plugin/ is installed."
         },
         "windows-arm64": {
           "url": null,

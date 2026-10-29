@@ -29,7 +29,7 @@
     {
       "name": "amelie-pierce",
       "repo": "amelie-pierce/figma-cli",
-      "commit": "cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942",
+      "commit": "5ec32192dc67127d23df9020a7cf00565908aab8",
       "license": "MIT",
       "plugins": [
         {

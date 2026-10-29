@@ -11,7 +11,7 @@ This guide describes the proposed `pilot-13` kit. `pilot-12` is the released kit
 | `pilot-10` | A newer Firstmate: `balanced` and `lean` are cheaper on large plans and step down to cheaper models as your weekly quota runs low, on Claude and Codex; quiet mode now delivers Firstmate's messages reliably on Claude Code and Codex (the `pilot-9` `/quiet off` workaround is gone); question 2c shows what each mode means |
 | `pilot-11` | Firstmate fixes for Codex models, quiet entry replay, batch restart and honest Codex monitoring; the updated Zoe fleet tower; the installer's PATH block and stale-Herdr guidance |
 | `pilot-12` | A Firstmate ship-branch naming fix; the PATH block writer stops when it detects a profile edit before replacement |
-| `pilot-13` | Firstmate and Figma CLI updates; see the [release note](../README.md#pins-and-approval) |
+| `pilot-13` | Firstmate branch-rule finding, quieter second-mate status and fresh-context validation; Figma CLI override at `5ec32192`; Zoetrope session-graph plugin source at `b1736f30`; see the [release note](../README.md#pins-and-approval) |
 
 **Branch-rule finder limits.** It may miss `feature/*` globs and tables headed `Naming convention`. It may over-count a sentence that mixes branch advice with a path, or file-name tables under a `Branching` heading. If this happens, record the project's branch pattern.
 
@@ -650,7 +650,7 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 
 **Moving from `pilot-12` to `pilot-13`**, when you are asked to:
 
-1. Run upgrade. The plan shows `Release: pilot-12 -> pilot-13`, changed Firstmate and Figma CLI pin lines with the full commit numbers, and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`.
+1. Run upgrade. The plan shows `Release: pilot-12 -> pilot-13`, changed Firstmate, Figma CLI and Zoetrope plugin pin lines with the full commit numbers, and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`.
 2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
 3. Start Herdr and Firstmate again (A3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (A10.3).
 4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
@@ -1941,7 +1941,7 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 
 **Moving from `pilot-12` to `pilot-13`**, when you are asked to:
 
-1. Run upgrade. The plan shows `Release: pilot-12 -> pilot-13`, changed Firstmate and Figma CLI pin lines with the full commit numbers, and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`.
+1. Run upgrade. The plan shows `Release: pilot-12 -> pilot-13`, changed Firstmate, Figma CLI and Zoetrope plugin pin lines with the full commit numbers, and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`.
 2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
 3. Start Herdr and Firstmate again (B3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (B10.3).
 4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.

@@ -184,7 +184,7 @@ All of this follows question 5: `--no-global-hooks` leaves the Herdr config, the
 ### Herdr plugins and layout
 
 The kit registers three Herdr plugins as local entries in `${XDG_CONFIG_HOME:-~/.config}/herdr/plugins.json`, where Herdr links local plugins:
-- **The Zoetrope session graph** (`furkankly.zoetrope`): `herdr-plugin/` from pikenguyen227/zoetrope at `c80eef89`, the commit with the zoe path fallback. Its keys come from its own `setup-keys`.
+- **The Zoetrope session graph** (`furkankly.zoetrope`): `herdr-plugin/` from pikenguyen227/zoetrope at `b1736f30`. Its keys come from its own `setup-keys`.
 - **The tower's Fleet plugin** (`pikenguyen227.zoetrope-fleet`): from the pinned runtime.
 - **The plugin manager** (`ray.plugin-manager`): speardragon/herdr-plugin-manager 0.5.0 at `e4fef269`, MIT.
 
@@ -212,7 +212,7 @@ When you choose Claude, the kit installs the owner's Claude Code plugins with yo
 | --- | --- | --- | --- |
 | `codex@openai-codex` | openai/codex-plugin-cc `db52e28f` | Apache-2.0 | its SessionEnd timeout goes from 5 to 3 seconds, only while `hooks/hooks.json` matches the pinned file |
 | `cc-gemini-plugin` | thepushkarp/cc-gemini-plugin `dd745eab` | MIT, stated in its README (no LICENSE file) | |
-| `figma-cli@amelie-pierce` (Claude marketplace pin, with Figma) | amelie-pierce/figma-cli `cf6883a0` | MIT | |
+| `figma-cli@amelie-pierce` (Claude marketplace pin, with Figma) | amelie-pierce/figma-cli `5ec32192` | MIT | |
 | From `claude-plugins-official` at `41f619d6` (Apache-2.0): `code-review`, `code-simplifier`, `commit-commands`, `frontend-design`, `security-guidance`, `skill-creator`, `typescript-lsp`, `rust-analyzer-lsp` | that marketplace | Apache-2.0 | |
 | `atlassian` | atlassian/atlassian-mcp-server `b74220d4`, via the official marketplace | Apache-2.0 | Atlassian-hosted MCP; sign in yourself |
 | `chrome-devtools-mcp` | ChromeDevTools/chrome-devtools-mcp `a878bcad` | Apache-2.0 | `npx chrome-devtools-mcp@1.11.0`, pinned upstream (registry integrity `sha512-CytJ/5tn…` recorded) |
@@ -450,7 +450,8 @@ In the manifest, `verified` means the artifact's identity and integrity were che
 
 - **Label.** `pilot-12` -> `pilot-13`.
 - **Firstmate.** Re-pinned to improve branch-rule finding so discovered repository rules can be enforced when naming ship branches, make second-mate status updates quieter, and add fresh-context validation. The approved commit and source archive checksum are in the [manifest](manifests/pilot-skeleton.json); the archive was downloaded and hashed locally. See the [user guide](docs/user-guide.md#status-of-this-guide) for known branch-rule finder limits.
-- **Figma CLI.** The npm-installed CLI moves to the [manifest pin](manifests/pilot-skeleton.json) while its package version stays `2.2.5-make.2`. See the [user guide](docs/user-guide.md#status-of-this-guide) for override limits.
+- **Figma CLI.** The npm-installed CLI and its Claude plugin marketplace move to commit `5ec32192`; the npm package version stays `2.2.5-make.2`. See the [user guide](docs/user-guide.md#status-of-this-guide) for override limits.
+- **Zoetrope session-graph plugin.** Its source moves to commit `b1736f30`; `herdr-plugin/` is unchanged from the prior pin. The Zoe tower and runtime already use that commit.
 - **Every other pin, digest and prerequisite**, including the Zoe tower and runtime, remains as in `pilot-12`. The owner’s merge word is required; teammates update only when the owner asks.
 
 ### Versions for owner approval (`pilot-11` -> `pilot-12`)
@@ -518,7 +519,7 @@ Earlier releases: `pilot-8` (from `pilot-7`) added only the WSL2 tower and runti
 | Tool | Version | Source |
 | --- | --- | --- |
 | Firstmate | [Manifest pin](manifests/pilot-skeleton.json) | Approved Firstmate fork; doctor checks the installed origin |
-| Zoetrope session-graph Herdr plugin (new) | `c80eef892902b31202957cf479befca919b3305c` | github.com/pikenguyen227/zoetrope source archive, `herdr-plugin/` only (SHA-256 `c533e712ba8cfa4c2f7f17e8d59bbcba8d51cda7275e2eb1ed23c09f70d9b81c`) |
+| Zoetrope session-graph Herdr plugin (new) | `b1736f30d34e0ace87eb871b3d6fd1cc79f17c84` | github.com/pikenguyen227/zoetrope source archive, `herdr-plugin/` only (SHA-256 `5843ffdb9b258b31ec26b5b74233b983aacfd9e65aaf35bafbff697fac1bad22`) |
 | Herdr Plugin Manager (new) | `e4fef2693728a36cbb389af033a389cad2257869` (0.5.0) | github.com/speardragon/herdr-plugin-manager source archive (SHA-256 `3382cd1342d03e4c171025d9886d9337c63e2873360feef1122532f4e4817c62`), MIT |
 | figma-cli (with Figma) | [Manifest pin](manifests/pilot-skeleton.json) | amelie-pierce/figma-cli codeload archive, integrity-pinned in `manifests/npm-figma/package-lock.json` with its registry dependencies (MIT, BSD-3-Clause, ISC) |
 | Claude plugins (new, with Claude) | marketplace commits | see [Claude plugins](#claude-plugins) and `manifests/claude-plugins.json` |
