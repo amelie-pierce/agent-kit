@@ -372,7 +372,7 @@ test('plan lists the unselected harness and Figma as optional kit components', t
   const selected = run(['plan', '--json', '--harness', 'codex', '--with-figma'], manifest, context);
   assert.deepEqual(selected.result.plan.optionalComponents.map(x => x.id), []);
   const figma = selected.result.plan.tools.find(x => x.id === 'figma-cli');
-  assert.deepEqual([figma.version, figma.lockGroup], ['cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942', 'npm-figma']);
+  assert.deepEqual([figma.version, figma.lockGroup], ['5ec32192dc67127d23df9020a7cf00565908aab8', 'npm-figma']);
   const text = run(['plan'], manifest, context).output;
   assert.match(text, new RegExp(`- ${lock.name}: optional, not selected; ${lock.version.value.replace(/\./g, '\\.')} from ${lock.approvedUpstream}`));
   assert.deepEqual(readdirSync(home), []);
@@ -1246,7 +1246,9 @@ test('with Figma, the npm-figma lock installs figma-cli from its pinned codeload
   const f = installFixture(t);
   f.fixtureManifest.tools = [structuredClone(manifest.tools.find(x => x.id === 'figma-cli'))];
   const lock = JSON.parse(readFileSync(new URL('../manifests/npm-figma/package-lock.json', import.meta.url)));
-  assert.equal(lock.packages['node_modules/@amelie-pierce/figma-cli'].resolved, 'https://codeload.github.com/amelie-pierce/figma-cli/tar.gz/cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942');
+  assert.equal(lock.packages['node_modules/@amelie-pierce/figma-cli'].resolved, 'https://codeload.github.com/amelie-pierce/figma-cli/tar.gz/5ec32192dc67127d23df9020a7cf00565908aab8');
+  assert.equal(lock.packages['node_modules/@amelie-pierce/figma-cli'].integrity, 'sha512-2jvWOmOTu4joYyZhtd1vk17NBeBn8CfoPq5a+2CdP4DCp8ZxA9zVDhkJcpQbP/zJQGaSmAHA/q1+wWPD+oqsZw==');
+  assert.equal(lock.packages['node_modules/@amelie-pierce/figma-cli'].version, '2.2.5-make.2');
   assert.ok(Object.entries(lock.packages).filter(([name]) => name && name !== 'node_modules/@amelie-pierce/figma-cli').every(([, item]) => item.resolved.startsWith('https://registry.npmjs.org/') && item.integrity));
   f.options.runNpm = async stage => { mkdirSync(join(stage, 'node_modules', '.bin'), { recursive: true }); writeFileSync(join(stage, 'node_modules', '.bin', 'figma-cli'), 'fixture', { mode: 0o755 }); };
   const asked = [];

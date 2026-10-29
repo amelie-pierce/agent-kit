@@ -1218,9 +1218,9 @@
       "classification": "per-user-login",
       "version": {
         "kind": "git-commit",
-        "value": "cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942",
+        "value": "5ec32192dc67127d23df9020a7cf00565908aab8",
         "status": "verified",
-        "reason": "amelie-pierce/figma-cli 2.2.5-make.2 at main cf6883a0 (it adds the figma-make-team skill after the v2.2.5-make.2 tag); the codeload archive is integrity-pinned in manifests/npm-figma/package-lock.json, SHA-256 0dd737552ad598d27f29eea61c6995840f186955c8ff18b963a0855bf68e3fad from two downloads, and its dependencies come from registry.npmjs.org."
+        "reason": "amelie-pierce/figma-cli 2.2.5-make.2 at commit 5ec32192; the codeload archive is integrity-pinned in manifests/npm-figma/package-lock.json, SHA-256 1199f4719f09d5cac172c9efbb4542bdeb91913740889fd6f695c15628f6b31e from a downloaded archive, and its dependencies come from registry.npmjs.org."
       },
       "approvedUpstream": "https://github.com/amelie-pierce/figma-cli",
       "license": {

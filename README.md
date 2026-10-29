@@ -212,7 +212,7 @@ When you choose Claude, the kit installs the owner's Claude Code plugins with yo
 | --- | --- | --- | --- |
 | `codex@openai-codex` | openai/codex-plugin-cc `db52e28f` | Apache-2.0 | its SessionEnd timeout goes from 5 to 3 seconds, only while `hooks/hooks.json` matches the pinned file |
 | `cc-gemini-plugin` | thepushkarp/cc-gemini-plugin `dd745eab` | MIT, stated in its README (no LICENSE file) | |
-| `figma-cli@amelie-pierce` (with Figma) | amelie-pierce/figma-cli `cf6883a0` | MIT | |
+| `figma-cli@amelie-pierce` (Claude marketplace pin, with Figma) | amelie-pierce/figma-cli `cf6883a0` | MIT | |
 | From `claude-plugins-official` at `41f619d6` (Apache-2.0): `code-review`, `code-simplifier`, `commit-commands`, `frontend-design`, `security-guidance`, `skill-creator`, `typescript-lsp`, `rust-analyzer-lsp` | that marketplace | Apache-2.0 | |
 | `atlassian` | atlassian/atlassian-mcp-server `b74220d4`, via the official marketplace | Apache-2.0 | Atlassian-hosted MCP; sign in yourself |
 | `chrome-devtools-mcp` | ChromeDevTools/chrome-devtools-mcp `a878bcad` | Apache-2.0 | `npx chrome-devtools-mcp@1.11.0`, pinned upstream (registry integrity `sha512-CytJ/5tn…` recorded) |
@@ -450,6 +450,7 @@ In the manifest, `verified` means the artifact's identity and integrity were che
 
 - **Label.** `pilot-12` -> `pilot-13`.
 - **Firstmate.** Re-pinned to `49350801`. It improves branch-rule finding so discovered repository rules can be enforced when naming ship branches, makes second-mate status updates quieter, and adds fresh-context validation. The approved commit and source archive checksum are in the [manifest](manifests/pilot-skeleton.json); the archive was downloaded and hashed locally. See the [user guide](docs/user-guide.md#status-of-this-guide) for known branch-rule finder limits.
+- **Figma CLI.** The npm-installed CLI moves to commit `5ec32192` while its package version stays `2.2.5-make.2`. Its override needs explicit confirmation each time. Known limits: it withholds a plan for a tracked `.npmrc`; it refuses to save an executable-bit-only difference; and a Make-only file that differs between saved and open copies has no backup on abort.
 - **Every other pin, digest and prerequisite**, including the Zoe tower and runtime, remains as in `pilot-12`. The owner’s merge word is required; teammates update only when the owner asks.
 
 ### Versions for owner approval (`pilot-11` -> `pilot-12`)
@@ -519,7 +520,7 @@ Earlier releases: `pilot-8` (from `pilot-7`) added only the WSL2 tower and runti
 | Firstmate | [Manifest pin](manifests/pilot-skeleton.json) | Approved Firstmate fork; doctor checks the installed origin |
 | Zoetrope session-graph Herdr plugin (new) | `c80eef892902b31202957cf479befca919b3305c` | github.com/pikenguyen227/zoetrope source archive, `herdr-plugin/` only (SHA-256 `c533e712ba8cfa4c2f7f17e8d59bbcba8d51cda7275e2eb1ed23c09f70d9b81c`) |
 | Herdr Plugin Manager (new) | `e4fef2693728a36cbb389af033a389cad2257869` (0.5.0) | github.com/speardragon/herdr-plugin-manager source archive (SHA-256 `3382cd1342d03e4c171025d9886d9337c63e2873360feef1122532f4e4817c62`), MIT |
-| figma-cli (new, with Figma) | `cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942` (2.2.5-make.2) | github.com/amelie-pierce/figma-cli codeload archive (SHA-256 `0dd737552ad598d27f29eea61c6995840f186955c8ff18b963a0855bf68e3fad`), integrity-pinned in `manifests/npm-figma/package-lock.json` with its registry dependencies (MIT, BSD-3-Clause, ISC) |
+| figma-cli (with Figma) | `5ec32192dc67127d23df9020a7cf00565908aab8` (2.2.5-make.2) | github.com/amelie-pierce/figma-cli codeload archive (SHA-256 `1199f4719f09d5cac172c9efbb4542bdeb91913740889fd6f695c15628f6b31e`), integrity-pinned in `manifests/npm-figma/package-lock.json` with its registry dependencies (MIT, BSD-3-Clause, ISC) |
 | Claude plugins (new, with Claude) | marketplace commits | see [Claude plugins](#claude-plugins) and `manifests/claude-plugins.json` |
 | Zoe fleet and runtime (macOS, WSL2, standalone Linux fallback) | [Manifest pins](manifests/pilot-skeleton.json) | Reviewed Zoetrope release archives on macOS and WSL2; source fallback on standalone Linux |
 | Herdr | 0.9.3 | github.com/herdrdev/herdr release asset |
