@@ -214,7 +214,62 @@ test('the playwright MCP server is pinned through the kit\'s edit of the pinned 
   assert.deepEqual([row().status, row().detail], ['warn', `your own claude-plugins-official marketplace is at ${'a'.repeat(40)}, not the kit's pinned ${pinned}; its plugins follow your revision`]);
   writeFileSync(join(location, '.gcs-sha'), `${pinned}\n`);
   assert.equal(row().status, 'pass');
-  assert.equal(claudePluginsHealth({ markets: ['claude-plugins-official'], plugins: [] }, f.env, f.home, { harness: 'claude' }).some(r => r.id.startsWith('claude-marketplace-')), false, 'a marketplace the kit added is pinned already');
+  assert.equal(claudePluginsHealth({ markets: ['claude-plugins-official'], marketRevisions: { 'claude-plugins-official': pinned }, plugins: [] }, f.env, f.home, { harness: 'claude' }).find(r => r.id === 'claude-marketplace-claude-plugins-official').status, 'pass');
+});
+
+test('a kit-owned Figma marketplace moves to the new pin and can restore its pilot-12 revision after a failed refresh', posixOnly, async t => {
+  const f = fixture(t), market = pluginTable().marketplaces.find(m => m.name === 'amelie-pierce');
+  const old = 'cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942';
+  const dir = join(f.base, 'figma-marketplace'), knownPath = join(f.home, '.claude', 'plugins', 'known_marketplaces.json');
+  mkdirSync(dir, { recursive: true });
+  mkdirSync(join(f.home, '.claude', 'plugins'), { recursive: true });
+  const setRevision = revision => {
+    writeFileSync(knownPath, JSON.stringify({ 'amelie-pierce': { installLocation: dir } }));
+    writeFileSync(join(dir, '.gcs-sha'), `${revision}\n`);
+  };
+  const record = { markets: ['amelie-pierce'], plugins: ['figma-cli@amelie-pierce'], patches: [] };
+  const calls = [];
+  let failNew = false;
+  const run = args => {
+    calls.push(args.join(' '));
+    if (args[2] === 'remove' && args[3] === 'amelie-pierce') rmSync(knownPath);
+    if (args[2] === 'add' && args[3].startsWith(market.repo)) {
+      const revision = args[3].split('#')[1];
+      if (failNew && revision === market.commit) return { status: 1, stdout: '{"outcome":"error","message":"download failed"}\n' };
+      setRevision(revision);
+    }
+    return { status: 0, stdout: '{"outcome":"ok","message":"ok"}\n' };
+  };
+  setRevision(old);
+  const upgraded = await placeClaudePlugins({ harness: 'claude', figma: true }, { claude: '/bin/claude', env: f.env, home: f.home, record, run });
+  assert.ok(calls.includes('plugin marketplace remove amelie-pierce --scope user --json'));
+  assert.ok(calls.includes(`plugin marketplace add ${market.repo}#${market.commit} --scope user --json`));
+  assert.equal(upgraded.record.marketRevisions['amelie-pierce'], market.commit);
+  assert.equal(readFileSync(join(dir, '.gcs-sha'), 'utf8').trim(), market.commit);
+  assert.equal(claudePluginsHealth(upgraded.record, f.env, f.home, { harness: 'claude', figma: true }).find(r => r.id === 'claude-marketplace-amelie-pierce').status, 'pass');
+  setRevision(old);
+  failNew = true;
+  calls.length = 0;
+  const failed = await placeClaudePlugins({ harness: 'claude', figma: true }, { claude: '/bin/claude', env: f.env, home: f.home, record, run });
+  assert.ok(calls.includes(`plugin marketplace add ${market.repo}#${old} --scope user --json`));
+  assert.equal(readFileSync(join(dir, '.gcs-sha'), 'utf8').trim(), old);
+  assert.equal(failed.record.marketRevisions['amelie-pierce'], undefined);
+  assert.ok(failed.lines.some(line => line.includes('previous revision restored')));
+});
+
+test('an existing user-added Figma marketplace stays at its own revision', posixOnly, async t => {
+  const f = fixture(t), dir = join(f.base, 'figma-marketplace'), old = 'a'.repeat(40);
+  mkdirSync(dir, { recursive: true });
+  mkdirSync(join(f.home, '.claude', 'plugins'), { recursive: true });
+  writeFileSync(join(f.home, '.claude', 'plugins', 'known_marketplaces.json'), JSON.stringify({ 'amelie-pierce': { installLocation: dir } }));
+  writeFileSync(join(dir, '.gcs-sha'), `${old}\n`);
+  const calls = [];
+  const run = args => { calls.push(args.join(' ')); return { status: 0, stdout: '{"outcome":"ok","message":"ok"}\n' }; };
+  const placed = await placeClaudePlugins({ harness: 'claude', figma: true }, { claude: '/bin/claude', env: f.env, home: f.home, run });
+  assert.ok(!calls.some(line => line.includes('marketplace') && line.includes('amelie-pierce')));
+  assert.ok(!placed.record.markets.includes('amelie-pierce'));
+  assert.equal(readFileSync(join(dir, '.gcs-sha'), 'utf8').trim(), old);
+  assert.equal(claudePluginsHealth(placed.record, f.env, f.home, { harness: 'claude', figma: true }).find(r => r.id === 'claude-marketplace-amelie-pierce').status, 'warn');
 });
 
 test('a starter captain guide is written only when the home has none, names the bound keys, and is never overwritten', posixOnly, async t => {

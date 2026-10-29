@@ -246,7 +246,7 @@ The list of files and links it will touch is shown before the question. Your own
 | `context7` | it may ask for your own Context7 key; the kit never writes one |
 | `figma-cli` (only with Figma) | nothing |
 
-If you already have one of these plugins, or the `claude-plugins-official` marketplace, the kit leaves yours as it is; doctor then shows a warning if your marketplace version differs from the kit's. Uninstall removes only what the kit added.
+If you already have one of these plugins or marketplaces, the kit leaves yours as it is; doctor warns if your marketplace revision differs from the kit's pin. On upgrade or repair, the kit refreshes a marketplace only when its receipt records kit ownership and its installed revision differs from the pin. A failed refresh attempts to restore the previous revision. Uninstall removes only what the kit added.
 
 **The plan questions (2a, 2b, 2c).** The kit asks which subscription you have for each agent CLI you chose, so that Firstmate (and Jev, once you add the key) picks models your plan can afford. Only the plan's name is saved; the kit never checks your account. If you are not sure, press Enter for `skip`.
 
@@ -575,7 +575,7 @@ These rows cover what `pilot-9` added. Each is `PASS` or `WARN`, never `FAIL`: t
 | `herdr-path-env` | `PASS` when Herdr is not running (or cannot be read), or its PATH holds every kit folder | `WARN`: Herdr started before the kit folders were on your PATH. Quit your agents, run `herdr server stop`, open a new terminal and start `herdr` there (inside Ubuntu on Windows). Doctor only reads; it never stops Herdr |
 | `fleet-autostart` (with the tower) | the start-up entry that opens the tower's tab is in place | run repair |
 | `captain-help` | your help page exists | it was deleted; ask Firstmate to write one, or run repair |
-| `claude-marketplace-…`, `claude-plugin-…` (with Claude Code) | the Claude plugins are installed and turned on | a plugin is turned off, or your own marketplace is at a different version than the kit's |
+| `claude-marketplace-…`, `claude-plugin-…` (with Claude Code) | the Claude plugins are enabled and the marketplace is at the kit pin | a plugin is turned off, or a kit-owned or your own marketplace differs from the kit pin |
 | `figma-skill-…` (with Figma) | the Figma CLI's skills are linked | run repair |
 
 - `FAIL <tool>-path: another binary has PATH precedence` means an older copy of that tool comes first on your PATH. Fix your PATH (A2.7) and run doctor again.
@@ -1526,7 +1526,7 @@ The list of files and links it will touch is shown before the question. Your own
 | `context7` | it may ask for your own Context7 key; the kit never writes one |
 | `figma-cli` (only with Figma) | nothing |
 
-If you already have one of these plugins, or the `claude-plugins-official` marketplace, the kit leaves yours as it is; doctor then shows a warning if your marketplace version differs from the kit's. Uninstall removes only what the kit added.
+If you already have one of these plugins or marketplaces, the kit leaves yours as it is; doctor warns if your marketplace revision differs from the kit's pin. On upgrade or repair, the kit refreshes a marketplace only when its receipt records kit ownership and its installed revision differs from the pin. A failed refresh attempts to restore the previous revision. Uninstall removes only what the kit added.
 
 **The plan questions (2a, 2b, 2c).** The kit asks which subscription you have for each agent CLI you chose, so that Firstmate (and Jev, once you add the key) picks models your plan can afford. Only the plan's name is saved; the kit never checks your account. If you are not sure, press Enter for `skip`.
 
@@ -1866,7 +1866,7 @@ These rows cover what `pilot-9` added. Each is `PASS` or `WARN`, never `FAIL`: t
 | `herdr-path-env` | `PASS` when Herdr is not running (or cannot be read), or its PATH holds every kit folder | `WARN`: Herdr started before the kit folders were on your PATH. Quit your agents, run `herdr server stop`, open a new terminal and start `herdr` there (inside Ubuntu on Windows). Doctor only reads; it never stops Herdr |
 | `fleet-autostart` (with the tower) | the start-up entry that opens the tower's tab is in place | run repair |
 | `captain-help` | your help page exists | it was deleted; ask Firstmate to write one, or run repair |
-| `claude-marketplace-…`, `claude-plugin-…` (with Claude Code) | the Claude plugins are installed and turned on | a plugin is turned off, or your own marketplace is at a different version than the kit's |
+| `claude-marketplace-…`, `claude-plugin-…` (with Claude Code) | the Claude plugins are enabled and the marketplace is at the kit pin | a plugin is turned off, or a kit-owned or your own marketplace differs from the kit pin |
 | `figma-skill-…` (with Figma) | the Figma CLI's skills are linked | run repair |
 
 - `FAIL <tool>-path: another binary has PATH precedence` means an older copy of that tool comes first on your Ubuntu PATH. Fix your PATH (B2.11) and run doctor again.

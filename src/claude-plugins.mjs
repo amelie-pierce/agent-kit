@@ -26,19 +26,34 @@ function existing(env, home) {
 const lastJson = text => { try { return JSON.parse(text.trim().split('\n').pop()); } catch { return null; } };
 
 export async function placeClaudePlugins(answers, { claude, env = process.env, home = env.HOME, record = null, run } = {}) {
-  const lines = [], next = { markets: [...(record?.markets || [])], plugins: [...(record?.plugins || [])], patches: [...(record?.patches || [])] };
+  const lines = [], next = { markets: [...(record?.markets || [])], marketRevisions: { ...(record?.marketRevisions || {}) }, plugins: [...(record?.plugins || [])], patches: [...(record?.patches || [])] };
   const wanted = wantedPlugins(pluginTable(), answers);
   if (!wanted.length) return { lines, record: record || null };
   if (!claude) return { lines: ['Claude plugins: not installed; the claude CLI was not found on PATH'], record };
   const call = run || ((args) => spawnSync(claude, args, { env: { ...env, HOME: home }, encoding: 'utf8', timeout: 300000 }));
   const have = existing(env, home);
+  const known = knownMarkets(env, home);
   for (const market of [...new Set(wanted.map(w => w.market))]) {
-    if (!have.markets.has(market.name)) {
-      const r = call(['plugin', 'marketplace', 'add', `${market.repo}#${market.commit}`, '--scope', 'user', '--json']), out = lastJson(r.stdout || '');
-      if (r.status !== 0 || out?.outcome !== 'ok') { lines.push(`Claude plugins: marketplace ${market.name} not added: ${out?.message || (r.stderr || '').trim().split('\n').pop() || `exit ${r.status}`}`); continue; }
-      if (!next.markets.includes(market.name)) next.markets.push(market.name);
-      lines.push(`Claude plugins: added marketplace ${market.name} from ${market.repo} at ${market.commit.slice(0, 12)} (${market.license})`);
+    const owned = next.markets.includes(market.name);
+    const installed = have.markets.has(market.name) ? marketRevision(known[market.name]?.installLocation) : null;
+    if (owned && have.markets.has(market.name) && installed !== market.commit) {
+      if (!installed) { lines.push(`Claude plugins: marketplace ${market.name} revision unknown; left in place`); continue; }
+      const removed = call(['plugin', 'marketplace', 'remove', market.name, '--scope', 'user', '--json']);
+      if (removed.status !== 0 || lastJson(removed.stdout || '')?.outcome !== 'ok') { lines.push(`Claude plugins: marketplace ${market.name} not refreshed; removal failed`); continue; }
     }
+    if (!have.markets.has(market.name) || (owned && installed && installed !== market.commit)) {
+      const r = call(['plugin', 'marketplace', 'add', `${market.repo}#${market.commit}`, '--scope', 'user', '--json']), out = lastJson(r.stdout || '');
+      if (r.status !== 0 || out?.outcome !== 'ok') {
+        if (owned && installed) {
+          const restored = call(['plugin', 'marketplace', 'add', `${market.repo}#${installed}`, '--scope', 'user', '--json']);
+          lines.push(`Claude plugins: marketplace ${market.name} not refreshed: ${out?.message || (r.stderr || '').trim().split('\n').pop() || `exit ${r.status}`}; previous revision ${lastJson(restored.stdout || '')?.outcome === 'ok' && restored.status === 0 ? 'restored' : 'could not be restored'}`);
+        } else lines.push(`Claude plugins: marketplace ${market.name} not added: ${out?.message || (r.stderr || '').trim().split('\n').pop() || `exit ${r.status}`}`);
+        continue;
+      }
+      if (!next.markets.includes(market.name)) next.markets.push(market.name);
+      lines.push(`Claude plugins: ${owned ? 'refreshed' : 'added'} marketplace ${market.name} from ${market.repo} at ${market.commit.slice(0, 12)} (${market.license})`);
+    }
+    if (next.markets.includes(market.name)) next.marketRevisions[market.name] = market.commit;
     for (const plugin of wanted.filter(w => w.market === market)) {
       const id = `${plugin.name}@${market.name}`;
       if (have.plugins.has(id) && !next.plugins.includes(id)) { lines.push(`Claude plugins: ${id} is already yours; left as it is`); continue; }
@@ -110,10 +125,10 @@ function marketRevision(location) {
 // A pinned marketplace the person already had stays theirs, so its plugins follow their revision; doctor names it.
 export function claudePluginsHealth(record, env, home, answers = {}) {
   const settings = readJson(join(configDir(env, home), 'settings.json')), known = knownMarkets(env, home);
-  const markets = [...new Set(wantedPlugins(pluginTable(), answers).map(w => w.market))].filter(m => known[m.name] && !(record?.markets || []).includes(m.name)).map(m => {
-    const revision = marketRevision(known[m.name].installLocation);
-    return { id: `claude-marketplace-${m.name}`, status: revision === m.commit ? 'pass' : 'warn', detail: revision === m.commit ? `your ${m.name} marketplace is at the kit's pinned ${m.commit}`
-      : `your own ${m.name} marketplace is at ${revision || 'an unknown revision'}, not the kit's pinned ${m.commit}; its plugins follow your revision` };
+  const markets = [...new Set(wantedPlugins(pluginTable(), answers).map(w => w.market))].filter(m => known[m.name] || (record?.markets || []).includes(m.name)).map(m => {
+    const owned = (record?.markets || []).includes(m.name), revision = marketRevision(known[m.name]?.installLocation);
+    return { id: `claude-marketplace-${m.name}`, status: revision === m.commit ? 'pass' : 'warn', detail: revision === m.commit ? `${owned ? 'kit-owned' : 'your'} ${m.name} marketplace is at the kit's pinned ${m.commit}`
+      : `${owned ? 'kit-owned' : 'your own'} ${m.name} marketplace is at ${revision || 'an unknown revision'}, not the kit's pinned ${m.commit}; ${owned ? 'agent-kit repair refreshes it' : 'its plugins follow your revision'}` };
   });
   return [...markets, ...(record?.plugins || []).map(id => ({ id: `claude-plugin-${id}`, status: settings.enabledPlugins?.[id] ? 'pass' : 'warn',
     detail: settings.enabledPlugins?.[id] ? `${id} enabled in your Claude settings` : `${id} is not enabled; agent-kit repair installs it again` }))];

@@ -204,7 +204,7 @@ Question 5a adds the owner's Herdr look as one block between `# >>> agent-kit la
 
 When you choose Claude, the kit installs the owner's Claude Code plugins with your own `claude` CLI at user scope:
 - **Pinned marketplaces.** Each comes from its own marketplace, added with `claude plugin marketplace add owner/repo#<commit>`. Nothing is vendored in the kit, and the commit is the content digest.
-- **Your plugins win.** A marketplace or plugin you already have is left as yours and never recorded. Uninstall removes only what the kit added. If you already have one of these marketplaces (for example `claude-plugins-official`), its plugins follow your own marketplace revision, not the kit's pin; doctor warns when that revision differs from the pinned commit.
+- **Your plugins win.** A marketplace or plugin you already have is left as yours and never recorded. Uninstall removes only what the kit added. On upgrade or repair, the kit refreshes only marketplaces its receipt records as kit-owned when their installed revision differs from the pin. If you already had a marketplace, its plugins follow your own revision; doctor warns when that revision differs from the pinned commit.
 - **Account sign-in.** Plugins that connect to an account are installed only; you sign in through each plugin's own flow, and the kit never writes a token or MCP credential.
 - **Pinned MCP packages.** MCP servers that run an npm package run a pinned version: `chrome-devtools-mcp@1.11.0` upstream, and `@playwright/mcp@0.0.83` through the kit's edit of the playwright plugin's `.mcp.json` (upstream says `@latest`). The edit applies only while that file matches the pinned original by SHA-256; repair restores it, upgrade refreshes it, and uninstall removes it with the plugin. `manifests/claude-plugins.json` records each version and its npm registry integrity. Some MCP servers connect to vendor services at run time (see the table).
 
@@ -450,7 +450,7 @@ In the manifest, `verified` means the artifact's identity and integrity were che
 
 - **Label.** `pilot-12` -> `pilot-13`.
 - **Firstmate.** Re-pinned to improve branch-rule finding so discovered repository rules can be enforced when naming ship branches, make second-mate status updates quieter, and add fresh-context validation. The approved commit and source archive checksum are in the [manifest](manifests/pilot-skeleton.json); the archive was downloaded and hashed locally. See the [user guide](docs/user-guide.md#status-of-this-guide) for known branch-rule finder limits.
-- **Figma CLI.** The npm-installed CLI and its Claude plugin marketplace move to commit `5ec32192`; the npm package version stays `2.2.5-make.2`. See the [user guide](docs/user-guide.md#status-of-this-guide) for override limits.
+- **Figma CLI.** When Figma was selected, the npm-installed CLI moves to commit `5ec32192`. With Claude also selected, a kit-owned Figma plugin marketplace is refreshed to that pin; an existing user-added marketplace stays at its own revision. The npm package version stays `2.2.5-make.2`. See the [user guide](docs/user-guide.md#status-of-this-guide) for override limits.
 - **Zoetrope session-graph plugin.** Its source moves to commit `b1736f30`; `herdr-plugin/` is unchanged from the prior pin. The Zoe tower and runtime already use that commit.
 - **Every other pin, digest and prerequisite**, including the Zoe tower and runtime, remains as in `pilot-12`. The owner’s merge word is required; teammates update only when the owner asks.
 
@@ -490,7 +490,7 @@ In the manifest, `verified` means the artifact's identity and integrity were che
   - Zoetrope session-graph plugin: `c80eef89`, SHA-256 `c533e712…`.
   - ray.plugin-manager: `e4fef269`, SHA-256 `3382cd13…`.
   - figma-cli: `cf6883a0`, archive SHA-256 `0dd73755…`, with `manifests/npm-figma`.
-  - The [Claude plugin](#claude-plugins) marketplace commits; a teammate who already has one of those marketplaces keeps it, its plugins follow their revision, and doctor warns when it differs from the pin.
+  - The [Claude plugin](#claude-plugins) marketplace commits; the kit refreshes only marketplaces its receipt owns, while a teammate's own marketplace keeps its revision and doctor warns when it differs from the pin.
   - MCP packages: `@playwright/mcp@0.0.83` (registry integrity `sha512-oNcl+Ae2/IAjhfPeP46BfIkSakfmprY+aOtkv5MjrQ4lPav4/yNtPhL0iq8SlIM90oApWgBDUxaNKvktazUKOg==`), set by the kit's edit of the playwright plugin's `.mcp.json` (pinned original SHA-256 `b6fd7e9c…`) in place of `@latest`; `chrome-devtools-mcp@1.11.0` (registry integrity `sha512-CytJ/5tnzrS+J/74be2P5aCOsS/mmGRHys/Si+IYC4ucrbnWAmES/dYdxGJjeUCECRcoFUilZAysdjlwqUjXIA==`), pinned upstream.
   - python3 3.9 is required on every platform, and figma-cli is no longer a person-installed prerequisite.
 - **New user-level files and settings.**
