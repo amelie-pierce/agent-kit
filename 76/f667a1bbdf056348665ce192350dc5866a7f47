@@ -1,0 +1,21 @@
+README.md
+  s_32021d287c7757::t_8fc7aee4c0bb95 342,452,458,465
+docs/user-guide.md
+  s_32021d287c7757::t_b9ef51f905f216 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "76f667a1bbdf056348665ce192350dc5866a7f47",
+  "prompts": {},
+  "sessions": {
+    "s_32021d287c7757": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a187dd-9192-70d1-8251-1d0f780a40ca",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
