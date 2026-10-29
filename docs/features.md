@@ -1,6 +1,6 @@
 # Agent Kit: all features
 
-This page lists the functions in this `pilot-11` candidate worktree. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`. The owner approves a release by merging its manifest PR.
+This page lists the functions proposed for `pilot-12`. `pilot-11` is the released kit; the owner approves `pilot-12` by merging its manifest PR. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 **How to read the support columns.** **Yes**: works today. **Partial**: works with a limit, explained in the row. **No**: not supported.
 
@@ -66,7 +66,7 @@ Run these with `node "$AK" <command>`. On Windows, run them in your **Ubuntu** t
 
 **Before repair, upgrade or uninstall:** they refuse while Herdr, the no-mistakes daemon or the tower is running, including when you start them from a pane inside Herdr. Each names the step to take (`herdr server stop`, `no-mistakes daemon stop`, or closing the tower's Fleet pane). The kit never stops these itself.
 
-**Upgrade also refuses** while your Firstmate home has uncommitted changes to tracked files, is not on the Firstmate version the kit expects, or has an `origin` other than the approved Firstmate copy (the kit owner's). When a release changes the Firstmate version (as `pilot-9`, `pilot-10` and `pilot-11` do), applying stops until `/updatefirstmate` has run in the home. Moving to `pilot-10` or `pilot-11` also has Firstmate set up the strategy the kit selected again with the new models, if nobody changed it. After an upgrade, point `AK` at the new kit copy. An unchanged kit-owned PATH block is refreshed; if you skipped question 5b, change the release folder in your PATH line yourself.
+**Upgrade also refuses** while your Firstmate home has uncommitted changes to tracked files, is not on the Firstmate version the kit expects, or has an `origin` other than the approved Firstmate copy (the kit owner's). When a release changes the Firstmate version (as `pilot-9`, `pilot-10`, `pilot-11` and `pilot-12` do), applying stops until `/updatefirstmate` has run in the home. Moving to `pilot-10` or `pilot-11` also has Firstmate set up the strategy the kit selected again with the new models, if nobody changed it. After an upgrade, point `AK` at the new kit copy. An unchanged kit-owned PATH block is refreshed; if you skipped question 5b, change the release folder in your PATH line yourself.
 
 ## 3. The install questions
 
@@ -103,7 +103,7 @@ Every download is checked against a fixed checksum. Nothing is started and no on
 
 | Item | What it is | How you use it | macOS | Linux | Windows (WSL2) |
 | --- | --- | --- | --- | --- | --- |
-| Firstmate home | Your own Firstmate, at the version the kit pins (`622311a5`), from the kit owner's approved copy of Firstmate, in `<root>/firstmate`. Its `origin` is that approved copy, so `/updatefirstmate` updates from it; doctor's `firstmate-fork` row checks it | Start it inside Herdr (section 4b) | Yes | Yes | Yes |
+| Firstmate home | Your own Firstmate, at the version the kit pins (`21b21582`), from the kit owner's approved copy of Firstmate, in `<root>/firstmate`. Its `origin` is that approved copy, so `/updatefirstmate` updates from it; doctor's `firstmate-fork` row checks it | Start it inside Herdr (section 4b) | Yes | Yes | Yes |
 | Firstmate strategy | Your routing mode (2c) selected through Firstmate's own `fm-strategy.sh --plans`, plus the kit's `check` and `research` rules. Only in a home with no strategy or rules yet | Question 2c | Yes | Yes | Yes |
 | Herdr 0.9.3 | The terminal workspace the agents run in | `herdr` | Yes | Yes | Yes |
 | Treehouse 2.3.0 | Gives each worker its own clean copy of a repo; a kit wrapper keeps the copies under `<root>/.treehouse` | Used by Firstmate | Yes | Yes | Yes |
@@ -128,7 +128,7 @@ Every download is checked against a fixed checksum. Nothing is started and no on
 
 **You install these yourself; the kit only checks them:** Node.js 24.15.0 or newer, git 2.20.0 or newer, the GitHub CLI 2.0.0 or newer, and python3 3.9 or newer (on macOS from the Xcode Command Line Tools; on Linux and in Ubuntu, `sudo apt install python3`). On macOS also Homebrew, the Xcode Command Line Tools and jq. Optional: Claude Code 2.1.293 or newer, and Figma Desktop. On Windows you also set up WSL2 with Ubuntu 22.04 or newer yourself, and install git, Node.js and `gh` on both Windows and Ubuntu (inside Ubuntu, Node.js from nvm or NodeSource, not `apt install nodejs`). On Windows with the tower chosen, jq inside Ubuntu (`sudo apt install -y jq`); a missing jq is a `tower-jq` warning and does not stop the install.
 
-**The PATH block (question 5b).** The kit offers a marked zsh or bash profile block and checks whether a running Herdr can see the kit folders; it never stops Herdr. `--no-shell-profile` skips adding a block on a new install and preserves an existing kit-owned block on a rerun; `--shell-profile` explicitly turns it on. If you change your login shell, uninstall the kit and reinstall it from the new shell. See the guide's [Mac and Linux instructions](user-guide.md#a24-the-questions) or [Ubuntu instructions](user-guide.md#b28-the-questions) for the profile path, repair, doctor and uninstall behavior.
+**The PATH block (question 5b).** The kit offers a marked zsh or bash profile block and checks whether a running Herdr can see the kit folders; it never stops Herdr. `--no-shell-profile` skips adding a block on a new install and preserves an existing kit-owned block on a rerun; `--shell-profile` explicitly turns it on. If the profile changed since the kit read it, the kit leaves your edit untouched, names the file, and exits with an error so you can re-run the command. A save between the kit's final check and its file replacement can still be lost. If you change your login shell, uninstall the kit and reinstall it from the new shell. See the guide's [Mac and Linux instructions](user-guide.md#a24-the-questions) or [Ubuntu instructions](user-guide.md#b28-the-questions) for the profile path, repair, doctor and uninstall behavior.
 
 ### 4b. The kit's commands (question 5)
 

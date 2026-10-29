@@ -7,7 +7,7 @@ import { doctor, firstmateIssue, gitCheck } from './doctor.mjs';
 import { atomicJson, installPlatform, npmGroup, selected } from './install/macos.mjs';
 import { herdrConfigPath, ownedFiles, placeKitExtras, shortcutInputs } from './shortcuts.mjs';
 import { pluginsPath, zoeFile } from './herdr-plugin.mjs';
-import { profileTarget, reconcileProfile, saveProfileRecord } from './shell-profile.mjs';
+import { ProfileChanged, profileTarget, reconcileProfile, saveProfileRecord } from './shell-profile.mjs';
 import { applyStarter, describeStarter, harnessOf, modeOf, planStarter, plansOf, strategyTakesPlans } from './dispatch.mjs';
 import { validateManifest } from './kit.mjs';
 import { artifactFor, artifactTarget, linuxIdentity } from './platforms/linux.mjs';
@@ -67,7 +67,7 @@ export async function applyUpdate(manifest, options) {
   // kit from its own installed copy. An upgrade defers them until it can no longer roll back.
   const shortcuts = options.deferExtras || result.components.some(x => ['conflict', 'deferred'].includes(x.status)) ? null
     : await placeUpdateExtras(options, plan.firstmateHome, plan.noMistakesBin);
-  return { ...plan, apply: true, status: result.status, exitCode: result.exitCode, components: result.components, shortcuts,
+  return { ...plan, apply: true, status: result.status, exitCode: shortcuts?.profileChanged ? 1 : result.exitCode, components: result.components, shortcuts,
     previousRelease: plan.fromRelease, nextSteps: result.components.filter(x => ['conflict', 'deferred'].includes(x.status)).map(x => `${x.id}: ${x.reason}`),
     note: 'Previous release binaries remain in their versioned directory. User state rollback is not promised.' };
 }
@@ -81,10 +81,11 @@ export function extrasPaths(options, receipt) {
       firstmate ? [join(firstmate, '.claude', 'settings.local.json'), join(firstmate, '.git', 'info', 'exclude'), join(firstmate, 'data', 'captain-help.md')] : []);
 }
 // The kit extras and, for a home that now takes fm-strategy.sh --plans, the person's strategy; a problem with
-// them never fails the update. Returns the lines to report.
+// them never fails the update. Returns the lines to report, flagged profileChanged when the shell profile changed
+// under the kit and was left untouched, which makes the command exit nonzero.
 export async function placeUpdateExtras(options, firstmateHome, noMistakesBin = null) {
   const root = resolve(options.installRoot), receiptPath = join(root, 'receipt.json'), kitPath = ownKit();
-  let shortcuts = null;
+  let shortcuts = null, profileChanged = null;
   try {
     const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
     const extras = await placeKitExtras(receipt, root, { env: options.env || process.env, home: options.home, check: options.herdrCheck,
@@ -95,7 +96,13 @@ export async function placeUpdateExtras(options, firstmateHome, noMistakesBin = 
       await atomicJson(receiptPath, current);
     }
     shortcuts = extras.lines;
-    const profile = await reconcileProfile(JSON.parse(readFileSync(receiptPath, 'utf8')), root, { env: options.env || process.env, home: options.home, platform: options.platform || process.platform });
+    let profile = null;
+    try {
+      profile = await reconcileProfile(JSON.parse(readFileSync(receiptPath, 'utf8')), root, { env: options.env || process.env, home: options.home, platform: options.platform || process.platform, beforeReplace: options.beforeProfileReplace });
+    } catch (error) {
+      if (!(error instanceof ProfileChanged)) throw error;
+      profileChanged = `Shell profile: ${error.message}`; shortcuts.push(profileChanged);
+    }
     if (profile) { await saveProfileRecord(root, profile.record); shortcuts.push(...profile.lines); }
     // A home that now takes fm-strategy.sh --plans gets the person's strategy, as a new install does.
     const current = JSON.parse(readFileSync(receiptPath, 'utf8'));
@@ -104,8 +111,8 @@ export async function placeUpdateExtras(options, firstmateHome, noMistakesBin = 
       if (selected.record) { current.setup ||= {}; current.setup.dispatch = selected.record; await atomicJson(receiptPath, current); }
       const line = describeStarter(selected); if (line) shortcuts.push(line);
     }
-  } catch (error) { shortcuts = [`Herdr shortcuts: not updated; ${error.message}`]; }
-  return shortcuts;
+  } catch (error) { shortcuts = [`Herdr shortcuts: not updated; ${error.message}`, ...(profileChanged ? [profileChanged] : [])]; }
+  return profileChanged ? Object.assign(shortcuts, { profileChanged: true }) : shortcuts;
 }
 export function processRunning(id, noMistakesBin) {
   if (id === 'no-mistakes' && noMistakesBin) {

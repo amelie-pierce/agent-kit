@@ -12,6 +12,12 @@ const sha = data => createHash('sha256').update(data).digest('hex');
 const quote = value => `'${value.replaceAll("'", "'\\''")}'`;
 const stat = path => lstatSync(path, { throwIfNoEntry: false });
 const plainFile = path => { const s = stat(path); return !!s && s.isFile() && !s.isSymbolicLink() && s.nlink === 1; };
+// The profile's identity for compare-and-replace: the sha256 of its bytes, 'absent', or 'other' for a non-plain file.
+export const profileState = path => !stat(path) ? 'absent' : plainFile(path) ? sha(readFileSync(path)) : 'other';
+// Raised when the profile no longer holds what the kit read; nothing was written.
+export class ProfileChanged extends Error {
+  constructor(path) { super(`${path} changed while the kit was updating its PATH block; left unchanged. Save the file, then re-run the command.`); this.path = path; }
+}
 
 // installRoot is <root>/.tools; groups are the npm phases the release holds.
 export function kitFolders(installRoot, release, groups = ['npm']) {
@@ -57,7 +63,7 @@ export function planProfile({ folders, env, home, platform = process.platform, w
   if (!target.path) return { action: want ? 'skip' : 'none', shell: target.shell, block, detail: `your login shell (${target.shell}) is not zsh or bash, so the kit leaves it alone; add this line to your own profile: ${block.split('\n')[2]}` };
   const path = record?.path || target.path, exists = !!stat(path);
   if (exists && !plainFile(path)) return { action: want ? 'skip' : 'none', path, shell: target.shell, block, detail: `${path} is a symlink, hard link or other non-plain file; left unchanged` };
-  const text = exists ? readFileSync(path, 'utf8') : '', found = splitProfile(text);
+  const bytes = exists ? readFileSync(path) : null, text = bytes ? bytes.toString('utf8') : '', found = splitProfile(text);
   if (found.malformed) return { action: want ? 'skip' : 'none', path, shell: target.shell, block, detail: `${path} has a damaged agent-kit marker; left unchanged` };
   const owned = found.block !== null && record?.blockSha256 === sha(found.block);
   let action;
@@ -65,23 +71,33 @@ export function planProfile({ folders, env, home, platform = process.platform, w
   else if (found.block === null) action = record && !repair ? 'keep' : 'add';
   else if (found.block === block) action = 'verify';
   else action = owned ? 'refresh' : 'keep';
-  return { action, path, shell: target.shell, block, text, created: !exists || !!record?.created,
+  return { action, path, shell: target.shell, block, text, state: bytes ? sha(bytes) : 'absent', created: !exists || !!record?.created,
     detail: action === 'keep' ? (found.block === null ? 'the block was removed; not added again (agent-kit repair restores it)' : 'you changed the block; left as you edited it') : null };
 }
 
-export async function applyProfile(plan, root) {
+// beforeReplace(path) runs between the last write preparation and the compare; tests use it to edit the file there.
+export async function applyProfile(plan, root, { beforeReplace } = {}) {
   if (['none', 'skip', 'keep'].includes(plan.action)) return plan.action === 'keep' ? 'keep' : null;
   if (plan.action === 'verify') return { path: plan.path, shell: plan.shell, blockSha256: sha(plan.block), created: plan.created };
   if (plan.text !== '') await backup(root, plan.path);
   const next = plan.action === 'remove' ? withoutBlock(plan.text) : withBlock(plan.text, plan.block);
-  if (plan.action === 'remove' && plan.created && next.trim() === '') await rm(plan.path, { force: true });
-  else {
-    const mode = stat(plan.path)?.mode & 0o7777 || 0o644, tmp = `${plan.path}.${randomUUID()}.tmp`;
-    await writeFile(tmp, next, { mode, flag: 'wx' });
-    await chmod(tmp, mode);
-    await rename(tmp, plan.path);
-  }
+  await replaceProfile(plan.path, plan.state, plan.action === 'remove' && plan.created && next.trim() === '' ? null : next, beforeReplace);
   return plan.action === 'remove' ? null : { path: plan.path, shell: plan.shell, blockSha256: sha(plan.block), created: plan.created };
+}
+// Compare-and-replace: the new text goes to a temp file beside the profile, and only replaces it (or, for null,
+// removes it) while the profile still holds the bytes the plan read. Otherwise ProfileChanged and no change.
+async function replaceProfile(path, expected, next, beforeReplace) {
+  const tmp = next === null ? null : `${path}.${randomUUID()}.tmp`;
+  try {
+    if (tmp) {
+      const mode = stat(path)?.mode & 0o7777 || 0o644;
+      await writeFile(tmp, next, { mode, flag: 'wx' });
+      await chmod(tmp, mode);
+    }
+    await beforeReplace?.(path);
+    if (profileState(path) !== expected) throw new ProfileChanged(path);
+    if (tmp) await rename(tmp, path); else await rm(path, { force: true });
+  } finally { if (tmp) await rm(tmp, { force: true }); }
 }
 async function backup(root, path) {
   const dir = join(root, 'backups', 'shell-profile');
@@ -96,12 +112,19 @@ export function describeProfile(plan) {
 }
 
 // Setup step, repair and upgrade: keep the block current for an install that chose it. Returns lines, or null.
-export async function reconcileProfile(receipt, root, { env = process.env, home = env.HOME, platform = process.platform, repair = false } = {}) {
+// A profile that changes under the kit throws ProfileChanged, so the command exits nonzero; any other
+// problem is reported as a line.
+export async function reconcileProfile(receipt, root, { env = process.env, home = env.HOME, platform = process.platform, repair = false, beforeReplace } = {}) {
   if (platform === 'win32' || receipt.setup?.answers?.shellProfile !== true) return null;
   const prior = receipt.setup?.shellProfile || null;
-  const plan = planProfile({ folders: foldersOf(receipt, root), env, home, platform, want: true, record: prior, repair });
-  let record;
-  try { record = await applyProfile(plan, root); } catch (error) { return { lines: [`Shell profile: not updated; ${error.message}`], plan, record: prior }; }
+  let plan, record;
+  try {
+    plan = planProfile({ folders: foldersOf(receipt, root), env, home, platform, want: true, record: prior, repair });
+    record = await applyProfile(plan, root, { beforeReplace });
+  } catch (error) {
+    if (error instanceof ProfileChanged) throw error;
+    return { lines: [`Shell profile: not updated; ${error.message}`], plan, record: prior };
+  }
   return { lines: [describeProfile(plan)].filter(Boolean), plan, record: record === 'keep' || record === null ? (plan.action === 'remove' ? null : prior) : record };
 }
 export async function saveProfileRecord(root, record) {
@@ -114,13 +137,25 @@ export async function saveProfileRecord(root, record) {
 // Uninstall: only an unchanged block goes; an edited one stays and is reported.
 export function planRemoveProfile(record) {
   if (!record?.path) return null;
-  const text = plainFile(record.path) ? readFileSync(record.path, 'utf8') : null, found = text === null ? null : splitProfile(text);
+  const bytes = plainFile(record.path) ? readFileSync(record.path) : null, text = bytes?.toString('utf8') ?? null, found = text === null ? null : splitProfile(text);
   const unchanged = !!found?.block && record.blockSha256 === sha(found.block);
-  return { path: record.path, action: unchanged ? 'remove the unchanged agent-kit PATH block' : 'keep changed or absent PATH block', text, created: !!record.created };
+  return { path: record.path, action: unchanged ? 'remove the unchanged agent-kit PATH block' : 'keep changed or absent PATH block', text, state: bytes ? sha(bytes) : profileState(record.path), created: !!record.created };
 }
-export async function removeProfile(root, plan) {
+export async function removeProfile(root, plan, { beforeReplace } = {}) {
   if (plan?.action !== 'remove the unchanged agent-kit PATH block') return;
-  await applyProfile({ action: 'remove', path: plan.path, text: plan.text, created: plan.created }, root);
+  await applyProfile({ action: 'remove', path: plan.path, text: plan.text, state: plan.state, created: plan.created }, root, { beforeReplace });
+}
+
+// Upgrade rollback: the bytes captured before the upgrade (null: absent) go back only while the profile differs
+// from them by nothing but the block the kit wrote since (record). Returns a line when the profile stays as it is.
+export async function restoreProfile(path, before, record, { beforeReplace } = {}) {
+  const old = before === null ? 'absent' : sha(before), bytes = plainFile(path) ? readFileSync(path) : null, now = bytes ? sha(bytes) : profileState(path);
+  if (now === old) return null;
+  const text = bytes?.toString('utf8') ?? null, block = text === null ? null : splitProfile(text).block;
+  const stays = `${path} changed during the upgrade, so the rollback left it as it is now. Save the file, then re-run the command.`;
+  if (block === null || sha(block) !== record?.blockSha256 || text !== withBlock(before?.toString('utf8') ?? '', block)) return stays;
+  try { await replaceProfile(path, now, before, beforeReplace); } catch (error) { if (error instanceof ProfileChanged) return stays; throw error; }
+  return null;
 }
 
 // Doctor rows. `installing` is the setup run: the terminal that started the installer has not seen the block yet.

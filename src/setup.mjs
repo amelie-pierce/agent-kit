@@ -578,7 +578,7 @@ export async function setup(manifest, ctx) {
       await stepRun(3, async () => {
         const shortcuts = await placeShortcuts(answers, paths, receiptPath, manifest.release, { env, home, check: ctx.herdrCheck, isRunning: ctx.isRunning || processRunning }, output);
         if (!answers.shellProfile) return shortcuts;
-        const done = await reconcileProfile(await readReceipt(receiptPath), paths.installRoot, { env, home, platform, repair: true });
+        const done = await reconcileProfile(await readReceipt(receiptPath), paths.installRoot, { env, home, platform, repair: true, beforeReplace: ctx.beforeProfileReplace });
         if (!done) return shortcuts;
         profile = done.plan;
         for (const line of done.lines) output.write(`  ${line}\n`);

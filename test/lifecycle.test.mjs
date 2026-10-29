@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -393,16 +393,16 @@ test('upgrade from pilot-9 to pilot-10 shows the Firstmate re-pin, asks for /upd
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate a6bc187\n', 'the kit never touches the home');
 });
 
-test('upgrade from pilot-10 to pilot-11 shows the Firstmate re-pin, asks for /updatefirstmate first, then applies', { skip: process.platform === 'win32' }, async t => {
+test('upgrade from pilot-11 to pilot-12 shows the Firstmate re-pin, asks for /updatefirstmate first, then applies', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t), oldPin = f.git('rev-parse', 'HEAD');
-  writeFileSync(join(f.firstmate, 'README.md'), 'firstmate 622311a\n');
-  f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qam', 'firstmate pilot-11 fixes');
+  writeFileSync(join(f.firstmate, 'README.md'), 'firstmate 21b2158\n');
+  f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qam', 'firstmate pilot-12 fixes');
   const newPin = f.git('rev-parse', 'HEAD');
   f.git('checkout', '-q', '--detach', oldPin);
-  renameSync(join(f.root, 'releases', 'old-release'), join(f.root, 'releases', 'pilot-10'));
+  renameSync(join(f.root, 'releases', 'old-release'), join(f.root, 'releases', 'pilot-11'));
   const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
-  receipt.release = 'pilot-10';
-  receipt.phases.herdr.path = 'releases/pilot-10/bin/herdr';
+  receipt.release = 'pilot-11';
+  receipt.phases.herdr.path = 'releases/pilot-11/bin/herdr';
   writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
   const fetchKit = async (_commit, _env, destination) => {
     await stagedKit(_commit, _env, destination);
@@ -415,27 +415,27 @@ test('upgrade from pilot-10 to pilot-11 shows the Firstmate re-pin, asks for /up
   const before = readFileSync(f.receiptPath, 'utf8');
   const plan = await planUpgrade(args);
   t.after(() => rmSync(plan.stage, { recursive: true, force: true }));
-  assert.equal(plan.fromRelease, 'pilot-10');
-  assert.equal(plan.toRelease, 'pilot-11');
+  assert.equal(plan.fromRelease, 'pilot-11');
+  assert.equal(plan.toRelease, 'pilot-12');
   assert.equal(plan.firstmatePinChange, true);
   assert.deepEqual(plan.changes.filter(x => x.from.version !== x.to.version).map(x => x.id), ['firstmate']);
   const text = formatLifecycle(plan);
-  assert.match(text, /\nRelease: pilot-10 -> pilot-11\n/);
+  assert.match(text, /\nRelease: pilot-11 -> pilot-12\n/);
   assert.match(text, new RegExp(`\\n- firstmate: ${oldPin} -> ${newPin}; `));
   assert.match(text, /\nFirstmate pin: run \/updatefirstmate in the Firstmate home before applying\n/);
   await assert.rejects(applyUpgrade(plan, f.options), new RegExp(`Firstmate pin changed; run /updatefirstmate from ${f.firstmate}, then rerun agent-kit upgrade`));
   assert.equal(readFileSync(f.receiptPath, 'utf8'), before, 'nothing changes before /updatefirstmate');
-  assert.equal(existsSync(join(f.root, 'releases', 'pilot-11')), false);
+  assert.equal(existsSync(join(f.root, 'releases', 'pilot-12')), false);
   f.git('checkout', '-q', '--detach', newPin);
   const ready = await planUpgrade(args);
   assert.match(formatLifecycle(ready), /\nFirstmate pin: guarded update already verified\n/);
   const result = await applyUpgrade(ready, f.options);
   assert.equal(result.status, 'upgraded');
   const after = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
-  assert.equal(after.release, 'pilot-11');
+  assert.equal(after.release, 'pilot-12');
   assert.equal(after.phases.firstmate.version, newPin);
-  assert.equal(readFileSync(join(f.root, 'releases', 'pilot-10', 'bin', 'herdr'), 'utf8'), 'original', 'the pilot-10 release stays for rollback');
-  assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate 622311a\n', 'the kit never touches the home');
+  assert.equal(readFileSync(join(f.root, 'releases', 'pilot-11', 'bin', 'herdr'), 'utf8'), 'original', 'the pilot-11 release stays for rollback');
+  assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate 21b2158\n', 'the kit never touches the home');
 });
 
 test('upgrade from macos-pilot-6 to the current pilot-N plans and applies without a release prefix assumption', { skip: process.platform === 'win32' }, async t => {
@@ -626,6 +626,31 @@ test('skipped profile ownership survives repair and update, then uninstall remov
   assert.equal(planUninstall(options).shellProfile.action, 'remove the unchanged agent-kit PATH block');
   await applyUninstall(options);
   assert.equal(existsSync(rc), false);
+});
+
+test('a profile edited under repair, update and uninstall once is left as saved and the command fails', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t), rc = join(f.home, '.zshrc'), env = { ...f.options.env, SHELL: '/bin/zsh' };
+  writeFileSync(rc, 'alias a=b\n');
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.setup.answers.shellProfile = true;
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const options = { ...f.options, env, beforeProfileReplace: path => appendFileSync(path, 'export MINE=1\n') };
+  const repaired = await applyRepair(f.manifest, options);
+  assert.equal(repaired.status, 'partial');
+  assert.ok(repaired.shortcuts.includes(`Shell profile: ${rc} changed while the kit was updating its PATH block; left unchanged. Save the file, then re-run the command.`));
+  assert.match(formatLifecycle(repaired), /: partial/);
+  assert.equal(readFileSync(rc, 'utf8'), 'alias a=b\nexport MINE=1\n');
+  const lines = await placeUpdateExtras(options, f.firstmate);
+  assert.equal(lines.profileChanged, true);
+  assert.ok(lines.some(line => line.startsWith(`Shell profile: ${rc} changed`)));
+  assert.equal(readFileSync(rc, 'utf8'), 'alias a=b\n' + 'export MINE=1\n'.repeat(2));
+  await applyRepair(f.manifest, { ...options, beforeProfileReplace: undefined });
+  const placed = readFileSync(rc, 'utf8');
+  assert.match(placed, /# >>> agent-kit PATH >>>/);
+  const result = await applyUninstall(options);
+  assert.equal(result.status, 'partial');
+  assert.equal(readFileSync(rc, 'utf8'), placed + 'export MINE=1\n');
+  assert.match(formatLifecycle(result), new RegExp(`Shell profile PATH block: left untouched because it changed while the kit was removing its PATH block; save the file, then re-run the command; if uninstall has finished, remove the block yourself; ${rc}`));
 });
 
 test('doctor checks a running Herdr with a prior-release receipt', { skip: process.platform === 'win32' }, t => {

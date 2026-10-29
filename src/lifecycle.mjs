@@ -15,7 +15,7 @@ import { applyStarter, harnessOf, modeOf, planStarter, plansOf, starterRemovable
 import { herdrConfigPath, placeKitExtras, planRemoveShortcuts, removeShortcuts } from './shortcuts.mjs';
 import { planRemovePlugin, removePlugin } from './herdr-plugin.mjs';
 import { removeClaudePlugins } from './claude-plugins.mjs';
-import { planRemoveProfile, reconcileProfile, removeProfile, saveProfileRecord } from './shell-profile.mjs';
+import { ProfileChanged, planRemoveProfile, profileTarget, reconcileProfile, removeProfile, restoreProfile, saveProfileRecord } from './shell-profile.mjs';
 
 const repo = 'amelie-pierce/agent-kit';
 const sha = data => createHash('sha256').update(data).digest('hex');
@@ -161,13 +161,19 @@ async function reconcileShortcuts(root, options, repair) {
     await atomicJson(join(root, 'receipt.json'), updated);
     lines.push(...result.lines);
   }
-  lines.push(...await reconcileShellProfile(root, options, repair));
-  return lines.length ? lines : null;
+  const profile = await reconcileShellProfile(root, options, repair);
+  lines.push(...profile);
+  return profile.profileChanged ? Object.assign(lines, { profileChanged: true }) : lines.length ? lines : null;
 }
-// The PATH block follows the shell profile answer; like the shortcuts, a problem here never rolls back.
+// The PATH block follows the shell profile answer; like the shortcuts, a problem here never rolls back. A profile
+// that changed under the kit stays untouched and is flagged so the command exits nonzero.
 async function reconcileShellProfile(root, options, repair) {
   const { receipt } = receiptAt(root), env = options.env || process.env;
-  const done = await reconcileProfile(receipt, root, { env, home: options.home || env.HOME, platform: options.platform || process.platform, repair });
+  let done;
+  try { done = await reconcileProfile(receipt, root, { env, home: options.home || env.HOME, platform: options.platform || process.platform, repair, beforeReplace: options.beforeProfileReplace }); } catch (error) {
+    if (!(error instanceof ProfileChanged)) throw error;
+    return Object.assign([`Shell profile: ${error.message}`], { profileChanged: true });
+  }
   if (!done) return [];
   await saveProfileRecord(root, done.record);
   return done.lines;
@@ -337,7 +343,7 @@ export async function applyRepair(manifest, options = {}) {
     }
     const dispatch = await reconcileStarter(plan.root, plan.firstmate.path, 'repair');
     const shortcuts = await reconcileShortcuts(plan.root, options, true);
-    return { ...plan, apply: true, status: 'repaired', backup, components: result.components, nextSteps, dispatch, shortcuts };
+    return { ...plan, apply: true, status: shortcuts?.profileChanged ? 'partial' : 'repaired', backup, components: result.components, nextSteps, dispatch, shortcuts };
   } catch (error) {
     await atomicJson(join(plan.root, 'receipt.json'), current);
     for (const item of copied.reverse()) { await rm(item.original, { recursive: true, force: true }); await rename(item.backup, item.original); }
@@ -409,7 +415,12 @@ export async function applyUninstall(options = {}) {
   await removePlugin(planRemovePlugin(root, shortcuts?.plugin, shortcuts?.keys?.path || herdrConfigPath(options.env || process.env, options.home)), {
     env: { ...(options.env || process.env), HOME: options.home }, herdr: receipt.phases.herdr?.path ? join(root, receipt.phases.herdr.path) : null });
   await removeShortcuts(root, planRemoveShortcuts(root, shortcuts, plan.removeFirstmateHome ? null : plan.firstmate));
-  await removeProfile(root, planRemoveProfile(receipt.setup?.shellProfile));
+  // A profile that changes under the kit stays exactly as it is; the rest of the uninstall goes on.
+  let profileKept = null;
+  try { await removeProfile(root, planRemoveProfile(receipt.setup?.shellProfile), { beforeReplace: options.beforeProfileReplace }); } catch (error) {
+    if (!(error instanceof ProfileChanged)) throw error;
+    profileKept = { path: error.path, action: 'left untouched because it changed while the kit was removing its PATH block; save the file, then re-run the command; if uninstall has finished, remove the block yourself' };
+  }
   removeClaudePlugins(shortcuts?.claudePlugins, { claude: shortcuts?.realClaude, env: options.env || process.env, home: options.home, run: options.runClaude });
   for (const name of ['kit', 'releases', 'npm-cache', 'cargo-home', 'empty-user.npmrc', 'empty-global.npmrc']) {
     const path = join(root, name);
@@ -423,7 +434,7 @@ export async function applyUninstall(options = {}) {
   if (plan.removeFirstmateHome) await rm(plan.firstmate, { recursive: true });
   else if (plan.removeEnv && stat(plan.envPath)) await rm(plan.envPath);
   if (rules) await rm(rules);
-  return { ...plan, apply: true, backup, record: join(recordDir, 'uninstall.json') };
+  return { ...plan, ...(profileKept ? { status: 'partial', shellProfile: profileKept } : {}), apply: true, backup, record: join(recordDir, 'uninstall.json') };
 }
 
 export function resolveReviewedCommit(channel, { env = process.env, gh = command } = {}) {
@@ -519,17 +530,27 @@ export async function applyUpgrade(plan, options = {}) {
     // Past every check that rolls back: what the new kit places from here stays tracked in the receipt.
     const shortcuts = await target.placeUpdateExtras({ ...options, installRoot: root, isRunning: () => false }, homeOf(updated));
     const dispatch = await reconcileStarter(root, homeOf(updated), 'upgrade');
-    return { ...plan, apply: true, status: 'upgraded', components: result.components, dispatch, shortcuts };
+    return { ...plan, apply: true, status: shortcuts?.profileChanged ? 'partial' : 'upgraded', components: result.components, dispatch, shortcuts };
   } catch (error) {
+    // The PATH block the new kit wrote, so the rollback can tell it from the person's own profile edits.
+    let written = null;
+    try { written = receiptAt(root).receipt.setup?.shellProfile || null; } catch { /* No readable receipt: any profile change counts as the person's. */ }
+    const env = options.env || process.env, profile = old.setup?.shellProfile?.path || profileTarget(env, options.home || env.HOME).path, kept = [];
     await atomicJson(join(root, 'receipt.json'), old);
     for (const item of oldGlobal.reverse()) {
       if (item.type === 'other') continue;
+      if (item.path === profile && item.type !== 'link') {
+        const line = await restoreProfile(item.path, item.data, written, { beforeReplace: options.beforeProfileReplace });
+        if (line) kept.push(line);
+        continue;
+      }
       await rm(item.path, { force: true });
       if (item.type === 'file') { await mkdir(dirname(item.path), { recursive: true, mode: 0o700 }); await writeFile(item.path, item.data, { mode: item.mode }); await chmod(item.path, item.mode); }
       if (item.type === 'link') await symlink(item.data, item.path);
     }
     if (!hadRelease) await rm(releaseTarget, { recursive: true, force: true });
     if (plan.commit !== old.setup?.kit?.commit) await rm(kitTarget, { recursive: true, force: true });
+    if (kept.length && error instanceof Error) error.message += `; ${kept.join('; ')}`;
     throw error;
   } finally { await rm(plan.stage, { recursive: true, force: true }); }
 }
