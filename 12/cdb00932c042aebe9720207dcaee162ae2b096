@@ -1,0 +1,19 @@
+test/lifecycle.test.mjs
+  s_373f8c6c24e929::t_f9173f2a752f01 396,399,402,404-405,418-419,423,428,435,437
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "12cdb00932c042aebe9720207dcaee162ae2b096",
+  "prompts": {},
+  "sessions": {
+    "s_373f8c6c24e929": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a186c5-b6cf-7080-90b1-4fd4d47904ee",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
