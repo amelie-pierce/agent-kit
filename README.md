@@ -449,7 +449,7 @@ In the manifest, `verified` means the artifact's identity and integrity were che
 ### Versions for owner approval (`pilot-12` -> `pilot-13`)
 
 - **Label.** `pilot-12` -> `pilot-13`.
-- **Firstmate.** Re-pinned to the Firstmate release that enforces discovered repository branch rules when naming ship branches. The approved commit and source archive checksum are in the [manifest](manifests/pilot-skeleton.json); the archive was downloaded and hashed locally. See the [user guide](docs/user-guide.md#status-of-this-guide) for known branch-rule finder limits.
+- **Firstmate.** Re-pinned to `49350801`. It improves branch-rule finding so discovered repository rules can be enforced when naming ship branches, makes second-mate status updates quieter, and adds fresh-context validation. The approved commit and source archive checksum are in the [manifest](manifests/pilot-skeleton.json); the archive was downloaded and hashed locally. See the [user guide](docs/user-guide.md#status-of-this-guide) for known branch-rule finder limits.
 - **Every other pin, digest and prerequisite**, including the Zoe tower and runtime, remains as in `pilot-12`. The owner’s merge word is required; teammates update only when the owner asks.
 
 ### Versions for owner approval (`pilot-11` -> `pilot-12`)
