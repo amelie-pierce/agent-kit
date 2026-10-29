@@ -393,16 +393,16 @@ test('upgrade from pilot-9 to pilot-10 shows the Firstmate re-pin, asks for /upd
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate a6bc187\n', 'the kit never touches the home');
 });
 
-test('upgrade from pilot-11 to pilot-12 shows the Firstmate re-pin, asks for /updatefirstmate first, then applies', { skip: process.platform === 'win32' }, async t => {
+test('upgrade from pilot-12 to pilot-13 shows the Firstmate re-pin, asks for /updatefirstmate first, then applies', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t), oldPin = f.git('rev-parse', 'HEAD');
   writeFileSync(join(f.firstmate, 'README.md'), 'firstmate 21b2158\n');
-  f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qam', 'firstmate pilot-12 fixes');
+  f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qam', 'firstmate pilot-13 fixes');
   const newPin = f.git('rev-parse', 'HEAD');
   f.git('checkout', '-q', '--detach', oldPin);
-  renameSync(join(f.root, 'releases', 'old-release'), join(f.root, 'releases', 'pilot-11'));
+  renameSync(join(f.root, 'releases', 'old-release'), join(f.root, 'releases', 'pilot-12'));
   const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
-  receipt.release = 'pilot-11';
-  receipt.phases.herdr.path = 'releases/pilot-11/bin/herdr';
+  receipt.release = 'pilot-12';
+  receipt.phases.herdr.path = 'releases/pilot-12/bin/herdr';
   writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
   const fetchKit = async (_commit, _env, destination) => {
     await stagedKit(_commit, _env, destination);
@@ -415,26 +415,26 @@ test('upgrade from pilot-11 to pilot-12 shows the Firstmate re-pin, asks for /up
   const before = readFileSync(f.receiptPath, 'utf8');
   const plan = await planUpgrade(args);
   t.after(() => rmSync(plan.stage, { recursive: true, force: true }));
-  assert.equal(plan.fromRelease, 'pilot-11');
-  assert.equal(plan.toRelease, 'pilot-12');
+  assert.equal(plan.fromRelease, 'pilot-12');
+  assert.equal(plan.toRelease, 'pilot-13');
   assert.equal(plan.firstmatePinChange, true);
   assert.deepEqual(plan.changes.filter(x => x.from.version !== x.to.version).map(x => x.id), ['firstmate']);
   const text = formatLifecycle(plan);
-  assert.match(text, /\nRelease: pilot-11 -> pilot-12\n/);
+  assert.match(text, /\nRelease: pilot-12 -> pilot-13\n/);
   assert.match(text, new RegExp(`\\n- firstmate: ${oldPin} -> ${newPin}; `));
   assert.match(text, /\nFirstmate pin: run \/updatefirstmate in the Firstmate home before applying\n/);
   await assert.rejects(applyUpgrade(plan, f.options), new RegExp(`Firstmate pin changed; run /updatefirstmate from ${f.firstmate}, then rerun agent-kit upgrade`));
   assert.equal(readFileSync(f.receiptPath, 'utf8'), before, 'nothing changes before /updatefirstmate');
-  assert.equal(existsSync(join(f.root, 'releases', 'pilot-12')), false);
+  assert.equal(existsSync(join(f.root, 'releases', 'pilot-13')), false);
   f.git('checkout', '-q', '--detach', newPin);
   const ready = await planUpgrade(args);
   assert.match(formatLifecycle(ready), /\nFirstmate pin: guarded update already verified\n/);
   const result = await applyUpgrade(ready, f.options);
   assert.equal(result.status, 'upgraded');
   const after = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
-  assert.equal(after.release, 'pilot-12');
+  assert.equal(after.release, 'pilot-13');
   assert.equal(after.phases.firstmate.version, newPin);
-  assert.equal(readFileSync(join(f.root, 'releases', 'pilot-11', 'bin', 'herdr'), 'utf8'), 'original', 'the pilot-11 release stays for rollback');
+  assert.equal(readFileSync(join(f.root, 'releases', 'pilot-12', 'bin', 'herdr'), 'utf8'), 'original', 'the pilot-12 release stays for rollback');
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate 21b2158\n', 'the kit never touches the home');
 });
 
