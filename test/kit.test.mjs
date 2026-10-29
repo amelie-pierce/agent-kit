@@ -35,11 +35,11 @@ function tempFixture(t) {
 
 test('bundled manifest keeps verified source commits and macOS/Linux digests', () => {
   validateManifest(manifest);
-  assert.equal(manifest.release, 'pilot-12');
+  assert.equal(manifest.release, 'pilot-13');
   const firstmate = manifest.tools.find(x => x.id === 'firstmate');
-  assert.equal(firstmate.version.value, '21b21582ad82eaa4f2052fddbbeea02751a724ce');
+  assert.equal(firstmate.version.value, 'dacc8a66043d706eaaa5b3103c73fb126c542608');
   assert.equal(firstmate.approvedUpstream, 'https://github.com/pikenguyen227/firstmate');
-  assert.equal(firstmate.artifacts['darwin-arm64'].sha256, 'e668dff77aa53e309abc1863c754040b8deac41e3a90f6b1b299eaa62aed2ed8');
+  assert.equal(firstmate.artifacts['darwin-arm64'].sha256, '0b8eb2c19b5c98242810b23173851c7b25ce41357094d28f809a1e355e3dc0d3');
   const tower = manifest.tools.find(x => x.id === 'zoe-fleet'), runtime = manifest.tools.find(x => x.id === 'zoe-fleet-runtime');
   assert.equal(tower.version.value, 'b1736f30d34e0ace87eb871b3d6fd1cc79f17c84');
   assert.equal(tower.artifacts['linux-arm64'].sha256, '5843ffdb9b258b31ec26b5b74233b983aacfd9e65aaf35bafbff697fac1bad22');

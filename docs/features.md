@@ -1,6 +1,6 @@
 # Agent Kit: all features
 
-This page lists the functions proposed for `pilot-12`. `pilot-11` is the released kit; the owner approves `pilot-12` by merging its manifest PR. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This page lists the functions proposed for `pilot-13`. `pilot-12` is the released kit; the owner approves `pilot-13` by merging its manifest PR. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 **How to read the support columns.** **Yes**: works today. **Partial**: works with a limit, explained in the row. **No**: not supported.
 
@@ -66,7 +66,7 @@ Run these with `node "$AK" <command>`. On Windows, run them in your **Ubuntu** t
 
 **Before repair, upgrade or uninstall:** they refuse while Herdr, the no-mistakes daemon or the tower is running, including when you start them from a pane inside Herdr. Each names the step to take (`herdr server stop`, `no-mistakes daemon stop`, or closing the tower's Fleet pane). The kit never stops these itself.
 
-**Upgrade also refuses** while your Firstmate home has uncommitted changes to tracked files, is not on the Firstmate version the kit expects, or has an `origin` other than the approved Firstmate copy (the kit owner's). When a release changes the Firstmate version (as `pilot-9`, `pilot-10`, `pilot-11` and `pilot-12` do), applying stops until `/updatefirstmate` has run in the home. Moving to `pilot-10` or `pilot-11` also has Firstmate set up the strategy the kit selected again with the new models, if nobody changed it. After an upgrade, point `AK` at the new kit copy. An unchanged kit-owned PATH block is refreshed; if you skipped question 5b, change the release folder in your PATH line yourself.
+**Upgrade also refuses** while your Firstmate home has uncommitted changes to tracked files, is not on the Firstmate version the kit expects, or has an `origin` other than the approved Firstmate copy (the kit owner's). When a release changes the Firstmate version (as `pilot-9`, `pilot-10`, `pilot-11`, `pilot-12` and `pilot-13` do), applying stops until `/updatefirstmate` has run in the home. Moving to `pilot-10` or `pilot-11` also has Firstmate set up the strategy the kit selected again with the new models, if nobody changed it. After an upgrade, point `AK` at the new kit copy. An unchanged kit-owned PATH block is refreshed; if you skipped question 5b, change the release folder in your PATH line yourself.
 
 ## 3. The install questions
 
@@ -103,7 +103,7 @@ Every download is checked against a fixed checksum. Nothing is started and no on
 
 | Item | What it is | How you use it | macOS | Linux | Windows (WSL2) |
 | --- | --- | --- | --- | --- | --- |
-| Firstmate home | Your own Firstmate, at the version the kit pins (`21b21582`), from the kit owner's approved copy of Firstmate, in `<root>/firstmate`. Its `origin` is that approved copy, so `/updatefirstmate` updates from it; doctor's `firstmate-fork` row checks it | Start it inside Herdr (section 4b) | Yes | Yes | Yes |
+| Firstmate home | Your own Firstmate, at the version the kit pins (`dacc8a66`), from the kit owner's approved copy of Firstmate, in `<root>/firstmate`. Its `origin` is that approved copy, so `/updatefirstmate` updates from it; doctor's `firstmate-fork` row checks it | Start it inside Herdr (section 4b) | Yes | Yes | Yes |
 | Firstmate strategy | Your routing mode (2c) selected through Firstmate's own `fm-strategy.sh --plans`, plus the kit's `check` and `research` rules. Only in a home with no strategy or rules yet | Question 2c | Yes | Yes | Yes |
 | Herdr 0.9.3 | The terminal workspace the agents run in | `herdr` | Yes | Yes | Yes |
 | Treehouse 2.3.0 | Gives each worker its own clean copy of a repo; a kit wrapper keeps the copies under `<root>/.treehouse` | Used by Firstmate | Yes | Yes | Yes |
