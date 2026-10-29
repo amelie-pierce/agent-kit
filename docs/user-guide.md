@@ -246,7 +246,7 @@ The list of files and links it will touch is shown before the question. Your own
 | `context7` | it may ask for your own Context7 key; the kit never writes one |
 | `figma-cli` (only with Figma) | nothing |
 
-If you already have one of these plugins or marketplaces, the kit leaves yours as it is; doctor warns if your marketplace revision differs from the kit's pin. Upgrade and repair refresh a receipt-owned marketplace only when its installed revision still matches the recorded kit revision. Pilot-12 receipts without a revision use their ownership record. The receipt keeps the prior revision after a successful refresh; a failed refresh attempts to restore it. A downgrade from pilot-13 to pilot-12 through the pilot-13 kit restores that prior revision only if the installed revision still matches the receipt. A user replacement under the same name is left untouched by repair, downgrade and uninstall.
+If you already have one of these plugins or marketplaces, the kit leaves yours as it is. Doctor checks kit-owned marketplaces and warns when their revision differs from the pin. Upgrade compares a pilot-12 receipt without a revision against the retained pilot-12 kit manifest first; if that manifest is missing or the installed revision is unreadable, it leaves that marketplace untouched. Upgrade and repair refresh a kit-owned marketplace only when its installed revision matches its recorded kit revision. The receipt saves the prior revision before replacement; a failed refresh attempts to restore it. `rollback pilot-12` restores that prior revision only while the installed revision still matches the receipt. A user-added or replaced marketplace stays untouched during repair, rollback and uninstall.
 
 **The plan questions (2a, 2b, 2c).** The kit asks which subscription you have for each agent CLI you chose, so that Firstmate (and Jev, once you add the key) picks models your plan can afford. Only the plan's name is saved; the kit never checks your account. If you are not sure, press Enter for `skip`.
 
@@ -655,6 +655,8 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 3. Start Herdr and Firstmate again (A3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (A10.3).
 4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
 5. Do the "After an upgrade" steps above.
+
+If the owner asks you to return from `pilot-13` to the recorded `pilot-12` release, quit Firstmate and stop Herdr and the other kit services first. With `AK` still pointing to the pilot-13 kit, run `node "$AK" doctor` and check `PASS rollback-release`, then run `node "$AK" rollback pilot-12`. Review the plan and answer `y` (or use `--yes`). Rollback fetches the recorded pilot-12 kit commit, verifies a clean detached Firstmate checkout on the approved origin, and checks out the locally available pilot-12 Firstmate commit without resetting files. It refuses a branch checkout, tracked changes, an unknown prior commit, or running kit services. It restores the kit release and a kit-owned Claude marketplace only if the installed revision still matches its receipt; your own marketplace stays untouched. Point `AK` to the restored `<root>/.tools/kit/<pilot-12-commit>/bin/agent-kit.mjs` shown in the plan, then run `node "$AK" doctor`.
 
 **Moving from `pilot-11` to `pilot-12`**, when you are asked to:
 
@@ -1526,7 +1528,7 @@ The list of files and links it will touch is shown before the question. Your own
 | `context7` | it may ask for your own Context7 key; the kit never writes one |
 | `figma-cli` (only with Figma) | nothing |
 
-If you already have one of these plugins or marketplaces, the kit leaves yours as it is; doctor warns if your marketplace revision differs from the kit's pin. Upgrade and repair refresh a receipt-owned marketplace only when its installed revision still matches the recorded kit revision. Pilot-12 receipts without a revision use their ownership record. The receipt keeps the prior revision after a successful refresh; a failed refresh attempts to restore it. A downgrade from pilot-13 to pilot-12 through the pilot-13 kit restores that prior revision only if the installed revision still matches the receipt. A user replacement under the same name is left untouched by repair, downgrade and uninstall.
+If you already have one of these plugins or marketplaces, the kit leaves yours as it is. Doctor checks kit-owned marketplaces and warns when their revision differs from the pin. Upgrade compares a pilot-12 receipt without a revision against the retained pilot-12 kit manifest first; if that manifest is missing or the installed revision is unreadable, it leaves that marketplace untouched. Upgrade and repair refresh a kit-owned marketplace only when its installed revision matches its recorded kit revision. The receipt saves the prior revision before replacement; a failed refresh attempts to restore it. `rollback pilot-12` restores that prior revision only while the installed revision still matches the receipt. A user-added or replaced marketplace stays untouched during repair, rollback and uninstall.
 
 **The plan questions (2a, 2b, 2c).** The kit asks which subscription you have for each agent CLI you chose, so that Firstmate (and Jev, once you add the key) picks models your plan can afford. Only the plan's name is saved; the kit never checks your account. If you are not sure, press Enter for `skip`.
 
@@ -1946,6 +1948,8 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 3. Start Herdr and Firstmate again (B3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (B10.3).
 4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
 5. Do the "After an upgrade" steps above.
+
+If the owner asks you to return from `pilot-13` to the recorded `pilot-12` release, quit Firstmate and stop Herdr and the other kit services first. In Ubuntu, with `AK` still pointing to the pilot-13 kit, run `node "$AK" doctor` and check `PASS rollback-release`, then run `node "$AK" rollback pilot-12`. Review the plan and answer `y` (or use `--yes`). Rollback fetches the recorded pilot-12 kit commit, verifies a clean detached Firstmate checkout on the approved origin, and checks out the locally available pilot-12 Firstmate commit without resetting files. It refuses a branch checkout, tracked changes, an unknown prior commit, or running kit services. It restores the kit release and a kit-owned Claude marketplace only if the installed revision still matches its receipt; your own marketplace stays untouched. Point `AK` to the restored `<root>/.tools/kit/<pilot-12-commit>/bin/agent-kit.mjs` shown in the plan, then run `node "$AK" doctor`.
 
 **Moving from `pilot-11` to `pilot-12`**, when you are asked to:
 

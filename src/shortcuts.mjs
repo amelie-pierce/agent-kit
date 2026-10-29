@@ -5,7 +5,7 @@ import { chmod, mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
 import { findOnPath } from './platforms/macos.mjs';
 import { applyPlugin, describePlugin, planPlugin } from './herdr-plugin.mjs';
-import { claudePluginsHealth, placeClaudePlugins } from './claude-plugins.mjs';
+import { claudePluginsHealth, placeClaudePlugins, recordClaudePreviousRevision } from './claude-plugins.mjs';
 
 // Keyboard shortcuts for a teammate's Firstmate: kit-owned launchers in <root>/.tools/bin (open-firstmate runs
 // the kit's templates/shortcuts/open_firstmate.py, fm-mate runs `agent-kit mate`) with paths from the receipt,
@@ -416,7 +416,8 @@ export async function placeKitExtras(receipt, root, options = {}) {
   const autostart = await applyAutostart(autostartPlan, root);
   if (autostartPlan.action !== 'none') lines.push(autostartPlan.action === 'skip' || autostartPlan.action === 'keep' ? `Fleet autostart hook: ${autostartPlan.detail}`
     : `Fleet autostart hook (${autostartPlan.path}): ${{ add: 'added', refresh: 'refreshed', verify: 'present', remove: 'removed' }[autostartPlan.action]}`);
-  const claudePlugins = await placeClaudePlugins(receipt.setup?.answers || {}, { claude: result.inputs.realClaude, env, home, record: prior?.claudePlugins || null, run: options.runClaude });
+  const claudePlugins = await placeClaudePlugins(receipt.setup?.answers || {}, { claude: result.inputs.realClaude, env, home, record: prior?.claudePlugins || null, run: options.runClaude, table: options.claudeTable,
+    beforeRefresh: (name, installed) => recordClaudePreviousRevision(root, name, installed) });
   lines.push(...claudePlugins.lines);
   return { action: result.action, detail: result.detail, keys: result.keys, lines,
     record: { ...result.record, plugin: record.plugin, claudePlugins: claudePlugins.record, autostart: autostartPlan.action === 'skip' ? prior?.autostart || null : autostart,

@@ -20,7 +20,7 @@ export function reviewedCheckout() {
   return clean.status === 0 && !clean.stdout.trim() &&
     git(['merge-base', '--is-ancestor', 'HEAD', 'refs/remotes/origin/main']).status === 0;
 }
-export function planUpdate(manifest, { installRoot, home, env = process.env, platform = process.platform, arch = process.arch, harness = 'claude', withFigma = false, nodeVersion = process.versions.node, reviewed = true } = {}) {
+export function planUpdate(manifest, { installRoot, home, env = process.env, platform = process.platform, arch = process.arch, harness = 'claude', withFigma = false, nodeVersion = process.versions.node, reviewed = true, manifestsDir } = {}) {
   validateManifest(manifest);
   if (!installRoot || !isAbsolute(installRoot)) throw new Error('update requires an absolute --install-root');
   if (!home || !isAbsolute(home)) throw new Error('update requires an absolute HOME');
@@ -45,7 +45,7 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
     const group = npmGroup(tool.id), entry = receipt.phases[group || tool.id];
     const beforeVersion = group ? entry?.packages?.[tool.id === 'codex' ? '@openai/codex' : tool.id] || null : entry?.version || null;
     const beforeSha256 = entry?.artifactSha256 || null;
-    const lock = group ? readFileSync(new URL(`../manifests/${group}/package-lock.json`, import.meta.url)) : null;
+    const lock = group ? readFileSync(manifestsDir ? join(manifestsDir, group, 'package-lock.json') : new URL(`../manifests/${group}/package-lock.json`, import.meta.url)) : null;
     const afterSha256 = group ? sha(lock) : artifactFor(tool, target)?.sha256 || null;
     const afterVersion = tool.version.value;
     return { id: tool.id, from: { version: beforeVersion, sha256: beforeSha256 }, to: { version: afterVersion, sha256: afterSha256 },
@@ -75,7 +75,7 @@ const ownKit = () => fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/
 // Every file placeUpdateExtras may write, so an upgrade that rolls back restores their previous bytes.
 export function extrasPaths(options, receipt) {
   const root = resolve(options.installRoot), env = options.env || process.env, home = options.home || env.HOME, prior = receipt.setup?.shortcuts || null;
-  const inputs = shortcutInputs(receipt, root, env, prior, ownKit()), firstmate = inputs.firstmateHome;
+  const inputs = shortcutInputs(receipt, root, env, prior, options.kitPath || ownKit()), firstmate = inputs.firstmateHome;
   return [...new Set([...ownedFiles(inputs, root).map(f => f.file), ...Object.keys(prior?.files || {}), zoeFile])].map(file => join(root, file))
     .concat(receipt.setup?.shellProfile?.path || profileTarget(env, home).path || [], prior?.keys?.path || herdrConfigPath(env, home), prior?.plugin?.registry || pluginsPath(env, home),
       firstmate ? [join(firstmate, '.claude', 'settings.local.json'), join(firstmate, '.git', 'info', 'exclude'), join(firstmate, 'data', 'captain-help.md')] : []);
@@ -84,12 +84,13 @@ export function extrasPaths(options, receipt) {
 // them never fails the update. Returns the lines to report, flagged profileChanged when the shell profile changed
 // under the kit and was left untouched, which makes the command exit nonzero.
 export async function placeUpdateExtras(options, firstmateHome, noMistakesBin = null) {
-  const root = resolve(options.installRoot), receiptPath = join(root, 'receipt.json'), kitPath = ownKit();
+  const root = resolve(options.installRoot), receiptPath = join(root, 'receipt.json'), kitPath = options.kitPath || ownKit();
   let shortcuts = null, profileChanged = null;
   try {
     const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
     const extras = await placeKitExtras(receipt, root, { env: options.env || process.env, home: options.home, check: options.herdrCheck,
-      kitPath: kitPath.startsWith(join(root, 'kit') + sep) ? kitPath : null, isRunning: options.isRunning || (id => processRunning(id, noMistakesBin)) });
+      kitPath: kitPath.startsWith(join(root, 'kit') + sep) ? kitPath : null, isRunning: options.isRunning || (id => processRunning(id, noMistakesBin)), runClaude: options.runClaude,
+      claudeTable: options.claudeTable });
     if (extras.action !== 'not-selected') {
       const current = JSON.parse(readFileSync(receiptPath, 'utf8'));
       current.setup ||= {}; current.setup.shortcuts = extras.record;

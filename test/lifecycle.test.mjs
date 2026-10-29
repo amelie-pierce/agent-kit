@@ -9,10 +9,10 @@ import { fileURLToPath } from 'node:url';
 import { reconcileProfile } from '../src/shell-profile.mjs';
 import { doctor } from '../src/doctor.mjs';
 import { extrasPaths, placeUpdateExtras } from '../src/update.mjs';
-import { applyRepair, applyUninstall, applyUpgrade, formatLifecycle, planRepair, planUninstall, planUpgrade, resolveReviewedCommit } from '../src/lifecycle.mjs';
+import { applyRepair, applyRollback, applyUninstall, applyUpgrade, formatLifecycle, planRepair, planRollback, planUninstall, planUpgrade, resolveReviewedCommit } from '../src/lifecycle.mjs';
 import { parseArgs } from '../src/kit.mjs';
 import { windowsLifecycle } from '../src/install/windows.mjs';
-import { placeClaudePlugins, pluginTable } from '../src/claude-plugins.mjs';
+import { pluginTable } from '../src/claude-plugins.mjs';
 
 const sha = body => createHash('sha256').update(body).digest('hex');
 const bundled = JSON.parse(readFileSync(new URL('../manifests/pilot-skeleton.json', import.meta.url)));
@@ -173,6 +173,8 @@ async function stagedKit(_commit, _env, destination, release = 'new-release') {
   mkdirSync(destination, { recursive: true });
   cpSync(join(source, 'src'), join(destination, 'src'), { recursive: true });
   cpSync(join(source, 'manifests'), join(destination, 'manifests'), { recursive: true });
+  cpSync(join(source, 'bin'), join(destination, 'bin'), { recursive: true });
+  cpSync(join(source, 'templates'), join(destination, 'templates'), { recursive: true });
   const target = { ...bundled, release, tools: [] };
   return target;
 }
@@ -439,9 +441,14 @@ test('upgrade from pilot-12 to pilot-13 shows the Firstmate re-pin, asks for /up
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate 21b2158\n', 'the kit never touches the home');
 });
 
-test('a successful pilot-13 Figma marketplace refresh restores the pilot-12 revision on downgrade', { skip: process.platform === 'win32' }, async t => {
+test('pilot-12 upgrade and guarded rollback restore Firstmate and kit-owned Figma marketplace', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t), market = pluginTable().marketplaces.find(m => m.name === 'amelie-pierce');
-  const oldPin = 'cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942';
+  const oldPin = 'cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942', oldCommit = '9'.repeat(40), newCommit = '8'.repeat(40);
+  const oldFirstmate = f.git('rev-parse', 'HEAD');
+  writeFileSync(join(f.firstmate, 'README.md'), 'new Firstmate\n');
+  f.git('add', 'README.md'); f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'new Firstmate');
+  const newFirstmate = f.git('rev-parse', 'HEAD');
+  f.git('checkout', '-q', '--detach', newFirstmate);
   const dir = join(f.base, 'figma-marketplace'), knownPath = join(f.home, '.claude', 'plugins', 'known_marketplaces.json');
   mkdirSync(dir, { recursive: true });
   mkdirSync(join(f.home, '.claude', 'plugins'), { recursive: true });
@@ -457,35 +464,64 @@ test('a successful pilot-13 Figma marketplace refresh restores the pilot-12 revi
     return { status: 0, stdout: '{"outcome":"ok","message":"ok"}\n' };
   };
   setRevision(oldPin);
-  const legacy = { markets: ['amelie-pierce'], plugins: ['figma-cli@amelie-pierce'], patches: [] };
-  const upgraded = await placeClaudePlugins({ harness: 'claude', figma: true }, { claude: '/bin/claude', env: f.options.env, home: f.home, record: legacy, run: runClaude });
-  assert.equal(upgraded.record.marketRevisions['amelie-pierce'], market.commit);
-  assert.equal(upgraded.record.previousMarketRevisions['amelie-pierce'], oldPin);
-  renameSync(join(f.root, 'releases', 'old-release'), join(f.root, 'releases', 'pilot-13'));
+  renameSync(join(f.root, 'releases', 'old-release'), join(f.root, 'releases', 'pilot-12'));
+  const oldKit = join(f.root, 'kit', oldCommit);
+  await stagedKit(oldCommit, f.options.env, oldKit);
+  const oldManifest = structuredClone(f.manifest);
+  oldManifest.release = 'pilot-12'; oldManifest.tools.find(x => x.id === 'firstmate').version.value = oldFirstmate;
+  const oldTable = pluginTable();
+  oldTable.marketplaces.find(m => m.name === 'amelie-pierce').commit = oldPin;
+  writeFileSync(join(oldKit, 'manifests', 'claude-plugins.json'), `${JSON.stringify(oldTable)}\n`);
   const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
-  receipt.release = 'pilot-13';
-  receipt.phases.herdr.path = 'releases/pilot-13/bin/herdr';
+  receipt.release = 'pilot-12';
+  receipt.phases.herdr.path = 'releases/pilot-12/bin/herdr';
   receipt.setup.answers.figma = true;
-  receipt.setup.shortcuts = { realClaude: '/bin/claude', claudePlugins: upgraded.record };
+  receipt.setup.answers.globalHooks = true;
+  receipt.setup.kit = { commit: oldCommit, path: oldKit };
+  receipt.setup.shortcuts = { realClaude: '/bin/echo', claudePlugins: { markets: ['amelie-pierce'], plugins: ['figma-cli@amelie-pierce'], patches: [] } };
+  oldManifest.tools.find(x => x.id === 'herdr').artifacts['darwin-arm64'].sha256 = receipt.phases.herdr.artifactSha256;
+  writeFileSync(join(oldKit, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(oldManifest)}\n`);
   writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
-  const fetchKit = async (_commit, _env, destination) => {
-    await stagedKit(_commit, _env, destination);
-    writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify({ ...f.manifest, release: 'pilot-12' })}\n`);
-    const oldTable = pluginTable();
-    oldTable.marketplaces.find(m => m.name === 'amelie-pierce').commit = oldPin;
-    writeFileSync(join(destination, 'manifests', 'claude-plugins.json'), `${JSON.stringify(oldTable)}\n`);
+  const fetchKit = async (commit, env, destination) => {
+    if (commit === oldCommit) { cpSync(oldKit, destination, { recursive: true }); return; }
+    await stagedKit(commit, env, destination);
+    const next = structuredClone(f.manifest);
+    next.release = 'pilot-13'; next.tools.find(x => x.id === 'firstmate').version.value = newFirstmate;
+    writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(next)}\n`);
   };
-  calls.length = 0;
-  const plan = await planUpgrade({ ...f.options, resolveCommit: () => '9'.repeat(40), fetchKit });
-  const result = await applyUpgrade(plan, { ...f.options, runClaude });
+  const upgrade = await planUpgrade({ ...f.options, resolveCommit: () => newCommit, fetchKit });
+  await applyUpgrade(upgrade, { ...f.options, runClaude });
+  let after = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  assert.deepEqual([after.rollback.release, after.rollback.commit, after.rollback.firstmatePin], ['pilot-12', oldCommit, oldFirstmate]);
+  assert.deepEqual(after.rollback.phases.herdr, receipt.phases.herdr);
+  assert.equal(after.setup.shortcuts.claudePlugins.marketRevisions['amelie-pierce'], market.commit);
+  assert.equal(after.setup.shortcuts.claudePlugins.previousMarketRevisions['amelie-pierce'], oldPin);
+  assert.equal(readFileSync(join(dir, '.gcs-sha'), 'utf8').trim(), market.commit);
+  const currentManifest = { ...f.manifest, release: 'pilot-13', tools: f.manifest.tools.map(x => x.id === 'firstmate' ? { ...x, version: { ...x.version, value: newFirstmate } } : x) };
+  const priorHerdr = join(f.root, 'releases', 'pilot-12', 'bin', 'herdr');
+  writeFileSync(priorHerdr, 'changed');
+  assert.equal(doctor(currentManifest, f.options).checks.find(x => x.id === 'rollback-release').status, 'warn');
+  await assert.rejects(planRollback({ ...f.options, targetRelease: 'pilot-12', fetchKit }), /files for rollback are missing or changed/);
+  writeFileSync(priorHerdr, 'original');
+  assert.equal(doctor(currentManifest, f.options).checks.find(x => x.id === 'rollback-release').status, 'pass');
+  const plan = await planRollback({ ...f.options, targetRelease: 'pilot-12', fetchKit });
+  assert.match(formatLifecycle(plan), /Confirm with agent-kit rollback pilot-12 --yes/);
+  assert.match(formatLifecycle(plan), /Firstmate pin: guarded checkout to the recorded prior commit/);
+  f.git('checkout', '-q', '-B', 'fixture-branch', newFirstmate);
+  await assert.rejects(applyRollback(plan, { ...f.options, runClaude }), /detached Firstmate checkout/);
+  f.git('checkout', '-q', '--detach', newFirstmate);
+  writeFileSync(join(f.firstmate, 'README.md'), 'changed locally\n');
+  await assert.rejects(applyRollback(plan, { ...f.options, runClaude }), /not clean on the current recorded pin/);
+  writeFileSync(join(f.firstmate, 'README.md'), 'new Firstmate\n');
+  const result = await applyRollback(plan, { ...f.options, runClaude });
   assert.equal(result.status, 'upgraded');
   assert.ok(calls.includes('plugin marketplace remove amelie-pierce --scope user --json'));
   assert.ok(calls.includes(`plugin marketplace add ${market.repo}#${oldPin} --scope user --json`));
   assert.equal(readFileSync(join(dir, '.gcs-sha'), 'utf8').trim(), oldPin);
-  const after = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  assert.equal(f.git('rev-parse', 'HEAD'), oldFirstmate);
+  after = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
   assert.equal(after.release, 'pilot-12');
   assert.equal(after.setup.shortcuts.claudePlugins.marketRevisions['amelie-pierce'], oldPin);
-  assert.equal(after.setup.shortcuts.claudePlugins.previousMarketRevisions['amelie-pierce'], market.commit);
   assert.ok(existsSync(join(f.root, 'releases', 'pilot-13')));
 });
 
@@ -597,6 +633,8 @@ test('CLI aliases and unattended flag use the same lifecycle command', () => {
   assert.equal(parseArgs(['reinstall', '--root', '/tmp/kit']).command, 'repair');
   assert.equal(parseArgs(['update', '--yes', '--root', '/tmp/kit']).command, 'upgrade');
   assert.equal(parseArgs(['upgrade', '--yes', '--root', '/tmp/kit']).command, 'upgrade');
+  assert.deepEqual([parseArgs(['rollback', 'pilot-12', '--yes', '--root', '/tmp/kit']).command, parseArgs(['rollback', 'pilot-12', '--yes', '--root', '/tmp/kit']).targetRelease], ['rollback', 'pilot-12']);
+  assert.throws(() => parseArgs(['rollback', '--yes', '--root', '/tmp/kit']), /requires a previous release name/);
   assert.equal(parseArgs(['uninstall', '--yes', '--root', '/tmp/kit']).command, 'uninstall');
   assert.equal(parseArgs(['repair', '--root', '~/Agentic'], 'win32').installRoot, '~/Agentic/.tools');
   assert.equal(parseArgs(['uninstall', '--root', '~/Agentic', '--handoff'], 'win32').handoff, true);
@@ -628,6 +666,11 @@ test('Windows lifecycle handoff executes the installed kit inside a disposable W
     { env: { ...process.env, HOME: base }, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), ['repair', '--install-root', root, '--yes']);
+  const rollback = windowsLifecycle({ command: 'rollback', targetRelease: 'pilot-12', installRoot: '~/Agentic/.tools', yes: true }, {}, inspected);
+  const rolled = spawnSync('bash', ['-c', rollback.argv[6], 'agent-kit-lifecycle', ...rollback.argv.slice(8)],
+    { env: { ...process.env, HOME: base }, encoding: 'utf8' });
+  assert.equal(rolled.status, 0, rolled.stderr);
+  assert.deepEqual(JSON.parse(rolled.stdout), ['rollback', '--install-root', root, 'pilot-12', '--yes']);
 });
 
 test('uninstall removes the unchanged PATH block and keeps an edited one; repair puts a removed block back', { skip: process.platform === 'win32' }, async t => {

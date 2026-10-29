@@ -8,13 +8,13 @@ import { pathToFileURL } from 'node:url';
 import { doctor, firstmateIssue, gitCheck } from './doctor.mjs';
 import { installPlatform, atomicJson, towerPaths, systemDirs, within } from './install/macos.mjs';
 import { applyUnregister, previewHooks, previewUnregister } from './install/hooks.mjs';
-import { processRunning } from './update.mjs';
+import { applyUpdate as applyCurrentUpdate, extrasPaths as currentExtrasPaths, placeUpdateExtras as placeCurrentExtras, processRunning } from './update.mjs';
 import { wrapperScript } from './setup.mjs';
 import { envManaged, keyStatus } from './keys.mjs';
 import { applyStarter, harnessOf, modeOf, planStarter, plansOf, starterRemovable } from './dispatch.mjs';
 import { herdrConfigPath, placeKitExtras, planRemoveShortcuts, removeShortcuts } from './shortcuts.mjs';
 import { planRemovePlugin, removePlugin } from './herdr-plugin.mjs';
-import { placeClaudePlugins, removeClaudePlugins } from './claude-plugins.mjs';
+import { hydrateClaudeMarketplaces, removeClaudePlugins } from './claude-plugins.mjs';
 import { ProfileChanged, planRemoveProfile, profileTarget, reconcileProfile, removeProfile, restoreProfile, saveProfileRecord } from './shell-profile.mjs';
 
 const repo = 'amelie-pierce/agent-kit';
@@ -39,6 +39,15 @@ function receiptAt(root) {
   const receipt = JSON.parse(readFileSync(path, 'utf8'));
   if (receipt.schemaVersion !== 1 || !receipt.phases || Array.isArray(receipt.phases)) throw new Error('incompatible kit receipt');
   return { receipt, path };
+}
+function rollbackPhases(root, previous) {
+  const phases = previous?.phases;
+  if (!phases || typeof phases !== 'object' || Array.isArray(phases) || !Object.keys(phases).length) throw new Error('rollback has no recorded prior release files');
+  for (const [id, entry] of Object.entries(phases)) {
+    if (entry?.state !== 'complete' || !entry.path?.startsWith(`releases/${previous.release}/`) || !/^[a-f0-9]{64}$/.test(entry.ownedSha256 || '') || digest(phaseOwned(root, id, entry)) !== entry.ownedSha256)
+      throw new Error(`recorded ${id} files for rollback are missing or changed`);
+  }
+  return phases;
 }
 function owned(root, entry) {
   if (typeof entry?.path !== 'string' || isAbsolute(entry.path) || entry.path.split(/[\\/]/).some(x => !x || x === '.' || x === '..')) throw new Error('unsafe owned receipt path');
@@ -482,6 +491,53 @@ export async function planUpgrade({ installRoot, home, env = process.env, platfo
   } catch (error) { await rm(stage, { recursive: true, force: true }); throw error; }
 }
 
+export async function planRollback({ targetRelease, installRoot, ...options } = {}) {
+  const root = rootOf(installRoot), { receipt } = receiptAt(root), previous = receipt.rollback;
+  if (!previous || targetRelease !== previous.release || receipt.release === previous.release || !/^[a-f0-9]{40}$/.test(previous.commit || '') || !/^[a-f0-9]{40}$/.test(previous.firstmatePin || ''))
+    throw new Error('rollback requires the previous release recorded in the kit receipt');
+  rollbackPhases(root, previous);
+  const plan = await planUpgrade({ ...options, installRoot: root, resolveCommit: () => previous.commit });
+  try {
+    if (plan.toRelease !== previous.release || plan.manifest.tools.find(t => t.id === 'firstmate')?.version.value !== previous.firstmatePin)
+      throw new Error('recorded rollback release or Firstmate pin differs from the reviewed kit');
+    const table = JSON.parse(readFileSync(join(plan.kit, 'manifests', 'claude-plugins.json'), 'utf8'));
+    const saved = receipt.setup?.shortcuts?.claudePlugins?.previousMarketRevisions || {};
+    if (Object.entries(saved).some(([name, pin]) => table.marketplaces.find(m => m.name === name)?.commit !== pin))
+      throw new Error('recorded prior Claude marketplace revision differs from the rollback kit');
+  } catch (error) {
+    await rm(plan.stage, { recursive: true, force: true });
+    throw error;
+  }
+  return { ...plan, command: 'rollback', targetRelease, note: 'The kit will restore the recorded prior release. Firstmate must be clean and detached; its prior commit must already exist locally. Rollback checks out that commit without resetting files.' };
+}
+
+export async function applyRollback(plan, options = {}) {
+  if (plan.command !== 'rollback') throw new Error('rollback requires a rollback plan');
+  assertStopped(plan.running);
+  const { receipt } = receiptAt(plan.root), previous = receipt.rollback;
+  if (!previous || previous.release !== plan.targetRelease || previous.commit !== plan.commit || previous.firstmatePin !== plan.manifest.tools.find(t => t.id === 'firstmate')?.version.value)
+    throw new Error('rollback record changed since the plan; rerun rollback');
+  if (receipt.release !== plan.fromRelease || receipt.setup?.kit?.commit !== plan.fromCommit) throw new Error('kit receipt changed since the rollback plan; rerun rollback');
+  assertStopped(servicePlan(receipt, plan.root, options.isRunning || processRunning));
+  rollbackPhases(plan.root, previous);
+  const path = homeOf(receipt), origin = plan.manifest.tools.find(t => t.id === 'firstmate').approvedUpstream, currentPin = receipt.phases.firstmate?.version;
+  if (!gitCheck(path, currentPin, origin)) throw new Error('Firstmate home is not clean on the current recorded pin and approved origin');
+  const git = (...args) => spawnSync('git', ['-C', path, ...args], { env: gitEnv(options.env || process.env), encoding: 'utf8', timeout: 30000 });
+  if (git('symbolic-ref', '-q', 'HEAD').status === 0) throw new Error('rollback requires a detached Firstmate checkout');
+  if (git('cat-file', '-e', `${previous.firstmatePin}^{commit}`).status !== 0 || git('merge-base', '--is-ancestor', previous.firstmatePin, currentPin).status !== 0)
+    throw new Error('recorded prior Firstmate commit is unavailable or not an ancestor; rollback left the home unchanged');
+  const moved = currentPin !== previous.firstmatePin;
+  if (moved && git('checkout', '-q', '--detach', previous.firstmatePin).status !== 0) throw new Error('Firstmate checkout refused the prior pin; rollback left the kit unchanged');
+  try {
+    if (!gitCheck(path, previous.firstmatePin, origin)) throw new Error('Firstmate checkout did not reach the recorded prior pin');
+    return await applyUpgrade({ ...plan, firstmateReady: true }, options);
+  } catch (error) {
+    if (moved && gitCheck(path, previous.firstmatePin, origin) && git('checkout', '-q', '--detach', currentPin).status !== 0)
+      error.message += `; Firstmate could not return to ${currentPin}`;
+    throw error;
+  }
+}
+
 export async function applyUpgrade(plan, options = {}) {
   assertStopped(plan.running);
   const firstmateTool = plan.manifest.tools.find(x => x.id === 'firstmate');
@@ -504,6 +560,10 @@ export async function applyUpgrade(plan, options = {}) {
   };
   try {
     if (plan.answers) await atomicJson(join(root, 'receipt.json'), receipt);
+    if (plan.command === 'rollback') {
+      Object.assign(receipt.phases, rollbackPhases(root, receipt.rollback));
+      await atomicJson(join(root, 'receipt.json'), receipt);
+    }
     const preview = previewHooks(plan.manifest, { home: options.home, installRoot: root });
     for (const file of preview.files) capture(file.path);
     for (const skill of preview.skills) capture(skill.path);
@@ -512,9 +572,10 @@ export async function applyUpgrade(plan, options = {}) {
     const wrapper = receipt.phases['treehouse-root']; if (wrapper) capture(phaseOwned(root, 'treehouse-root', wrapper));
     if (!stat(kitTarget)) { await mkdir(dirname(kitTarget), { recursive: true, mode: 0o700 }); await rename(plan.kit, kitTarget); }
     const target = await import(pathToFileURL(join(kitTarget, 'src', 'update.mjs')).href);
-    for (const path of target.extrasPaths({ ...options, installRoot: root }, receipt)) capture(path);
-    const result = await target.applyUpdate(plan.manifest, { ...options, installRoot: root, home: options.home, platform: options.platform || process.platform,
-      arch: options.arch || process.arch, reviewed: true, isRunning: () => false, deferExtras: true });
+    for (const path of (plan.command === 'rollback' ? currentExtrasPaths : target.extrasPaths)({ ...options, installRoot: root, kitPath: kitTarget }, receipt)) capture(path);
+    const result = await (plan.command === 'rollback' ? applyCurrentUpdate : target.applyUpdate)(plan.manifest, { ...options, installRoot: root, home: options.home, platform: options.platform || process.platform,
+      arch: options.arch || process.arch, reviewed: true, isRunning: () => false, deferExtras: true,
+      ...(plan.command === 'rollback' ? { manifestsDir: join(kitTarget, 'manifests') } : {}) });
     if (unresolved(result.components, plan.manifest, options.platform || process.platform, options.arch || process.arch, false).failed.length) throw new Error('upgrade has unresolved components; prior kit files restored');
     const updated = receiptAt(root).receipt;
     const updatedWrapper = updated.phases['treehouse-root'];
@@ -525,25 +586,21 @@ export async function applyUpgrade(plan, options = {}) {
       await writeFile(path, body, { mode: 0o755 });
       updatedWrapper.ownedSha256 = sha(body); updatedWrapper.version = plan.toRelease;
     }
-    updated.setup ||= {}; updated.setup.kit = { commit: plan.commit, path: kitTarget };
+    updated.setup ||= {};
+    const previousCommit = old.setup?.kit?.commit;
+    if (/^[a-f0-9]{40}$/.test(previousCommit || '') && old.release !== plan.toRelease)
+      updated.rollback = { release: old.release, commit: previousCommit, firstmatePin: old.phases.firstmate?.version,
+        phases: Object.fromEntries(Object.entries(old.phases).filter(([, entry]) => entry?.state === 'complete' && entry.path?.startsWith(`releases/${old.release}/`))) };
+    const previousTablePath = /^[a-f0-9]{40}$/.test(previousCommit || '') ? join(root, 'kit', previousCommit, 'manifests', 'claude-plugins.json') : null;
+    if (updated.setup.shortcuts?.claudePlugins && previousTablePath && stat(previousTablePath)?.isFile()) {
+      const previousTable = JSON.parse(readFileSync(previousTablePath, 'utf8'));
+      updated.setup.shortcuts.claudePlugins = hydrateClaudeMarketplaces(updated.setup.shortcuts.claudePlugins, previousTable);
+    }
+    updated.setup.kit = { commit: plan.commit, path: kitTarget };
     await atomicJson(join(root, 'receipt.json'), updated);
     // Past every check that rolls back: what the new kit places from here stays tracked in the receipt.
-    const shortcuts = await target.placeUpdateExtras({ ...options, installRoot: root, isRunning: () => false }, homeOf(updated));
-    const priorMarkets = old.setup?.shortcuts?.claudePlugins;
-    if (plan.fromRelease === 'pilot-13' && plan.toRelease === 'pilot-12' && priorMarkets?.previousMarketRevisions) {
-      const table = JSON.parse(readFileSync(join(kitTarget, 'manifests', 'claude-plugins.json'), 'utf8'));
-      table.marketplaces = table.marketplaces.filter(m => priorMarkets.previousMarketRevisions[m.name]).map(m => ({ ...m, commit: priorMarkets.previousMarketRevisions[m.name] }));
-      table.patches = [];
-      if (table.marketplaces.length) {
-        const restored = await placeClaudePlugins(old.setup.answers || {}, { claude: old.setup.shortcuts.realClaude, env: options.env || process.env,
-          home: options.home || options.env?.HOME || process.env.HOME, record: priorMarkets, run: options.runClaude, table });
-        const current = receiptAt(root).receipt;
-        current.setup ||= {}; current.setup.shortcuts ||= {};
-        current.setup.shortcuts.claudePlugins = restored.record;
-        await atomicJson(join(root, 'receipt.json'), current);
-        if (Array.isArray(shortcuts)) shortcuts.push(...restored.lines);
-      }
-    }
+    const shortcuts = await (plan.command === 'rollback' ? placeCurrentExtras : target.placeUpdateExtras)({ ...options, installRoot: root, isRunning: () => false,
+      ...(plan.command === 'rollback' ? { kitPath: kitTarget, claudeTable: JSON.parse(readFileSync(join(kitTarget, 'manifests', 'claude-plugins.json'), 'utf8')) } : {}) }, homeOf(updated));
     const dispatch = await reconcileStarter(root, homeOf(updated), 'upgrade');
     return { ...plan, apply: true, status: shortcuts?.profileChanged ? 'partial' : 'upgraded', components: result.components, dispatch, shortcuts };
   } catch (error) {
@@ -584,7 +641,7 @@ export function formatLifecycle(result) {
   for (const item of result.registration?.kept || []) lines.push(`Keep ${item}`);
   for (const path of result.kitPaths || []) lines.push(`Remove kit path (keep private backup where applicable): ${path}`);
   if (result.firstmate) lines.push(`Firstmate: ${typeof result.firstmate === 'string' ? result.firstmate : `${result.firstmate.status}; ${result.firstmate.action}; ${result.firstmate.path}`}`);
-  if (result.firstmatePinChange) lines.push(`Firstmate pin: ${result.firstmateReady ? 'guarded update already verified' : 'run /updatefirstmate in the Firstmate home before applying'}`);
+  if (result.firstmatePinChange) lines.push(`Firstmate pin: ${result.command === 'rollback' ? 'guarded checkout to the recorded prior commit' : result.firstmateReady ? 'guarded update already verified' : 'run /updatefirstmate in the Firstmate home before applying'}`);
   if (result.tower) lines.push(`Tower config: ${typeof result.tower === 'string' ? result.tower : result.tower.action}`);
   if (result.wrapper) lines.push(`Treehouse wrapper: ${result.wrapper.action}; ${result.wrapper.path}`);
   if (result.dispatch) lines.push(`Starter dispatch rules: ${result.dispatch.action}${result.dispatch.detail ? ` (${result.dispatch.detail})` : ''}; ${result.dispatch.path}`);
@@ -596,6 +653,6 @@ export function formatLifecycle(result) {
   for (const item of result.running || []) lines.push(`Running ${item.id}: ${item.step}`);
   for (const step of result.nextSteps || []) lines.push(`Next step: ${step}`);
   if (result.note) lines.push(result.note);
-  if (!result.apply) lines.push(`Confirm with agent-kit ${result.command} --yes using the same root.`);
+  if (!result.apply) lines.push(`Confirm with agent-kit ${result.command}${result.targetRelease ? ` ${result.targetRelease}` : ''} --yes using the same root.`);
   return lines.join('\n') + '\n';
 }

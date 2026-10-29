@@ -111,6 +111,25 @@ export function doctor(manifest, { installRoot, home, env = process.env, herdrPa
     checks.push(status('receipt', 'fail', 'incompatible kit receipt')); return doctorResult(checks, null, manifest, null, root);
   }
   checks.push(status('receipt', 'pass', `release ${receipt.release}`));
+  if (receipt.rollback) {
+    const previous = receipt.rollback;
+    const path = /^[a-f0-9]{40}$/.test(previous.commit || '') ? join(root, 'kit', previous.commit, 'manifests', 'pilot-skeleton.json') : null;
+    let ready = false;
+    if (path && safeFile(path) && /^[a-f0-9]{40}$/.test(previous.firstmatePin || '')) try {
+      const manifest = JSON.parse(readFileSync(path, 'utf8'));
+      ready = manifest.release === previous.release && manifest.tools?.find(t => t.id === 'firstmate')?.version.value === previous.firstmatePin
+        && previous.phases && Object.keys(previous.phases).length > 0 && Object.entries(previous.phases).every(([id, entry]) => {
+          if (entry?.state !== 'complete' || !entry.path?.startsWith(`releases/${previous.release}/`) || !/^[a-f0-9]{64}$/.test(entry.ownedSha256 || '')) return false;
+          const owned = phasePath(root, id, entry), st = owned && (safeFile(owned) || (existsSync(owned) ? lstatSync(owned) : null));
+          return !!st && !st.isSymbolicLink() && (st.isFile() ? sha(readFileSync(owned)) : st.isDirectory() ? treeDigest(owned) : null) === entry.ownedSha256;
+        });
+    } catch { ready = false; }
+    const fmHome = receipt.phases.firstmate?.path, currentPin = receipt.phases.firstmate?.version, origin = manifest.tools.find(t => t.id === 'firstmate')?.approvedUpstream;
+    ready = ready && typeof fmHome === 'string' && gitCheck(fmHome, currentPin, origin) && gitIn(fmHome, 'symbolic-ref', '-q', 'HEAD').status !== 0
+      && gitIn(fmHome, 'cat-file', '-e', `${previous.firstmatePin}^{commit}`).status === 0
+      && gitIn(fmHome, 'merge-base', '--is-ancestor', previous.firstmatePin, currentPin).status === 0;
+    checks.push(status('rollback-release', ready ? 'pass' : 'warn', ready ? `recorded ${previous.release} files and clean detached Firstmate checkout are ready for guarded rollback` : 'recorded prior kit files or clean detached Firstmate checkout are unavailable for rollback'));
+  }
   const byId = new Map(manifest.tools.map(t => [t.id, t]));
   for (const [id, entry] of Object.entries(receipt.phases)) {
     if (id === 'hooks') continue;
