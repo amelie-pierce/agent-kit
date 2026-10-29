@@ -10,8 +10,8 @@ This guide describes the proposed `pilot-13` kit. `pilot-12` is the released kit
 | `pilot-9` | Firstmate from the kit owner's approved copy, set up with your plan and routing mode at install; the kit's own commands (`firstmate`, `fm-mate`, `fm-help`, `fm-jev` and others); Herdr keyboard shortcuts, plugins and look; the Claude Code plugin set; the Figma CLI and its skills; a starter help page; and the full-access Codex launch question (on by default) |
 | `pilot-10` | A newer Firstmate: `balanced` and `lean` are cheaper on large plans and step down to cheaper models as your weekly quota runs low, on Claude and Codex; quiet mode now delivers Firstmate's messages reliably on Claude Code and Codex (the `pilot-9` `/quiet off` workaround is gone); question 2c shows what each mode means |
 | `pilot-11` | Firstmate fixes for Codex models, quiet entry replay, batch restart and honest Codex monitoring; the updated Zoe fleet tower; the installer's PATH block and stale-Herdr guidance |
-| `pilot-12` | Firstmate names ship branches by each repository's own rules; the PATH block writer stops when it detects a profile edit before replacement |
-| `pilot-13` | The pinned Firstmate follows a project’s branch rules when naming ship branches |
+| `pilot-12` | A Firstmate ship-branch naming fix; the PATH block writer stops when it detects a profile edit before replacement |
+| `pilot-13` | Firstmate branch-rule enforcement; see the [release note](../README.md#pins-and-approval) |
 
 **This is a pilot.** No one has yet installed this release on a real Mac or a real Windows PC. You, the first teammates, running it on your own computers, are the hands-on test. Please send back what you saw (section 4).
 
@@ -646,7 +646,7 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 
 **Moving from `pilot-12` to `pilot-13`**, when you are asked to:
 
-1. Run upgrade. The plan shows `Release: pilot-12 -> pilot-13`, one changed line, `- firstmate: 21b21582… -> dacc8a66…` (with the full commit numbers), and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. The pinned Firstmate follows a project’s branch rules when naming ship branches.
+1. Run upgrade. The plan shows `Release: pilot-12 -> pilot-13`, one changed Firstmate line with the full commit numbers, and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`.
 2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
 3. Start Herdr and Firstmate again (A3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (A10.3).
 4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
@@ -1937,7 +1937,7 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 
 **Moving from `pilot-12` to `pilot-13`**, when you are asked to:
 
-1. Run upgrade. The plan shows `Release: pilot-12 -> pilot-13`, one changed line, `- firstmate: 21b21582… -> dacc8a66…` (with the full commit numbers), and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. The pinned Firstmate follows a project’s branch rules when naming ship branches.
+1. Run upgrade. The plan shows `Release: pilot-12 -> pilot-13`, one changed Firstmate line with the full commit numbers, and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`.
 2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
 3. Start Herdr and Firstmate again (B3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (B10.3).
 4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.

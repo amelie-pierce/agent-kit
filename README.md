@@ -251,7 +251,7 @@ Files outside the root that will be touched:
   /Users/you/.config/herdr/config.toml: agent-kit keys block (prefix+shift+f open-firstmate codex, prefix+shift+m open-firstmate mates, prefix+shift+c furkankly.zoetrope.open-tab, prefix+m ray.plugin-manager.open; keys you already bound are skipped; backed up first; uninstall removes the block)
   /Users/you/.config/zoe-fleet/config: tower launcher config, private 0600 (the launcher has no config override, so it stays in this XDG location)
 Will install (pinned and verified; nothing is downloaded until you say yes):
-  - Firstmate dacc8a66... -> /Users/you/Agentic/firstmate
+  - Firstmate <pinned-commit>... -> /Users/you/Agentic/firstmate
   ...
 Person-installed prerequisites (checked, never installed):
   ...
@@ -337,7 +337,7 @@ The `macos-pilot-6` manifest re-pins Firstmate to `976c3ba730b9dafefc159b12a97a0
 
 `pilot-7` changes the release label from `macos-pilot-6`, the Codex CLI pin and lock, and the Claude Code minimum (below). The shorter label does not change the upgrade path for an existing `macos-pilot-6` install. The new user-level writes are the optional Firstmate-home `.env` assignment, the receipt's boolean `setup.keys.TYPESAFE_API_KEY` flag, the starter `<root>/firstmate/config/crew-dispatch.json` once the key is set, the receipt's `setup.dispatch` record, and the saved plan names and routing mode in `setup.answers.plans` and `setup.answers.dispatchMode`. `manifests/plan-models.json` is the new owner-approved plan-to-model table. The Codex CLI pin moves from 0.155.1 to 0.164.0 (GPT-6.1 Terra needs 0.159.0 or later), with a regenerated lock. The Claude Code minimum moves from 2.0.0 to 2.1.293, which Haiku 5.5 needs. The key-update command changes the key, the flag and, when it sets the key, the starter rules. Uninstall removes `.env` only with explicit typed confirmation and removes the starter rules only while unchanged.
 
-**A pilot-12 install moving to pilot-13.** The Firstmate pin changes from `21b21582` to `dacc8a66`. The pinned Firstmate follows a project’s branch rules when naming ship branches. The Zoe tower and runtime pins stay as in `pilot-12`. Run `upgrade` when the owner asks. The plan shows `Release: pilot-12 -> pilot-13`, the `- firstmate: 21b21582… -> dacc8a66…` line and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. Applying refuses until you run `/updatefirstmate` in that home. Then rerun upgrade: it reports `Firstmate pin: guarded update already verified` and stages `releases/pilot-13` beside `releases/pilot-12`.
+**A pilot-12 install moving to pilot-13.** Follow the [macOS](docs/user-guide.md#a63-upgrade-update) or [Windows (WSL2)](docs/user-guide.md#b63-upgrade-update) upgrade steps in the user guide. The release change is summarized under [Pins and approval](#pins-and-approval).
 
 **A pilot-11 install moving to pilot-12.** The Firstmate pin changes from `622311a5` to `21b21582`, which adds Firstmate's fix for naming ship branches by each repository's own rules. The Zoe tower and runtime pins stay as in `pilot-11`. Run `upgrade` when the owner asks. The plan shows `Release: pilot-11 -> pilot-12`, the `- firstmate: 622311a5… -> 21b21582…` line and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. Applying refuses until you run `/updatefirstmate` in that home. Then rerun upgrade: it reports `Firstmate pin: guarded update already verified` and stages `releases/pilot-12` beside `releases/pilot-11`. If the kit detects a profile change before replacing its PATH block, it leaves your edit untouched and tells you to rerun.
 
@@ -449,7 +449,7 @@ In the manifest, `verified` means the artifact's identity and integrity were che
 ### Versions for owner approval (`pilot-12` -> `pilot-13`)
 
 - **Label.** `pilot-12` -> `pilot-13`.
-- **Firstmate.** `21b21582` -> `dacc8a66` from the approved copy. The pinned Firstmate follows a project’s branch rules when naming ship branches. The commit and source archive checksum are in the [manifest](manifests/pilot-skeleton.json); the archive was downloaded and hashed locally.
+- **Firstmate.** Re-pinned to the Firstmate release that enforces each repository's branch rules when naming ship branches. The approved commit and source archive checksum are in the [manifest](manifests/pilot-skeleton.json); the archive was downloaded and hashed locally.
 - **Every other pin, digest and prerequisite**, including the Zoe tower and runtime, remains as in `pilot-12`. The owner’s merge word is required; teammates update only when the owner asks.
 
 ### Versions for owner approval (`pilot-11` -> `pilot-12`)

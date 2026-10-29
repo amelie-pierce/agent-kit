@@ -1,6 +1,6 @@
 # Agent Kit: all features
 
-This page lists the functions proposed for `pilot-13`. `pilot-12` is the released kit; the owner approves `pilot-13` by merging its manifest PR. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This page lists the functions for the release described in the [user guide](user-guide.md#status-of-this-guide).
 
 **How to read the support columns.** **Yes**: works today. **Partial**: works with a limit, explained in the row. **No**: not supported.
 
@@ -103,7 +103,7 @@ Every download is checked against a fixed checksum. Nothing is started and no on
 
 | Item | What it is | How you use it | macOS | Linux | Windows (WSL2) |
 | --- | --- | --- | --- | --- | --- |
-| Firstmate home | Your own Firstmate, at the version the kit pins (`dacc8a66`), from the kit owner's approved copy of Firstmate, in `<root>/firstmate`. Its `origin` is that approved copy, so `/updatefirstmate` updates from it; doctor's `firstmate-fork` row checks it | Start it inside Herdr (section 4b) | Yes | Yes | Yes |
+| Firstmate home | Your own Firstmate, at the version in the [kit manifest](../manifests/pilot-skeleton.json), from the kit owner's approved copy of Firstmate, in `<root>/firstmate`. Its `origin` is that approved copy, so `/updatefirstmate` updates from it; doctor's `firstmate-fork` row checks it | Start it inside Herdr (section 4b) | Yes | Yes | Yes |
 | Firstmate strategy | Your routing mode (2c) selected through Firstmate's own `fm-strategy.sh --plans`, plus the kit's `check` and `research` rules. Only in a home with no strategy or rules yet | Question 2c | Yes | Yes | Yes |
 | Herdr 0.9.3 | The terminal workspace the agents run in | `herdr` | Yes | Yes | Yes |
 | Treehouse 2.3.0 | Gives each worker its own clean copy of a repo; a kit wrapper keeps the copies under `<root>/.treehouse` | Used by Firstmate | Yes | Yes | Yes |
