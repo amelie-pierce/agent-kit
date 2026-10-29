@@ -1,6 +1,6 @@
 # Agent Kit: all features
 
-This page lists the functions in the released `pilot-12` kit. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`. The owner approves a release by merging its manifest PR.
+This page lists the functions proposed for `pilot-12`. `pilot-11` is the released kit; the owner approves `pilot-12` by merging its manifest PR. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 **How to read the support columns.** **Yes**: works today. **Partial**: works with a limit, explained in the row. **No**: not supported.
 

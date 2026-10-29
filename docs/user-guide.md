@@ -2,7 +2,7 @@
 
 ## Status of this guide
 
-This guide describes the kit release `pilot-12`. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`. Teammates install `pilot-12`; the owner approved it by merging its manifest PR.
+This guide describes the proposed `pilot-12` kit. `pilot-11` is the released kit; the owner approves `pilot-12` by merging its manifest PR. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 | Release | What it added |
 | --- | --- |
