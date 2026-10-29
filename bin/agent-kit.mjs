@@ -10,7 +10,7 @@ import { doctor, formatDoctor } from '../src/doctor.mjs';
 import { applyUpdate, formatUpdate, planUpdate, reviewedCheckout } from '../src/update.mjs';
 import { secondmateTemplate } from '../src/secondmate.mjs';
 import { setup, windowsSetup } from '../src/setup.mjs';
-import { applyRepair, applyUninstall, applyUpgrade, formatLifecycle, planRepair, planUninstall, planUpgrade } from '../src/lifecycle.mjs';
+import { applyRepair, applyRollback, applyUninstall, applyUpgrade, formatLifecycle, planRepair, planRollback, planUninstall, planUpgrade } from '../src/lifecycle.mjs';
 import { atomicJson, lock } from '../src/install/macos.mjs';
 import { hiddenKey, keyStatus, writeKey } from '../src/keys.mjs';
 import { applyStarter, describeStarter, harnessOf, modeOf, planStarter, plansOf, starterFile } from '../src/dispatch.mjs';
@@ -42,7 +42,7 @@ try {
   const options = argv[0] === 'setup' ? { command: 'setup' } : parseArgs(argv, process.platform);
   // A kit copy that setup placed at <install-root>/kit/<commit> finds its own receipt.
   const kitDir = resolve(fileURLToPath(new URL('..', import.meta.url)));
-  if (['doctor', 'upgrade', 'repair', 'uninstall', 'keys'].includes(options.command) && !options.installRoot && basename(dirname(kitDir)) === 'kit' && existsSync(join(dirname(dirname(kitDir)), 'receipt.json')))
+  if (['doctor', 'upgrade', 'rollback', 'repair', 'uninstall', 'keys'].includes(options.command) && !options.installRoot && basename(dirname(kitDir)) === 'kit' && existsSync(join(dirname(dirname(kitDir)), 'receipt.json')))
     options.installRoot = dirname(dirname(kitDir));
   if (options.command === 'setup') {
     validateManifest(manifest);
@@ -103,7 +103,7 @@ try {
     const result = doctor(manifest, { installRoot: options.installRoot, home: process.env.HOME, env: process.env, nodeVersion: context.nodeVersion });
     process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatDoctor(result));
     process.exitCode = result.exitCode;
-  } else if (['repair', 'upgrade', 'uninstall'].includes(options.command)) {
+  } else if (['repair', 'upgrade', 'rollback', 'uninstall'].includes(options.command)) {
     validateManifest(manifest);
     if (context.platform === 'win32') {
       const result = windowsLifecycle(options, context);
@@ -122,7 +122,8 @@ try {
       }
       let plan;
       try {
-        plan = options.command === 'repair' ? planRepair(manifest, args) : options.command === 'uninstall' ? planUninstall(args) : await planUpgrade(args);
+        plan = options.command === 'repair' ? planRepair(manifest, args) : options.command === 'uninstall' ? planUninstall(args)
+          : options.command === 'rollback' ? await planRollback({ ...args, targetRelease: options.targetRelease }) : await planUpgrade(args);
         process.stdout.write(options.json ? `${JSON.stringify(plan, (key, value) => ['manifest', 'kit', 'stage'].includes(key) ? undefined : value, 2)}\n` : formatLifecycle(plan));
         if (plan.running.length) { process.exitCode = 1; }
         else {
@@ -137,7 +138,8 @@ try {
           }
           const confirm = options.yes || process.stdin.isTTY && ['y', 'yes'].includes((await ask('Apply this plan now? (y/N): ')).toLowerCase());
           if (confirm) {
-            const result = options.command === 'repair' ? await applyRepair(manifest, args) : options.command === 'uninstall' ? await applyUninstall(args) : await applyUpgrade(plan, args);
+            const result = options.command === 'repair' ? await applyRepair(manifest, args) : options.command === 'uninstall' ? await applyUninstall(args)
+              : options.command === 'rollback' ? await applyRollback(plan, args) : await applyUpgrade(plan, args);
             process.stdout.write(options.json ? `${JSON.stringify(result, (key, value) => ['manifest', 'kit', 'stage'].includes(key) ? undefined : value, 2)}\n` : formatLifecycle(result));
             process.exitCode = result.status === 'partial' ? 1 : 0;
           }

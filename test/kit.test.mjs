@@ -35,11 +35,14 @@ function tempFixture(t) {
 
 test('bundled manifest keeps verified source commits and macOS/Linux digests', () => {
   validateManifest(manifest);
-  assert.equal(manifest.release, 'pilot-12');
+  assert.equal(manifest.release, 'pilot-13');
   const firstmate = manifest.tools.find(x => x.id === 'firstmate');
-  assert.equal(firstmate.version.value, '21b21582ad82eaa4f2052fddbbeea02751a724ce');
+  assert.equal(firstmate.version.value, '49350801f499966bebff4cdc7771f39e935c8202');
   assert.equal(firstmate.approvedUpstream, 'https://github.com/pikenguyen227/firstmate');
-  assert.equal(firstmate.artifacts['darwin-arm64'].sha256, 'e668dff77aa53e309abc1863c754040b8deac41e3a90f6b1b299eaa62aed2ed8');
+  assert.equal(firstmate.artifacts['darwin-arm64'].sha256, 'f6bc01e0c47fe9907cf47eb0686d0833df167a243071b1a789b0efd6ab334755');
+  const zoetropePlugin = manifest.tools.find(x => x.id === 'zoetrope-herdr-plugin');
+  assert.equal(zoetropePlugin.version.value, 'b1736f30d34e0ace87eb871b3d6fd1cc79f17c84');
+  assert.equal(zoetropePlugin.artifacts['darwin-arm64'].sha256, '5843ffdb9b258b31ec26b5b74233b983aacfd9e65aaf35bafbff697fac1bad22');
   const tower = manifest.tools.find(x => x.id === 'zoe-fleet'), runtime = manifest.tools.find(x => x.id === 'zoe-fleet-runtime');
   assert.equal(tower.version.value, 'b1736f30d34e0ace87eb871b3d6fd1cc79f17c84');
   assert.equal(tower.artifacts['linux-arm64'].sha256, '5843ffdb9b258b31ec26b5b74233b983aacfd9e65aaf35bafbff697fac1bad22');
@@ -372,7 +375,7 @@ test('plan lists the unselected harness and Figma as optional kit components', t
   const selected = run(['plan', '--json', '--harness', 'codex', '--with-figma'], manifest, context);
   assert.deepEqual(selected.result.plan.optionalComponents.map(x => x.id), []);
   const figma = selected.result.plan.tools.find(x => x.id === 'figma-cli');
-  assert.deepEqual([figma.version, figma.lockGroup], ['cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942', 'npm-figma']);
+  assert.deepEqual([figma.version, figma.lockGroup], ['5ec32192dc67127d23df9020a7cf00565908aab8', 'npm-figma']);
   const text = run(['plan'], manifest, context).output;
   assert.match(text, new RegExp(`- ${lock.name}: optional, not selected; ${lock.version.value.replace(/\./g, '\\.')} from ${lock.approvedUpstream}`));
   assert.deepEqual(readdirSync(home), []);
@@ -1246,7 +1249,9 @@ test('with Figma, the npm-figma lock installs figma-cli from its pinned codeload
   const f = installFixture(t);
   f.fixtureManifest.tools = [structuredClone(manifest.tools.find(x => x.id === 'figma-cli'))];
   const lock = JSON.parse(readFileSync(new URL('../manifests/npm-figma/package-lock.json', import.meta.url)));
-  assert.equal(lock.packages['node_modules/@amelie-pierce/figma-cli'].resolved, 'https://codeload.github.com/amelie-pierce/figma-cli/tar.gz/cf6883a0084f4888f43e3dfcd5ce76c5f8a2a942');
+  assert.equal(lock.packages['node_modules/@amelie-pierce/figma-cli'].resolved, 'https://codeload.github.com/amelie-pierce/figma-cli/tar.gz/5ec32192dc67127d23df9020a7cf00565908aab8');
+  assert.equal(lock.packages['node_modules/@amelie-pierce/figma-cli'].integrity, 'sha512-2jvWOmOTu4joYyZhtd1vk17NBeBn8CfoPq5a+2CdP4DCp8ZxA9zVDhkJcpQbP/zJQGaSmAHA/q1+wWPD+oqsZw==');
+  assert.equal(lock.packages['node_modules/@amelie-pierce/figma-cli'].version, '2.2.5-make.2');
   assert.ok(Object.entries(lock.packages).filter(([name]) => name && name !== 'node_modules/@amelie-pierce/figma-cli').every(([, item]) => item.resolved.startsWith('https://registry.npmjs.org/') && item.integrity));
   f.options.runNpm = async stage => { mkdirSync(join(stage, 'node_modules', '.bin'), { recursive: true }); writeFileSync(join(stage, 'node_modules', '.bin', 'figma-cli'), 'fixture', { mode: 0o755 }); };
   const asked = [];

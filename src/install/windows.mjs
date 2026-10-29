@@ -105,6 +105,7 @@ export function windowsLifecycle(options, context, inspected) {
     'action=$1', 'shift', 'exec node "$root/kit/$commit/bin/agent-kit.mjs" "$action" --install-root "$root" "$@"',
   ].join('; ');
   const argv = ['-d', platform.wsl.target.name, '--exec', 'bash', '-l', '-c', script, 'agent-kit-lifecycle', root, options.command,
+    ...(options.targetRelease ? [options.targetRelease] : []),
     ...(options.yes ? ['--yes'] : []), ...(options.removeFirstmateHome ? ['--remove-firstmate-home'] : []), ...(options.json ? ['--json'] : [])];
   const command = powershellCommand(argv);
   if (!options.handoff) return { ...base, status: 'handoff-ready', exitCode: 0, command, argv, message: 'Run this command in WSL2, or rerun with --handoff:' };

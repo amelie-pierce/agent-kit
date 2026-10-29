@@ -277,7 +277,7 @@ async function figmaSkills(root, receipt, save, harness, options) {
     : { id: 'figma-skills', status: 'installed', reason: `figma-cli skills registered: ${results.map(r => r.path).join(', ')}` };
 }
 async function npmPhase(root, release, group, manifest, receipt, save, options) {
-  const base = fileURLToPath(new URL(`../../manifests/${group}/`, import.meta.url));
+  const base = options.manifestsDir ? join(options.manifestsDir, group) : fileURLToPath(new URL(`../../manifests/${group}/`, import.meta.url));
   const lockData = await readFile(join(base, 'package-lock.json'));
   const pkgData = await readFile(join(base, 'package.json'));
   const locked = JSON.parse(lockData);

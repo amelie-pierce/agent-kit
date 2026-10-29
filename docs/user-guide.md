@@ -2,7 +2,7 @@
 
 ## Status of this guide
 
-This guide describes the proposed `pilot-12` kit. `pilot-11` is the released kit; the owner approves `pilot-12` by merging its manifest PR. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This guide describes the proposed `pilot-13` kit. `pilot-12` is the released kit; the owner approves `pilot-13` by merging its manifest PR. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 | Release | What it added |
 | --- | --- |
@@ -10,7 +10,12 @@ This guide describes the proposed `pilot-12` kit. `pilot-11` is the released kit
 | `pilot-9` | Firstmate from the kit owner's approved copy, set up with your plan and routing mode at install; the kit's own commands (`firstmate`, `fm-mate`, `fm-help`, `fm-jev` and others); Herdr keyboard shortcuts, plugins and look; the Claude Code plugin set; the Figma CLI and its skills; a starter help page; and the full-access Codex launch question (on by default) |
 | `pilot-10` | A newer Firstmate: `balanced` and `lean` are cheaper on large plans and step down to cheaper models as your weekly quota runs low, on Claude and Codex; quiet mode now delivers Firstmate's messages reliably on Claude Code and Codex (the `pilot-9` `/quiet off` workaround is gone); question 2c shows what each mode means |
 | `pilot-11` | Firstmate fixes for Codex models, quiet entry replay, batch restart and honest Codex monitoring; the updated Zoe fleet tower; the installer's PATH block and stale-Herdr guidance |
-| `pilot-12` | Firstmate names ship branches by each repository's own rules; the PATH block writer stops when it detects a profile edit before replacement |
+| `pilot-12` | A Firstmate ship-branch naming fix; the PATH block writer stops when it detects a profile edit before replacement |
+| `pilot-13` | Firstmate branch-rule finding, quieter second-mate status and fresh-context validation; Figma CLI override at `5ec32192`; Zoetrope session-graph plugin source at `b1736f30`; see the [release note](../README.md#pins-and-approval) |
+
+**Branch-rule finder limits.** It may miss `feature/*` globs and tables headed `Naming convention`. It may over-count a sentence that mixes branch advice with a path, or file-name tables under a `Branching` heading. If this happens, record the project's branch pattern.
+
+**Figma CLI override limits.** The override needs your explicit confirmation each time. It withholds a plan for a tracked `.npmrc`, refuses to save an executable-bit-only difference, and has no backup on abort for a Make-only file that differs between saved and open copies.
 
 **This is a pilot.** No one has yet installed this release on a real Mac or a real Windows PC. You, the first teammates, running it on your own computers, are the hands-on test. Please send back what you saw (section 4).
 
@@ -21,7 +26,7 @@ This guide describes the proposed `pilot-12` kit. `pilot-11` is the released kit
 
 Each track is complete on its own. You do not need to read the other one.
 
-In this guide, `<root>` means the root folder you choose during install (default `~/Agentic`). `<release>` is the kit release name, such as `pilot-12` (older releases were named `macos-pilot-N`, for example `macos-pilot-6`). `<commit>` is the 40-character kit commit the installer prints. `<you>` is your own user name.
+In this guide, `<root>` means the root folder you choose during install (default `~/Agentic`). `<release>` is the kit release name, such as `pilot-13` (older releases were named `macos-pilot-N`, for example `macos-pilot-6`). `<commit>` is the 40-character kit commit the installer prints. `<you>` is your own user name.
 
 ---
 
@@ -241,7 +246,7 @@ The list of files and links it will touch is shown before the question. Your own
 | `context7` | it may ask for your own Context7 key; the kit never writes one |
 | `figma-cli` (only with Figma) | nothing |
 
-If you already have one of these plugins, or the `claude-plugins-official` marketplace, the kit leaves yours as it is; doctor then shows a warning if your marketplace version differs from the kit's. Uninstall removes only what the kit added.
+If you already have one of these plugins or marketplaces, the kit leaves yours as it is. Doctor checks kit-owned marketplaces and warns when their revision differs from the pin. Upgrade compares a pilot-12 receipt without a revision against the retained pilot-12 kit manifest first; if that manifest is missing or the installed revision is unreadable, it leaves that marketplace untouched. Upgrade and repair refresh a kit-owned marketplace only when its installed revision matches its recorded kit revision. The receipt saves the prior revision before replacement; a failed refresh attempts to restore it. `rollback pilot-12` restores that prior revision only while the installed revision still matches the receipt. A user-added or replaced marketplace stays untouched during repair, rollback and uninstall.
 
 **The plan questions (2a, 2b, 2c).** The kit asks which subscription you have for each agent CLI you chose, so that Firstmate (and Jev, once you add the key) picks models your plan can afford. Only the plan's name is saved; the kit never checks your account. If you are not sure, press Enter for `skip`.
 
@@ -379,7 +384,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-12)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-13)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
 
 **3. Sign in to your agent CLIs yourself.** In the same Terminal window:
 
@@ -570,7 +575,7 @@ These rows cover what `pilot-9` added. Each is `PASS` or `WARN`, never `FAIL`: t
 | `herdr-path-env` | `PASS` when Herdr is not running (or cannot be read), or its PATH holds every kit folder | `WARN`: Herdr started before the kit folders were on your PATH. Quit your agents, run `herdr server stop`, open a new terminal and start `herdr` there (inside Ubuntu on Windows). Doctor only reads; it never stops Herdr |
 | `fleet-autostart` (with the tower) | the start-up entry that opens the tower's tab is in place | run repair |
 | `captain-help` | your help page exists | it was deleted; ask Firstmate to write one, or run repair |
-| `claude-marketplace-…`, `claude-plugin-…` (with Claude Code) | the Claude plugins are installed and turned on | a plugin is turned off, or your own marketplace is at a different version than the kit's |
+| `claude-marketplace-…`, `claude-plugin-…` (with Claude Code) | the Claude plugins are enabled and the marketplace is at the kit pin | a plugin is turned off, or a kit-owned or your own marketplace differs from the kit pin |
 | `figma-skill-…` (with Figma) | the Figma CLI's skills are linked | run repair |
 
 - `FAIL <tool>-path: another binary has PATH precedence` means an older copy of that tool comes first on your PATH. Fix your PATH (A2.7) and run doctor again.
@@ -586,7 +591,7 @@ node "$AK" doctor --json > ~/kit-doctor.json
 
 Use repair when something the kit installed is damaged or missing, for example a deleted tool or a changed file.
 
-Run repair, upgrade and uninstall from a **normal Terminal window, not from inside Herdr**: they refuse while Herdr is running (see A10.3).
+Run repair, upgrade, rollback and uninstall from a **normal Terminal window, not from inside Herdr**: they refuse while Herdr is running (see A10.3).
 
 ```sh
 node "$AK" repair
@@ -633,7 +638,7 @@ Upgrade **refuses before changing anything** if your Firstmate home:
 - is not on the Firstmate version the kit expects, or
 - has an `origin` remote other than the approved Firstmate copy the kit uses (the kit owner's copy, which doctor's `firstmate-fork` row names).
 
-It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (A10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. (`pilot-9`, `pilot-10`, `pilot-11` and `pilot-12` are such releases.)
+It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (A10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. (`pilot-9`, `pilot-10`, `pilot-11`, `pilot-12` and `pilot-13` are such releases.)
 
 Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is running.
 
@@ -642,6 +647,16 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - Set `AK` to the new kit copy (A6).
 - If you skipped question 5b, change `<release>` in your PATH line (A2.7) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (A6.1).
+
+**Moving from `pilot-12` to `pilot-13`**, when you are asked to:
+
+1. Run upgrade. The plan shows `Release: pilot-12 -> pilot-13`, changed Firstmate, Figma CLI and Zoetrope plugin pin lines with the full commit numbers, and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`.
+2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
+3. Start Herdr and Firstmate again (A3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (A10.3).
+4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
+5. Do the "After an upgrade" steps above.
+
+If the owner asks you to return from `pilot-13` to the recorded `pilot-12` release, quit Firstmate and stop Herdr and the other kit services first. With `AK` still pointing to the pilot-13 kit, run `node "$AK" doctor` and check `PASS rollback-release`, then run `node "$AK" rollback pilot-12`. Review the plan and answer `y` (or use `--yes`). Rollback fetches the recorded pilot-12 kit commit, verifies a clean detached Firstmate checkout on the approved origin, and checks out the locally available pilot-12 Firstmate commit without resetting files. It refuses a branch checkout, tracked changes, an unknown prior commit, or running kit services. It restores the kit release and a kit-owned Claude marketplace only if the installed revision still matches its receipt; your own marketplace stays untouched. Point `AK` to the restored `<root>/.tools/kit/<pilot-12-commit>/bin/agent-kit.mjs` shown in the plan, then run `node "$AK" doctor`.
 
 **Moving from `pilot-11` to `pilot-12`**, when you are asked to:
 
@@ -1513,7 +1528,7 @@ The list of files and links it will touch is shown before the question. Your own
 | `context7` | it may ask for your own Context7 key; the kit never writes one |
 | `figma-cli` (only with Figma) | nothing |
 
-If you already have one of these plugins, or the `claude-plugins-official` marketplace, the kit leaves yours as it is; doctor then shows a warning if your marketplace version differs from the kit's. Uninstall removes only what the kit added.
+If you already have one of these plugins or marketplaces, the kit leaves yours as it is. Doctor checks kit-owned marketplaces and warns when their revision differs from the pin. Upgrade compares a pilot-12 receipt without a revision against the retained pilot-12 kit manifest first; if that manifest is missing or the installed revision is unreadable, it leaves that marketplace untouched. Upgrade and repair refresh a kit-owned marketplace only when its installed revision matches its recorded kit revision. The receipt saves the prior revision before replacement; a failed refresh attempts to restore it. `rollback pilot-12` restores that prior revision only while the installed revision still matches the receipt. A user-added or replaced marketplace stays untouched during repair, rollback and uninstall.
 
 **The plan questions (2a, 2b, 2c).** The kit asks which subscription you have for each agent CLI you chose, so that Firstmate (and Jev, once you add the key) picks models your plan can afford. Only the plan's name is saved; the kit never checks your account. If you are not sure, press Enter for `skip`.
 
@@ -1655,7 +1670,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-12)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-13)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
 
 **3. Sign in to your agent CLIs yourself, inside Ubuntu.** Signing in on Windows does not count here.
 
@@ -1853,7 +1868,7 @@ These rows cover what `pilot-9` added. Each is `PASS` or `WARN`, never `FAIL`: t
 | `herdr-path-env` | `PASS` when Herdr is not running (or cannot be read), or its PATH holds every kit folder | `WARN`: Herdr started before the kit folders were on your PATH. Quit your agents, run `herdr server stop`, open a new terminal and start `herdr` there (inside Ubuntu on Windows). Doctor only reads; it never stops Herdr |
 | `fleet-autostart` (with the tower) | the start-up entry that opens the tower's tab is in place | run repair |
 | `captain-help` | your help page exists | it was deleted; ask Firstmate to write one, or run repair |
-| `claude-marketplace-…`, `claude-plugin-…` (with Claude Code) | the Claude plugins are installed and turned on | a plugin is turned off, or your own marketplace is at a different version than the kit's |
+| `claude-marketplace-…`, `claude-plugin-…` (with Claude Code) | the Claude plugins are enabled and the marketplace is at the kit pin | a plugin is turned off, or a kit-owned or your own marketplace differs from the kit pin |
 | `figma-skill-…` (with Figma) | the Figma CLI's skills are linked | run repair |
 
 - `FAIL <tool>-path: another binary has PATH precedence` means an older copy of that tool comes first on your Ubuntu PATH. Fix your PATH (B2.11) and run doctor again.
@@ -1869,7 +1884,7 @@ node "$AK" doctor --json > ~/kit-doctor.json
 
 Use repair when something the kit installed is damaged or missing, for example a deleted tool or a changed file.
 
-Run repair, upgrade and uninstall in a **normal Ubuntu terminal, not from inside Herdr and not in PowerShell**: they refuse while Herdr is running (see B10.3). In Ubuntu:
+Run repair, upgrade, rollback and uninstall in a **normal Ubuntu terminal, not from inside Herdr and not in PowerShell**: they refuse while Herdr is running (see B10.3). In Ubuntu:
 
 ```sh
 node "$AK" repair
@@ -1916,7 +1931,7 @@ Upgrade **refuses before changing anything** if your Firstmate home:
 - is not on the Firstmate version the kit expects, or
 - has an `origin` remote other than the approved Firstmate copy the kit uses (the kit owner's copy, which doctor's `firstmate-fork` row names).
 
-It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (B10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. (`pilot-9`, `pilot-10`, `pilot-11` and `pilot-12` are such releases.)
+It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (B10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. (`pilot-9`, `pilot-10`, `pilot-11`, `pilot-12` and `pilot-13` are such releases.)
 
 Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is running inside Ubuntu.
 
@@ -1925,6 +1940,16 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - Set `AK` to the new kit copy (B6).
 - If you skipped question 5b, change `<release>` in your Ubuntu PATH line (B2.11) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (B6.1).
+
+**Moving from `pilot-12` to `pilot-13`**, when you are asked to:
+
+1. Run upgrade. The plan shows `Release: pilot-12 -> pilot-13`, changed Firstmate, Figma CLI and Zoetrope plugin pin lines with the full commit numbers, and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`.
+2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
+3. Start Herdr and Firstmate again (B3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (B10.3).
+4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
+5. Do the "After an upgrade" steps above.
+
+If the owner asks you to return from `pilot-13` to the recorded `pilot-12` release, quit Firstmate and stop Herdr and the other kit services first. In Ubuntu, with `AK` still pointing to the pilot-13 kit, run `node "$AK" doctor` and check `PASS rollback-release`, then run `node "$AK" rollback pilot-12`. Review the plan and answer `y` (or use `--yes`). Rollback fetches the recorded pilot-12 kit commit, verifies a clean detached Firstmate checkout on the approved origin, and checks out the locally available pilot-12 Firstmate commit without resetting files. It refuses a branch checkout, tracked changes, an unknown prior commit, or running kit services. It restores the kit release and a kit-owned Claude marketplace only if the installed revision still matches its receipt; your own marketplace stays untouched. Point `AK` to the restored `<root>/.tools/kit/<pilot-12-commit>/bin/agent-kit.mjs` shown in the plan, then run `node "$AK" doctor`.
 
 **Moving from `pilot-11` to `pilot-12`**, when you are asked to:
 
@@ -2423,7 +2448,7 @@ The tower is a **Team** tab in Herdr showing your Firstmate, crew and second mat
 - **The Zoetrope session graph** (`Ctrl+B Shift+C` and `Ctrl+B Shift+Z`, B8.2) is a separate Herdr plugin that shows your sessions as a graph. It comes with the tower.
 - **"Partial" is only a testing label**, as on macOS: the install shows `tower: installed from verified release; hands-on acceptance pending`, and setup still ends with `Agent Kit setup complete.` It means the tower's separate hands-on test has not been run for this release yet, not that anything is broken.
 - **Not confirmed on a real PC yet.** No Windows PC has run the tower, the session graph or the automatic opening yet, on x64 or Arm64. Most teammates' PCs are x64; your run is the first hands-on check. Please include what `doctor` and `zoe-fleet-open` showed in your pilot feedback (section 4).
-- Like on macOS, repair, upgrade and uninstall refuse while the tower is running (B10.3).
+- Like on macOS, repair, upgrade, rollback and uninstall refuse while the tower is running (B10.3).
 
 Everything else (Firstmate, Herdr, the crew, second mates) works without the tower. You can see what your fleet is doing by asking Firstmate or with `/bearings`.
 
