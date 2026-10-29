@@ -591,7 +591,7 @@ node "$AK" doctor --json > ~/kit-doctor.json
 
 Use repair when something the kit installed is damaged or missing, for example a deleted tool or a changed file.
 
-Run repair, upgrade and uninstall from a **normal Terminal window, not from inside Herdr**: they refuse while Herdr is running (see A10.3).
+Run repair, upgrade, rollback and uninstall from a **normal Terminal window, not from inside Herdr**: they refuse while Herdr is running (see A10.3).
 
 ```sh
 node "$AK" repair
@@ -1884,7 +1884,7 @@ node "$AK" doctor --json > ~/kit-doctor.json
 
 Use repair when something the kit installed is damaged or missing, for example a deleted tool or a changed file.
 
-Run repair, upgrade and uninstall in a **normal Ubuntu terminal, not from inside Herdr and not in PowerShell**: they refuse while Herdr is running (see B10.3). In Ubuntu:
+Run repair, upgrade, rollback and uninstall in a **normal Ubuntu terminal, not from inside Herdr and not in PowerShell**: they refuse while Herdr is running (see B10.3). In Ubuntu:
 
 ```sh
 node "$AK" repair
@@ -2448,7 +2448,7 @@ The tower is a **Team** tab in Herdr showing your Firstmate, crew and second mat
 - **The Zoetrope session graph** (`Ctrl+B Shift+C` and `Ctrl+B Shift+Z`, B8.2) is a separate Herdr plugin that shows your sessions as a graph. It comes with the tower.
 - **"Partial" is only a testing label**, as on macOS: the install shows `tower: installed from verified release; hands-on acceptance pending`, and setup still ends with `Agent Kit setup complete.` It means the tower's separate hands-on test has not been run for this release yet, not that anything is broken.
 - **Not confirmed on a real PC yet.** No Windows PC has run the tower, the session graph or the automatic opening yet, on x64 or Arm64. Most teammates' PCs are x64; your run is the first hands-on check. Please include what `doctor` and `zoe-fleet-open` showed in your pilot feedback (section 4).
-- Like on macOS, repair, upgrade and uninstall refuse while the tower is running (B10.3).
+- Like on macOS, repair, upgrade, rollback and uninstall refuse while the tower is running (B10.3).
 
 Everything else (Firstmate, Herdr, the crew, second mates) works without the tower. You can see what your fleet is doing by asking Firstmate or with `/bearings`.
 

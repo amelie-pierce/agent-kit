@@ -490,7 +490,7 @@ In the manifest, `verified` means the artifact's identity and integrity were che
   - Zoetrope session-graph plugin: `c80eef89`, SHA-256 `c533e712…`.
   - ray.plugin-manager: `e4fef269`, SHA-256 `3382cd13…`.
   - figma-cli: `cf6883a0`, archive SHA-256 `0dd73755…`, with `manifests/npm-figma`.
-  - The [Claude plugin](#claude-plugins) marketplace commits; the kit refreshes only marketplaces its receipt owns, while a teammate's own marketplace keeps its revision and doctor warns when it differs from the pin.
+  - The [Claude plugin](#claude-plugins) marketplace commits; a teammate who already has one of those marketplaces keeps it, its plugins follow their revision, and doctor warns when it differs from the pin.
   - MCP packages: `@playwright/mcp@0.0.83` (registry integrity `sha512-oNcl+Ae2/IAjhfPeP46BfIkSakfmprY+aOtkv5MjrQ4lPav4/yNtPhL0iq8SlIM90oApWgBDUxaNKvktazUKOg==`), set by the kit's edit of the playwright plugin's `.mcp.json` (pinned original SHA-256 `b6fd7e9c…`) in place of `@latest`; `chrome-devtools-mcp@1.11.0` (registry integrity `sha512-CytJ/5tnzrS+J/74be2P5aCOsS/mmGRHys/Si+IYC4ucrbnWAmES/dYdxGJjeUCECRcoFUilZAysdjlwqUjXIA==`), pinned upstream.
   - python3 3.9 is required on every platform, and figma-cli is no longer a person-installed prerequisite.
 - **New user-level files and settings.**
@@ -519,7 +519,7 @@ Earlier releases: `pilot-8` (from `pilot-7`) added only the WSL2 tower and runti
 | Tool | Version | Source |
 | --- | --- | --- |
 | Firstmate | [Manifest pin](manifests/pilot-skeleton.json) | Approved Firstmate fork; doctor checks the installed origin |
-| Zoetrope session-graph Herdr plugin (new) | `b1736f30d34e0ace87eb871b3d6fd1cc79f17c84` | github.com/pikenguyen227/zoetrope source archive, `herdr-plugin/` only (SHA-256 `5843ffdb9b258b31ec26b5b74233b983aacfd9e65aaf35bafbff697fac1bad22`) |
+| Zoetrope session-graph Herdr plugin | [Manifest pin](manifests/pilot-skeleton.json) | github.com/pikenguyen227/zoetrope source archive, `herdr-plugin/` only |
 | Herdr Plugin Manager (new) | `e4fef2693728a36cbb389af033a389cad2257869` (0.5.0) | github.com/speardragon/herdr-plugin-manager source archive (SHA-256 `3382cd1342d03e4c171025d9886d9337c63e2873360feef1122532f4e4817c62`), MIT |
 | figma-cli (with Figma) | [Manifest pin](manifests/pilot-skeleton.json) | amelie-pierce/figma-cli codeload archive, integrity-pinned in `manifests/npm-figma/package-lock.json` with its registry dependencies (MIT, BSD-3-Clause, ISC) |
 | Claude plugins (new, with Claude) | marketplace commits | see [Claude plugins](#claude-plugins) and `manifests/claude-plugins.json` |
