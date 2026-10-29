@@ -2,7 +2,7 @@
 
 ## Status of this guide
 
-This guide describes the kit release `pilot-11`. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`. Teammates install `pilot-11`; the owner approved it by merging its manifest PR.
+This guide describes the kit release `pilot-12`. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`. Teammates install `pilot-12`; the owner approved it by merging its manifest PR.
 
 | Release | What it added |
 | --- | --- |
@@ -10,6 +10,7 @@ This guide describes the kit release `pilot-11`. Release names have the form `pi
 | `pilot-9` | Firstmate from the kit owner's approved copy, set up with your plan and routing mode at install; the kit's own commands (`firstmate`, `fm-mate`, `fm-help`, `fm-jev` and others); Herdr keyboard shortcuts, plugins and look; the Claude Code plugin set; the Figma CLI and its skills; a starter help page; and the full-access Codex launch question (on by default) |
 | `pilot-10` | A newer Firstmate: `balanced` and `lean` are cheaper on large plans and step down to cheaper models as your weekly quota runs low, on Claude and Codex; quiet mode now delivers Firstmate's messages reliably on Claude Code and Codex (the `pilot-9` `/quiet off` workaround is gone); question 2c shows what each mode means |
 | `pilot-11` | Firstmate fixes for Codex models, quiet entry replay, batch restart and honest Codex monitoring; the updated Zoe fleet tower; the installer's PATH block and stale-Herdr guidance |
+| `pilot-12` | Firstmate names ship branches by each repository's own rules; the PATH block is never written over a profile edit made while the kit writes it |
 
 **This is a pilot.** No one has yet installed this release on a real Mac or a real Windows PC. You, the first teammates, running it on your own computers, are the hands-on test. Please send back what you saw (section 4).
 
@@ -20,7 +21,7 @@ This guide describes the kit release `pilot-11`. Release names have the form `pi
 
 Each track is complete on its own. You do not need to read the other one.
 
-In this guide, `<root>` means the root folder you choose during install (default `~/Agentic`). `<release>` is the kit release name, such as `pilot-11` (older releases were named `macos-pilot-N`, for example `macos-pilot-6`). `<commit>` is the 40-character kit commit the installer prints. `<you>` is your own user name.
+In this guide, `<root>` means the root folder you choose during install (default `~/Agentic`). `<release>` is the kit release name, such as `pilot-12` (older releases were named `macos-pilot-N`, for example `macos-pilot-6`). `<commit>` is the 40-character kit commit the installer prints. `<you>` is your own user name.
 
 ---
 
@@ -378,7 +379,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-11)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-12)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
 
 **3. Sign in to your agent CLIs yourself.** In the same Terminal window:
 
@@ -632,7 +633,7 @@ Upgrade **refuses before changing anything** if your Firstmate home:
 - is not on the Firstmate version the kit expects, or
 - has an `origin` remote other than the approved Firstmate copy the kit uses (the kit owner's copy, which doctor's `firstmate-fork` row names).
 
-It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (A10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. (`pilot-9`, `pilot-10` and `pilot-11` are such releases.)
+It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (A10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. (`pilot-9`, `pilot-10`, `pilot-11` and `pilot-12` are such releases.)
 
 Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is running.
 
@@ -641,6 +642,14 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - Set `AK` to the new kit copy (A6).
 - If you skipped question 5b, change `<release>` in your PATH line (A2.7) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (A6.1).
+
+**Moving from `pilot-11` to `pilot-12`**, when you are asked to:
+
+1. Run upgrade. The plan shows `Release: pilot-11 -> pilot-12`, one changed line, `- firstmate: 622311a5… -> 21b21582…` (with the full commit numbers), and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`.
+2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
+3. Start Herdr and Firstmate again (A3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (A10.3).
+4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
+5. Do the "After an upgrade" steps above.
 
 **Moving from `pilot-10` to `pilot-11`**, when you are asked to:
 
@@ -1646,7 +1655,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-11)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-12)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
 
 **3. Sign in to your agent CLIs yourself, inside Ubuntu.** Signing in on Windows does not count here.
 
@@ -1907,7 +1916,7 @@ Upgrade **refuses before changing anything** if your Firstmate home:
 - is not on the Firstmate version the kit expects, or
 - has an `origin` remote other than the approved Firstmate copy the kit uses (the kit owner's copy, which doctor's `firstmate-fork` row names).
 
-It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (B10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. (`pilot-9`, `pilot-10` and `pilot-11` are such releases.)
+It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (B10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. (`pilot-9`, `pilot-10`, `pilot-11` and `pilot-12` are such releases.)
 
 Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is running inside Ubuntu.
 
@@ -1916,6 +1925,14 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - Set `AK` to the new kit copy (B6).
 - If you skipped question 5b, change `<release>` in your Ubuntu PATH line (B2.11) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (B6.1).
+
+**Moving from `pilot-11` to `pilot-12`**, when you are asked to:
+
+1. Run upgrade. The plan shows `Release: pilot-11 -> pilot-12`, one changed line, `- firstmate: 622311a5… -> 21b21582…` (with the full commit numbers), and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`.
+2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
+3. Start Herdr and Firstmate again (B3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (B10.3).
+4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
+5. Do the "After an upgrade" steps above.
 
 **Moving from `pilot-10` to `pilot-11`**, when you are asked to:
 
