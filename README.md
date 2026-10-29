@@ -450,6 +450,7 @@ In the manifest, `verified` means the artifact's identity and integrity were che
 
 - **Label.** `pilot-12` -> `pilot-13`.
 - **Firstmate.** Re-pinned to the Firstmate release that enforces each repository's branch rules when naming ship branches. The approved commit and source archive checksum are in the [manifest](manifests/pilot-skeleton.json); the archive was downloaded and hashed locally.
+- **Branch-rule finder limits.** It may miss `feature/*` globs and tables headed `Naming convention`. It may over-count a sentence that mixes branch advice with a path, or file-name tables under a `Branching` heading. If this happens, record the project's branch pattern.
 - **Every other pin, digest and prerequisite**, including the Zoe tower and runtime, remains as in `pilot-12`. The owner’s merge word is required; teammates update only when the owner asks.
 
 ### Versions for owner approval (`pilot-11` -> `pilot-12`)

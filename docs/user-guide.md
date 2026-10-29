@@ -13,6 +13,8 @@ This guide describes the proposed `pilot-13` kit. `pilot-12` is the released kit
 | `pilot-12` | A Firstmate ship-branch naming fix; the PATH block writer stops when it detects a profile edit before replacement |
 | `pilot-13` | Firstmate branch-rule enforcement; see the [release note](../README.md#pins-and-approval) |
 
+**Branch-rule finder limits.** It may miss `feature/*` globs and tables headed `Naming convention`. It may over-count a sentence that mixes branch advice with a path, or file-name tables under a `Branching` heading. If this happens, record the project's branch pattern.
+
 **This is a pilot.** No one has yet installed this release on a real Mac or a real Windows PC. You, the first teammates, running it on your own computers, are the hands-on test. Please send back what you saw (section 4).
 
 **How to use this guide.** Read the shared part (sections 1 to 3), then follow **only your own track**:
