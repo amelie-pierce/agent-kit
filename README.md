@@ -339,7 +339,7 @@ The `macos-pilot-6` manifest re-pins Firstmate to `976c3ba730b9dafefc159b12a97a0
 
 **A pilot-12 install moving to pilot-13.** Follow the [macOS](docs/user-guide.md#a63-upgrade-update) or [Windows (WSL2)](docs/user-guide.md#b63-upgrade-update) upgrade steps in the user guide. The release change is summarized under [Pins and approval](#pins-and-approval).
 
-**A pilot-11 install moving to pilot-12.** The Firstmate pin changes from `622311a5` to `21b21582`, which adds Firstmate's fix for naming ship branches by each repository's own rules. The Zoe tower and runtime pins stay as in `pilot-11`. Run `upgrade` when the owner asks. The plan shows `Release: pilot-11 -> pilot-12`, the `- firstmate: 622311a5… -> 21b21582…` line and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. Applying refuses until you run `/updatefirstmate` in that home. Then rerun upgrade: it reports `Firstmate pin: guarded update already verified` and stages `releases/pilot-12` beside `releases/pilot-11`. If the kit detects a profile change before replacing its PATH block, it leaves your edit untouched and tells you to rerun.
+**A pilot-11 install moving to pilot-12.** The Firstmate pin changes from `622311a5` to `21b21582`, which adds a ship-branch naming fix. The Zoe tower and runtime pins stay as in `pilot-11`. Run `upgrade` when the owner asks. The plan shows `Release: pilot-11 -> pilot-12`, the `- firstmate: 622311a5… -> 21b21582…` line and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. Applying refuses until you run `/updatefirstmate` in that home. Then rerun upgrade: it reports `Firstmate pin: guarded update already verified` and stages `releases/pilot-12` beside `releases/pilot-11`. If the kit detects a profile change before replacing its PATH block, it leaves your edit untouched and tells you to rerun.
 
 **A pilot-10 install moving to pilot-11.** The Firstmate pin changes from `a6bc1877` to `622311a5`, and the Zoe tower and runtime move to `fleet-v0.2.0-b1736f30d34e` (WSL2 tower: `fleet-v0.2.0-b1736f30d34e-linux`). Run `upgrade` when the owner asks. The plan shows `Release: pilot-10 -> pilot-11`, the changed pins and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. Applying refuses until you run `/updatefirstmate` in that home. Then rerun upgrade: it reports `Firstmate pin: guarded update already verified` and stages `releases/pilot-11` beside `releases/pilot-10`. If you changed your strategy yourself, run `bin/fm-strategy.sh set <mode>` in the Firstmate home to pick up the current Codex models. The GPT-6.1 Sol workaround is no longer needed; Firstmate now uses GPT-6 Sol. The installer also writes a marked PATH block by default and tells you when an already running Herdr needs a restart.
 
@@ -449,21 +449,20 @@ In the manifest, `verified` means the artifact's identity and integrity were che
 ### Versions for owner approval (`pilot-12` -> `pilot-13`)
 
 - **Label.** `pilot-12` -> `pilot-13`.
-- **Firstmate.** Re-pinned to the Firstmate release that enforces each repository's branch rules when naming ship branches. The approved commit and source archive checksum are in the [manifest](manifests/pilot-skeleton.json); the archive was downloaded and hashed locally.
-- **Branch-rule finder limits.** It may miss `feature/*` globs and tables headed `Naming convention`. It may over-count a sentence that mixes branch advice with a path, or file-name tables under a `Branching` heading. If this happens, record the project's branch pattern.
+- **Firstmate.** Re-pinned to the Firstmate release that enforces discovered repository branch rules when naming ship branches. The approved commit and source archive checksum are in the [manifest](manifests/pilot-skeleton.json); the archive was downloaded and hashed locally. See the [user guide](docs/user-guide.md#status-of-this-guide) for known branch-rule finder limits.
 - **Every other pin, digest and prerequisite**, including the Zoe tower and runtime, remains as in `pilot-12`. The owner’s merge word is required; teammates update only when the owner asks.
 
 ### Versions for owner approval (`pilot-11` -> `pilot-12`)
 
 - **Label.** `pilot-11` -> `pilot-12`.
-- **Firstmate.** `622311a5` -> `21b21582` from the approved copy, adding the ship-branch naming fix. The commit and the source archive checksum are in the [manifest](manifests/pilot-skeleton.json), which owns the install pins; the archive was downloaded and hashed locally.
+- **Firstmate.** `622311a5` -> `21b21582` from the approved copy, adding the ship-branch naming fix. That release's manifest recorded the commit and source archive checksum; the archive was downloaded and hashed locally.
 - **Shell profile.** If the kit detects a profile change before replacing its PATH block, it leaves your edit untouched and the command exits nonzero. A save between the kit's final check and its file replacement can still be lost.
 - **Every other pin, digest and prerequisite**, including the Zoe tower and runtime, remains as in `pilot-11`. The owner's merge word is required; teammates update only when the owner asks.
 
 ### Versions for owner approval (`pilot-10` -> `pilot-11`)
 
 - **Label.** `pilot-10` -> `pilot-11`.
-- **Firstmate, Zoe tower and runtime.** The reviewed commits, platform tags, archive names and checksums are in the [manifest](manifests/pilot-skeleton.json), which owns the install pins. Both tower release `SHA256SUMS` files and the pinned archives were verified locally. Linux arm64 hands-on acceptance remains pending.
+- **Firstmate, Zoe tower and runtime.** That release's manifest recorded the reviewed commits, platform tags, archive names and checksums. Both tower release `SHA256SUMS` files and the pinned archives were verified locally. Linux arm64 hands-on acceptance remains pending.
 - **Plan table and docs.** Firstmate's new `plans.json` uses GPT-6 Sol for all Codex Sol routes; GPT-6.1 Terra remains in the lower cost standard routes. The kit's compatibility bridge for older Firstmate homes remains unchanged. The owner's mode definitions remain unchanged.
 - **User-level files and settings.** The installer now adds one marked PATH block to the selected zsh or bash profile by default, with an explicit skip choice, and removes an unchanged block on uninstall. On upgrade, an unchanged kit-selected strategy may be re-rendered in the Firstmate home's `config/`; a changed strategy remains yours. No other user-level file or setting is added by this release.
 - **Every other pin, digest and prerequisite** remains as in `pilot-10`. The owner's merge word is required; teammates update only when the owner asks.
