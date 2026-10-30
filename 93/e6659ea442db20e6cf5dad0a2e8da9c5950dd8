@@ -1,0 +1,25 @@
+README.md
+  s_fef72ef15806fc::t_a94a2ddde05f20 493,522
+docs/features.md
+  s_fef72ef15806fc::t_7cbb9de5988c23 128
+  s_fef72ef15806fc::t_e5d754508b30c4 46,51,56,68
+  s_fef72ef15806fc::t_3cba247c5cc3ae 66
+docs/user-guide.md
+  s_fef72ef15806fc::t_7cbb9de5988c23 594,1887,2451
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "93e6659ea442db20e6cf5dad0a2e8da9c5950dd8",
+  "prompts": {},
+  "sessions": {
+    "s_fef72ef15806fc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a188ec-30d0-7b22-ac89-5e8155dc3d58",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,78 @@
+bin/agent-kit.mjs
+  s_dde88e8f224d18::t_27992bfe22d025 13,45,106,125-126,141-142
+src/install/windows.mjs
+  s_dde88e8f224d18::t_27992bfe22d025 108
+src/doctor.mjs
+  s_dde88e8f224d18::t_3582665cb3f9b3 114-119,126,132
+  s_dde88e8f224d18::t_f286f1b743a22c 127-131
+  s_dde88e8f224d18::t_bec8883b68916b 120-125
+src/kit.mjs
+  s_dde88e8f224d18::t_27992bfe22d025 56,59-60,76-77,79,86,91,94,102
+test/extras.test.mjs
+  s_dde88e8f224d18::t_70d33e1c127f71 11,230-232,264-279,281-287,310-313
+  s_dde88e8f224d18::t_d91a920d0b6204 330-335
+  s_dde88e8f224d18::t_f173b8cb6f2d0d 260,280
+  s_dde88e8f224d18::t_4db2e244c820e2 253
+  s_dde88e8f224d18::t_a48607f8290a3b 314
+docs/user-guide.md
+  s_dde88e8f224d18::t_b50d451bdbd411 660
+  s_dde88e8f224d18::t_7ac5aa9168bae8 249,1531
+  s_dde88e8f224d18::t_623bb4c98b5b03 659,1952
+  s_dde88e8f224d18::t_905b2f598dce1d 1953
+src/lifecycle.mjs
+  s_dde88e8f224d18::t_f387bb5f75ed4b 500-507,509
+  s_dde88e8f224d18::t_cfc8d54725774a 45,47
+  s_dde88e8f224d18::t_8edcc4b5a730d0 17
+  s_dde88e8f224d18::t_e3f3df1974fa53 43-44,46,48-51,498,522,563-566,592-593
+  s_dde88e8f224d18::t_521bfcb33e4894 494-495,497,499,508,511-515,517-519,523-540,644,656
+  s_dde88e8f224d18::t_c301acd9f55b1a 520-521
+  s_dde88e8f224d18::t_b08a6ba004fdcc 576-577
+  s_dde88e8f224d18::t_15a2fc1198136b 496
+  s_dde88e8f224d18::t_d959155c9212e8 578
+  s_dde88e8f224d18::t_3582665cb3f9b3 516
+  s_dde88e8f224d18::t_a4c10b9d6fef73 11,510,575,602-603
+  s_dde88e8f224d18::t_04f98cbad0973d 589-591,594-599
+src/shortcuts.mjs
+  s_dde88e8f224d18::t_a4c10b9d6fef73 419
+  s_dde88e8f224d18::t_2401873775922f 8,420
+src/claude-plugins.mjs
+  s_dde88e8f224d18::t_32cd03b92883b2 162-164
+  s_dde88e8f224d18::t_2401873775922f 6,33-39
+  s_dde88e8f224d18::t_bb1ecad5ca0a42 28-32,40,46-47,50,72,156,158,169
+  s_dde88e8f224d18::t_ff784b4b13a256 73
+README.md
+  s_dde88e8f224d18::t_7ac5aa9168bae8 207
+  s_dde88e8f224d18::t_24b262e15bbe44 453
+src/install/macos.mjs
+  s_dde88e8f224d18::t_b08a6ba004fdcc 280
+src/update.mjs
+  s_dde88e8f224d18::t_b08a6ba004fdcc 23,48
+  s_dde88e8f224d18::t_a4c10b9d6fef73 78,87,92-93
+test/lifecycle.test.mjs
+  s_dde88e8f224d18::t_075547ef9654a7 176
+  s_dde88e8f224d18::t_c25fa954ed6096 15,636-637,669-673
+  s_dde88e8f224d18::t_f173b8cb6f2d0d 479
+  s_dde88e8f224d18::t_07f19692ba465b 510-515
+  s_dde88e8f224d18::t_ab492fbed33576 12,444,446-451,467-474,476-477,480-481,485-490,492,494,498-499,507-509,516,521-522
+  s_dde88e8f224d18::t_8d0d5591735cee 500-506
+  s_dde88e8f224d18::t_1514f1aa5edc7a 482-483
+  s_dde88e8f224d18::t_54cb8ea557a3d1 493,497
+  s_dde88e8f224d18::t_cfc8d54725774a 495-496
+  s_dde88e8f224d18::t_25125f39ffa4ed 177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3cc868adbce818375ce3b15b9f8d4af24331a3e6",
+  "prompts": {},
+  "sessions": {
+    "s_dde88e8f224d18": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a188ac-d908-79d0-bc1c-0249f46e7483",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}

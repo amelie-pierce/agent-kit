@@ -1,0 +1,36 @@
+test/extras.test.mjs
+  s_dde88e8f224d18::t_ad6599891f3982 248,261-276,281-282
+  s_dde88e8f224d18::t_c781b637f6ade4 277-280
+  s_dde88e8f224d18::t_76c6913041dc91 396-407
+  s_dde88e8f224d18::t_fc9084011abc24 283-284
+src/lifecycle.mjs
+  s_dde88e8f224d18::t_99cbb20380f7d3 17,532-540,542-546
+  s_dde88e8f224d18::t_ea4d2e8898cb5a 541
+src/claude-plugins.mjs
+  s_dde88e8f224d18::t_d2c9e1c44de76a 49
+  s_dde88e8f224d18::t_ea4d2e8898cb5a 148-152
+  s_dde88e8f224d18::t_3f290e22902db6 24,27-33,35-37,41,43-48,50-56,60,70,83,130-133
+docs/user-guide.md
+  s_dde88e8f224d18::t_d2c9e1c44de76a 249,1529
+README.md
+  s_dde88e8f224d18::t_d2c9e1c44de76a 207,453
+test/lifecycle.test.mjs
+  s_dde88e8f224d18::t_c781b637f6ade4 15,442-489
+  s_dde88e8f224d18::t_d9234ebc9454b8 490-491
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c39b0ce2f4511d071dd315a30bed8aa10e7c6eee",
+  "prompts": {},
+  "sessions": {
+    "s_dde88e8f224d18": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a188ac-d908-79d0-bc1c-0249f46e7483",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
