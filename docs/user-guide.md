@@ -2,7 +2,7 @@
 
 ## Status of this guide
 
-This guide describes the proposed `pilot-13` kit. `pilot-12` is the released kit; the owner approves `pilot-13` by merging its manifest PR. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This guide describes the released `pilot-13` kit. `pilot-12` is the previous release. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 | Release | What it added |
 | --- | --- |
@@ -561,9 +561,9 @@ WARN jev: not ready: TYPESAFE_API_KEY is not set; add it from your own terminal 
 
 `WARN jev: not ready` is normal if you did not add a key. Other reasons it can give are a missing or broken routing rules file (A6.5) or a helper tool not on your PATH (A2.7).
 
-These rows cover what `pilot-9` added. Each is `PASS` or `WARN`, never `FAIL`: the kit still works without them, and repair (A6.2) puts back what changed.
+These rows cover what `pilot-9` added. Most report `PASS` or `WARN`; `shell-profile` and `shell-path` report `FAIL` when required PATH entries are missing. Repair (A6.2) can restore a missing kit-owned profile block.
 
-| Row | What `PASS` means | If it says `WARN` |
+| Row | What `PASS` means | If it says `WARN` or `FAIL` |
 | --- | --- | --- |
 | `firstmate-fork` | `firstmate origin: … (approved fork)`: your Firstmate home updates from the kit owner's approved copy of Firstmate | its `origin` was changed; see A10.4 |
 | `codex-full-access` | `codex full-access launch: on` or `off`, your answer to 2d | (always `PASS`; it only reports your answer) |
@@ -1854,9 +1854,9 @@ WARN jev: not ready: TYPESAFE_API_KEY is not set; add it from your own terminal 
 
 `WARN jev: not ready` is normal if you did not add a key. Other reasons it can give are a missing or broken routing rules file (B6.5) or a helper tool not on your Ubuntu PATH (B2.11).
 
-These rows cover what `pilot-9` added. Each is `PASS` or `WARN`, never `FAIL`: the kit still works without them, and repair (B6.2) puts back what changed.
+These rows cover what `pilot-9` added. Most report `PASS` or `WARN`; `shell-profile` and `shell-path` report `FAIL` when required PATH entries are missing. Repair (B6.2) can restore a missing kit-owned profile block.
 
-| Row | What `PASS` means | If it says `WARN` |
+| Row | What `PASS` means | If it says `WARN` or `FAIL` |
 | --- | --- | --- |
 | `firstmate-fork` | `firstmate origin: … (approved fork)`: your Firstmate home updates from the kit owner's approved copy of Firstmate | its `origin` was changed; see B10.4 |
 | `codex-full-access` | `codex full-access launch: on` or `off`, your answer to 2d | (always `PASS`; it only reports your answer) |
