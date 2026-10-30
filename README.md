@@ -448,6 +448,8 @@ In the manifest, `verified` means the artifact's identity and integrity were che
 
 ### Release changes (`pilot-12` -> `pilot-13`)
 
+For the rollback command below, set `AK` to the installed pilot-13 kit CLI path (replace `<commit>` with its installed commit and `Agentic` if you chose another root): `AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"`.
+
 - **Label.** `pilot-12` -> `pilot-13`.
 - **Firstmate.** Re-pinned to improve branch-rule finding so discovered repository rules can be enforced when naming ship branches, make second-mate status updates quieter, and add fresh-context validation. The approved commit and source archive checksum are in the [manifest](manifests/pilot-skeleton.json); the archive was downloaded and hashed locally. See the [user guide](docs/user-guide.md#status-of-this-guide) for known branch-rule finder limits.
 - **Figma CLI.** When Figma was selected, the npm-installed CLI moves to commit `5ec32192`. With Claude also selected, a kit-owned Figma plugin marketplace refreshes only if its installed revision matches the receipt or, for a pilot-12 receipt, the retained pilot-12 manifest. The previous revision is saved before replacement. A user-added or replaced marketplace stays untouched. `node "$AK" rollback pilot-12` restores the recorded prior pin only while ownership still matches. The npm package version stays `2.2.5-make.2`. See the [user guide](docs/user-guide.md#status-of-this-guide) for override limits.
