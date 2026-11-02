@@ -1,0 +1,36 @@
+test/kit.test.mjs
+  s_29309398293086::t_c6c94d10f2f04c 38,40,42
+manifests/pilot-skeleton.json
+  s_29309398293086::t_c6c94d10f2f04c 3,79,91-92,97-98,103-104,109-110
+docs/features.md
+  s_29309398293086::t_c6c94d10f2f04c 3,70
+docs/user-guide.md
+  s_29309398293086::t_c39ce745d3ec32 15
+  s_29309398293086::t_c6c94d10f2f04c 5,30,388,642,652-653,655-661,1684,1945
+  s_29309398293086::t_433593ec7943e4 654,1955-1963
+  s_29309398293086::t_efda2159ae58a2 1964
+README.md
+  s_29309398293086::t_433593ec7943e4 340
+  s_29309398293086::t_c6c94d10f2f04c 341,451-456
+  s_29309398293086::t_5e0c71ea88a240 457
+test/lifecycle.test.mjs
+  s_29309398293086::t_c39ce745d3ec32 471
+  s_29309398293086::t_c9af366415aec4 413
+  s_29309398293086::t_d8e84971f2366c 443-470,472-486
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2fe54973ee591ffe5b9aed227cd66e3bc43561b9",
+  "prompts": {},
+  "sessions": {
+    "s_29309398293086": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a19b44-8394-73e3-8d74-4d2aa4361290",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
