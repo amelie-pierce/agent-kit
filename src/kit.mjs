@@ -53,10 +53,10 @@ export function validateManifest(manifest) {
 }
 
 export function parseArgs(argv, platform = process.platform) {
-  let command, targetRelease, json = false, harness = 'claude', withFigma = false, dryRun = false, handoff = false, yes = false, print = false, removeFirstmateHome = false, removeEnv = false, installRoot, firstmateHome, distro, root;
+  let command, targetRelease, json = false, harness = 'claude', withFigma = false, dryRun = false, handoff = false, yes = false, print = false, runInstall = false, removeFirstmateHome = false, removeEnv = false, installRoot, firstmateHome, distro, root;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (['check', '--check', 'plan', 'install', 'doctor', 'update', '--update', 'upgrade', 'rollback', 'repair', 'reinstall', 'uninstall', 'keys', 'secondmate-template', 'browser-check'].includes(arg) && !command) command = arg === '--check' ? 'check' : arg === '--update' || arg === 'update' ? 'upgrade' : arg === 'reinstall' ? 'repair' : arg;
+    if (['check', '--check', 'plan', 'install', 'doctor', 'update', '--update', 'upgrade', 'rollback', 'repair', 'reinstall', 'uninstall', 'keys', 'secondmate-template', 'browser-check', 'terminal-browser'].includes(arg) && !command) command = arg === '--check' ? 'check' : arg === '--update' || arg === 'update' ? 'upgrade' : arg === 'reinstall' ? 'repair' : arg;
     else if (command === 'rollback' && !targetRelease && /^pilot-[0-9]+$/.test(arg)) targetRelease = arg;
     else if (arg === '--json') json = true;
     else if (arg === '--harness' && parseHarness(argv[i + 1])) harness = parseHarness(argv[++i]);
@@ -67,13 +67,14 @@ export function parseArgs(argv, platform = process.platform) {
     else if (arg === '--remove-firstmate-home') removeFirstmateHome = true;
     else if (arg === '--remove-env') removeEnv = true;
     else if (arg === '--print') print = true;
+    else if (arg === '--install' && command === 'terminal-browser') runInstall = true;
     else if (arg === '--install-root' && argv[i + 1]) installRoot = argv[++i];
     else if (arg === '--firstmate-home' && argv[i + 1]) firstmateHome = argv[++i];
     else if (arg === '--handoff') handoff = true;
     else if (arg === '--distro' && /^[A-Za-z0-9._-]+$/.test(argv[i + 1] || '')) distro = argv[++i];
     else throw new Error(`unknown argument: ${arg}`);
   }
-  if (!command) throw new Error('usage: agent-kit <setup|check|plan|install|doctor|repair|upgrade|rollback|uninstall|keys|browser-check|secondmate-template> [--json] [--root <root>] [--yes]');
+  if (!command) throw new Error('usage: agent-kit <setup|check|plan|install|doctor|repair|upgrade|rollback|uninstall|keys|browser-check|terminal-browser|secondmate-template> [--json] [--root <root>] [--yes]');
   if (command === 'rollback' && !targetRelease) throw new Error('rollback requires a previous release name, such as pilot-12');
   if (root !== undefined) {
     if (!['doctor', 'upgrade', 'rollback', 'repair', 'uninstall', 'keys'].includes(command)) throw new Error('--root applies only to doctor, keys and lifecycle commands; use setup for a new root');
@@ -86,6 +87,7 @@ export function parseArgs(argv, platform = process.platform) {
   if (yes && !['upgrade', 'rollback', 'repair', 'uninstall', 'keys'].includes(command)) throw new Error('--yes applies only to repair, upgrade, rollback, uninstall and keys');
   if (removeFirstmateHome && command !== 'uninstall') throw new Error('--remove-firstmate-home applies only to uninstall');
   if (removeEnv && command !== 'uninstall') throw new Error('--remove-env applies only to uninstall');
+  if (runInstall && json) throw new Error('--install asks a question, so it cannot be combined with --json');
   if (print && command !== 'secondmate-template') throw new Error('--print applies only to secondmate-template');
   if (command === 'secondmate-template' && !print) throw new Error('secondmate-template requires --print');
   if (handoff && (!['install', 'repair', 'upgrade', 'rollback', 'uninstall'].includes(command) || dryRun)) throw new Error('--handoff applies only to install and lifecycle commands without --dry-run');
@@ -99,7 +101,7 @@ export function parseArgs(argv, platform = process.platform) {
     if (installRoot && !isAbsolute(installRoot)) throw new Error('--install-root must be absolute');
     if (firstmateHome && !isAbsolute(firstmateHome)) throw new Error('--firstmate-home must be absolute');
   }
-  return { command: dryRun ? 'plan' : command, targetRelease, json, harness, withFigma, installRoot, firstmateHome, root, dryRun, handoff, distro, yes, print, removeFirstmateHome, removeEnv };
+  return { command: dryRun ? 'plan' : command, targetRelease, json, harness, withFigma, installRoot, firstmateHome, root, dryRun, handoff, distro, yes, print, runInstall, removeFirstmateHome, removeEnv };
 }
 
 const loginSteps = {

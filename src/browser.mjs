@@ -1,9 +1,10 @@
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, posix, win32 } from 'node:path';
+import { libraryCommand, libraryReport, runCommand } from './libraries.mjs';
 import { linuxIdentity } from './platforms/linux.mjs';
 
 // chrome-devtools-axi drives Chromium-family browsers only. The kit prefers a browser the person already has and never installs one.
@@ -13,7 +14,6 @@ const families = [
   { id: 'brave', name: 'Brave', linux: ['brave-browser-stable', 'brave-browser', 'brave'], macos: 'Brave Browser', windows: ['BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe'] },
 ];
 const sides = { native: 'this computer', windows: 'Windows side' };
-const sonames = [['libnspr4.so', /^\s*libnspr4\.so\b/m], ['libnss3.so', /^\s*libnss3\.so\b/m], ['libasound.so.2', /^\s*libasound\.so\.2\b/m]];
 const page = `data:text/html,${encodeURIComponent('<title>agent-kit browser-check</title><h1>agent-kit browser-check: the browser opened and answered</h1>')}`;
 const session = 'agent-kit-browser-check';
 
@@ -86,62 +86,27 @@ export function detectBrowsers(context, environment) {
   return found.sort((a, b) => (a.side === b.side ? 0 : a.side === 'native' ? -1 : 1));
 }
 
-const aptBeforeT64 = new Set(['xenial', 'bionic', 'focal', 'jammy', 'jessie', 'stretch', 'buster', 'bullseye', 'bookworm']);
-// Ubuntu 24.04 and Debian 13 renamed libasound2 to libasound2t64; derivatives such as Linux Mint name their Ubuntu base.
-function asoundPackage(distro) {
-  const codename = distro.ubuntuCodename || distro.codename;
-  if (codename) return aptBeforeT64.has(codename) ? 'libasound2' : 'libasound2t64';
-  const version = parseFloat(distro.versionId);
-  if (Number.isNaN(version)) return 'libasound2t64';
-  return version < (distro.id === 'ubuntu' ? 24.04 : 13) ? 'libasound2' : 'libasound2t64';
+// Which terminal this is and whether it draws kitty graphics (what terminal-browser needs), from environment variables alone.
+// A terminal that cannot draw them shows a blank screen. Multiplexers are "unknown" because they swallow the protocol unless passthrough is set.
+export function detectTerminal(env = {}) {
+  const has = prefix => Object.keys(env).some(key => key.startsWith(prefix));
+  const term = (name, kitty, note) => ({ name, kitty, note });
+  if (env.TMUX || env.STY) return term(env.TMUX ? 'tmux' : 'screen', 'unknown', 'a multiplexer passes kitty graphics through only when passthrough is on, so the outer terminal decides; unverified');
+  if (env.TERM === 'xterm-kitty' || env.KITTY_WINDOW_ID) return term('kitty', 'yes', 'draws kitty graphics');
+  if (env.TERM === 'xterm-ghostty' || env.TERM_PROGRAM === 'ghostty' || has('GHOSTTY_')) return term('Ghostty', 'yes', 'draws kitty graphics');
+  if (env.TERM_PROGRAM === 'WezTerm' || has('WEZTERM_')) return term('WezTerm', 'yes', 'draws kitty graphics');
+  if (env.TERM_PROGRAM === 'vscode' || has('VSCODE_')) return term('VS Code terminal', 'no', 'blank screen on WSL2 Ubuntu 24.04; other systems unverified');
+  if (env.WT_SESSION) return term('Windows Terminal', 'no', 'does not draw kitty graphics');
+  return term(env.TERM_PROGRAM || env.TERM || 'unknown terminal', 'unknown', 'not recognised; if a page shows a blank screen, the terminal cannot draw kitty graphics');
 }
 
-// The kit only prints this command; it never runs sudo. Only the Ubuntu 24.04 command has been run by the kit's authors.
-export function libraryCommand(environment) {
-  const distro = environment.distro;
-  if (!distro) return null;
-  const ids = [distro.id, ...distro.idLike];
-  if (ids.some(id => ['debian', 'ubuntu'].includes(id))) {
-    const packages = ['libnspr4', 'libnss3', asoundPackage(distro)];
-    return { manager: 'apt', packages, command: `sudo apt-get update && sudo apt-get install -y ${packages.join(' ')}` };
-  }
-  if (ids.some(id => ['fedora', 'rhel', 'centos'].includes(id))) return { manager: 'dnf', packages: ['nspr', 'nss', 'alsa-lib'], command: 'sudo dnf install -y nspr nss alsa-lib' };
-  if (ids.includes('arch')) return { manager: 'pacman', packages: ['nspr', 'nss', 'alsa-lib'], command: 'sudo pacman -S --needed nspr nss alsa-lib' };
-  if (ids.some(id => id === 'suse' || id.startsWith('opensuse'))) return { manager: 'zypper', packages: ['mozilla-nspr', 'mozilla-nss', 'libasound2'], command: 'sudo zypper install -y mozilla-nspr mozilla-nss libasound2' };
-  return null;
-}
-
-// Linux and WSL only: which of the runtime libraries a browser inside this distribution loads are missing from the linker cache.
-export function libraryPlan(context, environment) {
-  if (!['linux', 'wsl'].includes(environment.os)) return null;
-  const plan = libraryCommand(environment);
-  let cache = null;
-  for (const command of ['ldconfig', '/sbin/ldconfig', '/usr/sbin/ldconfig']) {
-    const result = context.run(command, ['-p']);
-    if (result.status === 0 && result.stdout) { cache = result.stdout; break; }
-  }
-  const missing = cache === null ? [] : sonames.filter(([, pattern]) => !pattern.test(cache)).map(([name]) => name);
-  const status = cache === null ? 'unknown' : missing.length ? 'missing' : 'present';
-  return { status, missing, manager: plan?.manager || null, packages: plan?.packages || [], command: plan?.command || null,
-    fallback: plan ? null : `Install the packages that provide ${sonames.map(([name]) => name).join(', ')} with your distribution's package manager.` };
-}
-
-// Environment signs that the terminal draws kitty graphics. Multiplexers are excluded because they swallow the protocol unless passthrough is set.
-export function kittyGraphicsTerminal(env = {}) {
-  if (env.TMUX || env.STY) return null;
-  if (env.TERM === 'xterm-kitty' || env.KITTY_WINDOW_ID) return 'kitty';
-  if (env.TERM === 'xterm-ghostty' || env.GHOSTTY_RESOURCES_DIR || env.TERM_PROGRAM === 'ghostty') return 'Ghostty';
-  if (env.TERM_PROGRAM === 'WezTerm') return 'WezTerm';
-  return null;
-}
-
-// Never the default browser and never installed by the kit: a line to read, shown only for a kitty-graphics terminal.
+// browser-check's one extra line: only for a terminal that draws kitty graphics, pointing at the terminal-browser setup command.
 export function terminalBrowserOffer(context) {
-  const terminal = kittyGraphicsTerminal(context.env);
-  if (!terminal) return { offered: false };
-  const installed = findOnPath(context, 'cha');
-  return { offered: true, terminal, tool: 'Chawan (cha)', installed,
-    note: `${terminal} draws kitty graphics, so a terminal browser such as Chawan (cha) can read pages in this terminal${installed ? ` (already installed at ${installed})` : ''}. It is optional and off by default: the kit does not install or run it, and chrome-devtools-axi does not use it.` };
+  const terminal = detectTerminal(context.env);
+  if (terminal.kitty !== 'yes') return { offered: false };
+  const installed = findOnPath(context, 'terminal-browser');
+  return { offered: true, terminal: terminal.name, tool: 'terminal-browser', installed,
+    note: `${terminal.name} draws kitty graphics, so terminal-browser can run in it${installed ? ` (already installed at ${installed})` : ''}. It is separate from chrome-devtools-axi; run agent-kit terminal-browser for its steps.` };
 }
 
 function axiSettings(browser, environment) {
@@ -162,10 +127,7 @@ const installHelp = environment => ({
 
 function withDefaults(context) {
   const c = { env: process.env, platform: process.platform, exists: existsSync, timeoutMs: 20000, holdMs: 3000, ...context };
-  c.run ||= (command, args, options = {}) => {
-    const result = spawnSync(command, args, { encoding: 'utf8', timeout: options.timeout ?? 5000, cwd: options.cwd, env: options.env, maxBuffer: 1 << 20 });
-    return { status: result.status, stdout: result.stdout || '', stderr: result.stderr || '', error: result.error };
-  };
+  c.run ||= runCommand;
   c.sleep ||= ms => new Promise(resolve => setTimeout(resolve, ms));
   c.freePort ||= () => new Promise((resolve, reject) => {
     const server = createServer();
@@ -236,17 +198,17 @@ export async function browserCheck(context = {}) {
 
   result.browsers = detectBrowsers(c, environment);
   const selected = result.selected = result.browsers[0] || null;
-  result.libraries = libraryPlan(c, environment);
   result.settings = axiSettings(selected, environment);
   if (!selected) { record('browser', 'fail', 'no Google Chrome, Microsoft Edge or Brave found', installHelp(environment)); return finish(); }
   const others = result.browsers.slice(1).map(x => `${x.name} (${sides[x.side]})`);
   record('browser', 'pass', `${selected.name} (${sides[selected.side]}) at ${selected.path}${others.length ? `; also found ${others.join(', ')}` : ''}`);
 
   const native = selected.side === 'native' && ['linux', 'wsl'].includes(environment.os);
-  const libs = result.libraries;
+  const libs = result.libraries = native ? libraryReport(c, environment, selected.path) : null;
   if (native) {
-    if (libs.status === 'missing') record('libraries', 'warn', `the linker cache has no ${libs.missing.join(', ')}`, libs.command || libs.fallback);
-    else record('libraries', libs.status === 'present' ? 'pass' : 'warn', libs.status === 'present' ? 'libnspr4, libnss3 and libasound are installed' : 'could not read the linker cache (ldconfig)');
+    if (libs.status === 'missing') record('libraries', 'warn', `ldd reports ${libs.missing.join(', ')} not found for ${libs.binary}`, libs.command || libs.fallback);
+    else if (libs.status === 'present') record('libraries', 'pass', `ldd finds every shared library ${libs.binary} loads`);
+    else record('libraries', 'warn', `could not check the shared libraries of ${selected.path} (${libs.detail})`);
     if (!c.env.DISPLAY && !c.env.WAYLAND_DISPLAY) {
       record('display', 'fail', 'neither DISPLAY nor WAYLAND_DISPLAY is set, so a visible window has nowhere to open',
         environment.wsl ? 'WSLg provides the display on current Windows 10 and 11: run "wsl --update" in PowerShell and restart WSL, or use a browser on the Windows side.'
@@ -276,7 +238,7 @@ export async function browserCheck(context = {}) {
       const lib = missingLibrary(stderr);
       if (error) record('launch', 'fail', `could not start ${selected.path}: ${error.message}`, error.code === 'EACCES' ? 'Check that the file is executable.' : 'Check that the path still exists; reinstall the browser if it was removed.');
       else if (!handle.running()) record('launch', 'fail', `${selected.name} exited before its DevTools endpoint was ready${lib ? `: it needs ${lib}` : ''}${stderr.trim() ? `\n${tail(stderr)}` : ''}`,
-        lib && libs ? libs.command || libs.fallback : undefined);
+        lib ? libraryCommand(environment, [lib])?.command || libs?.command || libs?.fallback || `Install the package that provides ${lib}.` : undefined);
       else if (environment.wsl && selected.side === 'windows') {
         const mode = wslNetworkingMode(c);
         record('devtools', 'fail', `${selected.name} on Windows started, but ${endpoint} does not answer from WSL (WSL networking mode: ${mode || 'unknown'})`,
@@ -321,8 +283,9 @@ export function formatBrowserCheck(result) {
   for (const [index, browser] of result.browsers.entries()) lines.push(`- ${browser.name} (${sides[browser.side]}): ${browser.path}${index === 0 ? ' [used]' : ''}`);
   const libs = result.libraries;
   if (libs) {
-    lines.push(`Chromium runtime libraries (needed by a browser inside this ${result.environment.os === 'wsl' ? 'WSL distribution' : 'Linux system'}): ${libs.status}${libs.missing.length ? ` (${libs.missing.join(', ')})` : ''}`);
-    lines.push(libs.command ? `  Run this yourself if they are missing (the kit never runs sudo): ${libs.command}` : `  ${libs.fallback}`);
+    lines.push(`Shared libraries of the browser (ldd): ${libs.status}${libs.missing.length ? ` (not found: ${libs.missing.join(', ')})` : ''}`);
+    if (libs.command) lines.push(`  Run this yourself (the kit never runs sudo): ${libs.command}`);
+    if (libs.fallback) lines.push(`  ${libs.fallback}`);
   }
   lines.push('Steps:');
   for (const step of result.steps) {

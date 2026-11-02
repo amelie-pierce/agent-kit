@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { browserCheck, detectBrowsers, detectEnvironment, formatBrowserCheck, kittyGraphicsTerminal, libraryCommand, libraryPlan, parseOsRelease, terminalBrowserOffer } from '../src/browser.mjs';
+import { browserCheck, detectBrowsers, detectEnvironment, detectTerminal, formatBrowserCheck, parseOsRelease, terminalBrowserOffer } from '../src/browser.mjs';
 import { parseArgs } from '../src/kit.mjs';
 
 const release = {
@@ -25,7 +25,7 @@ const environmentOf = (name, version = plainVersion, env = {}) => detectEnvironm
 // A fake host: `files` are the paths that exist and `commands` map a command name to a result or function.
 function host({ files = [], commands = {}, env = {}, platform = 'linux', name = 'ubuntu2404', version = wslVersion } = {}) {
   const calls = [];
-  return { calls, platform, env, osRelease: release[name], procVersion: version, exists: path => files.includes(path),
+  return { calls, platform, env, osRelease: release[name], procVersion: version, exists: path => files.includes(path), realpath: path => path,
     run: (command, args, options) => {
       calls.push([command, ...args]);
       const handler = commands[command];
@@ -33,7 +33,8 @@ function host({ files = [], commands = {}, env = {}, platform = 'linux', name = 
       return { status: 1, stdout: '', stderr: '', ...result };
     } };
 }
-const ldconfigAll = '\tlibnspr4.so (libc6,x86-64) => /lib/x86_64-linux-gnu/libnspr4.so\n\tlibnss3.so (libc6,x86-64) => /lib/x86_64-linux-gnu/libnss3.so\n\tlibasound.so.2 (libc6,x86-64) => /lib/x86_64-linux-gnu/libasound.so.2\n';
+const lddAll = '\tlinux-vdso.so.1 (0x00007ffd)\n\tlibnss3.so => /lib/x86_64-linux-gnu/libnss3.so (0x00007f01)\n\tlibasound.so.2 => /lib/x86_64-linux-gnu/libasound.so.2 (0x00007f02)\n';
+const lddMissing = '\tlibnss3.so => not found\n\tlibnssutil3.so => not found\n\tlibasound.so.2 => not found\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f03)\n';
 
 test('parseOsRelease strips quotes and ignores other lines', () => {
   assert.deepEqual(parseOsRelease('ID=ubuntu\nID_LIKE="ubuntu debian"\n# comment\nNAME=\'Mint\'\n'), { ID: 'ubuntu', ID_LIKE: 'ubuntu debian', NAME: 'Mint' });
@@ -80,57 +81,21 @@ test('detectBrowsers finds macOS app bundles and Windows install folders', () =>
   assert.deepEqual(detectBrowsers(windows, detectEnvironment(windows)).map(x => [x.id, x.path]), [['edge', edge], ['brave', brave]]);
 });
 
-test('libraryCommand names the asound package per distribution and never builds a command for an unknown one', () => {
-  const command = name => libraryCommand(environmentOf(name))?.command;
-  assert.equal(command('ubuntu2404'), 'sudo apt-get update && sudo apt-get install -y libnspr4 libnss3 libasound2t64');
-  assert.equal(command('ubuntu2204'), 'sudo apt-get update && sudo apt-get install -y libnspr4 libnss3 libasound2');
-  assert.match(command('mint22'), /libasound2t64$/);
-  assert.match(command('mint21'), /libasound2$/);
-  assert.match(command('debian12'), /libasound2$/);
-  assert.match(command('debian13'), /libasound2t64$/);
-  assert.match(command('debianSid'), /libasound2t64$/);
-  assert.equal(command('fedora'), 'sudo dnf install -y nspr nss alsa-lib');
-  assert.equal(command('rocky'), 'sudo dnf install -y nspr nss alsa-lib');
-  assert.equal(command('arch'), 'sudo pacman -S --needed nspr nss alsa-lib');
-  assert.equal(command('manjaro'), 'sudo pacman -S --needed nspr nss alsa-lib');
-  assert.equal(command('suse'), 'sudo zypper install -y mozilla-nspr mozilla-nss libasound2');
-  assert.equal(command('nixos'), undefined);
-  assert.equal(libraryCommand({ distro: null }), null);
-});
+test('detectTerminal says whether the terminal draws kitty graphics, and browser-check mentions terminal-browser only when it does', () => {
+  const kitty = env => detectTerminal(env).kitty;
+  assert.deepEqual([detectTerminal({ TERM: 'xterm-kitty' }).name, kitty({ KITTY_WINDOW_ID: '4' })], ['kitty', 'yes']);
+  assert.deepEqual([detectTerminal({ TERM: 'xterm-ghostty' }).name, detectTerminal({ GHOSTTY_RESOURCES_DIR: '/x' }).name, detectTerminal({ TERM_PROGRAM: 'ghostty' }).name], ['Ghostty', 'Ghostty', 'Ghostty']);
+  assert.deepEqual([detectTerminal({ TERM_PROGRAM: 'WezTerm' }).name, detectTerminal({ WEZTERM_PANE: '3' }).name, kitty({ WEZTERM_EXECUTABLE: '/x' })], ['WezTerm', 'WezTerm', 'yes']);
+  assert.deepEqual([detectTerminal({ TERM_PROGRAM: 'vscode' }).name, kitty({ TERM_PROGRAM: 'vscode' }), kitty({ VSCODE_INJECTION: '1' })], ['VS Code terminal', 'no', 'no']);
+  assert.deepEqual([detectTerminal({ WT_SESSION: 'x' }).name, kitty({ WT_SESSION: 'x' })], ['Windows Terminal', 'no']);
+  for (const env of [{ TERM: 'xterm-kitty', TMUX: '/tmp/tmux' }, { KITTY_WINDOW_ID: '1', STY: '1.pts' }]) assert.equal(kitty(env), 'unknown', JSON.stringify(env));
+  assert.deepEqual([kitty({}), kitty({ TERM: 'xterm-256color' }), kitty({ TERM_PROGRAM: 'Apple_Terminal' }), detectTerminal({ TERM_PROGRAM: 'Apple_Terminal' }).name], ['unknown', 'unknown', 'unknown', 'Apple_Terminal']);
 
-test('libraryPlan reads the linker cache, prints a command and never runs sudo or installs', () => {
-  const wsl = environmentOf('ubuntu2404');
-  const present = host({ commands: { ldconfig: { status: 0, stdout: ldconfigAll } } });
-  assert.deepEqual([libraryPlan(present, wsl).status, libraryPlan(present, wsl).missing], ['present', []]);
-
-  const missing = host({ commands: { ldconfig: { status: 0, stdout: '\tlibnspr4.so (libc6,x86-64) => /lib/libnspr4.so\n\tlibasound.so (libc6) => /usr/lib/libasound.so\n' } } });
-  const plan = libraryPlan(missing, wsl);
-  assert.deepEqual([plan.status, plan.missing], ['missing', ['libnss3.so', 'libasound.so.2']]);
-  assert.equal(plan.command, 'sudo apt-get update && sudo apt-get install -y libnspr4 libnss3 libasound2t64');
-
-  const unknown = host({ commands: {} });
-  assert.equal(libraryPlan(unknown, wsl).status, 'unknown');
-  assert.deepEqual(unknown.calls.map(call => call[0]), ['ldconfig', '/sbin/ldconfig', '/usr/sbin/ldconfig']);
-  for (const call of [...present.calls, ...missing.calls, ...unknown.calls]) assert.ok(!call.includes('sudo') && !call.includes('apt-get'), call.join(' '));
-
-  const odd = libraryPlan(host({ commands: { ldconfig: { status: 0, stdout: ldconfigAll } } }), environmentOf('nixos'));
-  assert.equal(odd.command, null);
-  assert.match(odd.fallback, /libnspr4\.so, libnss3\.so, libasound\.so\.2/);
-  assert.equal(libraryPlan(host(), { os: 'macos' }), null);
-  assert.equal(libraryPlan(host(), { os: 'windows' }), null);
-});
-
-test('the terminal browser is offered only for a detected kitty-graphics terminal and is never default', () => {
-  assert.equal(kittyGraphicsTerminal({ TERM: 'xterm-kitty' }), 'kitty');
-  assert.equal(kittyGraphicsTerminal({ KITTY_WINDOW_ID: '4' }), 'kitty');
-  assert.equal(kittyGraphicsTerminal({ TERM: 'xterm-ghostty' }), 'Ghostty');
-  assert.equal(kittyGraphicsTerminal({ TERM_PROGRAM: 'WezTerm' }), 'WezTerm');
-  for (const env of [{}, { TERM: 'xterm-256color' }, { TERM_PROGRAM: 'herdr' }, { TERM_PROGRAM: 'Apple_Terminal' }, { WT_SESSION: 'x' }, { TERM: 'xterm-kitty', TMUX: '/tmp/tmux' }, { KITTY_WINDOW_ID: '1', STY: '1.pts' }])
+  for (const env of [{}, { TERM: 'xterm-256color' }, { WT_SESSION: 'x' }, { TERM_PROGRAM: 'vscode' }, { TERM: 'xterm-kitty', TMUX: '/tmp/tmux' }])
     assert.equal(terminalBrowserOffer({ env, exists: () => false }).offered, false, JSON.stringify(env));
-  const offer = terminalBrowserOffer({ env: { TERM: 'xterm-kitty', PATH: '/usr/bin' }, exists: path => path === '/usr/bin/cha' });
-  assert.deepEqual([offer.offered, offer.terminal, offer.installed], [true, 'kitty', '/usr/bin/cha']);
-  assert.match(offer.note, /optional and off by default/);
-  assert.match(offer.note, /does not install or run it/);
+  const offer = terminalBrowserOffer({ env: { TERM: 'xterm-kitty', PATH: '/usr/bin' }, exists: path => path === '/usr/bin/terminal-browser' });
+  assert.deepEqual([offer.offered, offer.terminal, offer.installed], [true, 'kitty', '/usr/bin/terminal-browser']);
+  assert.match(offer.note, /run agent-kit terminal-browser/);
 });
 
 // Fakes for everything that touches a real browser, process or network.
@@ -151,7 +116,7 @@ const stepsOf = result => Object.fromEntries(result.steps.map(step => [step.id, 
 const axiOk = { status: 0, stdout: 'page: {title: "agent-kit browser-check", refs: 0}\n' };
 
 test('browserCheck opens the browser visibly, drives it with chrome-devtools-axi and cleans up', async () => {
-  const { context, log } = fakeBrowser({ files: ['/usr/bin/google-chrome', '/usr/bin/chrome-devtools-axi'], commands: { ldconfig: { status: 0, stdout: ldconfigAll }, '/usr/bin/chrome-devtools-axi': axiOk } });
+  const { context, log } = fakeBrowser({ files: ['/usr/bin/google-chrome', '/usr/bin/chrome-devtools-axi'], commands: { ldd: { status: 0, stdout: lddAll }, '/usr/bin/chrome-devtools-axi': axiOk } });
   context.env.CHROME_DEVTOOLS_AXI_AUTO_CONNECT = '1';
   const result = await browserCheck(context);
   assert.deepEqual([result.status, result.exitCode], ['pass', 0]);
@@ -172,7 +137,7 @@ test('browserCheck opens the browser visibly, drives it with chrome-devtools-axi
 test('browserCheck points chrome-devtools-axi at the endpoint in its own session and clears modes that would override it', async () => {
   const seen = [];
   const { context } = fakeBrowser({ files: ['/usr/bin/google-chrome', '/usr/bin/chrome-devtools-axi'],
-    commands: { ldconfig: { status: 0, stdout: ldconfigAll }, '/usr/bin/chrome-devtools-axi': (args, options) => { seen.push(options.env); return { status: 0, stdout: 'title: "agent-kit browser-check"' }; } } });
+    commands: { ldd: { status: 0, stdout: lddAll }, '/usr/bin/chrome-devtools-axi': (args, options) => { seen.push(options.env); return { status: 0, stdout: 'title: "agent-kit browser-check"' }; } } });
   context.env.CHROME_DEVTOOLS_AXI_AUTO_CONNECT = '1';
   context.env.CHROME_DEVTOOLS_AXI_MCP_SERVER_URL = 'http://example.test/mcp';
   await browserCheck(context);
@@ -200,25 +165,25 @@ test('browserCheck reports no browser with install guidance and launches nothing
 });
 
 test('browserCheck fails the display step before launching when a Linux browser has nowhere to open', async () => {
-  const wsl = fakeBrowser({ files: ['/usr/bin/google-chrome'], env: { PATH: '/usr/bin' }, version: wslVersion, commands: { ldconfig: { status: 0, stdout: ldconfigAll } } });
+  const wsl = fakeBrowser({ files: ['/usr/bin/google-chrome'], env: { PATH: '/usr/bin' }, version: wslVersion, commands: { ldd: { status: 0, stdout: lddAll } } });
   const result = await browserCheck(wsl.context);
   assert.deepEqual([stepsOf(result).display, wsl.log.launched.length], ['fail', 0]);
   assert.match(result.steps.find(step => step.id === 'display').fix, /wsl --update/);
-  const ssh = fakeBrowser({ files: ['/usr/bin/google-chrome'], env: { PATH: '/usr/bin' }, commands: { ldconfig: { status: 0, stdout: ldconfigAll } } });
+  const ssh = fakeBrowser({ files: ['/usr/bin/google-chrome'], env: { PATH: '/usr/bin' }, commands: { ldd: { status: 0, stdout: lddAll } } });
   assert.match((await browserCheck(ssh.context)).steps.find(step => step.id === 'display').fix, /ssh -X/);
 });
 
 test('browserCheck names the missing library and prints the install command when the browser cannot start', async () => {
   const stderr = '/usr/bin/google-chrome: error while loading shared libraries: libnss3.so: cannot open shared object file: No such file or directory\n';
   const handle = { exited: Promise.resolve({ code: 127 }), stderr: () => stderr, error: () => null, running: () => false, kill() {} };
-  const { context, log } = fakeBrowser({ files: ['/usr/bin/google-chrome'], handle, probe: async () => null, commands: { ldconfig: { status: 0, stdout: '\tlibnspr4.so => x\n' } } });
+  const { context, log } = fakeBrowser({ files: ['/usr/bin/google-chrome'], handle, probe: async () => null, commands: { ldd: { status: 0, stdout: lddMissing } } });
   const result = await browserCheck(context);
   const steps = stepsOf(result);
   assert.deepEqual([result.status, steps.libraries, steps.launch], ['fail', 'warn', 'fail']);
   const launch = result.steps.find(step => step.id === 'launch');
   assert.match(launch.detail, /exited before its DevTools endpoint was ready: it needs libnss3\.so/);
   assert.match(launch.detail, /error while loading shared libraries/);
-  assert.equal(launch.fix, 'sudo apt-get update && sudo apt-get install -y libnspr4 libnss3 libasound2t64');
+  assert.equal(launch.fix, 'sudo apt-get update && sudo apt-get install -y libnss3');
   assert.deepEqual(log.removed, ['profile']);
   assert.equal(context.calls.some(call => call.includes('sudo')), false);
 });
@@ -243,18 +208,18 @@ test('browserCheck explains the WSL2 NAT case for a Windows-side browser and swe
 
 test('browserCheck reports an unreachable endpoint, a missing chrome-devtools-axi and an axi failure separately', async () => {
   const running = { exited: new Promise(() => {}), stderr: () => 'Gtk-WARNING: cannot open display\n', error: () => null, running: () => true, kill() {} };
-  const hung = fakeBrowser({ files: ['/usr/bin/google-chrome'], handle: running, probe: async () => null, commands: { ldconfig: { status: 0, stdout: ldconfigAll } } });
+  const hung = fakeBrowser({ files: ['/usr/bin/google-chrome'], handle: running, probe: async () => null, commands: { ldd: { status: 0, stdout: lddAll } } });
   const slow = await browserCheck(hung.context);
   assert.match(slow.steps.find(step => step.id === 'devtools').detail, /did not answer within \d+ seconds\nGtk-WARNING/);
 
-  const noAxi = fakeBrowser({ files: ['/usr/bin/google-chrome'], commands: { ldconfig: { status: 0, stdout: ldconfigAll } } });
+  const noAxi = fakeBrowser({ files: ['/usr/bin/google-chrome'], commands: { ldd: { status: 0, stdout: lddAll } } });
   const missing = await browserCheck(noAxi.context);
   assert.deepEqual([stepsOf(missing).devtools, stepsOf(missing).axi], ['pass', 'fail']);
   assert.match(missing.steps.find(step => step.id === 'axi').detail, /not on PATH/);
   assert.deepEqual(noAxi.log.closed.length, 1);
 
   const failing = fakeBrowser({ files: ['/usr/bin/google-chrome', '/usr/bin/chrome-devtools-axi'],
-    commands: { ldconfig: { status: 0, stdout: ldconfigAll }, '/usr/bin/chrome-devtools-axi': { status: 1, stderr: 'npm ERR! network request failed\n' } } });
+    commands: { ldd: { status: 0, stdout: lddAll }, '/usr/bin/chrome-devtools-axi': { status: 1, stderr: 'npm ERR! network request failed\n' } } });
   const broken = await browserCheck(failing.context);
   assert.match(broken.steps.find(step => step.id === 'axi').detail, /could not open a page in Google Chrome \(exit 1\)\nnpm ERR! network request failed/);
   assert.deepEqual(failing.log.removed, ['profile']);
@@ -271,16 +236,17 @@ test('browserCheck on Windows checks the browser and leaves chrome-devtools-axi 
 });
 
 test('formatBrowserCheck shows the command to run, never claims to run it, and offers the terminal browser only when detected', async () => {
-  const base = { files: ['/usr/bin/google-chrome'], commands: { ldconfig: { status: 0, stdout: '\tlibnspr4.so => x\n' } }, probe: async () => null,
+  const base = { files: ['/usr/bin/google-chrome'], commands: { ldd: { status: 0, stdout: lddMissing } }, probe: async () => null,
     handle: { exited: Promise.resolve({ code: 127 }), stderr: () => 'error while loading shared libraries: libnss3.so: x', error: () => null, running: () => false, kill() {} } };
   const plain = formatBrowserCheck(await browserCheck(fakeBrowser(base).context));
   assert.match(plain, /^Agent Kit browser-check: fail/);
-  assert.match(plain, /Chromium runtime libraries .*: missing \(libnss3\.so, libasound\.so\.2\)/);
-  assert.match(plain, /Run this yourself if they are missing \(the kit never runs sudo\): sudo apt-get update/);
+  assert.match(plain, /Shared libraries of the browser \(ldd\): missing \(not found: libasound\.so\.2, libnss3\.so, libnssutil3\.so\)/);
+  assert.match(plain, /Run this yourself \(the kit never runs sudo\): sudo apt-get update && sudo apt-get install -y libasound2t64 libnss3\n/);
+  assert.doesNotMatch(plain, /libnspr4/, 'only the libraries ldd reports are listed');
   assert.doesNotMatch(plain, /Optional:/);
   const kitty = fakeBrowser({ ...base, env: { PATH: '/usr/bin', DISPLAY: ':0', TERM: 'xterm-kitty' } });
   const offered = formatBrowserCheck(await browserCheck(kitty.context));
-  assert.match(offered, /Optional: kitty draws kitty graphics/);
+  assert.match(offered, /Optional: kitty draws kitty graphics, so terminal-browser can run in it/);
   assert.equal(JSON.parse(JSON.stringify(await browserCheck(kitty.context))).terminalBrowser.offered, true);
 });
 

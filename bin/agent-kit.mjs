@@ -153,6 +153,16 @@ try {
     const result = await browserCheck({ env: process.env, platform: context.platform });
     process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatBrowserCheck(result));
     process.exitCode = result.exitCode;
+  } else if (options.command === 'terminal-browser') {
+    const { terminalBrowserPlan, formatTerminalBrowser, installTerminalBrowser } = await import('../src/terminal-browser.mjs');
+    const plan = terminalBrowserPlan({ env: process.env, platform: context.platform });
+    process.stdout.write(options.json ? `${JSON.stringify(plan, null, 2)}\n` : formatTerminalBrowser(plan));
+    process.exitCode = plan.exitCode;
+    if (options.runInstall) {
+      const installed = await installTerminalBrowser({}, plan);
+      process.stdout.write(installed.ran ? `\nThe install command finished (exit ${installed.status}). Run agent-kit terminal-browser again for the remaining steps.\n` : `\nNot run: ${installed.reason}.\n`);
+      if (installed.ran && installed.status !== 0) process.exitCode = 1;
+    }
   } else if (options.command === 'secondmate-template') {
     const result = secondmateTemplate();
     process.stdout.write(options.json ? `${JSON.stringify({ command: 'secondmate-template', template: result }, null, 2)}\n` : result);
