@@ -1,6 +1,6 @@
 # Agent Kit: all features
 
-This page lists the functions in the released `pilot-14` kit. `pilot-13` is the previous release. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This page lists the functions in the `pilot-14` kit. `pilot-13` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 **How to read the support columns.** **Yes**: works today. **Partial**: works with a limit, explained in the row. **No**: not supported.
 
@@ -67,7 +67,7 @@ Run these with `node "$AK" <command>`. On Windows, run them in your **Ubuntu** t
 
 **Before repair, upgrade, rollback or uninstall:** they refuse while Herdr, the no-mistakes daemon or the tower is running, including when you start them from a pane inside Herdr. Each names the step to take (`herdr server stop`, `no-mistakes daemon stop`, or closing the tower's Fleet pane). The kit never stops these itself.
 
-**Upgrade also refuses** while your Firstmate home has uncommitted changes to tracked files, is not on the Firstmate version the kit expects, or has an `origin` other than the approved Firstmate copy (the kit owner's). When a release changes the Firstmate version (as `pilot-9`, `pilot-10`, `pilot-11`, `pilot-12`, `pilot-13` and `pilot-14` do), applying stops until `/updatefirstmate` has run in the home. Moving to `pilot-10` or `pilot-11` also has Firstmate set up the strategy the kit selected again with the new models, if nobody changed it. After an upgrade, point `AK` at the new kit copy. An unchanged kit-owned PATH block is refreshed; if you skipped question 5b, change the release folder in your PATH line yourself.
+**Upgrade also refuses** while your Firstmate home has uncommitted changes to tracked files, is not on the Firstmate version the kit expects, or has an `origin` other than the approved Firstmate copy (the kit owner's). When a release changes the Firstmate version, applying stops until `/updatefirstmate` has run in the home; see the [release notes](../README.md#pins-and-approval) for changed pins. Moving to `pilot-10` or `pilot-11` also has Firstmate set up the strategy the kit selected again with the new models, if nobody changed it. After an upgrade, point `AK` at the new kit copy. An unchanged kit-owned PATH block is refreshed; if you skipped question 5b, change the release folder in your PATH line yourself.
 
 ## 3. The install questions
 

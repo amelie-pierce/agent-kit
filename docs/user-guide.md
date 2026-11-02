@@ -2,7 +2,7 @@
 
 ## Status of this guide
 
-This guide describes the released `pilot-14` kit. `pilot-13` is the previous release. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This guide describes the `pilot-14` kit. `pilot-13` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 | Release | What it added |
 | --- | --- |
@@ -639,7 +639,7 @@ Upgrade **refuses before changing anything** if your Firstmate home:
 - is not on the Firstmate version the kit expects, or
 - has an `origin` remote other than the approved Firstmate copy the kit uses (the kit owner's copy, which doctor's `firstmate-fork` row names).
 
-It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (A10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. (`pilot-9`, `pilot-10`, `pilot-11`, `pilot-12`, `pilot-13` and `pilot-14` are such releases.)
+It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (A10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. See the [release notes](../README.md#pins-and-approval) for changed pins.
 
 Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is running.
 
@@ -651,7 +651,7 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 
 **Moving from `pilot-13` to `pilot-14`**, when you are asked to:
 
-1. Run upgrade. The plan shows `Release: pilot-13 -> pilot-14`, `- firstmate: 49350801f499966bebff4cdc7771f39e935c8202 -> 3ae2b79413cd23bbc50fb454b8007276b5cfa4ab; stage and verify`, and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. Only the Firstmate pin changes; its Herdr pane reads stay passive so monitoring does not scroll or jump worker panes.
+1. Run upgrade. The plan shows `Release: pilot-13 -> pilot-14` and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. See the [release note](../README.md#pins-and-approval) for the Firstmate change.
 2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
 3. Start Herdr and Firstmate again (A3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (A10.3).
 4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
@@ -1942,7 +1942,7 @@ Upgrade **refuses before changing anything** if your Firstmate home:
 - is not on the Firstmate version the kit expects, or
 - has an `origin` remote other than the approved Firstmate copy the kit uses (the kit owner's copy, which doctor's `firstmate-fork` row names).
 
-It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (B10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. (`pilot-9`, `pilot-10`, `pilot-11`, `pilot-12`, `pilot-13` and `pilot-14` are such releases.)
+It says which case applies. It will not reset your Firstmate home for you. Clean up the changes, put the home back on the expected version, or set `origin` back, then run upgrade again (B10.4). If a new release needs a newer Firstmate, the plan says `run /updatefirstmate in the Firstmate home before applying`, and applying stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade`. In that case, as part of the upgrade you were asked to run, ask Firstmate to run `/updatefirstmate`, then run upgrade again. See the [release notes](../README.md#pins-and-approval) for changed pins.
 
 Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is running inside Ubuntu.
 
@@ -1954,7 +1954,7 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 
 **Moving from `pilot-13` to `pilot-14`**, when you are asked to:
 
-1. Run upgrade. The plan shows `Release: pilot-13 -> pilot-14`, `- firstmate: 49350801f499966bebff4cdc7771f39e935c8202 -> 3ae2b79413cd23bbc50fb454b8007276b5cfa4ab; stage and verify`, and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. Only the Firstmate pin changes; its Herdr pane reads stay passive so monitoring does not scroll or jump worker panes.
+1. Run upgrade. The plan shows `Release: pilot-13 -> pilot-14` and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. See the [release note](../README.md#pins-and-approval) for the Firstmate change.
 2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
 3. Start Herdr and Firstmate again (B3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (B10.3).
 4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
