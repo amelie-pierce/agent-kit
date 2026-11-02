@@ -148,6 +148,11 @@ try {
         if (plan?.stage && existsSync(plan.stage)) { const { rm } = await import('node:fs/promises'); await rm(plan.stage, { recursive: true, force: true }); }
       }
     }
+  } else if (options.command === 'browser-check') {
+    const { browserCheck, formatBrowserCheck } = await import('../src/browser.mjs');
+    const result = await browserCheck({ env: process.env, platform: context.platform });
+    process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : formatBrowserCheck(result));
+    process.exitCode = result.exitCode;
   } else if (options.command === 'secondmate-template') {
     const result = secondmateTemplate();
     process.stdout.write(options.json ? `${JSON.stringify({ command: 'secondmate-template', template: result }, null, 2)}\n` : result);

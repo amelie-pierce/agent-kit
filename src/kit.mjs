@@ -56,7 +56,7 @@ export function parseArgs(argv, platform = process.platform) {
   let command, targetRelease, json = false, harness = 'claude', withFigma = false, dryRun = false, handoff = false, yes = false, print = false, removeFirstmateHome = false, removeEnv = false, installRoot, firstmateHome, distro, root;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (['check', '--check', 'plan', 'install', 'doctor', 'update', '--update', 'upgrade', 'rollback', 'repair', 'reinstall', 'uninstall', 'keys', 'secondmate-template'].includes(arg) && !command) command = arg === '--check' ? 'check' : arg === '--update' || arg === 'update' ? 'upgrade' : arg === 'reinstall' ? 'repair' : arg;
+    if (['check', '--check', 'plan', 'install', 'doctor', 'update', '--update', 'upgrade', 'rollback', 'repair', 'reinstall', 'uninstall', 'keys', 'secondmate-template', 'browser-check'].includes(arg) && !command) command = arg === '--check' ? 'check' : arg === '--update' || arg === 'update' ? 'upgrade' : arg === 'reinstall' ? 'repair' : arg;
     else if (command === 'rollback' && !targetRelease && /^pilot-[0-9]+$/.test(arg)) targetRelease = arg;
     else if (arg === '--json') json = true;
     else if (arg === '--harness' && parseHarness(argv[i + 1])) harness = parseHarness(argv[++i]);
@@ -73,7 +73,7 @@ export function parseArgs(argv, platform = process.platform) {
     else if (arg === '--distro' && /^[A-Za-z0-9._-]+$/.test(argv[i + 1] || '')) distro = argv[++i];
     else throw new Error(`unknown argument: ${arg}`);
   }
-  if (!command) throw new Error('usage: agent-kit <setup|check|plan|install|doctor|repair|upgrade|rollback|uninstall|keys|secondmate-template> [--json] [--root <root>] [--yes]');
+  if (!command) throw new Error('usage: agent-kit <setup|check|plan|install|doctor|repair|upgrade|rollback|uninstall|keys|browser-check|secondmate-template> [--json] [--root <root>] [--yes]');
   if (command === 'rollback' && !targetRelease) throw new Error('rollback requires a previous release name, such as pilot-12');
   if (root !== undefined) {
     if (!['doctor', 'upgrade', 'rollback', 'repair', 'uninstall', 'keys'].includes(command)) throw new Error('--root applies only to doctor, keys and lifecycle commands; use setup for a new root');

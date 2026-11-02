@@ -815,6 +815,25 @@ With question 5 answered yes, the kit writes these commands into `<root>/.tools/
 
 Two files support them: `<root>/.tools/env.sh` (the folder names this setup uses) and the Treehouse wrapper. The kit also keeps its `gh-axi` and `chrome-devtools-axi` start-up hooks quiet outside your Firstmate home.
 
+### A6.7 Browser check
+
+Checks that a browser works for `chrome-devtools-axi`, the helper agents use to open web pages. **It installs nothing and changes none of your settings.** It opens one visible browser window with a temporary profile for a few seconds, then closes it and deletes the profile.
+
+```sh
+node "$AK" browser-check
+```
+
+What it does, in order:
+
+1. **Finds a browser you already have:** Google Chrome, Microsoft Edge or Brave (in that order). It never installs one. If it finds none, it prints a hint such as `brew install --cask google-chrome` for you to run yourself. Firefox and Safari do not work with `chrome-devtools-axi`.
+2. **On Linux only: prints the library command.** A browser running inside Linux needs a few system libraries. The check says whether they are `present` or `missing` and prints the exact command for your Linux (see A11). It never runs `sudo`; you run the command yourself if they are missing.
+3. **Opens the browser visibly and drives it with `chrome-devtools-axi`.** Each step prints `PASS`, `WARN`, `FAIL` or `SKIP`. The first `FAIL` says what went wrong and how to fix it, and the command exits with code 1.
+4. **Only in a kitty-graphics terminal (kitty, Ghostty, WezTerm):** one extra line mentions an optional terminal browser (Chawan). It is never the default, the kit never installs it, and `chrome-devtools-axi` does not use it.
+
+`--json` prints the same result for tools.
+
+**Not confirmed on a real Mac yet.** The check has not been run on macOS; it looks for the three browsers in `/Applications` and `~/Applications`. Tell the person who shared this guide what it printed.
+
 ## A7. Working with Firstmate
 
 ### A7.1 Starting Firstmate
@@ -1262,6 +1281,7 @@ No one has yet installed this release on a real Mac. The automated tests pass, b
 - The tower's `doctor` and `open` from a Herdr pane, and its tab opening by itself (A9).
 - Jev routing giving a clear answer once you are signed in to your agent CLI (A6.5).
 - Quiet mode delivering Firstmate's collected messages at the end of a turn, and the models stepping down as your quota runs low (A7.4).
+- `browser-check` (A6.7) finding Chrome, Edge or Brave in `/Applications` and opening it.
 
 Your own install is that first real run. When you are done, send your pilot feedback (section 4) to the person who shared this guide.
 
@@ -1274,6 +1294,7 @@ On Linux (glibc, x64 or arm64) the kit uses the same `install.sh` and the same c
 - **Home path** in diagnostics is `/home/<you>`.
 - **No tower launcher yet.** There is no reviewed Linux tower release. The kit builds the tower program from its checked source only if you already have Rust (`cargo`) installed, and it never configures a launcher, so A9 does not apply and `~/.config/zoe-fleet/config` is not written. If you say yes to the tower (question 4), step 2 reports `partial` because of this; that is expected. Say `n` if you do not need it. Without a tower launcher there is no `zoe-fleet-open`, no automatic tower tab and no tower Fleet plugin; whether the session graph keys work on standalone Linux is not confirmed.
 - The kit's commands, the other Herdr keys and plugins, the layout and the Claude plugins work as in Part A.
+- **Browser libraries:** `browser-check` (A6.7) prints the command to install the browser's runtime libraries; you run it yourself, the kit never runs `sudo`. On Ubuntu 24.04 and newer and Debian 13 and newer: `sudo apt-get update && sudo apt-get install -y libnspr4 libnss3 libasound2t64`; on Ubuntu 22.04, Debian 12 and older: the same with `libasound2`; Fedora and RHEL-like: `sudo dnf install -y nspr nss alsa-lib`; Arch-like: `sudo pacman -S --needed nspr nss alsa-lib`; openSUSE: `sudo zypper install -y mozilla-nspr mozilla-nss libasound2`. Ubuntu 24.04 is the reference; the other commands have not been tried on those systems.
 - Musl-based Linux (for example Alpine) is not supported yet.
 
 ---
@@ -2102,6 +2123,36 @@ With question 5 answered yes, the kit writes these commands into `<root>/.tools/
 
 Two files support them: `<root>/.tools/env.sh` (the folder names this setup uses) and the Treehouse wrapper. The kit also keeps its `gh-axi` and `chrome-devtools-axi` start-up hooks quiet outside your Firstmate home.
 
+### B6.7 Browser check
+
+Checks that a browser works for `chrome-devtools-axi`, the helper agents use to open web pages. **It installs nothing and changes none of your settings, including your WSL networking configuration.** It opens one visible browser window with a temporary profile for a few seconds, then closes it and deletes the profile. Run it in **Ubuntu** to check the whole path:
+
+```sh
+node "$AK" browser-check
+```
+
+It prefers a browser you already have: first one installed **inside Ubuntu** (Google Chrome, Microsoft Edge or Brave, in that order), then one on the Windows side. Inside Ubuntu the window appears through WSLg, so this works once the libraries are there. The check prints whether `libnspr4`, `libnss3` and the ALSA library are `present` or `missing` and the exact command for your Ubuntu, for example on Ubuntu 24.04:
+
+```sh
+sudo apt-get update && sudo apt-get install -y libnspr4 libnss3 libasound2t64
+```
+
+(Ubuntu 22.04 uses `libasound2` instead of `libasound2t64`.) The check never runs `sudo`; run it yourself in Ubuntu if the libraries are missing. Other distributions get their own command (A11 has the list of what the check prints).
+
+A browser on the **Windows side** is only used when none is installed inside Ubuntu. The check starts it with a debugging port and connects from Ubuntu to `127.0.0.1`. With WSL's default **NAT** networking that address is not the Windows localhost, so the check stops at `devtools` with `does not answer from WSL (WSL networking mode: nat)`. Either install a browser inside Ubuntu (recommended), or change WSL to `mirrored` networking yourself; the kit never edits `.wslconfig`.
+
+**From PowerShell** you can check the Windows browser alone, without Ubuntu. Use the same installer file as for the install (B2.4), from a normal PowerShell window:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 browser-check
+```
+
+It fetches the reviewed kit the same way, opens your Windows browser visibly, checks that it answers and closes it. It skips the `chrome-devtools-axi` step, because that tool lives inside Ubuntu. `-DryRun` does not apply to it.
+
+Each step prints `PASS`, `WARN`, `FAIL` or `SKIP`; the first `FAIL` says what went wrong and how to fix it, and the command exits with code 1. In a kitty-graphics terminal (kitty, Ghostty, WezTerm) it also prints one optional line about a terminal browser (Chawan); that is never the default and the kit never installs it.
+
+**Not confirmed yet.** The Ubuntu path was run on Ubuntu 24.04 under WSL2. Not run on a real PC: the `install.ps1 browser-check` command end to end, Microsoft Edge from WSL2 in NAT mode, and a Windows browser in `mirrored` mode. Tell the person who shared this guide what it printed.
+
 ## B7. Working with Firstmate
 
 ### B7.1 Starting Firstmate
@@ -2121,7 +2172,7 @@ codex
 
 Use `claude` instead of `codex` if you chose Claude Code. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
 
-Do not start Herdr or the agents from PowerShell. When an agent opens a browser page (for example `chrome-devtools-axi` or a review page), it opens in your Windows browser.
+Do not start Herdr or the agents from PowerShell. A review page opens in your Windows browser. For `chrome-devtools-axi`, run the browser check (B6.7) to see which browser it can use: with WSL's default networking a browser installed inside Ubuntu is the one that works.
 
 ### B7.2 Talking to it
 
@@ -2508,6 +2559,7 @@ Everything else (Firstmate, Herdr, the crew, second mates) works without the tow
 - **Firstmate says treehouse, no-mistakes, gh-axi or other tools are missing, or doctor shows `WARN herdr-path-env`:** Herdr was already running before you added the PATH line, so it kept its old PATH. Inside Ubuntu, run `herdr server stop`, then start `herdr` again from an Ubuntu tab that has the PATH line (B2.11).
 - **A Herdr key does nothing:** check `fm-help` for the keys you actually got. Press `Ctrl+B Shift+R` to reload Herdr's settings, or restart Herdr. The session graph keys need Herdr started from an Ubuntu terminal whose PATH has `<root>/.tools/bin` first. If a `Ctrl+B Shift+…` key still does nothing in Windows Terminal, use the matching command (B6.6) and tell the person who shared this guide.
 - **`run fm-mate inside the WSL2 distribution`** (or the same for `keys` or `jev`): you ran the kit from PowerShell. Run it in Ubuntu.
+- **`chrome-devtools-axi` cannot open a browser:** run `node "$AK" browser-check` in Ubuntu (B6.7). It names the missing library, display or network step and prints the fix.
 - **More than one Linux distribution:** the installer uses your default WSL distribution. To use another one, add `--distro <name>` to the `install.ps1` command line.
 
 ### B10.3 "Kit services are running"
@@ -2576,5 +2628,6 @@ The Windows path is checked by automated tests, but has **not yet been run end t
 - The exact doctor and step 2 wording on Windows.
 - The tower's install, `doctor` and `open` inside Ubuntu, and its tab opening by itself (B9).
 - Quiet mode delivering Firstmate's collected messages at the end of a turn, and the models stepping down as your quota runs low (B7.4).
+- `install.ps1 browser-check` end to end, and a Windows browser used from Ubuntu in `mirrored` networking (B6.7).
 
 When you are done, send your pilot feedback (section 4) to the person who shared this guide, including your Windows build, PC type (x64 or Arm64), WSL version and Ubuntu version. If something does not match this guide, include the redacted error text (B10.6).

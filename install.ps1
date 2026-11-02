@@ -6,6 +6,9 @@
 #
 # From a normal (not administrator) PowerShell window; Bypass applies to this one PowerShell process only:
 #   powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 [-DryRun] [--channel releases|main] [setup flags...]
+#   powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 browser-check [--json]
+# browser-check fetches the same reviewed kit and opens your Windows browser visibly to check that it starts and answers on its
+# DevTools port; it installs nothing and changes no setup. Run agent-kit browser-check inside WSL to check chrome-devtools-axi too.
 # -DryRun checks Windows and WSL2 and prints the handoff command without running it.
 # --commit <sha> uses that reviewed commit; --kit-dir <checkout> uses a local clean kit checkout instead of fetching.
 
@@ -27,22 +30,25 @@ function Invoke-Native([string]$File, [string[]]$Arguments) {
 
 if ([Environment]::OSVersion.Platform -ne 'Win32NT') { Stop-Kit 'install.ps1 is for Windows. On macOS or Linux run: bash install.sh' }
 
+# browser-check only fetches the kit and runs its Windows browser check; it takes no setup answers and installs nothing.
+$browserCheck = $args.Count -gt 0 -and "$($args[0])" -eq 'browser-check'
+$argList = if ($browserCheck) { @($args | Select-Object -Skip 1) } else { @($args) }
 $dryRun = $false; $yes = $false; $channel = ''; $commit = ''; $kitDir = ''; $root = ''; $installRoot = ''; $distro = ''
 $pass = @()
-for ($i = 0; $i -lt $args.Count; $i++) {
-  $arg = "$($args[$i])"
+for ($i = 0; $i -lt $argList.Count; $i++) {
+  $arg = "$($argList[$i])"
   if ($arg -ieq '-DryRun' -or $arg -eq '--dry-run') { $dryRun = $true; continue }
   if ($arg -in @('--commit', '--kit-dir', '--channel')) {
-    if ($i + 1 -ge $args.Count) { Stop-Kit "$arg needs a value" }
-    $value = "$($args[++$i])"
+    if ($i + 1 -ge $argList.Count) { Stop-Kit "$arg needs a value" }
+    $value = "$($argList[++$i])"
     if ($arg -eq '--commit') { $commit = $value; continue }
     if ($arg -eq '--kit-dir') { $kitDir = $value; continue }
     $channel = $value
     $pass += @($arg, $value)
     continue
   }
-  if ($arg -in @('--root', '--install-root', '--distro') -and $i + 1 -lt $args.Count) {
-    $value = "$($args[$i + 1])"
+  if ($arg -in @('--root', '--install-root', '--distro') -and $i + 1 -lt $argList.Count) {
+    $value = "$($argList[$i + 1])"
     if ($arg -eq '--root') { $root = $value } elseif ($arg -eq '--install-root') { $installRoot = $value } else { $distro = $value }
   }
   if ($arg -eq '--kit-commit') { Stop-Kit '--kit-commit is set by the installer; use --commit' }
@@ -52,7 +58,14 @@ for ($i = 0; $i -lt $args.Count; $i++) {
 }
 if ($channel -notin @('', 'releases', 'main')) { Stop-Kit '--channel must be releases or main' }
 if ($commit -and $commit -notmatch '^[0-9a-f]{40}$') { Stop-Kit '--commit must be a full 40-character commit SHA' }
+if ($browserCheck -and $dryRun) { Stop-Kit 'browser-check only opens a browser and changes nothing, so -DryRun does not apply to it' }
 
+if ($browserCheck) {
+  Say 'Agent Kit browser check for Windows. This script will:'
+  Say '  1. check that git, the GitHub CLI and Node.js are on the Windows PATH and that you are signed in with your own gh login;'
+  Say '  2. fetch the reviewed kit at one pinned commit into a temporary folder and run windows\agent-kit.ps1 browser-check, which'
+  Say '     opens your Windows browser visibly with a temporary profile, checks that it answers, and closes it. Nothing is installed.'
+} else {
 Say 'Agent Kit installer for Windows. This script will:'
 Say '  1. check that git, the GitHub CLI and Node.js are on the Windows PATH (it never installs them);'
 Say '  2. check that you are signed in with your own gh login (it never reads or prints the token);'
@@ -60,6 +73,7 @@ Say '  3. fetch the reviewed kit at one pinned commit into a temporary folder an
 Say '     WSL2 and hands off to install.sh inside your WSL2 distribution; the questions and the install happen there.'
 Say '  Steps that need administrator rights or a restart are printed for you to run yourself.'
 if ($dryRun) { Say '  -DryRun: Windows and WSL2 are checked and the handoff command is printed; nothing is handed off or installed.' }
+}
 
 $wsl = Join-Path $env:SystemRoot 'System32\wsl.exe'
 $saved = $null
@@ -80,7 +94,7 @@ function Read-Receipt {
   try { $savedChannel = "$(($read.Out | ConvertFrom-Json).setup.answers.channel)" } catch { $savedChannel = '' }
   return @{ Path = $path; Channel = $savedChannel }
 }
-if (-not $root) {
+if (-not $root -and -not $browserCheck) {
   $root = '~/Agentic'
   if (-not $yes) {
     for ($attempt = 1; ; $attempt++) {
@@ -168,9 +182,9 @@ try {
   }
   $bootstrap = @()
   if ($dryRun) { $bootstrap += '-DryRun' }
-  $bootstrap += 'setup'
+  $bootstrap += $(if ($browserCheck) { 'browser-check' } else { 'setup' })
   $bootstrap += $pass
-  if (-not $dryRun) { $bootstrap += '--handoff' }
+  if (-not $dryRun -and -not $browserCheck) { $bootstrap += '--handoff' }
   & (Join-Path $kit 'windows\agent-kit.ps1') @bootstrap
   $code = $LASTEXITCODE
 } finally {
