@@ -337,6 +337,8 @@ The `macos-pilot-6` manifest re-pins Firstmate to `976c3ba730b9dafefc159b12a97a0
 
 `pilot-7` changes the release label from `macos-pilot-6`, the Codex CLI pin and lock, and the Claude Code minimum (below). The shorter label does not change the upgrade path for an existing `macos-pilot-6` install. The new user-level writes are the optional Firstmate-home `.env` assignment, the receipt's boolean `setup.keys.TYPESAFE_API_KEY` flag, the starter `<root>/firstmate/config/crew-dispatch.json` once the key is set, the receipt's `setup.dispatch` record, and the saved plan names and routing mode in `setup.answers.plans` and `setup.answers.dispatchMode`. `manifests/plan-models.json` is the new owner-approved plan-to-model table. The Codex CLI pin moves from 0.155.1 to 0.164.0 (GPT-6.1 Terra needs 0.159.0 or later), with a regenerated lock. The Claude Code minimum moves from 2.0.0 to 2.1.293, which Haiku 5.5 needs. The key-update command changes the key, the flag and, when it sets the key, the starter rules. Uninstall removes `.env` only with explicit typed confirmation and removes the starter rules only while unchanged.
 
+**A pilot-13 install moving to pilot-14.** Follow the [macOS](docs/user-guide.md#a63-upgrade-update) or [Windows (WSL2)](docs/user-guide.md#b63-upgrade-update) upgrade steps in the user guide. The plan shows `Release: pilot-13 -> pilot-14`, `- firstmate: 49350801f499966bebff4cdc7771f39e935c8202 -> 3ae2b79413cd23bbc50fb454b8007276b5cfa4ab; stage and verify`, and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. The release change is summarized under [Pins and approval](#pins-and-approval).
+
 **A pilot-12 install moving to pilot-13.** Follow the [macOS](docs/user-guide.md#a63-upgrade-update) or [Windows (WSL2)](docs/user-guide.md#b63-upgrade-update) upgrade steps in the user guide. The release change is summarized under [Pins and approval](#pins-and-approval).
 
 **A pilot-11 install moving to pilot-12.** The Firstmate pin changes from `622311a5` to `21b21582`, which adds a ship-branch naming fix. The Zoe tower and runtime pins stay as in `pilot-11`. Run `upgrade` when the owner asks. The plan shows `Release: pilot-11 -> pilot-12`, the `- firstmate: 622311a5… -> 21b21582…` line and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. Applying refuses until you run `/updatefirstmate` in that home. Then rerun upgrade: it reports `Firstmate pin: guarded update already verified` and stages `releases/pilot-12` beside `releases/pilot-11`. If the kit detects a profile change before replacing its PATH block, it leaves your edit untouched and tells you to rerun.
@@ -445,6 +447,13 @@ Afterwards, open Windows Terminal with your distribution's profile and run Herdr
 ## Pins and approval
 
 In the manifest, `verified` means the artifact's identity and integrity were checked against the approved upstream: a source commit, a published SHA-256 digest, or registry integrity in a committed npm lock. It does not mean owner approval, and no pin field claims it. The owner approves a release by merging the PR that changes the manifest. `install` installs only `verified` pins. Unverified pins are reported and skipped. Person-installed `kind: "prerequisite"` entries have a minimum version and vendor install link instead of a kit pin or artifact; `install` and `update` never stage them. `check`, `plan` and `doctor` test their `--version` on PATH. Version probes use disposable HOME state, because figma-cli can initialize its own settings even for `--version` and Codex can leave `~/.codex/tmp` behind when the probe times out; figma-cli is now detected by presence only.
+
+### Release changes (`pilot-13` -> `pilot-14`)
+
+- **Label.** `pilot-13` -> `pilot-14`.
+- **Firstmate.** `49350801f499966bebff4cdc7771f39e935c8202` -> `3ae2b79413cd23bbc50fb454b8007276b5cfa4ab` from the approved fork. Its Herdr pane reads stay passive so monitoring does not scroll or jump worker panes. The [manifest](manifests/pilot-skeleton.json) records the downloaded source archive SHA-256 `012974cb08e07c9e5ba3419913ea7af8d3192b0735bc74845d9aa3b9a3cd203a`.
+- **User-level files and settings.** No new kit-owned files or settings. The existing guarded Firstmate update and release staging apply.
+- **Every other pin, digest and prerequisite**, including the Zoe tower, Figma CLI and Zoetrope, remains as in `pilot-13`. The owner’s merge word is required; teammates update only when the owner asks.
 
 ### Release changes (`pilot-12` -> `pilot-13`)
 
