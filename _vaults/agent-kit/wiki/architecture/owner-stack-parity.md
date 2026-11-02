@@ -23,7 +23,7 @@ One entry point places the pieces: `placeKitExtras` (src/shortcuts.mjs). Setup s
 | Claude plugins and the Codex Companion edit | src/claude-plugins.mjs; manifests/claude-plugins.json | Run with the person's own claude CLI. Pinned by marketplace commit; per-plugin licence and run-time fetch notes are in the data. |
 | Tower telemetry dir | src/install/macos.mjs `towerPhase` | ZOE_TELEMETRY_DIR under the fleet state. |
 
-Excluded by the owner: git-ai, claude-mem, tode, terminal-browser.
+Excluded by the owner: git-ai, claude-mem, tode. terminal-browser is supported through guided setup (`agent-kit terminal-browser`) but is not bundled or installed silently by the kit.
 
 Sharp edges:
 - **zoe on PATH.** The session graph finds zoe on PATH, and its #44 fallback looks only in Homebrew and Cargo locations. Herdr must therefore start from a terminal whose PATH holds `<root>/.tools/bin`.

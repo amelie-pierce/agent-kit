@@ -3,9 +3,10 @@
 # It never installs Node, enables Windows features, asks for elevation or restarts Windows.
 #
 # Usage, from a normal (not administrator) PowerShell window in the kit checkout:
-#   powershell -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\agent-kit.ps1 [-DryRun] [check|plan|install|setup ...]
+#   powershell -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\agent-kit.ps1 [-DryRun] [check|plan|install|setup|browser-check ...]
 # -DryRun keeps everything read-only: install and setup gain --dry-run and --handoff is refused.
-# install.ps1 at the repository root fetches the reviewed kit and runs this script with setup --handoff.
+# install.ps1 at the repository root fetches the reviewed kit and runs this script with setup --handoff, or with browser-check,
+# which opens a Windows browser visibly and checks that it answers (-DryRun does not change it; it installs nothing).
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0

@@ -20,3 +20,5 @@ date: 2026-10-26
 - [Keyboard shortcuts and open-firstmate](keyboard-shortcuts.md) — the open-firstmate launcher, the agent-kit Herdr keys block, Herdr 0.9.3 key facts and receipt lifecycle.
 - [Shell profile PATH block writer](shell-profile.md) — the marked block, ownership digest, compare-and-replace writes and how each command reports a refusal.
 - [Starter dispatch rules and Jev readiness](starter-dispatch-rules.md) — plan- and mode-fitted starter rules after the key, the native fm-strategy --plans selection with its bridge fallback, Firstmate's plan ladders and the owner tiers that follow them, ownership digests and the doctor jev row.
+- [Browser check](browser-check.md) — `agent-kit browser-check`: browser detection, per-distro library command, visible launch plus chrome-devtools-axi verify, the terminal-browser pointer line, and what has been run.
+- [Terminal browser](terminal-browser.md) — `agent-kit terminal-browser`: per-machine numbered steps, kitty-graphics terminal detection, ldd library step, the guarded vendor install, and what has been run.
