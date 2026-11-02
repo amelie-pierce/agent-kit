@@ -5,6 +5,7 @@ import { libraryCommand, libraryReport, packageManager, parseLddMissing } from '
 
 const release = {
   ubuntu2404: 'PRETTY_NAME="Ubuntu 24.04.1 LTS"\nVERSION_ID="24.04"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nUBUNTU_CODENAME=noble\n',
+  ubuntu2310: 'PRETTY_NAME="Ubuntu 23.10"\nVERSION_ID="23.10"\nVERSION_CODENAME=mantic\nID=ubuntu\nID_LIKE=debian\nUBUNTU_CODENAME=mantic\n',
   ubuntu2204: 'PRETTY_NAME="Ubuntu 22.04.5 LTS"\nVERSION_ID="22.04"\nVERSION_CODENAME=jammy\nID=ubuntu\nID_LIKE=debian\nUBUNTU_CODENAME=jammy\n',
   mint22: 'PRETTY_NAME="Linux Mint 22"\nVERSION_ID="22"\nVERSION_CODENAME=wilma\nID=linuxmint\nID_LIKE="ubuntu debian"\nUBUNTU_CODENAME=noble\n',
   mint21: 'PRETTY_NAME="Linux Mint 21.3"\nVERSION_ID="21.3"\nVERSION_CODENAME=virginia\nID=linuxmint\nID_LIKE="ubuntu debian"\nUBUNTU_CODENAME=jammy\n',
@@ -34,6 +35,7 @@ test('libraryCommand maps only the reported libraries and picks the right asound
   const command = (name, sonames = electron) => libraryCommand(environmentOf(name), sonames)?.command;
   assert.equal(command('ubuntu2404'), 'sudo apt-get update && sudo apt-get install -y libnspr4 libnss3 libasound2t64');
   assert.equal(command('ubuntu2204'), 'sudo apt-get update && sudo apt-get install -y libnspr4 libnss3 libasound2');
+  assert.equal(command('ubuntu2310'), 'sudo apt-get update && sudo apt-get install -y libnspr4 libnss3 libasound2');
   assert.match(command('mint22'), /libasound2t64$/);
   assert.match(command('mint21'), /libasound2$/);
   assert.match(command('debian12'), /libasound2$/);

@@ -279,4 +279,4 @@ Kit-managed keys are added only with question 5, never replace a key you bound y
 - **Changing Herdr while it runs:** the kit adds its Herdr plugins only while Herdr is stopped.
 - **Relay and mail settings** in Firstmate: not set up by the kit.
 - **API keys other than `TYPESAFE_API_KEY`:** the kit manages no other key. It never tests the key with typesafe.ai, and there is no flag, file or environment variable for entering it, only the hidden prompt.
-- **Left out by the kit owner:** git-ai (and its Codex hook), claude-mem, tode, and the terminal-browser app and skill are not part of the kit.
+- **Left out by the kit owner:** git-ai (and its Codex hook), claude-mem and tode are not part of the kit. terminal-browser is supported through guided setup (`agent-kit terminal-browser`), but the kit does not bundle it or install it silently.

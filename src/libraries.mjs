@@ -38,11 +38,11 @@ const packages = {
   'libexpat.so.1': lib('libexpat1', 'expat', 'expat'),
 };
 
-const aptBeforeT64 = new Set(['xenial', 'bionic', 'focal', 'jammy', 'jessie', 'stretch', 'buster', 'bullseye', 'bookworm']);
+const aptT64 = new Set(['noble', 'oracular', 'plucky', 'questing', 'resolute', 'trixie', 'forky', 'sid']);
 // Ubuntu 24.04 and Debian 13 added the t64 suffix (libasound2 became libasound2t64); derivatives such as Linux Mint name their Ubuntu base.
 function usesT64(distro) {
   const codename = distro.ubuntuCodename || distro.codename;
-  if (codename) return !aptBeforeT64.has(codename);
+  if (codename) return aptT64.has(codename);
   const version = parseFloat(distro.versionId);
   if (Number.isNaN(version)) return true;
   return version >= (distro.id === 'ubuntu' ? 24.04 : 13);

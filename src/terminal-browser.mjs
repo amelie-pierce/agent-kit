@@ -57,6 +57,8 @@ export function terminalBrowserPlan(context = {}) {
     const libs = plan.libraries;
     if (libs.status === 'missing') add({ id: 'libraries', title: `Install the system libraries its engine cannot find (${libs.missing.join(', ')}). The kit never runs sudo.`,
       commands: libs.command ? [libs.command] : [], note: libs.fallback || undefined, check: `ldd ${paths.engine} | grep 'not found' prints nothing.` });
+    else if (libs.status === 'unknown') add({ id: 'libraries', title: `Could not check the system libraries of its engine (${libs.detail}), so no install command is printed. See the per-distro commands in the README "Browser check" section and the library section of docs/user-guide.md.`,
+      commands: [], check: `ldd ${paths.engine} | grep 'not found' prints nothing.` });
   }
   add({ id: 'open', title: 'Open a page.', commands: ['terminal-browser open terminal-browser.com'], check: 'A page appears; a blank screen means the terminal cannot draw kitty graphics.',
     ...(terminal.kitty === 'yes' ? {} : { note: 'No graphics terminal? "terminal-browser action -- snapshot" prints the page as text (its engine ran and answered it on WSL2).' }) });

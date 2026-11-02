@@ -208,7 +208,7 @@ export async function browserCheck(context = {}) {
   if (native) {
     if (libs.status === 'missing') record('libraries', 'warn', `ldd reports ${libs.missing.join(', ')} not found for ${libs.binary}`, libs.command || libs.fallback);
     else if (libs.status === 'present') record('libraries', 'pass', `ldd finds every shared library ${libs.binary} loads`);
-    else record('libraries', 'warn', `could not check the shared libraries of ${selected.path} (${libs.detail})`);
+    else record('libraries', 'warn', `could not check the shared libraries of ${selected.path} (${libs.detail}); the kit prints no install command, see the per-distro commands in the README "Browser check" section and the library section of docs/user-guide.md`);
     if (!c.env.DISPLAY && !c.env.WAYLAND_DISPLAY) {
       record('display', 'fail', 'neither DISPLAY nor WAYLAND_DISPLAY is set, so a visible window has nowhere to open',
         environment.wsl ? 'WSLg provides the display on current Windows 10 and 11: run "wsl --update" in PowerShell and restart WSL, or use a browser on the Windows side.'

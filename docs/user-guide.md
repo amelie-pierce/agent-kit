@@ -50,7 +50,7 @@ Agent Kit sets up your own personal agent workspace on your own computer:
 
 **The kit never:** edits anything in your shell profile except its own marked PATH block (question 5b, which you can skip), runs `sudo`, needs administrator rights, starts services or agents, signs you in or out, installs Node, git, gh, python3, Homebrew, Xcode tools or WSL for you, or touches an existing Firstmate home. In your Herdr settings it writes only its own marked blocks, and settings you already have win.
 
-**Not part of the kit:** git-ai, claude-mem, tode and the terminal-browser app and skill. The kit owner left these out on purpose.
+**Not part of the kit:** git-ai, claude-mem and tode. The kit owner left these out on purpose. terminal-browser is supported through guided setup (`agent-kit terminal-browser`), but the kit does not bundle it or install it silently.
 
 Every file the kit will write is shown on a summary screen first. Nothing is written until you answer yes.
 

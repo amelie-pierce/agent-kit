@@ -121,3 +121,12 @@ test('the real command prints the numbered steps and exits 0', () => {
   assert.match(text.stdout, /^Agent Kit terminal-browser: .+\nTerminal: /);
   assert.match(text.stdout, /\n1\. /);
 });
+
+test('an installed engine whose libraries ldd cannot check gets a plain note pointing to the docs and no command', () => {
+  const base = machine({ env: { TERM: 'xterm-kitty' }, files: [launcher, engine] });
+  const context = { ...base, run: () => ({ status: null, stdout: '', stderr: '', error: { code: 'ENOENT' } }) };
+  const plan = terminalBrowserPlan(context);
+  assert.deepEqual(ids(plan), ['libraries', 'open', 'verify']);
+  assert.deepEqual(plan.steps[0].commands, []);
+  assert.match(plan.steps[0].title, /ldd is not installed.*no install command is printed.*README.*docs\/user-guide\.md/);
+});

@@ -222,7 +222,7 @@ When you choose Claude, the kit installs the owner's Claude Code plugins with yo
 | `playwright` | the official marketplace | Apache-2.0 | `npx @playwright/mcp@0.0.83`, pinned by the kit's edit of its `.mcp.json` (upstream `@latest`; registry integrity `sha512-oNcl+Ae2…` recorded) |
 | `superpowers` | obra/superpowers `bb92a777` | MIT | |
 
-Excluded by the owner: git-ai (and its Codex hook), claude-mem, tode, and the terminal-browser app and skill.
+Excluded by the owner: git-ai (and its Codex hook), claude-mem and tode. terminal-browser is supported through guided setup (`agent-kit terminal-browser`), but the kit does not bundle it or install it silently.
 
 ### Summary screen
 

@@ -256,3 +256,13 @@ test('browser-check is its own command and accepts only --json', () => {
   assert.equal(parseArgs(['browser-check'], 'win32').command, 'browser-check');
   for (const flag of [['--yes'], ['--dry-run'], ['--root', '/tmp/x'], ['--handoff'], ['--print']]) assert.throws(() => parseArgs(['browser-check', ...flag], flag[0] === '--handoff' ? 'win32' : 'linux'), /--yes applies|--dry-run applies|--root applies|--handoff applies|--print applies/);
 });
+
+test('browserCheck says plainly that libraries could not be checked when ldd is absent, and prints no command', async () => {
+  const { context } = fakeBrowser({ files: ['/usr/bin/google-chrome'], env: { PATH: '/usr/bin' }, commands: { ldd: { status: null, stdout: '', stderr: '', error: { code: 'ENOENT' } } } });
+  const result = await browserCheck(context);
+  const step = result.steps.find(item => item.id === 'libraries');
+  assert.equal(step.status, 'warn');
+  assert.match(step.detail, /ldd is not installed/);
+  assert.match(step.detail, /no install command.*README.*docs\/user-guide\.md/);
+  assert.equal(result.libraries.command, null);
+});
