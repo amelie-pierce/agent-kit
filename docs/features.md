@@ -1,6 +1,6 @@
 # Agent Kit: all features
 
-This page lists the functions in the `pilot-14` kit. `pilot-13` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This page lists the functions in the `pilot-15` kit. `pilot-14` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 **How to read the support columns.** **Yes**: works today. **Partial**: works with a limit, explained in the row. **No**: not supported.
 

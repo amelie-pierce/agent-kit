@@ -2,7 +2,7 @@
 
 ## Status of this guide
 
-This guide describes the `pilot-14` kit. `pilot-13` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This guide describes the `pilot-15` kit. `pilot-14` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 | Release | What it added |
 | --- | --- |
@@ -13,6 +13,7 @@ This guide describes the `pilot-14` kit. `pilot-13` is the previous version. Rel
 | `pilot-12` | A Firstmate ship-branch naming fix; the PATH block writer stops when it detects a profile edit before replacement |
 | `pilot-13` | Firstmate branch-rule finding, quieter second-mate status and fresh-context validation; Figma CLI override at `5ec32192`; Zoetrope session-graph plugin source at `b1736f30`; see the [release note](../README.md#pins-and-approval) |
 | `pilot-14` | Firstmate keeps Herdr pane reads passive so monitoring does not scroll or jump worker panes; every other pin stays at its pilot-13 value |
+| `pilot-15` | Firstmate keeps no-mistakes `--intent` text safe to show in a pull request; Figma CLI at `619a5def` (component-only AtomicAUI sync, read-back after an uncertain write, a locked release-installed AtomicAUI folder); see the [release note](../README.md#pins-and-approval) |
 
 **Branch-rule finder limits.** It may miss `feature/*` globs and tables headed `Naming convention`. It may over-count a sentence that mixes branch advice with a path, or file-name tables under a `Branching` heading. If this happens, record the project's branch pattern.
 
@@ -27,7 +28,7 @@ This guide describes the `pilot-14` kit. `pilot-13` is the previous version. Rel
 
 Each track is complete on its own. You do not need to read the other one.
 
-In this guide, `<root>` means the root folder you choose during install (default `~/Agentic`). `<release>` is the kit release name, such as `pilot-14` (older releases were named `macos-pilot-N`, for example `macos-pilot-6`). `<commit>` is the 40-character kit commit the installer prints. `<you>` is your own user name.
+In this guide, `<root>` means the root folder you choose during install (default `~/Agentic`). `<release>` is the kit release name, such as `pilot-15` (older releases were named `macos-pilot-N`, for example `macos-pilot-6`). `<commit>` is the 40-character kit commit the installer prints. `<you>` is your own user name.
 
 ---
 
@@ -385,7 +386,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-14)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-15)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
 
 **3. Sign in to your agent CLIs yourself.** In the same Terminal window:
 
@@ -648,6 +649,16 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - Set `AK` to the new kit copy (A6).
 - If you skipped question 5b, change `<release>` in your PATH line (A2.7) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (A6.1).
+
+**Moving from `pilot-14` to `pilot-15`**, when you are asked to:
+
+1. Run upgrade. The plan shows `Release: pilot-14 -> pilot-15`, the changed Firstmate line and, if you chose Figma, a `figma-cli` line, plus `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. See the [release note](../README.md#pins-and-approval) for the changes.
+2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
+3. Start Herdr and Firstmate again (A3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (A10.3).
+4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
+5. Do the "After an upgrade" steps above.
+
+If the owner asks you to return from `pilot-15` to the recorded `pilot-14` release, quit Firstmate and stop Herdr and the other kit services first. With `AK` still pointing to the pilot-15 kit, run `node "$AK" doctor` and check `PASS rollback-release`, then run `node "$AK" rollback pilot-14`. Review the plan and answer `y`. Point `AK` to the restored pilot-14 kit path shown in the plan, then run doctor.
 
 **Moving from `pilot-13` to `pilot-14`**, when you are asked to:
 
@@ -1681,7 +1692,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-14)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-15)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
 
 **3. Sign in to your agent CLIs yourself, inside Ubuntu.** Signing in on Windows does not count here.
 
@@ -1951,6 +1962,16 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - Set `AK` to the new kit copy (B6).
 - If you skipped question 5b, change `<release>` in your Ubuntu PATH line (B2.11) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (B6.1).
+
+**Moving from `pilot-14` to `pilot-15`**, when you are asked to:
+
+1. Run upgrade. The plan shows `Release: pilot-14 -> pilot-15`, the changed Firstmate line and, if you chose Figma, a `figma-cli` line, plus `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. See the [release note](../README.md#pins-and-approval) for the changes.
+2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
+3. Start Herdr and Firstmate again (B3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (B10.3).
+4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
+5. Do the "After an upgrade" steps above.
+
+If the owner asks you to return from `pilot-15` to the recorded `pilot-14` release, quit Firstmate and stop Herdr and the other kit services first. In Ubuntu, with `AK` still pointing to the pilot-15 kit, run `node "$AK" doctor` and check `PASS rollback-release`, then run `node "$AK" rollback pilot-14`. Review the plan and answer `y`. Point `AK` to the restored pilot-14 kit path shown in the plan, then run doctor.
 
 **Moving from `pilot-13` to `pilot-14`**, when you are asked to:
 
