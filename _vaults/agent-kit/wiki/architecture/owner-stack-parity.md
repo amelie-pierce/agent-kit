@@ -19,7 +19,7 @@ One entry point places the pieces: `placeKitExtras` (src/shortcuts.mjs). Setup s
 | Ambient axi gates | src/install/hooks.mjs `gatedTools` | `releases/<release>/hook-gates/ambient-*`, owned by release path like the Herdr scripts. |
 | agent-kit mate / jev | src/mate.mjs, src/jev.mjs, src/secondmate.mjs `seedMate` | Only Firstmate's own scripts and the guarded .env writer. |
 | Strategy step and check/research tiers | src/dispatch.mjs `withOwnerTiers` | Custom rules without a strategy key survive `fm-strategy.sh set`. A rerun is a dry-run verify (checked against Firstmate e823c61f). |
-| figma-cli and its skills | src/install/macos.mjs `npmPhase`, `figmaSkills`; manifests/npm-figma | The only non-registry lock entry is the pinned codeload archive. |
+| figma-cli and its skills | src/install/macos.mjs `npmPhase`, `figmaSkills`; manifests/npm-figma; src/doctor.mjs `figmaSkillsLinked` | The only non-registry lock entry is the pinned codeload archive. The kit keeps no skill list: `figma-cli skills install` links every `skills/<name>/` folder with a `SKILL.md` (figma-cli src/lib/agent-skills.js `manageSkills`, checked at 3ac6dbed), so new figma-cli skills arrive with a re-pin. Doctor reads that same folder rule from the installed package for its `figma-skills-<agent>` rows. |
 | Claude plugins and the Codex Companion edit | src/claude-plugins.mjs; manifests/claude-plugins.json | Run with the person's own claude CLI. Pinned by marketplace commit; per-plugin licence and run-time fetch notes are in the data. |
 | Tower telemetry dir | src/install/macos.mjs `towerPhase` | ZOE_TELEMETRY_DIR under the fleet state. |
 

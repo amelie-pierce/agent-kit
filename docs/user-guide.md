@@ -2,7 +2,7 @@
 
 ## Status of this guide
 
-This guide describes the `pilot-15` kit. `pilot-14` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This guide describes the `pilot-16` kit. `pilot-15` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 | Release | What it added |
 | --- | --- |
@@ -14,10 +14,11 @@ This guide describes the `pilot-15` kit. `pilot-14` is the previous version. Rel
 | `pilot-13` | Firstmate branch-rule finding, quieter second-mate status and fresh-context validation; Figma CLI override at `5ec32192`; Zoetrope session-graph plugin source at `b1736f30`; see the [release note](../README.md#pins-and-approval) |
 | `pilot-14` | Firstmate keeps Herdr pane reads passive so monitoring does not scroll or jump worker panes; every other pin stays at its pilot-13 value |
 | `pilot-15` | Firstmate keeps no-mistakes `--intent` text safe to show in a pull request; Figma CLI at `619a5def` (component-only AtomicAUI sync, read-back after an uncertain write, a locked release-installed AtomicAUI folder); see the [release note](../README.md#pins-and-approval) |
+| `pilot-16` | Two new Figma CLI skills: release a new AtomicAUI (A7.7, B7.7) and upgrade your prototype to the latest AtomicAUI (A7.8, B7.8); Figma CLI at `3ac6dbed`, which also warns about oversized Make source files, stops status timeouts on large projects, adds deploy reminders and fixes the override limits; Firstmate alerts you when a worker under a second mate stays stopped at a validation gate; see the [release note](../README.md#pins-and-approval) |
 
 **Branch-rule finder limits.** It may miss `feature/*` globs and tables headed `Naming convention`. It may over-count a sentence that mixes branch advice with a path, or file-name tables under a `Branching` heading. If this happens, record the project's branch pattern.
 
-**Figma CLI override limits.** The override needs your explicit confirmation each time. It withholds a plan for a tracked `.npmrc`, refuses to save an executable-bit-only difference, and has no backup on abort for a Make-only file that differs between saved and open copies.
+**Figma CLI override.** The override needs your explicit confirmation each time. Since `pilot-16` it no longer withholds a plan for a tracked, unchanged `.npmrc`, no longer refuses to save a difference that is only the executable bit, and backs up a kept Make-only file whose open copy differs from the saved one, so an abort can restore it.
 
 **This is a pilot.** No one has yet installed this release on a real Mac or a real Windows PC. You, the first teammates, running it on your own computers, are the hands-on test. Please send back what you saw (section 4).
 
@@ -28,7 +29,7 @@ This guide describes the `pilot-15` kit. `pilot-14` is the previous version. Rel
 
 Each track is complete on its own. You do not need to read the other one.
 
-In this guide, `<root>` means the root folder you choose during install (default `~/Agentic`). `<release>` is the kit release name, such as `pilot-15` (older releases were named `macos-pilot-N`, for example `macos-pilot-6`). `<commit>` is the 40-character kit commit the installer prints. `<you>` is your own user name.
+In this guide, `<root>` means the root folder you choose during install (default `~/Agentic`). `<release>` is the kit release name, such as `pilot-16` (older releases were named `macos-pilot-N`, for example `macos-pilot-6`). `<commit>` is the 40-character kit commit the installer prints. `<you>` is your own user name.
 
 ---
 
@@ -44,7 +45,7 @@ Agent Kit sets up your own personal agent workspace on your own computer:
 - **Herdr shortcuts, plugins and look**: keys that open Firstmate or a new second mate, the Zoetrope session graph, the Herdr plugin manager, and the kit owner's Herdr theme and layout (A8.2 or B8.2).
 - **The fleet tower** (on macOS and, inside Ubuntu, on Windows): a view of your Firstmate and its crew.
 - **If you use Claude Code**: the kit owner's set of Claude Code plugins (A2.4 or B2.8).
-- **If you work with Figma**: the Figma CLI and its three skills.
+- **If you work with Figma**: the Figma CLI and its five skills, including the AtomicAUI release and prototype upgrade skills (A7.7 and A7.8, B7.7 and B7.8).
 - **Your own second mates**: extra long-running Firstmates you create for a separate area of work, each with its own folder.
 - **Optional Jev routing**: if you add a `TYPESAFE_API_KEY`, Firstmate lets Jev (from typesafe.ai) pick the right agent and model for each job (A6.5 or B6.5).
 
@@ -228,7 +229,7 @@ The default is **yes**, as on the kit owner's own setup. Read the warning before
 - adds a block of Herdr keys to your Herdr settings file (A8.2);
 - adds three Herdr plugins: the Zoetrope session graph and the tower's Fleet plugin (with the tower), and the Herdr plugin manager;
 - with Claude Code, installs the kit owner's Claude Code plugins (see "The Claude plugins" below);
-- with Figma, links the Figma CLI's three skills (`figma-cli`, `figma-make`, `figma-make-team`).
+- with Figma, links the Figma CLI's five skills (`atomicaui-release`, `atomicaui-upgrade-prototype`, `figma-cli`, `figma-make`, `figma-make-team`).
 
 The list of files and links it will touch is shown before the question. Your own hooks, settings, keys and plugins stay. Each file is backed up first. If you already have your own skill with one of the same names, this step stops and reports a conflict instead of overwriting it. With `n`, none of the above is set up: no kit commands, no Herdr keys, no plugins.
 
@@ -386,7 +387,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-15)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-16)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
 
 **3. Sign in to your agent CLIs yourself.** In the same Terminal window:
 
@@ -579,6 +580,7 @@ These rows cover what `pilot-9` added. Most report `PASS` or `WARN`; `shell-prof
 | `captain-help` | your help page exists | it was deleted; ask Firstmate to write one, or run repair |
 | `claude-marketplace-…`, `claude-plugin-…` (with Claude Code) | the Claude plugins are enabled and the marketplace is at the kit pin | a plugin is turned off, or a kit-owned or your own marketplace differs from the kit pin |
 | `figma-skill-…` (with Figma) | the Figma CLI's skills are linked | run repair |
+| `figma-skills-claude`, `figma-skills-codex` (with Figma, one per agent CLI you chose) | `<agent>: atomicaui-release, atomicaui-upgrade-prototype, figma-cli, figma-make, figma-make-team linked`: every skill the installed Figma CLI ships is linked for that agent | `WARN … not linked`: run repair, which links the named skills |
 
 - `FAIL <tool>-path: another binary has PATH precedence` means an older copy of that tool comes first on your PATH. Fix your PATH (A2.7) and run doctor again.
 - Any other `FAIL` is a real problem. See A10.
@@ -649,6 +651,16 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - Set `AK` to the new kit copy (A6).
 - If you skipped question 5b, change `<release>` in your PATH line (A2.7) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (A6.1).
+
+**Moving from `pilot-15` to `pilot-16`**, when you are asked to:
+
+1. Run upgrade. The plan shows `Release: pilot-15 -> pilot-16`, the changed Firstmate line and, if you chose Figma, a `figma-cli` line, plus `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. See the [release note](../README.md#pins-and-approval) for the changes.
+2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
+3. Start Herdr and Firstmate again (A3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (A10.3).
+4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
+5. Do the "After an upgrade" steps above. With Figma, doctor now shows a `figma-skills-claude` or `figma-skills-codex` row (or both) naming all five Figma CLI skills as linked, including `atomicaui-release` and `atomicaui-upgrade-prototype` (A7.7 and A7.8). Start a new Claude Code or Codex session so it sees the new skills.
+
+If the owner asks you to return from `pilot-16` to the recorded `pilot-15` release, quit Firstmate and stop Herdr and the other kit services first. With `AK` still pointing to the pilot-16 kit, run `node "$AK" doctor` and check `PASS rollback-release`, then run `node "$AK" rollback pilot-15`. Review the plan and answer `y`. Point `AK` to the restored pilot-15 kit path shown in the plan, then run doctor.
 
 **Moving from `pilot-14` to `pilot-15`**, when you are asked to:
 
@@ -1008,6 +1020,82 @@ bin/fm-spawn.sh <name> --secondmate
 ```
 
 Or simply ask your first mate to create and start a second mate for you, describing what it should own.
+
+### A7.7 Release a new AtomicAUI
+
+AtomicAUI is the shared component library. It is built in its own workspace on GitHub, and reaches prototypes through the AtomicAUI Make kit, a Figma Make file that publishes each release on its own site. A release takes the latest AtomicAUI from GitHub into the kit, saves it, and publishes it as a new version that prototypes can upgrade to (A7.8).
+
+**Who can do this.** Anyone with edit access to the AtomicAUI Make kit. Your GitHub account also has to be able to read the AtomicAUI workspace; the agent checks both and tells you if a right is missing. It never grants rights.
+
+**What you need.** The Figma CLI from this kit (question 3 answered yes), Figma Desktop open and signed in, and the kit's Make link: open the kit in Figma Make and copy the address from the browser bar (`https://www.figma.com/make/…`). Make sure nobody else edits the kit while the release runs.
+
+**What to do:**
+
+1. Open the AtomicAUI Make kit in Figma Desktop.
+2. In a Terminal or Herdr pane, start Claude Code or Codex in your root folder (or ask Firstmate to start a worker for it).
+3. Paste the prompt below.
+4. When the agent asks, paste the kit's Make link. It works out the file key itself. You may let it remember the link on your computer only; it never writes the link into a repository, pull request or shared file.
+5. Read its summary of what changed (components, files, guides and the pull requests behind them) and answer its questions: the version number (the next patch unless you choose another) and whether anything breaks apps.
+6. When it shows you the planned kit update, answer yes only if it looks right. It saves the kit, then checks the saved library.
+7. It cuts the release, then stops and asks you to publish the site. Do this click yourself: in the kit, open **Make settings → General**. If the site is already **Published**, click **Unpublish**, then **Publish**. Set **Who can view** to **Anyone on the web**, with no password, and keep the same address. The address may show 404 for about a minute. **Update kit** and **Publish kit** do not rebuild the site.
+8. Tell the agent you have published. It checks the release on the site and reports.
+
+**Copy-paste prompt:**
+
+```text
+Use the atomicaui-release skill: release a new AtomicAUI. I have edit access to the AtomicAUI Make kit and will paste its Make link when you ask. Stop and ask me at every decision, and tell me exactly when to do the Unpublish/Publish click.
+```
+
+Other phrases the `atomicaui-release` skill answers to: "bring the latest AtomicAUI into the kit", "cut AtomicAUI X.Y.Z" (with your version) and "what changed in AtomicAUI since the last release" (a read-only look).
+
+**What the agent runs.** These are the Figma CLI's own commands; you do not type them. It reads what changed without writing anything, checks the kit with `figma-cli make status` and `figma-cli make drift`, and saves the update with `figma-cli make sync` (a dry run first, then apply after your yes). Then it cuts the release with `figma-cli make atomicaui release --file <key> --version X.Y.Z` (with `--breaking-notes <file>` when something breaks apps) and checks it with `figma-cli make atomicaui verify-release --file <key> --version X.Y.Z`. After your click it downloads the new release from the site, checks that the previous version is still there, and confirms with `figma-cli make export-delta` that the kit and GitHub match: the answer `No exportable saved changes in scope.` means clean.
+
+**It stops and asks** instead of guessing when a design-token file changed (tokens arrive only through their own reviewed sync), when someone edited the kit's library by hand, when the kit has unsaved changes, when a write or save timed out (it reads back, never repeats), or when the site answers with a web page instead of the release (not published yet). It never clicks Unpublish or Publish for you and never edits the AtomicAUI workspace.
+
+**At the end** it reports the version, the kit versions it saved, the rollback point (the saved kit version from before the release) and what it checked. Then tell your teammates to upgrade their prototypes (A7.8).
+
+### A7.8 Upgrade your prototype to the latest AtomicAUI
+
+A team prototype keeps its code on GitHub; GitHub's `main` is the source of truth, and it reaches the Make file only through a deploy. AtomicAUI lives in the prototype's `src/vendor/atomic-aui/` folder. Only the upgrade command changes that folder: never edit it by hand.
+
+**Who can do this.** Anyone working on the prototype can run the upgrade and open its pull request. Someone else reviews it, and the person merges it. Only a repository admin can deploy.
+
+**What you need.** The prototype's local copy: a folder made by `figma-cli make clone`. If you have none, give the agent the prototype's GitHub repository and it makes one. For the deploy only: the prototype's Make link (the agent first looks for it in the local copy), and the Make file open in Figma Desktop.
+
+**What to do:**
+
+1. In a Terminal or Herdr pane, start Claude Code or Codex in your root folder (or ask Firstmate to start a worker for it).
+2. Paste the first prompt below, with your folder.
+3. The agent checks the installed and latest versions. Already up to date: it stops, nothing to do.
+4. It runs the upgrade, which opens a pull request, and stops. It gives you the full pull request link, the files added, changed and removed, the dependency changes and any breaking changes.
+5. A teammate reviews and approves the pull request. You merge it, by saying "merge it" through the `figma-make-team` skill or on GitHub. The agent never merges.
+6. After the merge, a repository admin pastes the second prompt. Ask everyone to stop editing the prototype's Make file during the deploy, and keep it open in Figma Desktop.
+7. The agent shows the deploy dry run: what will change in Make. If it lists more than the upgrade, other merged work is on `main` too; a deploy always brings all of `main`. Answer yes only if it looks right.
+8. It applies the deploy, reloads and verifies it. Then ask everyone with the Make file open to reload it.
+
+**Copy-paste prompt, upgrade:**
+
+```text
+Use the atomicaui-upgrade-prototype skill: upgrade AtomicAUI in this prototype to the latest release. My local copy is <folder>. Run make atomicaui upgrade, open the pull request and stop. Do not merge it.
+```
+
+**Copy-paste prompt, deploy (after the merge, repository admin only):**
+
+```text
+Use the atomicaui-upgrade-prototype skill: deploy the AtomicAUI upgrade. The pull request is merged. Use the guarded make deploy: dry run first, show me the summary, wait for my yes, apply, then verify. Never use --override-make.
+```
+
+Other phrases the `atomicaui-upgrade-prototype` skill answers to: "move this prototype to AtomicAUI X.Y.Z" (a named version) and "is this prototype on the latest AtomicAUI" (a check only).
+
+**What the agent runs.** These are the Figma CLI's own commands; you do not type them.
+
+- Check: `figma-cli make atomicaui status --dir <folder>` and `figma-cli team status --dir <folder>`.
+- Upgrade: `figma-cli make atomicaui upgrade --dir <folder>` for the latest release, or `figma-cli make atomicaui upgrade --dir <folder> --to X.Y.Z` for a named one (a lower version is labelled a downgrade). It downloads and checks the release, starts its own branch from the latest `main`, replaces `src/vendor/atomic-aui/`, adds the library's dependencies to `package.json`, applies the release's fixes for breaking changes, installs, saves, opens the pull request and stops. Running it again continues the same branch after an interruption or when `main` moved.
+- Deploy, only after you say it is merged: `figma-cli make pull <folder>` to bring `main` up to date (or a fresh `figma-cli make clone` if your copy is still on the upgrade branch), then the dry run `figma-cli make deploy --file <key> --dir <folder>`. After your yes, `figma-cli make deploy --file <key> --dir <folder> --apply <plan>` saves one Make version and tags it `make-deploy/<n>`. Finally `figma-cli make deploy --file <key> --dir <folder> --verify <receipt>` reloads Make and must report `fresh-sandbox-verified`.
+
+**It stops and asks** when someone edited the library folder by hand, when the release is not on the site yet (the kit owner still has to publish it, A7.7), when your copy has unsaved work, when the upgrade lists breaking or dependency changes you did not expect, and on any deploy refusal. It never merges and never deploys before you say the pull request is merged.
+
+A prototype that is a single Make file with no GitHub repository upgrades with `figma-cli make atomicaui upgrade --file <key>` through the `figma-make` skill instead.
 
 ## A8. Shortcuts and commands
 
@@ -1530,7 +1618,7 @@ The default is **yes**, as on the kit owner's own setup. Read the warning before
 - adds a block of Herdr keys to your Herdr settings file (B8.2);
 - adds three Herdr plugins: the Zoetrope session graph and the tower's Fleet plugin (with the tower), and the Herdr plugin manager;
 - with Claude Code, installs the kit owner's Claude Code plugins (see "The Claude plugins" below);
-- with Figma, links the Figma CLI's three skills (`figma-cli`, `figma-make`, `figma-make-team`).
+- with Figma, links the Figma CLI's five skills (`atomicaui-release`, `atomicaui-upgrade-prototype`, `figma-cli`, `figma-make`, `figma-make-team`).
 
 The list of files and links it will touch is shown before the question. Your own hooks, settings, keys and plugins stay. Each file is backed up first. If you already have your own skill with one of the same names, this step stops and reports a conflict instead of overwriting it. With `n`, none of the above is set up: no kit commands, no Herdr keys, no plugins.
 
@@ -1692,7 +1780,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-15)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-16)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
 
 **3. Sign in to your agent CLIs yourself, inside Ubuntu.** Signing in on Windows does not count here.
 
@@ -1892,6 +1980,7 @@ These rows cover what `pilot-9` added. Most report `PASS` or `WARN`; `shell-prof
 | `captain-help` | your help page exists | it was deleted; ask Firstmate to write one, or run repair |
 | `claude-marketplace-…`, `claude-plugin-…` (with Claude Code) | the Claude plugins are enabled and the marketplace is at the kit pin | a plugin is turned off, or a kit-owned or your own marketplace differs from the kit pin |
 | `figma-skill-…` (with Figma) | the Figma CLI's skills are linked | run repair |
+| `figma-skills-claude`, `figma-skills-codex` (with Figma, one per agent CLI you chose) | `<agent>: atomicaui-release, atomicaui-upgrade-prototype, figma-cli, figma-make, figma-make-team linked`: every skill the installed Figma CLI ships is linked for that agent | `WARN … not linked`: run repair, which links the named skills |
 
 - `FAIL <tool>-path: another binary has PATH precedence` means an older copy of that tool comes first on your Ubuntu PATH. Fix your PATH (B2.11) and run doctor again.
 - Any other `FAIL` is a real problem. See B10.
@@ -1962,6 +2051,16 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - Set `AK` to the new kit copy (B6).
 - If you skipped question 5b, change `<release>` in your Ubuntu PATH line (B2.11) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (B6.1).
+
+**Moving from `pilot-15` to `pilot-16`**, when you are asked to:
+
+1. Run upgrade. The plan shows `Release: pilot-15 -> pilot-16`, the changed Firstmate line and, if you chose Figma, a `figma-cli` line, plus `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. See the [release note](../README.md#pins-and-approval) for the changes.
+2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
+3. Start Herdr and Firstmate again (B3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (B10.3).
+4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
+5. Do the "After an upgrade" steps above. With Figma, doctor now shows a `figma-skills-claude` or `figma-skills-codex` row (or both) naming all five Figma CLI skills as linked, including `atomicaui-release` and `atomicaui-upgrade-prototype` (B7.7 and B7.8). Start a new Claude Code or Codex session so it sees the new skills.
+
+If the owner asks you to return from `pilot-16` to the recorded `pilot-15` release, quit Firstmate and stop Herdr and the other kit services first. In Ubuntu, with `AK` still pointing to the pilot-16 kit, run `node "$AK" doctor` and check `PASS rollback-release`, then run `node "$AK" rollback pilot-15`. Review the plan and answer `y`. Point `AK` to the restored pilot-15 kit path shown in the plan, then run doctor.
 
 **Moving from `pilot-14` to `pilot-15`**, when you are asked to:
 
@@ -2319,6 +2418,86 @@ bin/fm-spawn.sh <name> --secondmate
 ```
 
 Or simply ask your first mate to create and start a second mate for you, describing what it should own.
+
+### B7.7 Release a new AtomicAUI
+
+AtomicAUI is the shared component library. It is built in its own workspace on GitHub, and reaches prototypes through the AtomicAUI Make kit, a Figma Make file that publishes each release on its own site. A release takes the latest AtomicAUI from GitHub into the kit, saves it, and publishes it as a new version that prototypes can upgrade to (B7.8).
+
+**Who can do this.** Anyone with edit access to the AtomicAUI Make kit. Your GitHub account also has to be able to read the AtomicAUI workspace; the agent checks both and tells you if a right is missing. It never grants rights.
+
+**What you need.** The Figma CLI from this kit (question 3 answered yes), Figma Desktop open and signed in, and the kit's Make link: open the kit in Figma Make and copy the address from the browser bar (`https://www.figma.com/make/…`). Make sure nobody else edits the kit while the release runs.
+
+**On Windows.** Figma Desktop runs on Windows, while the Figma CLI and your agent run inside Ubuntu, so the Figma CLI has to reach Figma Desktop's debug connection from Ubuntu. That has not been confirmed on a real Windows PC yet (B10.7). If your agent says it cannot see Figma Desktop, stop and tell the person who shared this guide.
+
+**What to do:**
+
+1. Open the AtomicAUI Make kit in Figma Desktop.
+2. In an Ubuntu terminal inside Herdr, start Claude Code or Codex in your root folder (or ask Firstmate to start a worker for it).
+3. Paste the prompt below.
+4. When the agent asks, paste the kit's Make link. It works out the file key itself. You may let it remember the link on your computer only; it never writes the link into a repository, pull request or shared file.
+5. Read its summary of what changed (components, files, guides and the pull requests behind them) and answer its questions: the version number (the next patch unless you choose another) and whether anything breaks apps.
+6. When it shows you the planned kit update, answer yes only if it looks right. It saves the kit, then checks the saved library.
+7. It cuts the release, then stops and asks you to publish the site. Do this click yourself: in the kit, open **Make settings → General**. If the site is already **Published**, click **Unpublish**, then **Publish**. Set **Who can view** to **Anyone on the web**, with no password, and keep the same address. The address may show 404 for about a minute. **Update kit** and **Publish kit** do not rebuild the site.
+8. Tell the agent you have published. It checks the release on the site and reports.
+
+**Copy-paste prompt:**
+
+```text
+Use the atomicaui-release skill: release a new AtomicAUI. I have edit access to the AtomicAUI Make kit and will paste its Make link when you ask. Stop and ask me at every decision, and tell me exactly when to do the Unpublish/Publish click.
+```
+
+Other phrases the `atomicaui-release` skill answers to: "bring the latest AtomicAUI into the kit", "cut AtomicAUI X.Y.Z" (with your version) and "what changed in AtomicAUI since the last release" (a read-only look).
+
+**What the agent runs.** These are the Figma CLI's own commands; you do not type them. It reads what changed without writing anything, checks the kit with `figma-cli make status` and `figma-cli make drift`, and saves the update with `figma-cli make sync` (a dry run first, then apply after your yes). Then it cuts the release with `figma-cli make atomicaui release --file <key> --version X.Y.Z` (with `--breaking-notes <file>` when something breaks apps) and checks it with `figma-cli make atomicaui verify-release --file <key> --version X.Y.Z`. After your click it downloads the new release from the site, checks that the previous version is still there, and confirms with `figma-cli make export-delta` that the kit and GitHub match: the answer `No exportable saved changes in scope.` means clean.
+
+**It stops and asks** instead of guessing when a design-token file changed (tokens arrive only through their own reviewed sync), when someone edited the kit's library by hand, when the kit has unsaved changes, when a write or save timed out (it reads back, never repeats), or when the site answers with a web page instead of the release (not published yet). It never clicks Unpublish or Publish for you and never edits the AtomicAUI workspace.
+
+**At the end** it reports the version, the kit versions it saved, the rollback point (the saved kit version from before the release) and what it checked. Then tell your teammates to upgrade their prototypes (B7.8).
+
+### B7.8 Upgrade your prototype to the latest AtomicAUI
+
+A team prototype keeps its code on GitHub; GitHub's `main` is the source of truth, and it reaches the Make file only through a deploy. AtomicAUI lives in the prototype's `src/vendor/atomic-aui/` folder. Only the upgrade command changes that folder: never edit it by hand.
+
+**Who can do this.** Anyone working on the prototype can run the upgrade and open its pull request. Someone else reviews it, and the person merges it. Only a repository admin can deploy.
+
+**What you need.** The prototype's local copy: a folder made by `figma-cli make clone`. If you have none, give the agent the prototype's GitHub repository and it makes one. For the deploy only: the prototype's Make link (the agent first looks for it in the local copy), and the Make file open in Figma Desktop.
+
+**On Windows.** Figma Desktop runs on Windows, while the Figma CLI and your agent run inside Ubuntu, so the Figma CLI has to reach Figma Desktop's debug connection from Ubuntu. That has not been confirmed on a real Windows PC yet (B10.7). If your agent says it cannot see Figma Desktop, stop and tell the person who shared this guide.
+
+**What to do:**
+
+1. In an Ubuntu terminal inside Herdr, start Claude Code or Codex in your root folder (or ask Firstmate to start a worker for it).
+2. Paste the first prompt below, with your folder.
+3. The agent checks the installed and latest versions. Already up to date: it stops, nothing to do.
+4. It runs the upgrade, which opens a pull request, and stops. It gives you the full pull request link, the files added, changed and removed, the dependency changes and any breaking changes.
+5. A teammate reviews and approves the pull request. You merge it, by saying "merge it" through the `figma-make-team` skill or on GitHub. The agent never merges.
+6. After the merge, a repository admin pastes the second prompt. Ask everyone to stop editing the prototype's Make file during the deploy, and keep it open in Figma Desktop.
+7. The agent shows the deploy dry run: what will change in Make. If it lists more than the upgrade, other merged work is on `main` too; a deploy always brings all of `main`. Answer yes only if it looks right.
+8. It applies the deploy, reloads and verifies it. Then ask everyone with the Make file open to reload it.
+
+**Copy-paste prompt, upgrade:**
+
+```text
+Use the atomicaui-upgrade-prototype skill: upgrade AtomicAUI in this prototype to the latest release. My local copy is <folder>. Run make atomicaui upgrade, open the pull request and stop. Do not merge it.
+```
+
+**Copy-paste prompt, deploy (after the merge, repository admin only):**
+
+```text
+Use the atomicaui-upgrade-prototype skill: deploy the AtomicAUI upgrade. The pull request is merged. Use the guarded make deploy: dry run first, show me the summary, wait for my yes, apply, then verify. Never use --override-make.
+```
+
+Other phrases the `atomicaui-upgrade-prototype` skill answers to: "move this prototype to AtomicAUI X.Y.Z" (a named version) and "is this prototype on the latest AtomicAUI" (a check only).
+
+**What the agent runs.** These are the Figma CLI's own commands; you do not type them.
+
+- Check: `figma-cli make atomicaui status --dir <folder>` and `figma-cli team status --dir <folder>`.
+- Upgrade: `figma-cli make atomicaui upgrade --dir <folder>` for the latest release, or `figma-cli make atomicaui upgrade --dir <folder> --to X.Y.Z` for a named one (a lower version is labelled a downgrade). It downloads and checks the release, starts its own branch from the latest `main`, replaces `src/vendor/atomic-aui/`, adds the library's dependencies to `package.json`, applies the release's fixes for breaking changes, installs, saves, opens the pull request and stops. Running it again continues the same branch after an interruption or when `main` moved.
+- Deploy, only after you say it is merged: `figma-cli make pull <folder>` to bring `main` up to date (or a fresh `figma-cli make clone` if your copy is still on the upgrade branch), then the dry run `figma-cli make deploy --file <key> --dir <folder>`. After your yes, `figma-cli make deploy --file <key> --dir <folder> --apply <plan>` saves one Make version and tags it `make-deploy/<n>`. Finally `figma-cli make deploy --file <key> --dir <folder> --verify <receipt>` reloads Make and must report `fresh-sandbox-verified`.
+
+**It stops and asks** when someone edited the library folder by hand, when the release is not on the site yet (the kit owner still has to publish it, B7.7), when your copy has unsaved work, when the upgrade lists breaking or dependency changes you did not expect, and on any deploy refusal. It never merges and never deploys before you say the pull request is merged.
+
+A prototype that is a single Make file with no GitHub repository upgrades with `figma-cli make atomicaui upgrade --file <key>` through the `figma-make` skill instead.
 
 ## B8. Shortcuts and commands
 
