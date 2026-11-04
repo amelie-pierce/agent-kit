@@ -3,6 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@amelie-pierce/figma-cli": "https://codeload.github.com/amelie-pierce/figma-cli/tar.gz/619a5defb1e70bb48141bb2ef4aafdc3ee1be7b1"
+    "@amelie-pierce/figma-cli": "https://codeload.github.com/amelie-pierce/figma-cli/tar.gz/3ac6dbedd9089be3f908604c0b70b1991985916c"
   }
 }

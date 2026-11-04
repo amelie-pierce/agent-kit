@@ -62,6 +62,35 @@ test('doctor verifies receipt, digest, path precedence, modes and unknown auth/l
   assert.equal(doctor(f.manifest, f.options).checks.find(x => x.id === 'receipt-mode').status, 'fail');
 });
 
+test('doctor reports every bundled figma-cli skill linked per agent, including the AtomicAUI release and upgrade skills', { skip: process.platform === 'win32' }, t => {
+  const f = fixture(t);
+  const names = ['atomicaui-release', 'atomicaui-upgrade-prototype', 'figma-cli', 'figma-make', 'figma-make-team'];
+  const pkg = join(f.root, 'releases', 'old-release', 'npm-figma', 'node_modules', '@amelie-pierce', 'figma-cli', 'skills');
+  for (const name of names) { mkdirSync(join(pkg, name), { recursive: true }); writeFileSync(join(pkg, name, 'SKILL.md'), `# ${name}\n`); }
+  mkdirSync(join(pkg, 'not-a-skill'));
+  const targets = { claude: join(f.home, '.claude', 'skills'), codex: join(f.home, '.agents', 'skills') };
+  const paths = Object.values(targets).flatMap(dir => names.map(name => join(dir, name)));
+  for (const path of paths) { mkdirSync(path, { recursive: true }); writeFileSync(join(path, '.figma-cli-skill.json'), JSON.stringify({ owner: 'amelie-pierce/figma-cli' })); }
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.setup = { answers: { harness: 'both' } };
+  receipt.phases['npm-figma'] = { state: 'complete', version: '0.1.0', path: 'releases/old-release/npm-figma', skills: paths };
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const rows = () => Object.fromEntries(doctor(f.manifest, f.options).checks.filter(x => x.id.startsWith('figma-skills-')).map(x => [x.id, [x.status, x.detail]]));
+  assert.deepEqual(rows(), {
+    'figma-skills-claude': ['pass', `claude: ${names.join(', ')} linked`],
+    'figma-skills-codex': ['pass', `codex: ${names.join(', ')} linked`],
+  });
+  receipt.phases['npm-figma'].skills = paths.filter(path => !path.startsWith(targets.codex) || !path.includes('atomicaui'));
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  assert.deepEqual(rows()['figma-skills-codex'], ['warn', 'codex: atomicaui-release, atomicaui-upgrade-prototype not linked; agent-kit repair registers them']);
+  assert.equal(rows()['figma-skills-claude'][0], 'pass');
+  const configured = { ...f.options, env: { ...f.options.env, CLAUDE_CONFIG_DIR: join(f.home, '.claude-work') } };
+  assert.equal(doctor(f.manifest, configured).checks.find(x => x.id === 'figma-skills-claude').status, 'pass', 'figma-cli links Claude skills under HOME, whatever CLAUDE_CONFIG_DIR says');
+  receipt.setup.answers.harness = 'claude';
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  assert.deepEqual(Object.keys(rows()), ['figma-skills-claude'], 'only the chosen agent CLIs are checked');
+});
+
 test('doctor checks person-installed floors and links; Figma is a kit component, not a prerequisite', { skip: process.platform === 'win32' }, t => {
   const f = fixture(t), bin = join(f.base, 'bin');
   mkdirSync(bin);

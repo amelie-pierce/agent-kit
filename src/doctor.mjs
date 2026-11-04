@@ -214,9 +214,30 @@ export function doctor(manifest, { installRoot, home, env = process.env, herdrPa
     checks.push(status(`figma-skill-${path.split('/').slice(-3).join('-')}`, owner === 'amelie-pierce/figma-cli' ? 'pass' : 'warn',
       owner === 'amelie-pierce/figma-cli' ? `${path} registered by figma-cli` : `${path} missing or not figma-cli's; agent-kit repair registers it again`));
   }
+  checks.push(...figmaSkillsLinked(root, receipt, recordedHarness, home || env.HOME));
   checks.push(status('authenticated', 'unknown', 'sign-in belongs to this teammate; no auth store queried'));
   checks.push(status('live-tested', 'unknown', 'live fleet was not probed'));
   return doctorResult(checks, receipt.release, manifest, receipt, root);
+}
+// figma-cli links every folder under its bundled skills/ that holds a SKILL.md, so the installed package says which
+// skills each chosen agent should have. One line per agent names the linked ones and any not recorded by the kit.
+function figmaSkillsLinked(root, receipt, harness, home) {
+  const phase = receipt.phases['npm-figma'];
+  if (!phase?.path || !Array.isArray(phase.skills)) return [];
+  const installed = phasePath(root, 'npm-figma', phase);
+  const bundled = installed && join(installed, 'node_modules', '@amelie-pierce', 'figma-cli', 'skills');
+  let names = [];
+  if (bundled) try { names = readdirSync(bundled, { withFileTypes: true }).filter(e => e.isDirectory() && existsSync(join(bundled, e.name, 'SKILL.md'))).map(e => e.name).sort(); }
+  catch { /* reported below */ }
+  if (!names.length) return [status('figma-skills', 'unknown', 'bundled figma-cli skills cannot be read')];
+  const targets = { claude: join(home, '.claude', 'skills'), codex: join(home, '.agents', 'skills') };
+  const recorded = new Set(phase.skills);
+  return (harness === 'both' ? ['claude', 'codex'] : [harness === 'codex' ? 'codex' : 'claude']).map(agent => {
+    const missing = names.filter(name => !recorded.has(join(targets[agent], name)));
+    return status(`figma-skills-${agent}`, missing.length ? 'warn' : 'pass', missing.length
+      ? `${agent}: ${missing.join(', ')} not linked; agent-kit repair registers ${missing.length === 1 ? 'it' : 'them'}`
+      : `${agent}: ${names.join(', ')} linked`);
+  });
 }
 function doctorResult(checks, release, manifest, receipt, root) {
   const find = id => checks.find(x => x.id === id)?.status || 'unknown';
