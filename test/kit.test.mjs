@@ -37,9 +37,9 @@ test('bundled manifest keeps verified source commits and macOS/Linux digests', (
   validateManifest(manifest);
   assert.equal(manifest.release, 'pilot-16');
   const firstmate = manifest.tools.find(x => x.id === 'firstmate');
-  assert.equal(firstmate.version.value, 'a6bb9f357242618819112610576f2c3175af30f2');
+  assert.equal(firstmate.version.value, '98619dc37d85461394c915289006e8645926571b');
   assert.equal(firstmate.approvedUpstream, 'https://github.com/pikenguyen227/firstmate');
-  assert.equal(firstmate.artifacts['darwin-arm64'].sha256, '22cc9be00251f224da52daa525d9802ef48184a7f756c19147afc1f29654120d');
+  assert.equal(firstmate.artifacts['darwin-arm64'].sha256, 'ae3f664d47ee1c3668c8f0de528f19cc86bc21f379c662b125468b15ccb2aa50');
   const zoetropePlugin = manifest.tools.find(x => x.id === 'zoetrope-herdr-plugin');
   assert.equal(zoetropePlugin.version.value, 'b1736f30d34e0ace87eb871b3d6fd1cc79f17c84');
   assert.equal(zoetropePlugin.artifacts['darwin-arm64'].sha256, '5843ffdb9b258b31ec26b5b74233b983aacfd9e65aaf35bafbff697fac1bad22');

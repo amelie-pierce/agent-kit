@@ -532,7 +532,7 @@ test('upgrade from pilot-14 to pilot-15 shows the Firstmate re-pin, asks for /up
 
 test('upgrade from pilot-15 to pilot-16 shows the Firstmate re-pin, asks for /updatefirstmate first, then applies', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t), oldPin = f.git('rev-parse', 'HEAD');
-  writeFileSync(join(f.firstmate, 'README.md'), 'firstmate a6bb9f35\n');
+  writeFileSync(join(f.firstmate, 'README.md'), 'firstmate 98619dc3\n');
   f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qam', 'firstmate pilot-16 fixes');
   const newPin = f.git('rev-parse', 'HEAD');
   f.git('checkout', '-q', '--detach', oldPin);
@@ -573,7 +573,7 @@ test('upgrade from pilot-15 to pilot-16 shows the Firstmate re-pin, asks for /up
   assert.equal(after.release, 'pilot-16');
   assert.equal(after.phases.firstmate.version, newPin);
   assert.equal(readFileSync(join(f.root, 'releases', 'pilot-15', 'bin', 'herdr'), 'utf8'), 'original', 'the pilot-15 release stays for rollback');
-  assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate a6bb9f35\n', 'the kit never touches the home');
+  assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate 98619dc3\n', 'the kit never touches the home');
 });
 
 test('pilot-12 upgrade and guarded rollback restore Firstmate and kit-owned Figma marketplace', { skip: process.platform === 'win32' }, async t => {
