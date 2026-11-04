@@ -1,0 +1,58 @@
+test/doctor-update.test.mjs
+  s_2c251c77e18436::t_e6c6e6a780fa50 65-91
+docs/user-guide.md
+  s_2c251c77e18436::t_dc7327ddea54f1 1030,2428
+  s_2c251c77e18436::t_8323801373e50f 1024-1029,1031-1099,2422-2427,2429-2500
+  s_2c251c77e18436::t_6e8bc04f571b69 655-664,2055-2063
+  s_2c251c77e18436::t_ab844519a940a5 21
+  s_2c251c77e18436::t_a67878dd116507 5,32,48,232,390,583,1621,1783,1983
+  s_2c251c77e18436::t_9346cda346fcbf 17
+  s_2c251c77e18436::t_bbd4d3647fcb41 2064,2501
+_vaults/agent-kit/wiki/architecture/owner-stack-parity.md
+  s_2c251c77e18436::t_cd2df4be5b3ce4 22
+test/kit.test.mjs
+  s_2c251c77e18436::t_fc650ada6d3cf5 38,40,42,378,1252-1253
+test/extras.test.mjs
+  s_2c251c77e18436::t_fc650ada6d3cf5 424
+test/lifecycle.test.mjs
+  s_2c251c77e18436::t_bb2705bd7abf8f 502,533-576
+  s_2c251c77e18436::t_9687479576b178 577-578
+manifests/npm-figma/package.json
+  s_2c251c77e18436::t_032710f85cea18 6
+src/doctor.mjs
+  s_2c251c77e18436::t_99f3c4eae880df 227-228,230
+  s_2c251c77e18436::t_4ae4480514358a 222-226,229,231-241
+  s_2c251c77e18436::t_b15371066a00ef 217
+manifests/claude-plugins.json
+  s_2c251c77e18436::t_032710f85cea18 32
+manifests/pilot-skeleton.json
+  s_2c251c77e18436::t_032710f85cea18 3,79,91-92,97-98,103-104,109-110,1221,1223
+README.md
+  s_2c251c77e18436::t_81625beabd83ed 340-341,455-463,573
+  s_2c251c77e18436::t_a67878dd116507 75,107,215
+docs/features.md
+  s_2c251c77e18436::t_a67878dd116507 3,82,120,171
+  s_2c251c77e18436::t_934c9ebffc9474 236-244
+  s_2c251c77e18436::t_fc650ada6d3cf5 46
+_vaults/agent-kit/wiki/architecture/doctor-update.md
+  s_2c251c77e18436::t_cd2df4be5b3ce4 4,9
+  s_2c251c77e18436::t_8cb3b6e15a3b84 10
+manifests/npm-figma/package-lock.json
+  s_2c251c77e18436::t_6906221ad88bed 11,16-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "69c68cae5cae89e39bf2ecb32dd350680ab9722c",
+  "prompts": {},
+  "sessions": {
+    "s_2c251c77e18436": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ac474108-1c6f-4b24-9542-fbdcd174c1c5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
