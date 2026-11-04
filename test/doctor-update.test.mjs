@@ -84,6 +84,8 @@ test('doctor reports every bundled figma-cli skill linked per agent, including t
   writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
   assert.deepEqual(rows()['figma-skills-codex'], ['warn', 'codex: atomicaui-release, atomicaui-upgrade-prototype not linked; agent-kit repair registers them']);
   assert.equal(rows()['figma-skills-claude'][0], 'pass');
+  const configured = { ...f.options, env: { ...f.options.env, CLAUDE_CONFIG_DIR: join(f.home, '.claude-work') } };
+  assert.equal(doctor(f.manifest, configured).checks.find(x => x.id === 'figma-skills-claude').status, 'pass', 'figma-cli links Claude skills under HOME, whatever CLAUDE_CONFIG_DIR says');
   receipt.setup.answers.harness = 'claude';
   writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
   assert.deepEqual(Object.keys(rows()), ['figma-skills-claude'], 'only the chosen agent CLIs are checked');
