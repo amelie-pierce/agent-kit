@@ -6,7 +6,7 @@ date: 2026-11-04
 
 # Doctor and reviewed updates
 
-Updated 2026-11-04: with Figma, doctor adds one `figma-skills-<agent>` row per chosen agent CLI (from the receipt harness). It lists the skill folders the installed figma-cli package ships (directories under its `skills/` holding a `SKILL.md`) and warns, never fails, when the receipt did not record one for that agent; repair and upgrade re-run `figma-cli skills install` (src/doctor.mjs `figmaSkillsLinked`; src/install/macos.mjs `figmaSkills`; test/doctor-update.test.mjs).
+Updated 2026-11-04: with Figma, doctor adds one `figma-skills-<agent>` row per chosen agent CLI (from the receipt harness). It lists the skill folders the installed figma-cli package ships (directories under its `skills/` holding a `SKILL.md`) and warns, never fails, when the receipt did not record one for that agent; the advice says repair links a missing skill, but for a folder that exists and lacks the figma-cli owner marker (changed or foreign, which figma-cli will not overwrite) it says to move or rename the folder and repair again, or ask whoever shared the guide; repair and upgrade re-run `figma-cli skills install` (src/doctor.mjs `figmaSkillsLinked`; src/install/macos.mjs `figmaSkills`; test/doctor-update.test.mjs).
 
 Updated 2026-10-27: doctor and update take `--root <root>` (meaning `<root>/.tools`), and a kit copy at `<install-root>/kit/<commit>` finds its own receipt (src/kit.mjs:72-77; bin/agent-kit.mjs:26). Both prefer the guided setup's recorded answers for harness, Figma, tower, hooks and tower state over inference from receipt phases (src/doctor.mjs:67-76; src/update.mjs:26-27). See [Single installer](single-installer.md).
 

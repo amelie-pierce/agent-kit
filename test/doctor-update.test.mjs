@@ -82,8 +82,29 @@ test('doctor reports every bundled figma-cli skill linked per agent, including t
   });
   receipt.phases['npm-figma'].skills = paths.filter(path => !path.startsWith(targets.codex) || !path.includes('atomicaui'));
   writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
-  assert.deepEqual(rows()['figma-skills-codex'], ['warn', 'codex: atomicaui-release, atomicaui-upgrade-prototype not linked; agent-kit repair registers them']);
+  assert.deepEqual(rows()['figma-skills-codex'], ['warn', 'codex: atomicaui-release, atomicaui-upgrade-prototype not linked; agent-kit repair links them']);
+  // The per-path row: repair only for a missing folder; a changed or foreign folder is refused by figma-cli.
+  const perPath = () => Object.fromEntries(doctor(f.manifest, f.options).checks.filter(x => x.id.startsWith('figma-skill-') && !x.id.startsWith('figma-skills')).map(x => [x.detail.split(' ')[0], [x.status, x.detail]]));
+  const target = join(targets.codex, 'figma-cli');
+  assert.deepEqual(perPath()[target], ['pass', `${target} registered by figma-cli`]);
+  writeFileSync(join(target, '.figma-cli-skill.json'), JSON.stringify({ owner: 'someone-else' }));
+  assert.deepEqual(perPath()[target], ['warn', `${target} was changed or is not the Figma CLI's, so repair will not link it; move or rename that folder, then run agent-kit repair again, or ask whoever shared this guide`]);
+  rmSync(target, { recursive: true });
+  assert.deepEqual(perPath()[target], ['warn', `${target} missing; agent-kit repair links it again`]);
+  mkdirSync(target, { recursive: true }); writeFileSync(join(target, '.figma-cli-skill.json'), JSON.stringify({ owner: 'amelie-pierce/figma-cli' }));
   assert.equal(rows()['figma-skills-claude'][0], 'pass');
+  // A skill folder the person edited by hand (marker gone) or another tool owns is refused by figma-cli, so repair cannot link it.
+  receipt.phases['npm-figma'].skills = paths.filter(path => !path.startsWith(targets.codex) || !path.endsWith('atomicaui-release'));
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  writeFileSync(join(targets.codex, 'atomicaui-release', '.figma-cli-skill.json'), JSON.stringify({ owner: 'someone-else' }));
+  assert.deepEqual(rows()['figma-skills-codex'], ['warn', "codex: atomicaui-release folder was changed or is not the Figma CLI's, so repair will not link it; move or rename that folder, then run agent-kit repair again, or ask whoever shared this guide"]);
+  rmSync(join(targets.codex, 'atomicaui-release'), { recursive: true });
+  assert.deepEqual(rows()['figma-skills-codex'], ['warn', 'codex: atomicaui-release not linked; agent-kit repair links it']);
+  receipt.phases['npm-figma'].skills = paths;
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  mkdirSync(join(targets.codex, 'atomicaui-release'), { recursive: true }); writeFileSync(join(targets.codex, 'atomicaui-release', '.figma-cli-skill.json'), JSON.stringify({ owner: 'amelie-pierce/figma-cli' }));
+  receipt.phases['npm-figma'].skills = paths.filter(path => !path.startsWith(targets.codex) || !path.includes('atomicaui'));
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
   const configured = { ...f.options, env: { ...f.options.env, CLAUDE_CONFIG_DIR: join(f.home, '.claude-work') } };
   assert.equal(doctor(f.manifest, configured).checks.find(x => x.id === 'figma-skills-claude').status, 'pass', 'figma-cli links Claude skills under HOME, whatever CLAUDE_CONFIG_DIR says');
   receipt.setup.answers.harness = 'claude';
