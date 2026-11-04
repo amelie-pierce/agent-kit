@@ -234,8 +234,14 @@ function figmaSkillsLinked(root, receipt, harness, home) {
   const recorded = new Set(phase.skills);
   return (harness === 'both' ? ['claude', 'codex'] : [harness === 'codex' ? 'codex' : 'claude']).map(agent => {
     const missing = names.filter(name => !recorded.has(join(targets[agent], name)));
+    // figma-cli never overwrites a skill folder the person changed or another tool owns (see figmaSkills), so repair cannot link those.
+    const owned = name => { try { return JSON.parse(readFileSync(join(targets[agent], name, '.figma-cli-skill.json'), 'utf8')).owner === 'amelie-pierce/figma-cli'; } catch { return false; } };
+    const refused = missing.filter(name => existsSync(join(targets[agent], name)) && !owned(name)), absent = missing.filter(name => !refused.includes(name));
+    const one = refused.length === 1;
+    const advice = [absent.length && `${absent.join(', ')} not linked; agent-kit repair links ${absent.length === 1 ? 'it' : 'them'}`,
+      refused.length && `${refused.join(', ')} ${one ? 'folder was' : 'folders were'} changed or ${one ? 'is' : 'are'} not the Figma CLI's, so repair will not link ${one ? 'it' : 'them'}; move or rename ${one ? 'that folder' : 'those folders'}, then run agent-kit repair again, or ask whoever shared this guide`].filter(Boolean).join('; ');
     return status(`figma-skills-${agent}`, missing.length ? 'warn' : 'pass', missing.length
-      ? `${agent}: ${missing.join(', ')} not linked; agent-kit repair registers ${missing.length === 1 ? 'it' : 'them'}`
+      ? `${agent}: ${advice}`
       : `${agent}: ${names.join(', ')} linked`);
   });
 }

@@ -580,7 +580,7 @@ These rows cover what `pilot-9` added. Most report `PASS` or `WARN`; `shell-prof
 | `captain-help` | your help page exists | it was deleted; ask Firstmate to write one, or run repair |
 | `claude-marketplace-…`, `claude-plugin-…` (with Claude Code) | the Claude plugins are enabled and the marketplace is at the kit pin | a plugin is turned off, or a kit-owned or your own marketplace differs from the kit pin |
 | `figma-skill-…` (with Figma) | the Figma CLI's skills are linked | run repair |
-| `figma-skills-claude`, `figma-skills-codex` (with Figma, one per agent CLI you chose) | `<agent>: atomicaui-release, atomicaui-upgrade-prototype, figma-cli, figma-make, figma-make-team linked`: every skill the installed Figma CLI ships is linked for that agent | `WARN … not linked`: run repair, which links the named skills |
+| `figma-skills-claude`, `figma-skills-codex` (with Figma, one per agent CLI you chose) | `<agent>: atomicaui-release, atomicaui-upgrade-prototype, figma-cli, figma-make, figma-make-team linked`: every skill the installed Figma CLI ships is linked for that agent | `WARN … not linked`: run repair, which links a skill that is missing. If the row says a skill folder was changed or is not the Figma CLI's, repair will not touch it: move or rename that folder, run repair again, or ask whoever shared this guide |
 
 - `FAIL <tool>-path: another binary has PATH precedence` means an older copy of that tool comes first on your PATH. Fix your PATH (A2.7) and run doctor again.
 - Any other `FAIL` is a real problem. See A10.
@@ -1980,7 +1980,7 @@ These rows cover what `pilot-9` added. Most report `PASS` or `WARN`; `shell-prof
 | `captain-help` | your help page exists | it was deleted; ask Firstmate to write one, or run repair |
 | `claude-marketplace-…`, `claude-plugin-…` (with Claude Code) | the Claude plugins are enabled and the marketplace is at the kit pin | a plugin is turned off, or a kit-owned or your own marketplace differs from the kit pin |
 | `figma-skill-…` (with Figma) | the Figma CLI's skills are linked | run repair |
-| `figma-skills-claude`, `figma-skills-codex` (with Figma, one per agent CLI you chose) | `<agent>: atomicaui-release, atomicaui-upgrade-prototype, figma-cli, figma-make, figma-make-team linked`: every skill the installed Figma CLI ships is linked for that agent | `WARN … not linked`: run repair, which links the named skills |
+| `figma-skills-claude`, `figma-skills-codex` (with Figma, one per agent CLI you chose) | `<agent>: atomicaui-release, atomicaui-upgrade-prototype, figma-cli, figma-make, figma-make-team linked`: every skill the installed Figma CLI ships is linked for that agent | `WARN … not linked`: run repair, which links a skill that is missing. If the row says a skill folder was changed or is not the Figma CLI's, repair will not touch it: move or rename that folder, run repair again, or ask whoever shared this guide |
 
 - `FAIL <tool>-path: another binary has PATH precedence` means an older copy of that tool comes first on your Ubuntu PATH. Fix your PATH (B2.11) and run doctor again.
 - Any other `FAIL` is a real problem. See B10.
