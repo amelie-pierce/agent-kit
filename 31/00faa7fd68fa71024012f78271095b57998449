@@ -1,0 +1,21 @@
+test/doctor-update.test.mjs
+  s_33df03e4920563::t_cd52eefaa5c0e3 87-88
+src/doctor.mjs
+  s_33df03e4920563::t_cd52eefaa5c0e3 217,224,233
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3100faa7fd68fa71024012f78271095b57998449",
+  "prompts": {},
+  "sessions": {
+    "s_33df03e4920563": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c493a38d-8e87-4acf-b289-c758b59d73c8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
