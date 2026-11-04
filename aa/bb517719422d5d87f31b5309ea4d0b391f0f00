@@ -1,0 +1,23 @@
+docs/user-guide.md
+  s_6920606fee1170::t_d1a1d1c6fb55a7 582,1982
+src/doctor.mjs
+  s_6920606fee1170::t_d1a1d1c6fb55a7 215
+test/doctor-update.test.mjs
+  s_6920606fee1170::t_e6fd890236243b 86-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aabb517719422d5d87f31b5309ea4d0b391f0f00",
+  "prompts": {},
+  "sessions": {
+    "s_6920606fee1170": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dab6d009-fad9-409b-b0f1-ccef5591d639",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
