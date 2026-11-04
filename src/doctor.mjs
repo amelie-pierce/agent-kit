@@ -212,7 +212,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, herdrPa
     let owner = null;
     try { owner = JSON.parse(readFileSync(join(path, '.figma-cli-skill.json'), 'utf8')).owner; } catch { /* reported */ }
     checks.push(status(`figma-skill-${path.split('/').slice(-3).join('-')}`, owner === 'amelie-pierce/figma-cli' ? 'pass' : 'warn',
-      owner === 'amelie-pierce/figma-cli' ? `${path} registered by figma-cli` : `${path} missing or not figma-cli's; agent-kit repair registers it again`));
+      owner === 'amelie-pierce/figma-cli' ? `${path} registered by figma-cli` : existsSync(path) ? `${path} was changed or is not the Figma CLI's, so repair will not link it; move or rename that folder, then run agent-kit repair again, or ask whoever shared this guide` : `${path} missing; agent-kit repair links it again`));
   }
   checks.push(...figmaSkillsLinked(root, receipt, recordedHarness, home || env.HOME));
   checks.push(status('authenticated', 'unknown', 'sign-in belongs to this teammate; no auth store queried'));
