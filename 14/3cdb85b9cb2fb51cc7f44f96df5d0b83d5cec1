@@ -1,0 +1,29 @@
+test/doctor-update.test.mjs
+  s_6920606fee1170::t_d25badfd26f6c7 85,87-98
+docs/user-guide.md
+  s_6920606fee1170::t_263e2d183c0b6f 583,1983
+docs/features.md
+  s_6920606fee1170::t_263e2d183c0b6f 46
+src/doctor.mjs
+  s_6920606fee1170::t_cf23d4571d6402 237-242,244
+README.md
+  s_6920606fee1170::t_263e2d183c0b6f 460
+_vaults/agent-kit/wiki/architecture/doctor-update.md
+  s_6920606fee1170::t_39d6246e21839a 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "143cdb85b9cb2fb51cc7f44f96df5d0b83d5cec1",
+  "prompts": {},
+  "sessions": {
+    "s_6920606fee1170": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dab6d009-fad9-409b-b0f1-ccef5591d639",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
