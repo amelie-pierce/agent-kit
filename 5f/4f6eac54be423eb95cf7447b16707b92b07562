@@ -1,0 +1,19 @@
+README.md
+  s_2ee27f18b2748a::t_16d03f4e27447a 562
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5f4f6eac54be423eb95cf7447b16707b92b07562",
+  "prompts": {},
+  "sessions": {
+    "s_2ee27f18b2748a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "02c20eea-1890-4290-9a60-e80306ea09ca",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
