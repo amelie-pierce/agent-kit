@@ -1,0 +1,34 @@
+manifests/pilot-skeleton.json
+  s_6f1d3869953ad5::t_13f3b638952595 1221,1223
+test/kit.test.mjs
+  s_6f1d3869953ad5::t_13f3b638952595 378,1252-1253
+README.md
+  s_6f1d3869953ad5::t_13f3b638952595 215
+  s_6f1d3869953ad5::t_c1ab5f4cfeeca5 461
+test/extras.test.mjs
+  s_6f1d3869953ad5::t_13f3b638952595 424
+docs/user-guide.md
+  s_6f1d3869953ad5::t_13f3b638952595 18
+manifests/npm-figma/package.json
+  s_6f1d3869953ad5::t_13f3b638952595 6
+manifests/claude-plugins.json
+  s_6f1d3869953ad5::t_13f3b638952595 32
+manifests/npm-figma/package-lock.json
+  s_6f1d3869953ad5::t_1e9b067b1c4ad8 11,16-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d43b9ab33138364c5d9eda80a0fb7120c819e0de",
+  "prompts": {},
+  "sessions": {
+    "s_6f1d3869953ad5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5ff1c3c-2ec7-4f30-a138-a6bbc215379b",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
