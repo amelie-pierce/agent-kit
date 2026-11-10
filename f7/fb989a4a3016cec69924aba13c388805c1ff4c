@@ -1,0 +1,23 @@
+docs/features.md
+  s_f85d9e52fdbac4::t_31362921a3ded1 243
+docs/user-guide.md
+  s_f85d9e52fdbac4::t_31362921a3ded1 1085,1105,2497,2517
+README.md
+  s_f85d9e52fdbac4::t_31362921a3ded1 462
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f7fb989a4a3016cec69924aba13c388805c1ff4c",
+  "prompts": {},
+  "sessions": {
+    "s_f85d9e52fdbac4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1ef4187e-d679-4bf2-95b4-bd34059b9b6f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}

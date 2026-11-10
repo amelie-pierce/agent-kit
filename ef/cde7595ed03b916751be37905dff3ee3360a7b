@@ -1,0 +1,19 @@
+_vaults/agent-kit/wiki/architecture/figma-cli-pin.md
+  s_7d7c81fcfd6d6a::t_df1e98d38f3e7b 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "efcde7595ed03b916751be37905dff3ee3360a7b",
+  "prompts": {},
+  "sessions": {
+    "s_7d7c81fcfd6d6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7314fbd3-323f-42ee-8411-efc9152cbac3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
