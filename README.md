@@ -212,7 +212,7 @@ When you choose Claude, the kit installs the owner's Claude Code plugins with yo
 | --- | --- | --- | --- |
 | `codex@openai-codex` | openai/codex-plugin-cc `db52e28f` | Apache-2.0 | its SessionEnd timeout goes from 5 to 3 seconds, only while `hooks/hooks.json` matches the pinned file |
 | `cc-gemini-plugin` | thepushkarp/cc-gemini-plugin `dd745eab` | MIT, stated in its README (no LICENSE file) | |
-| `figma-cli@amelie-pierce` (Claude marketplace pin, with Figma) | amelie-pierce/figma-cli `3ac6dbed` | MIT | |
+| `figma-cli@amelie-pierce` (Claude marketplace pin, with Figma) | amelie-pierce/figma-cli `21e8322` | MIT | |
 | From `claude-plugins-official` at `41f619d6` (Apache-2.0): `code-review`, `code-simplifier`, `commit-commands`, `frontend-design`, `security-guidance`, `skill-creator`, `typescript-lsp`, `rust-analyzer-lsp` | that marketplace | Apache-2.0 | |
 | `atlassian` | atlassian/atlassian-mcp-server `b74220d4`, via the official marketplace | Apache-2.0 | Atlassian-hosted MCP; sign in yourself |
 | `chrome-devtools-mcp` | ChromeDevTools/chrome-devtools-mcp `a878bcad` | Apache-2.0 | `npx chrome-devtools-mcp@1.11.0`, pinned upstream (registry integrity `sha512-CytJ/5tn…` recorded) |
@@ -337,6 +337,8 @@ The `macos-pilot-6` manifest re-pins Firstmate to `976c3ba730b9dafefc159b12a97a0
 
 `pilot-7` changes the release label from `macos-pilot-6`, the Codex CLI pin and lock, and the Claude Code minimum (below). The shorter label does not change the upgrade path for an existing `macos-pilot-6` install. The new user-level writes are the optional Firstmate-home `.env` assignment, the receipt's boolean `setup.keys.TYPESAFE_API_KEY` flag, the starter `<root>/firstmate/config/crew-dispatch.json` once the key is set, the receipt's `setup.dispatch` record, and the saved plan names and routing mode in `setup.answers.plans` and `setup.answers.dispatchMode`. `manifests/plan-models.json` is the new owner-approved plan-to-model table. The Codex CLI pin moves from 0.155.1 to 0.164.0 (GPT-6.1 Terra needs 0.159.0 or later), with a regenerated lock. The Claude Code minimum moves from 2.0.0 to 2.1.293, which Haiku 5.5 needs. The key-update command changes the key, the flag and, when it sets the key, the starter rules. Uninstall removes `.env` only with explicit typed confirmation and removes the starter rules only while unchanged.
 
+**A pilot-16 install moving to pilot-17.** Follow the [macOS](docs/user-guide.md#a63-upgrade-update) or [Windows (WSL2)](docs/user-guide.md#b63-upgrade-update) upgrade steps in the user guide. See [Pins and approval](#pins-and-approval) for the release change.
+
 **A pilot-15 install moving to pilot-16.** Follow the [macOS](docs/user-guide.md#a63-upgrade-update) or [Windows (WSL2)](docs/user-guide.md#b63-upgrade-update) upgrade steps in the user guide. See [Pins and approval](#pins-and-approval) for the release change.
 
 **A pilot-14 install moving to pilot-15.** Follow the [macOS](docs/user-guide.md#a63-upgrade-update) or [Windows (WSL2)](docs/user-guide.md#b63-upgrade-update) upgrade steps in the user guide. See [Pins and approval](#pins-and-approval) for the release change.
@@ -451,6 +453,15 @@ Afterwards, open Windows Terminal with your distribution's profile and run Herdr
 ## Pins and approval
 
 In the manifest, `verified` means the artifact's identity and integrity were checked against the approved upstream: a source commit, a published SHA-256 digest, or registry integrity in a committed npm lock. It does not mean owner approval, and no pin field claims it. The owner approves a release by merging the PR that changes the manifest. `install` installs only `verified` pins. Unverified pins are reported and skipped. Person-installed `kind: "prerequisite"` entries have a minimum version and vendor install link instead of a kit pin or artifact; `install` and `update` never stage them. `check`, `plan` and `doctor` test their `--version` on PATH. Version probes use disposable HOME state, because figma-cli can initialize its own settings even for `--version` and Codex can leave `~/.codex/tmp` behind when the probe times out; figma-cli is now detected by presence only.
+
+### Release changes (`pilot-16` -> `pilot-17`)
+
+- **Label.** `pilot-16` -> `pilot-17`.
+- **Firstmate.** The approved fork advances from `98619dc3` to commit `d6257ae1`, the head of Firstmate `main` after [PR 49](https://github.com/pikenguyen227/firstmate/pull/49) (faster fleet snapshots that keep decision evidence) and [PR 50](https://github.com/pikenguyen227/firstmate/pull/50) (coding guidelines in ship worker briefs). The [manifest](manifests/pilot-skeleton.json) owns the pinned commit and source archive SHA-256.
+- **Figma CLI.** When Figma was selected, the npm-installed CLI moves from `3ac6dbed` to commit `21e8322`, the head of figma-cli `main` after [PR 37 to PR 51](https://github.com/amelie-pierce/figma-cli/pulls?q=is%3Apr+is%3Amerged). That range includes [PR 48](https://github.com/amelie-pierce/figma-cli/pull/48) (a Make deploy write whose reply is uncertain is confirmed by content hash), [PR 49](https://github.com/amelie-pierce/figma-cli/pull/49) (the deploy save settles on what Make lists and checks every planned file against `main`) and [PR 50](https://github.com/amelie-pierce/figma-cli/pull/50) (entry files are written last, in import order; a first deploy saves in two batches; an existing app is unwired, updated, then rewired) and [PR 51](https://github.com/amelie-pierce/figma-cli/pull/51) (the upgrade skill and the figma-cli docs now say a first deploy saves two Make versions). The [npm lock](manifests/npm-figma/package-lock.json) carries the new archive integrity; the package version stays `2.2.5-make.2` and its dependencies are unchanged. With Claude also selected, the kit-owned Figma plugin marketplace pin moves to the same commit, under the same ownership rules as in `pilot-13`.
+- **User guide.** The Make deploy wording in the AtomicAUI prototype upgrade section (A7.8, B7.8) and in the feature list now says a first deploy saves two Make versions and that entry files are written last; it also says the upgrade skill applies a deploy in the foreground and asks before `--resume` or `--abort`, while a deploy through the `figma-make-team` skill runs detached with a status check and resumes a stalled write once.
+- **User-level files and settings.** None. The existing guarded Firstmate update and release staging apply.
+- **Every other pin, digest and prerequisite** remains as in `pilot-16`. The owner's merge word is required; teammates update only when the owner asks.
 
 ### Release changes (`pilot-15` -> `pilot-16`)
 

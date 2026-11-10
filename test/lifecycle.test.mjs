@@ -544,8 +544,7 @@ test('upgrade from pilot-15 to pilot-16 shows the Firstmate re-pin, asks for /up
   const fetchKit = async (_commit, _env, destination) => {
     await stagedKit(_commit, _env, destination);
     const target = structuredClone(f.manifest);
-    target.release = bundled.release;
-    assert.equal(bundled.release, 'pilot-16');
+    target.release = 'pilot-16';
     target.tools.find(x => x.id === 'firstmate').version.value = newPin;
     writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
   };
@@ -574,6 +573,52 @@ test('upgrade from pilot-15 to pilot-16 shows the Firstmate re-pin, asks for /up
   assert.equal(after.phases.firstmate.version, newPin);
   assert.equal(readFileSync(join(f.root, 'releases', 'pilot-15', 'bin', 'herdr'), 'utf8'), 'original', 'the pilot-15 release stays for rollback');
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate 98619dc3\n', 'the kit never touches the home');
+});
+
+test('upgrade from pilot-16 to pilot-17 shows the Firstmate re-pin, asks for /updatefirstmate first, then applies', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t), oldPin = f.git('rev-parse', 'HEAD');
+  writeFileSync(join(f.firstmate, 'README.md'), 'firstmate d6257ae1\n');
+  f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qam', 'firstmate pilot-17 fixes');
+  const newPin = f.git('rev-parse', 'HEAD');
+  f.git('checkout', '-q', '--detach', oldPin);
+  renameSync(join(f.root, 'releases', 'old-release'), join(f.root, 'releases', 'pilot-16'));
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.release = 'pilot-16';
+  receipt.phases.herdr.path = 'releases/pilot-16/bin/herdr';
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const fetchKit = async (_commit, _env, destination) => {
+    await stagedKit(_commit, _env, destination);
+    const target = structuredClone(f.manifest);
+    target.release = bundled.release;
+    assert.equal(bundled.release, 'pilot-17');
+    target.tools.find(x => x.id === 'firstmate').version.value = newPin;
+    writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
+  };
+  const args = { ...f.options, resolveCommit: () => '8'.repeat(40), fetchKit };
+  const before = readFileSync(f.receiptPath, 'utf8');
+  const plan = await planUpgrade(args);
+  t.after(() => rmSync(plan.stage, { recursive: true, force: true }));
+  assert.equal(plan.fromRelease, 'pilot-16');
+  assert.equal(plan.toRelease, 'pilot-17');
+  assert.equal(plan.firstmatePinChange, true);
+  assert.deepEqual(plan.changes.filter(x => x.from.version !== x.to.version).map(x => x.id), ['firstmate']);
+  const text = formatLifecycle(plan);
+  assert.match(text, /\nRelease: pilot-16 -> pilot-17\n/);
+  assert.match(text, new RegExp(`\\n- firstmate: ${oldPin} -> ${newPin}; stage and verify\\n`));
+  assert.match(text, /\nFirstmate pin: run \/updatefirstmate in the Firstmate home before applying\n/);
+  await assert.rejects(applyUpgrade(plan, f.options), new RegExp(`Firstmate pin changed; run /updatefirstmate from ${f.firstmate}, then rerun agent-kit upgrade`));
+  assert.equal(readFileSync(f.receiptPath, 'utf8'), before, 'nothing changes before /updatefirstmate');
+  assert.equal(existsSync(join(f.root, 'releases', 'pilot-17')), false);
+  f.git('checkout', '-q', '--detach', newPin);
+  const ready = await planUpgrade(args);
+  assert.match(formatLifecycle(ready), /\nFirstmate pin: guarded update already verified\n/);
+  const result = await applyUpgrade(ready, f.options);
+  assert.equal(result.status, 'upgraded');
+  const after = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  assert.equal(after.release, 'pilot-17');
+  assert.equal(after.phases.firstmate.version, newPin);
+  assert.equal(readFileSync(join(f.root, 'releases', 'pilot-16', 'bin', 'herdr'), 'utf8'), 'original', 'the pilot-16 release stays for rollback');
+  assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate d6257ae1\n', 'the kit never touches the home');
 });
 
 test('pilot-12 upgrade and guarded rollback restore Firstmate and kit-owned Figma marketplace', { skip: process.platform === 'win32' }, async t => {

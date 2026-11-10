@@ -2,7 +2,7 @@
 
 ## Status of this guide
 
-This guide describes the `pilot-16` kit. `pilot-15` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This guide describes the `pilot-17` kit. `pilot-16` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 | Release | What it added |
 | --- | --- |
@@ -15,6 +15,7 @@ This guide describes the `pilot-16` kit. `pilot-15` is the previous version. Rel
 | `pilot-14` | Firstmate keeps Herdr pane reads passive so monitoring does not scroll or jump worker panes; every other pin stays at its pilot-13 value |
 | `pilot-15` | Firstmate keeps no-mistakes `--intent` text safe to show in a pull request; Figma CLI at `619a5def` (component-only AtomicAUI sync, read-back after an uncertain write, a locked release-installed AtomicAUI folder); see the [release note](../README.md#pins-and-approval) |
 | `pilot-16` | Two new Figma CLI skills: release a new AtomicAUI (A7.7, B7.7) and upgrade your prototype to the latest AtomicAUI (A7.8, B7.8); Figma CLI at `3ac6dbed`, which also warns about oversized Make source files, stops status timeouts on large projects, adds deploy reminders and fixes the override limits; Firstmate at `98619dc3` alerts you when a worker under a second mate stays stopped at a validation gate, and fixes a random failure in its own Herdr recovery test; see the [release note](../README.md#pins-and-approval) |
+| `pilot-17` | Firstmate at `d6257ae1` (faster fleet snapshots that keep decision evidence, and coding guidelines in ship worker briefs); Figma CLI at `21e8322`, which brings in the Make deploy changes: a first deploy saves two Make versions, entry files are written last, a deploy can run detached with a status check, and a write whose reply is uncertain is confirmed by content hash. The Make deploy wording in this guide is updated to match; see the [release note](../README.md#pins-and-approval) |
 
 **Branch-rule finder limits.** It may miss `feature/*` globs and tables headed `Naming convention`. It may over-count a sentence that mixes branch advice with a path, or file-name tables under a `Branching` heading. If this happens, record the project's branch pattern.
 
@@ -387,7 +388,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-16)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-17)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
 
 **3. Sign in to your agent CLIs yourself.** In the same Terminal window:
 
@@ -651,6 +652,16 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - Set `AK` to the new kit copy (A6).
 - If you skipped question 5b, change `<release>` in your PATH line (A2.7) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (A6.1).
+
+**Moving from `pilot-16` to `pilot-17`**, when you are asked to:
+
+1. Run upgrade. The plan shows `Release: pilot-16 -> pilot-17`, the changed Firstmate line and, if you chose Figma, a `figma-cli` line, plus `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. See the [release note](../README.md#pins-and-approval) for the changes.
+2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
+3. Start Herdr and Firstmate again (A3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (A10.3).
+4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
+5. Do the "After an upgrade" steps above. With Figma, doctor still shows the `figma-skills-claude` or `figma-skills-codex` row naming all five Figma CLI skills as linked. Start a new Claude Code or Codex session so it sees the updated skills.
+
+If the owner asks you to return from `pilot-17` to the recorded `pilot-16` release, quit Firstmate and stop Herdr and the other kit services first. With `AK` still pointing to the pilot-17 kit, run `node "$AK" doctor` and check `PASS rollback-release`, then run `node "$AK" rollback pilot-16`. Review the plan and answer `y`. Point `AK` to the restored pilot-16 kit path shown in the plan, then run doctor.
 
 **Moving from `pilot-15` to `pilot-16`**, when you are asked to:
 
@@ -1071,7 +1082,7 @@ A team prototype keeps its code on GitHub; GitHub's `main` is the source of trut
 5. A teammate reviews and approves the pull request. You merge it, by saying "merge it" through the `figma-make-team` skill or on GitHub. The agent never merges.
 6. After the merge, a repository admin pastes the second prompt. Ask everyone to stop editing the prototype's Make file during the deploy, and keep it open in Figma Desktop.
 7. The agent shows the deploy dry run: what will change in Make. If it lists more than the upgrade, other merged work is on `main` too; a deploy always brings all of `main`. Answer yes only if it looks right.
-8. It applies the deploy, reloads and verifies it. Then ask everyone with the Make file open to reload it.
+8. It applies the deploy, reloads and verifies it. If a write fails part-way, it stops and asks you whether to resume (`--resume`) or abort (`--abort`) that deploy, never both. Then ask everyone with the Make file open to reload it.
 
 **Copy-paste prompt, upgrade:**
 
@@ -1091,7 +1102,7 @@ Other phrases the `atomicaui-upgrade-prototype` skill answers to: "move this pro
 
 - Check: `figma-cli make atomicaui status --dir <folder>` and `figma-cli team status --dir <folder>`.
 - Upgrade: `figma-cli make atomicaui upgrade --dir <folder>` for the latest release, or `figma-cli make atomicaui upgrade --dir <folder> --to X.Y.Z` for a named one (a lower version is labelled a downgrade). It downloads and checks the release, starts its own branch from the latest `main`, replaces `src/vendor/atomic-aui/`, adds the library's dependencies to `package.json`, applies the release's fixes for breaking changes, installs, saves, opens the pull request and stops. Running it again continues the same branch after an interruption or when `main` moved.
-- Deploy, only after you say it is merged: `figma-cli make pull <folder>` to bring `main` up to date (or a fresh `figma-cli make clone` if your copy is still on the upgrade branch), then the dry run `figma-cli make deploy --file <key> --dir <folder>`. After your yes, `figma-cli make deploy --file <key> --dir <folder> --apply <plan>` saves one Make version and tags it `make-deploy/<n>`. Finally `figma-cli make deploy --file <key> --dir <folder> --verify <receipt>` reloads Make and must report `fresh-sandbox-verified`.
+- Deploy, only after you say it is merged: `figma-cli make pull <folder>` to bring `main` up to date (or a fresh `figma-cli make clone` if your copy is still on the upgrade branch), then the dry run `figma-cli make deploy --file <key> --dir <folder>`. After your yes, the agent runs `figma-cli make deploy --file <key> --dir <folder> --apply <plan>` in the foreground and waits for it. The deploy writes the entry files (`src/App.tsx`, `src/main.tsx`) last, saves one Make version for an existing app and two for a first deploy (batch 1, then the entry files), and tags it `make-deploy/<n>`. If a write fails, the agent stops and asks you whether to run `--resume <receipt>` or `--abort <receipt>`, never both; a first-batch save with an unknown outcome is settled by `--verify <receipt>`, then `--resume <receipt>`. Finally `figma-cli make deploy --file <key> --dir <folder> --verify <receipt>` reloads Make and must report `fresh-sandbox-verified`. A deploy you start by saying "deploy" through the `figma-make-team` skill instead runs detached with `--detach`, the agent follows `figma-cli make deploy status --file <key>`, and a write that stopped part-way is resumed once with `--resume <receipt>`, never by deploying again.
 
 **It stops and asks** when someone edited the library folder by hand, when the release is not on the site yet (the kit owner still has to publish it, A7.7), when your copy has unsaved work, when the upgrade lists breaking or dependency changes you did not expect, and on any deploy refusal. It never merges and never deploys before you say the pull request is merged.
 
@@ -1780,7 +1791,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-16)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-17)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
 
 **3. Sign in to your agent CLIs yourself, inside Ubuntu.** Signing in on Windows does not count here.
 
@@ -2051,6 +2062,16 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - Set `AK` to the new kit copy (B6).
 - If you skipped question 5b, change `<release>` in your Ubuntu PATH line (B2.11) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (B6.1).
+
+**Moving from `pilot-16` to `pilot-17`**, when you are asked to:
+
+1. Run upgrade. The plan shows `Release: pilot-16 -> pilot-17`, the changed Firstmate line and, if you chose Figma, a `figma-cli` line, plus `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. See the [release note](../README.md#pins-and-approval) for the changes.
+2. Answer `y`. Upgrade stops with `Firstmate pin changed; run /updatefirstmate from <home>, then rerun agent-kit upgrade` and changes nothing.
+3. Start Herdr and Firstmate again (B3) and ask Firstmate to run `/updatefirstmate` (in Codex: `$updatefirstmate`). When it is done, quit Firstmate and stop Herdr (B10.3).
+4. Run upgrade again. The plan now says `Firstmate pin: guarded update already verified`; answer `y`.
+5. Do the "After an upgrade" steps above. With Figma, doctor still shows the `figma-skills-claude` or `figma-skills-codex` row naming all five Figma CLI skills as linked. Start a new Claude Code or Codex session so it sees the updated skills.
+
+If the owner asks you to return from `pilot-17` to the recorded `pilot-16` release, quit Firstmate and stop Herdr and the other kit services first. In Ubuntu, with `AK` still pointing to the pilot-17 kit, run `node "$AK" doctor` and check `PASS rollback-release`, then run `node "$AK" rollback pilot-16`. Review the plan and answer `y`. Point `AK` to the restored pilot-16 kit path shown in the plan, then run doctor.
 
 **Moving from `pilot-15` to `pilot-16`**, when you are asked to:
 
@@ -2473,7 +2494,7 @@ A team prototype keeps its code on GitHub; GitHub's `main` is the source of trut
 5. A teammate reviews and approves the pull request. You merge it, by saying "merge it" through the `figma-make-team` skill or on GitHub. The agent never merges.
 6. After the merge, a repository admin pastes the second prompt. Ask everyone to stop editing the prototype's Make file during the deploy, and keep it open in Figma Desktop.
 7. The agent shows the deploy dry run: what will change in Make. If it lists more than the upgrade, other merged work is on `main` too; a deploy always brings all of `main`. Answer yes only if it looks right.
-8. It applies the deploy, reloads and verifies it. Then ask everyone with the Make file open to reload it.
+8. It applies the deploy, reloads and verifies it. If a write fails part-way, it stops and asks you whether to resume (`--resume`) or abort (`--abort`) that deploy, never both. Then ask everyone with the Make file open to reload it.
 
 **Copy-paste prompt, upgrade:**
 
@@ -2493,7 +2514,7 @@ Other phrases the `atomicaui-upgrade-prototype` skill answers to: "move this pro
 
 - Check: `figma-cli make atomicaui status --dir <folder>` and `figma-cli team status --dir <folder>`.
 - Upgrade: `figma-cli make atomicaui upgrade --dir <folder>` for the latest release, or `figma-cli make atomicaui upgrade --dir <folder> --to X.Y.Z` for a named one (a lower version is labelled a downgrade). It downloads and checks the release, starts its own branch from the latest `main`, replaces `src/vendor/atomic-aui/`, adds the library's dependencies to `package.json`, applies the release's fixes for breaking changes, installs, saves, opens the pull request and stops. Running it again continues the same branch after an interruption or when `main` moved.
-- Deploy, only after you say it is merged: `figma-cli make pull <folder>` to bring `main` up to date (or a fresh `figma-cli make clone` if your copy is still on the upgrade branch), then the dry run `figma-cli make deploy --file <key> --dir <folder>`. After your yes, `figma-cli make deploy --file <key> --dir <folder> --apply <plan>` saves one Make version and tags it `make-deploy/<n>`. Finally `figma-cli make deploy --file <key> --dir <folder> --verify <receipt>` reloads Make and must report `fresh-sandbox-verified`.
+- Deploy, only after you say it is merged: `figma-cli make pull <folder>` to bring `main` up to date (or a fresh `figma-cli make clone` if your copy is still on the upgrade branch), then the dry run `figma-cli make deploy --file <key> --dir <folder>`. After your yes, the agent runs `figma-cli make deploy --file <key> --dir <folder> --apply <plan>` in the foreground and waits for it. The deploy writes the entry files (`src/App.tsx`, `src/main.tsx`) last, saves one Make version for an existing app and two for a first deploy (batch 1, then the entry files), and tags it `make-deploy/<n>`. If a write fails, the agent stops and asks you whether to run `--resume <receipt>` or `--abort <receipt>`, never both; a first-batch save with an unknown outcome is settled by `--verify <receipt>`, then `--resume <receipt>`. Finally `figma-cli make deploy --file <key> --dir <folder> --verify <receipt>` reloads Make and must report `fresh-sandbox-verified`. A deploy you start by saying "deploy" through the `figma-make-team` skill instead runs detached with `--detach`, the agent follows `figma-cli make deploy status --file <key>`, and a write that stopped part-way is resumed once with `--resume <receipt>`, never by deploying again.
 
 **It stops and asks** when someone edited the library folder by hand, when the release is not on the site yet (the kit owner still has to publish it, B7.7), when your copy has unsaved work, when the upgrade lists breaking or dependency changes you did not expect, and on any deploy refusal. It never merges and never deploys before you say the pull request is merged.
 

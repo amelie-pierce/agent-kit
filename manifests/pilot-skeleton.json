@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "release": "pilot-16",
+  "release": "pilot-17",
   "nodeMinimum": "24.15.0",
   "tools": [
     {
@@ -76,7 +76,7 @@
       "classification": "shareable",
       "version": {
         "kind": "git-commit",
-        "value": "98619dc37d85461394c915289006e8645926571b",
+        "value": "d6257ae1c714aa59878f804a9a47bb4e00165666",
         "status": "verified",
         "reason": "Commit verified on approved upstream."
       },
@@ -88,26 +88,26 @@
       "runtimeMinimum": null,
       "artifacts": {
         "darwin-arm64": {
-          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/98619dc37d85461394c915289006e8645926571b",
-          "sha256": "ae3f664d47ee1c3668c8f0de528f19cc86bc21f379c662b125468b15ccb2aa50",
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/d6257ae1c714aa59878f804a9a47bb4e00165666",
+          "sha256": "b5fc81d7b4c7ec385f23e22bfd31096b676d90e6d7b4b16a533d192f3ae32a9a",
           "status": "verified",
           "reason": "SHA-256 computed from the pinned GitHub source archive."
         },
         "darwin-x64": {
-          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/98619dc37d85461394c915289006e8645926571b",
-          "sha256": "ae3f664d47ee1c3668c8f0de528f19cc86bc21f379c662b125468b15ccb2aa50",
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/d6257ae1c714aa59878f804a9a47bb4e00165666",
+          "sha256": "b5fc81d7b4c7ec385f23e22bfd31096b676d90e6d7b4b16a533d192f3ae32a9a",
           "status": "verified",
           "reason": "SHA-256 computed from the pinned GitHub source archive."
         },
         "linux-arm64": {
-          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/98619dc37d85461394c915289006e8645926571b",
-          "sha256": "ae3f664d47ee1c3668c8f0de528f19cc86bc21f379c662b125468b15ccb2aa50",
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/d6257ae1c714aa59878f804a9a47bb4e00165666",
+          "sha256": "b5fc81d7b4c7ec385f23e22bfd31096b676d90e6d7b4b16a533d192f3ae32a9a",
           "status": "verified",
           "reason": "SHA-256 of pinned source archive, shared across supported hosts."
         },
         "linux-x64": {
-          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/98619dc37d85461394c915289006e8645926571b",
-          "sha256": "ae3f664d47ee1c3668c8f0de528f19cc86bc21f379c662b125468b15ccb2aa50",
+          "url": "https://codeload.github.com/pikenguyen227/firstmate/tar.gz/d6257ae1c714aa59878f804a9a47bb4e00165666",
+          "sha256": "b5fc81d7b4c7ec385f23e22bfd31096b676d90e6d7b4b16a533d192f3ae32a9a",
           "status": "verified",
           "reason": "SHA-256 of pinned source archive, shared across supported hosts."
         },
@@ -1218,9 +1218,9 @@
       "classification": "per-user-login",
       "version": {
         "kind": "git-commit",
-        "value": "3ac6dbedd9089be3f908604c0b70b1991985916c",
+        "value": "21e8322764b6f6e24cc33ec9ac080182e82c3a57",
         "status": "verified",
-        "reason": "amelie-pierce/figma-cli 2.2.5-make.2 at commit 3ac6dbed; the codeload archive is integrity-pinned in manifests/npm-figma/package-lock.json, SHA-256 2499af1030b8208404e32bf5a9460b9abb028fb48be3674c91116451d19fcfd0 from a downloaded archive, and its dependencies come from registry.npmjs.org."
+        "reason": "amelie-pierce/figma-cli 2.2.5-make.2 at commit 21e8322; the codeload archive is integrity-pinned in manifests/npm-figma/package-lock.json, SHA-256 a9d11391ca6e49376b538d3636cc457911a1362bd3990f77394c47c70b692244 from a downloaded archive, and its dependencies come from registry.npmjs.org."
       },
       "approvedUpstream": "https://github.com/amelie-pierce/figma-cli",
       "license": {
