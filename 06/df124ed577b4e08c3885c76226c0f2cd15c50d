@@ -1,0 +1,43 @@
+test/lifecycle.test.mjs
+  s_6f1d3869953ad5::t_78255d4c6e5b05 547,578-621
+  s_6f1d3869953ad5::t_d7ff51abb38c30 622-623
+test/extras.test.mjs
+  s_6f1d3869953ad5::t_3e9d4058c1dc7b 424
+manifests/pilot-skeleton.json
+  s_6f1d3869953ad5::t_3e9d4058c1dc7b 3,79,91-92,97-98,103-104,109-110,1221,1223
+manifests/npm-figma/package.json
+  s_6f1d3869953ad5::t_3e9d4058c1dc7b 6
+docs/user-guide.md
+  s_6f1d3869953ad5::t_5532e318cc15f6 5,18,391,656-665,1085,1105,1794,2066-2075,2497,2517
+_vaults/agent-kit/wiki/architecture/figma-cli-pin.md
+  s_6f1d3869953ad5::t_3276901fd78771 1-24
+_vaults/agent-kit/wiki/architecture/index.md
+  s_6f1d3869953ad5::t_3276901fd78771 23
+test/kit.test.mjs
+  s_6f1d3869953ad5::t_3e9d4058c1dc7b 38,40,42,378,1252-1253
+README.md
+  s_6f1d3869953ad5::t_7bd36a930f57d7 215,340-341,457-464
+  s_6f1d3869953ad5::t_e3cc43dd740d7f 465
+docs/features.md
+  s_6f1d3869953ad5::t_5532e318cc15f6 3,243
+manifests/claude-plugins.json
+  s_6f1d3869953ad5::t_3e9d4058c1dc7b 32
+manifests/npm-figma/package-lock.json
+  s_6f1d3869953ad5::t_0bf1ec0b085aff 11,16-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "06df124ed577b4e08c3885c76226c0f2cd15c50d",
+  "prompts": {},
+  "sessions": {
+    "s_6f1d3869953ad5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5ff1c3c-2ec7-4f30-a138-a6bbc215379b",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
