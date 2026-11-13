@@ -391,7 +391,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-17)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-18)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
 
 **3. Sign in to your agent CLIs yourself.** In the same Terminal window:
 
@@ -661,6 +661,8 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 1. Run upgrade. The plan shows `Release: pilot-17 -> pilot-18` and no Firstmate line, because the Firstmate pin is unchanged. See the [release note](../README.md#pins-and-approval) for the change.
 2. Answer `y`. Only the kit's own `firstmate` launcher changes, and only while it is still the file the kit wrote. A launcher you edited yourself is kept as it is. You do not need `/updatefirstmate`.
 3. Do the "After an upgrade" steps above.
+
+If the owner asks you to return from `pilot-18` to the recorded `pilot-17` release, quit Firstmate and stop Herdr and the other kit services first. With `AK` still pointing to the pilot-18 kit, run `node "$AK" doctor` and check `PASS rollback-release`, then run `node "$AK" rollback pilot-17`. Review the plan and answer `y`. Point `AK` to the restored pilot-17 kit path shown in the plan, then run doctor.
 
 **Moving from `pilot-16` to `pilot-17`**, when you are asked to:
 
@@ -1800,7 +1802,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-17)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-18)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
 
 **3. Sign in to your agent CLIs yourself, inside Ubuntu.** Signing in on Windows does not count here.
 
@@ -2077,6 +2079,8 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 1. Run upgrade. The plan shows `Release: pilot-17 -> pilot-18` and no Firstmate line, because the Firstmate pin is unchanged. See the [release note](../README.md#pins-and-approval) for the change.
 2. Answer `y`. Only the kit's own `firstmate` launcher changes, and only while it is still the file the kit wrote. A launcher you edited yourself is kept as it is. You do not need `/updatefirstmate`.
 3. Do the "After an upgrade" steps above.
+
+If the owner asks you to return from `pilot-18` to the recorded `pilot-17` release, quit Firstmate and stop Herdr and the other kit services first. In Ubuntu, with `AK` still pointing to the pilot-18 kit, run `node "$AK" doctor` and check `PASS rollback-release`, then run `node "$AK" rollback pilot-17`. Review the plan and answer `y`. Point `AK` to the restored pilot-17 kit path shown in the plan, then run doctor.
 
 **Moving from `pilot-16` to `pilot-17`**, when you are asked to:
 
