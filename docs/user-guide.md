@@ -2,7 +2,7 @@
 
 ## Status of this guide
 
-This guide describes the `pilot-17` kit. `pilot-16` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This guide describes the `pilot-18` kit. `pilot-17` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 | Release | What it added |
 | --- | --- |
@@ -16,6 +16,7 @@ This guide describes the `pilot-17` kit. `pilot-16` is the previous version. Rel
 | `pilot-15` | Firstmate keeps no-mistakes `--intent` text safe to show in a pull request; Figma CLI at `619a5def` (component-only AtomicAUI sync, read-back after an uncertain write, a locked release-installed AtomicAUI folder); see the [release note](../README.md#pins-and-approval) |
 | `pilot-16` | Two new Figma CLI skills: release a new AtomicAUI (A7.7, B7.7) and upgrade your prototype to the latest AtomicAUI (A7.8, B7.8); Figma CLI at `3ac6dbed`, which also warns about oversized Make source files, stops status timeouts on large projects, adds deploy reminders and fixes the override limits; Firstmate at `98619dc3` alerts you when a worker under a second mate stays stopped at a validation gate, and fixes a random failure in its own Herdr recovery test; see the [release note](../README.md#pins-and-approval) |
 | `pilot-17` | Firstmate at `d6257ae1` (faster fleet snapshots that keep decision evidence, and coding guidelines in ship worker briefs); Figma CLI at `21e8322`, which brings in the Make deploy changes: a first deploy saves two Make versions, entry files are written last, a deploy can run detached with a status check, and a write whose reply is uncertain is confirmed by content hash. The Make deploy wording in this guide is updated to match; see the [release note](../README.md#pins-and-approval) |
+| `pilot-18` | The `firstmate` launcher no longer clears an unused environment variable. This is the only change; every pin is as in `pilot-17`, and an upgrade needs no `/updatefirstmate` |
 
 **Branch-rule finder limits.** It may miss `feature/*` globs and tables headed `Naming convention`. It may over-count a sentence that mixes branch advice with a path, or file-name tables under a `Branching` heading. If this happens, record the project's branch pattern.
 
@@ -49,6 +50,8 @@ Agent Kit sets up your own personal agent workspace on your own computer:
 - **If you work with Figma**: the Figma CLI and its five skills, including the AtomicAUI release and prototype upgrade skills (A7.7 and A7.8, B7.7 and B7.8).
 - **Your own second mates**: extra long-running Firstmates you create for a separate area of work, each with its own folder.
 - **Optional Jev routing**: if you add a `TYPESAFE_API_KEY`, Firstmate lets Jev (from typesafe.ai) pick the right agent and model for each job (A6.5 or B6.5).
+
+Grok is not part of the teammate setup: the kit never installs or asks for it, and any Grok notes inside Firstmate's own files can be ignored.
 
 **You sign in to everything yourself**: GitHub, Codex, Claude Code, Figma, and any Claude plugin that connects to an account (Atlassian, Figma, Context7). The kit never asks for, reads, prints or stores a password or sign-in token. Its only secret is the optional `TYPESAFE_API_KEY`, which you type yourself at a hidden prompt and which the kit never shows.
 
@@ -388,7 +391,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-17)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-18)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
 
 **3. Sign in to your agent CLIs yourself.** In the same Terminal window:
 
@@ -652,6 +655,14 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - Set `AK` to the new kit copy (A6).
 - If you skipped question 5b, change `<release>` in your PATH line (A2.7) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (A6.1).
+
+**Moving from `pilot-17` to `pilot-18`**, when you are asked to:
+
+1. Run upgrade. The plan shows `Release: pilot-17 -> pilot-18` and no Firstmate line, because the Firstmate pin is unchanged. See the [release note](../README.md#pins-and-approval) for the change.
+2. Answer `y`. Only the kit's own `firstmate` launcher changes, and only while it is still the file the kit wrote. A launcher you edited yourself is kept as it is. You do not need `/updatefirstmate`.
+3. Do the "After an upgrade" steps above.
+
+If the owner asks you to return from `pilot-18` to the recorded `pilot-17` release, quit Firstmate and stop Herdr and the other kit services first. With `AK` still pointing to the pilot-18 kit, run `node "$AK" doctor` and check `PASS rollback-release`, then run `node "$AK" rollback pilot-17`. Review the plan and answer `y`. Point `AK` to the restored pilot-17 kit path shown in the plan, then run doctor.
 
 **Moving from `pilot-16` to `pilot-17`**, when you are asked to:
 
@@ -1791,7 +1802,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-17)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-18)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
 
 **3. Sign in to your agent CLIs yourself, inside Ubuntu.** Signing in on Windows does not count here.
 
@@ -2062,6 +2073,14 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - Set `AK` to the new kit copy (B6).
 - If you skipped question 5b, change `<release>` in your Ubuntu PATH line (B2.11) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (B6.1).
+
+**Moving from `pilot-17` to `pilot-18`**, when you are asked to:
+
+1. Run upgrade. The plan shows `Release: pilot-17 -> pilot-18` and no Firstmate line, because the Firstmate pin is unchanged. See the [release note](../README.md#pins-and-approval) for the change.
+2. Answer `y`. Only the kit's own `firstmate` launcher changes, and only while it is still the file the kit wrote. A launcher you edited yourself is kept as it is. You do not need `/updatefirstmate`.
+3. Do the "After an upgrade" steps above.
+
+If the owner asks you to return from `pilot-18` to the recorded `pilot-17` release, quit Firstmate and stop Herdr and the other kit services first. In Ubuntu, with `AK` still pointing to the pilot-18 kit, run `node "$AK" doctor` and check `PASS rollback-release`, then run `node "$AK" rollback pilot-17`. Review the plan and answer `y`. Point `AK` to the restored pilot-17 kit path shown in the plan, then run doctor.
 
 **Moving from `pilot-16` to `pilot-17`**, when you are asked to:
 

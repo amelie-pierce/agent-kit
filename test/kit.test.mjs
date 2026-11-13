@@ -35,7 +35,7 @@ function tempFixture(t) {
 
 test('bundled manifest keeps verified source commits and macOS/Linux digests', () => {
   validateManifest(manifest);
-  assert.equal(manifest.release, 'pilot-17');
+  assert.equal(manifest.release, 'pilot-18');
   const firstmate = manifest.tools.find(x => x.id === 'firstmate');
   assert.equal(firstmate.version.value, 'd6257ae1c714aa59878f804a9a47bb4e00165666');
   assert.equal(firstmate.approvedUpstream, 'https://github.com/pikenguyen227/firstmate');

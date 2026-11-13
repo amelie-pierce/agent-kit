@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "release": "pilot-17",
+  "release": "pilot-18",
   "nodeMinimum": "24.15.0",
   "tools": [
     {
