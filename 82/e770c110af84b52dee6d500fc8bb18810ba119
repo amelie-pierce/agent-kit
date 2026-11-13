@@ -1,0 +1,24 @@
+README.md
+  h_eb882fdf9e0ce8 340-341,461-468
+docs/features.md
+  h_eb882fdf9e0ce8 3
+docs/user-guide.md
+  h_eb882fdf9e0ce8 5,20,395,660-669,1816,2088-2097
+manifests/pilot-skeleton.json
+  h_eb882fdf9e0ce8 3,79,91-92,97-98,103-104,109-110
+test/kit.test.mjs
+  h_eb882fdf9e0ce8 38,40,42
+test/lifecycle.test.mjs
+  h_eb882fdf9e0ce8 623-668
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "82e770c110af84b52dee6d500fc8bb18810ba119",
+  "prompts": {},
+  "humans": {
+    "h_eb882fdf9e0ce8": {
+      "author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
