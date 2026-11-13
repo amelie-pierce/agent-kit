@@ -49,9 +49,9 @@ Agent Kit sets up your own personal agent workspace on your own computer:
 - **If you use Claude Code**: the kit owner's set of Claude Code plugins (A2.4 or B2.8).
 - **If you work with Figma**: the Figma CLI and its five skills, including the AtomicAUI release and prototype upgrade skills (A7.7 and A7.8, B7.7 and B7.8).
 - **Your own second mates**: extra long-running Firstmates you create for a separate area of work, each with its own folder.
+- **Optional Jev routing**: if you add a `TYPESAFE_API_KEY`, Firstmate lets Jev (from typesafe.ai) pick the right agent and model for each job (A6.5 or B6.5).
 
 Grok is not part of the teammate setup: the kit never installs or asks for it, and any Grok notes inside Firstmate's own files can be ignored.
-- **Optional Jev routing**: if you add a `TYPESAFE_API_KEY`, Firstmate lets Jev (from typesafe.ai) pick the right agent and model for each job (A6.5 or B6.5).
 
 **You sign in to everything yourself**: GitHub, Codex, Claude Code, Figma, and any Claude plugin that connects to an account (Atlassian, Figma, Context7). The kit never asks for, reads, prints or stores a password or sign-in token. Its only secret is the optional `TYPESAFE_API_KEY`, which you type yourself at a hidden prompt and which the kit never shows.
 
