@@ -35,11 +35,11 @@ function tempFixture(t) {
 
 test('bundled manifest keeps verified source commits and macOS/Linux digests', () => {
   validateManifest(manifest);
-  assert.equal(manifest.release, 'pilot-18');
+  assert.equal(manifest.release, 'pilot-19');
   const firstmate = manifest.tools.find(x => x.id === 'firstmate');
-  assert.equal(firstmate.version.value, 'd6257ae1c714aa59878f804a9a47bb4e00165666');
+  assert.equal(firstmate.version.value, 'b69fcebcf0bba5c5dd9e991d0d4266fb6a60a528');
   assert.equal(firstmate.approvedUpstream, 'https://github.com/pikenguyen227/firstmate');
-  assert.equal(firstmate.artifacts['darwin-arm64'].sha256, 'b5fc81d7b4c7ec385f23e22bfd31096b676d90e6d7b4b16a533d192f3ae32a9a');
+  assert.equal(firstmate.artifacts['darwin-arm64'].sha256, '5091d52d0eceaaa711afc1c039e170162b87adbe6934e9f2254e7940c786b91e');
   const zoetropePlugin = manifest.tools.find(x => x.id === 'zoetrope-herdr-plugin');
   assert.equal(zoetropePlugin.version.value, 'b1736f30d34e0ace87eb871b3d6fd1cc79f17c84');
   assert.equal(zoetropePlugin.artifacts['darwin-arm64'].sha256, '5843ffdb9b258b31ec26b5b74233b983aacfd9e65aaf35bafbff697fac1bad22');

@@ -337,6 +337,8 @@ The `macos-pilot-6` manifest re-pins Firstmate to `976c3ba730b9dafefc159b12a97a0
 
 `pilot-7` changes the release label from `macos-pilot-6`, the Codex CLI pin and lock, and the Claude Code minimum (below). The shorter label does not change the upgrade path for an existing `macos-pilot-6` install. The new user-level writes are the optional Firstmate-home `.env` assignment, the receipt's boolean `setup.keys.TYPESAFE_API_KEY` flag, the starter `<root>/firstmate/config/crew-dispatch.json` once the key is set, the receipt's `setup.dispatch` record, and the saved plan names and routing mode in `setup.answers.plans` and `setup.answers.dispatchMode`. `manifests/plan-models.json` is the new owner-approved plan-to-model table. The Codex CLI pin moves from 0.155.1 to 0.164.0 (GPT-6.1 Terra needs 0.159.0 or later), with a regenerated lock. The Claude Code minimum moves from 2.0.0 to 2.1.293, which Haiku 5.5 needs. The key-update command changes the key, the flag and, when it sets the key, the starter rules. Uninstall removes `.env` only with explicit typed confirmation and removes the starter rules only while unchanged.
 
+**A pilot-18 install moving to pilot-19.** Follow the [macOS](docs/user-guide.md#a63-upgrade-update) or [Windows (WSL2)](docs/user-guide.md#b63-upgrade-update) upgrade steps in the user guide. The Firstmate pin changes from `d6257ae1` to `b69fcebc`, which removes the local-only bot's support and files from Firstmate, so the upgrade asks you to run `/updatefirstmate` in the Firstmate home before applying, exactly as for the `pilot-11` -> `pilot-12` move. See [Pins and approval](#pins-and-approval) for the release change.
+
 **A pilot-17 install moving to pilot-18.** Follow the [macOS](docs/user-guide.md#a63-upgrade-update) or [Windows (WSL2)](docs/user-guide.md#b63-upgrade-update) upgrade steps in the user guide. This release changes only the kit's own `firstmate` launcher, which no longer clears an unused environment variable, and needs no `/updatefirstmate`. See [Pins and approval](#pins-and-approval) for the release change.
 
 **A pilot-16 install moving to pilot-17.** Follow the [macOS](docs/user-guide.md#a63-upgrade-update) or [Windows (WSL2)](docs/user-guide.md#b63-upgrade-update) upgrade steps in the user guide. See [Pins and approval](#pins-and-approval) for the release change.
@@ -455,6 +457,14 @@ Afterwards, open Windows Terminal with your distribution's profile and run Herdr
 ## Pins and approval
 
 In the manifest, `verified` means the artifact's identity and integrity were checked against the approved upstream: a source commit, a published SHA-256 digest, or registry integrity in a committed npm lock. It does not mean owner approval, and no pin field claims it. The owner approves a release by merging the PR that changes the manifest. `install` installs only `verified` pins. Unverified pins are reported and skipped. Person-installed `kind: "prerequisite"` entries have a minimum version and vendor install link instead of a kit pin or artifact; `install` and `update` never stage them. `check`, `plan` and `doctor` test their `--version` on PATH. Version probes use disposable HOME state, because figma-cli can initialize its own settings even for `--version` and Codex can leave `~/.codex/tmp` behind when the probe times out; figma-cli is now detected by presence only.
+
+### Release changes (`pilot-18` -> `pilot-19`)
+
+- **Label.** `pilot-18` -> `pilot-19`.
+- **Firstmate.** The approved fork advances from `d6257ae1` to commit `b69fcebc`, the head of Firstmate `main` after [PR 51](https://github.com/pikenguyen227/firstmate/pull/51). That change removes the local-only bot's support from Firstmate: its instruction file, its hooks, and its docs, tests and harness support. The new SHA-256 archive digest (all four platforms share one source archive) is in `manifests/pilot-skeleton.json`.
+- **Upgrade path.** The plan shows the changed Firstmate line and `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. Run `/updatefirstmate` there first; the kit never edits or deletes files in the Firstmate home itself, and the removed files leave through that guarded update.
+- **User-level files and settings.** None new. Anything you set up yourself is untouched.
+- **Every other pin, digest and prerequisite** (the Zoe tower, Herdr, figma-cli and the others) is unchanged from `pilot-18`. The owner's merge word is required; teammates update only when the owner asks.
 
 ### Release changes (`pilot-17` -> `pilot-18`)
 
