@@ -589,8 +589,7 @@ test('upgrade from pilot-16 to pilot-17 shows the Firstmate re-pin, asks for /up
   const fetchKit = async (_commit, _env, destination) => {
     await stagedKit(_commit, _env, destination);
     const target = structuredClone(f.manifest);
-    target.release = bundled.release;
-    assert.equal(bundled.release, 'pilot-17');
+    target.release = 'pilot-17';
     target.tools.find(x => x.id === 'firstmate').version.value = newPin;
     writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
   };

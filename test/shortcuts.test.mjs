@@ -150,6 +150,30 @@ test('repair restores a removed block and a changed launcher; setup and upgrade 
   assert.ok(readdirSync(join(f.root, 'backups', 'shortcuts')).some(name => name.endsWith('open-firstmate')), 'the changed launcher was backed up');
 });
 
+test('upgrade drops the old Grok variable from an unchanged kit firstmate launcher and leaves an edited one alone', posixOnly, async t => {
+  const f = fixture(t);
+  await f.run();
+  const path = join(f.root, 'bin', 'firstmate'), current = readFileSync(path, 'utf8');
+  assert.match(current, /^unset CLAUDECODE CODEX_THREAD_ID PI_CODING_AGENT FM_TASK_ID$/m);
+  // An install from an earlier kit: the launcher carried the Grok variable and the receipt recorded that digest.
+  const old = current.replace('CODEX_THREAD_ID PI_CODING_AGENT', 'CODEX_THREAD_ID GROK_AGENT PI_CODING_AGENT');
+  assert.notEqual(old, current);
+  writeFileSync(path, old, { mode: 0o755 });
+  const receipt = f.readReceipt(); receipt.setup.shortcuts.files['bin/firstmate'] = sha(old);
+  writeFileSync(join(f.root, 'receipt.json'), `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const upgraded = await f.run();
+  assert.equal(upgraded.launchers.find(l => l.file === 'bin/firstmate').action, 'refresh');
+  assert.equal(readFileSync(path, 'utf8'), current);
+  assert.doesNotMatch(readFileSync(path, 'utf8'), /grok/i);
+  // A launcher the person edited after the kit wrote it is kept, never overwritten by an upgrade.
+  const mine = `${old}# mine\n`;
+  writeFileSync(path, mine);
+  const receipt2 = f.readReceipt(); receipt2.setup.shortcuts.files['bin/firstmate'] = sha(old);
+  writeFileSync(join(f.root, 'receipt.json'), `${JSON.stringify(receipt2)}\n`, { mode: 0o600 });
+  assert.equal((await f.run()).launchers.find(l => l.file === 'bin/firstmate').action, 'keep');
+  assert.equal(readFileSync(path, 'utf8'), mine);
+});
+
 test('uninstall removes only the unchanged kit block and launcher, and a file the kit created goes with it', posixOnly, async t => {
   const f = fixture(t, { config: '# mine\n[keys]\nprefix = "ctrl+a"\n' });
   await f.run();

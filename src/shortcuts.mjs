@@ -103,7 +103,7 @@ case "$lock_status" in
   'lock: free'|'lock: stale '*) ;;
   *) printf '%s\\n' "$lock_status" 'Exit the current coordinator cleanly before switching.' >&2; exit 3 ;;
 esac
-unset CLAUDECODE CODEX_THREAD_ID GROK_AGENT PI_CODING_AGENT FM_TASK_ID
+unset CLAUDECODE CODEX_THREAD_ID PI_CODING_AGENT FM_TASK_ID
 case "$mode" in
   claude) ${inputs.agents.claude ? `exec ${quote(inputs.tower && inputs.realClaude ? join(inputs.paths.installRoot, 'bin', 'claude') : inputs.agents.claude)} "$@"` : `echo 'Claude is not set up by Agent Kit here.' >&2; exit 2`} ;;
   codex) ${inputs.agents.codex ? `exec ${quote(inputs.agents.codex)}${inputs.fullAccess ? ` --sandbox danger-full-access --ask-for-approval never --add-dir ${quote(inputs.paths.root)} --enable hooks` : ''} "$@"` : `echo 'Codex is not set up by Agent Kit here.' >&2; exit 2`} ;;
