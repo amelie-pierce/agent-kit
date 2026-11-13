@@ -1,0 +1,27 @@
+_vaults/agent-kit/wiki/architecture/index.md
+  s_b2e19edce369b3::t_d3fc35534c3e51 24
+_vaults/agent-kit/wiki/architecture/launcher-refresh.md
+  s_b2e19edce369b3::t_b458f941104567 1-11
+src/shortcuts.mjs
+  s_b2e19edce369b3::t_ebce54e3b4008d 106
+test/no-grok.test.mjs
+  s_b2e19edce369b3::t_b2026a3a439f50 1-26
+test/shortcuts.test.mjs
+  s_b2e19edce369b3::t_4199ef6a8ecf7e 153-176
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9daff7d3dbec2902351abfadd67a42b280624608",
+  "prompts": {},
+  "sessions": {
+    "s_b2e19edce369b3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3ed7abdb-cf58-45d4-bb85-ed761887abae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
