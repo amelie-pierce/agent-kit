@@ -1,9 +1,9 @@
 """open-firstmate: open the Firstmate coordinator, or the tower Team tab, from a Herdr pane or key.
 
 Agent Kit writes <root>/.tools/bin/open-firstmate, which sets the OPEN_FIRSTMATE_* variables
-from the kit receipt and runs this file. Usage: open-firstmate [claude|codex|mates]
+from the kit receipt and runs this file. Usage: open-firstmate [claude|codex|opencode|mates]
 
-claude or codex focuses the coordinator tab in the "Control Tower" workspace, creating the
+claude, codex or opencode focuses the coordinator tab in the "Control Tower" workspace, creating the
 workspace or the tab when missing, and runs the kit's firstmate launcher for that agent CLI
 when the tab is an idle shell. mates does the same with the Mates tab and fm-mate, which asks for a
 name and scope and creates a second mate. A tab already running something is only focused,
@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 WORKSPACE_LABEL = 'Control Tower'
-CAPTAIN_TABS = {'claude': 'Captain (Claude)', 'codex': 'Captain (Codex)'}
+CAPTAIN_TABS = {'claude': 'Captain (Claude)', 'codex': 'Captain (Codex)', 'opencode': 'Captain (OpenCode)'}
 MATES_TAB = 'Mates'
 SHELLS = ('zsh', 'bash', 'sh', 'fish', 'dash')
 
@@ -110,11 +110,11 @@ def open_tab(herdr, home, mode, label, argv):
 
 def main(argv):
     mode = argv[1] if len(argv) > 1 else None
-    if len(argv) > 2 or mode not in ('claude', 'codex', 'mates', None):
-        raise RuntimeError('usage: open-firstmate [claude|codex|mates]')
+    if len(argv) > 2 or mode not in ('claude', 'codex', 'opencode', 'mates', None):
+        raise RuntimeError('usage: open-firstmate [claude|codex|opencode|mates]')
     herdr, home = setting('HERDR'), setting('HOME')
     agents = {name: setting(name.upper()) for name in CAPTAIN_TABS}
-    mode = mode or next((name for name in CAPTAIN_TABS if agents[name]), None)
+    mode = mode or setting('DEFAULT') or next((name for name in CAPTAIN_TABS if agents[name]), None)
     if os.environ.get('HERDR_ENV') != '1':
         raise RuntimeError('Run open-firstmate inside Herdr: from a Herdr pane, or with its Herdr key.')
     if not herdr or not home:

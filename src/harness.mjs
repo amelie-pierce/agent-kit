@@ -9,4 +9,7 @@ export function parseHarness(value) {
 export const harnessProfiles = harness => harness === 'both' ? ['claude', 'codex'] : [harness || 'claude'];
 export const usesProfile = (harness, profile) => harnessProfiles(harness).includes(profile);
 export const harnessLabel = harness => harness === 'both' ? 'claude,codex' : harness || 'claude';
+export const parseCaptain = value => ['claude', 'codex', 'opencode'].includes(value) ? value : null;
+export const defaultCaptain = harness => harness === 'codex' ? 'codex' : 'claude';
+export const captainOf = (captain, harness) => parseCaptain(captain) || defaultCaptain(harness);
 export const towerIds = new Set(['zoe-fleet', 'zoe-fleet-runtime', 'zoetrope-herdr-plugin']);

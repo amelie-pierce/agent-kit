@@ -314,6 +314,16 @@ test('windows setup: preflight first, then a pinned handoff into install.sh insi
   assert.equal(setupHandoffScript.includes("'"), false, 'pastes inside PowerShell single quotes');
 });
 
+test('OpenCode captain is forwarded into Ubuntu, with Codex workers unchanged', () => {
+  const context = windowsContext();
+  const result = run(['plan', '--json', '--harness', 'codex', '--captain', 'opencode', '--install-root', '~/.agent-kit', '--firstmate-home', '~/firstmate'], manifest, context);
+  assert.equal(result.result.captain, 'opencode');
+  assert.equal(result.result.harness, 'codex');
+  assert.match(result.result.plan.handoff.command, /--harness codex --captain opencode/);
+  const setupPlan = windowsSetup(['--harness', 'codex', '--captain', 'opencode'], context);
+  assert.deepEqual(setupPlan.argv.slice(-4), ['--harness', 'codex', '--captain', 'opencode']);
+});
+
 test('setup handoff script fetches install.sh at the pinned commit with gh and keeps arguments intact', { skip: process.platform === 'win32' }, t => {
   const base = realpathSync(mkdtempSync(join(tmpdir(), 'kit-setup-handoff-')));
   t.after(() => rmSync(base, { recursive: true, force: true }));

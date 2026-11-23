@@ -45,7 +45,10 @@ function fixture(t) {
   const installOptions = { fetchArtifact: async (url, target) => { downloads.push(url); writeFileSync(target, artifacts[url]); } };
   const ctx = (argv, input = '') => {
     const chunks = [];
-    return { argv, env, platform: 'linux', arch: 'x64', nodeVersion: '24.21.0', libc: 'glibc', procVersion: 'Linux version 6.8.0-generic', osRelease: 'PRETTY_NAME="Fixture Linux"', herdrPath: { servers: () => [] },
+    const harnessAt = argv.indexOf('--harness');
+    const captain = harnessAt < 0 || argv[harnessAt + 1] !== 'claude' ? 'codex' : 'claude';
+    const setupArgv = argv.includes('--captain') ? argv : [...argv, '--captain', captain];
+    return { argv: setupArgv, env, platform: 'linux', arch: 'x64', nodeVersion: '24.21.0', libc: 'glibc', procVersion: 'Linux version 6.8.0-generic', osRelease: 'PRETTY_NAME="Fixture Linux"', herdrPath: { servers: () => [] },
       input: Readable.from(input ? [input] : []), output: new Writable({ write(chunk, _enc, done) { chunks.push(chunk.toString()); done(); } }), installOptions,
       get text() { return chunks.join(''); } };
   };
@@ -259,7 +262,7 @@ test('the plan and mode questions use the approved plan ids, warn before full on
       [/Keep it as it is[^\n]*$/, 'y\n'], [/Add optional TYPESAFE_API_KEY[^\n]*$/, 'n\n'], [/Write these changes now[^\n]*$/, 'y\n']]);
   assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
   assert.match(c.text, /2c\. Firstmate token strategy modes:\n   full: unlock full power\n   balanced: optimize for token saving while everything still work\n   lean: harder optimization for token saving while everything still work\n/, 'the owner\'s definitions come before the question');
-  assert.match(c.text, /2\. Agent CLIs: codex \(plan: codex plus; starter routing mode: lean\)/);
+  assert.match(c.text, /2\. Worker Agent CLIs: codex \(plan: codex plus; starter routing mode: lean\)/);
   assert.match(c.text, /2d\. Full-access Codex launch: ON - Codex workers can read and write anything your account can/, 'the default is on and the summary says so');
   assert.equal(JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8')).setup.answers.codexFullAccess, true);
   const receiptPath = join(f.root, '.tools', 'receipt.json'), saved = () => JSON.parse(readFileSync(receiptPath, 'utf8')).setup.answers;
@@ -280,6 +283,17 @@ test('the plan and mode questions use the approved plan ids, warn before full on
   for (const [argv, message] of [[['--codex-plan', 'max5x'], /--codex-plan must be one of: plus, pro, business-standard, business-premium, enterprise-edu, api or skip/],
     [['--claude-plan', 'pro'], /--claude-plan needs claude among the agent CLIs/], [['--dispatch-mode', 'turbo'], /--dispatch-mode must be lean, balanced or full/]])
     await assert.rejects(setup(f.fixtureManifest, f.ctx(['--yes', '--dry-run', '--root', f.root, ...argv])), message);
+});
+
+test('guided OpenCode choice records a captain while keeping Codex as the worker provider', posixOnly, async t => {
+  const f = fixture(t);
+  f.fixtureManifest.tools.push(structuredClone(manifest.tools.find(x => x.id === 'opencode')));
+  const c = f.ctx(['--yes', '--dry-run', '--root', f.root, '--harness', 'codex', '--captain', 'opencode']);
+  assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+  assert.match(c.text, /Worker Agent CLIs: codex/);
+  assert.match(c.text, /Firstmate captain CLI: opencode/);
+  assert.doesNotMatch(c.text, /token|password|secret/i);
+  assert.equal(existsSync(f.root), false);
 });
 
 test('a terminal dry run never asks for the key and shows only its current status', posixOnly, async t => {
@@ -341,7 +355,7 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   const receipt = JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8'));
   assert.equal(statSync(join(f.root, '.tools', 'receipt.json')).mode & 0o777, 0o600);
   assert.match(c.text, /2d\. Full-access Codex launch: Codex workers that Firstmate starts can read and write anything your user account can, run any command without asking you first, and run hooks without the hook trust review\./);
-  assert.deepEqual(receipt.setup.answers, { root: f.root, harness: 'codex', plans: { codex: 'not-sure' }, dispatchMode: 'balanced', codexFullAccess: false, figma: false, tower: false, globalHooks: true, herdrLayout: true, shellProfile: true, githubOwner: 'my-org',
+  assert.deepEqual(receipt.setup.answers, { root: f.root, harness: 'codex', captain: 'codex', plans: { codex: 'not-sure' }, dispatchMode: 'balanced', codexFullAccess: false, figma: false, tower: false, globalHooks: true, herdrLayout: true, shellProfile: true, githubOwner: 'my-org',
     gitIdentity: { action: 'set', name: 'Pat Example', email: 'pat@example.test' }, starterMate: { create: false }, channel: 'main' });
   assert.deepEqual(receipt.setup.paths, { root: f.root, installRoot: join(f.root, '.tools'), firstmateHome: join(f.root, 'firstmate'), treehouseRoot: f.root, towerState: join(f.root, '.zoe-fleet') });
   assert.deepEqual(Object.values(receipt.setup.steps).map(x => x.state), ['complete', 'complete', 'complete', 'complete', 'complete', 'not-selected', 'complete', 'complete']);
@@ -352,7 +366,7 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
     `  2. Health check later: node ${join(kitCopyOf(f, kit), 'bin', 'agent-kit.mjs')} doctor --install-root ${join(f.root, '.tools')}`,
     '  3. Sign in to codex yourself in that terminal; the kit never signs in for you.',
     '  4. Start Herdr: herdr',
-    `  5. In a Herdr pane, start codex in your Firstmate home: cd '${fm}' && codex`,
+    '  5. In a Herdr pane, start the captain in your Firstmate home: firstmate codex',
     'Start-up walkthrough: see "After a successful install: start it up" in the Agent Kit guide.', ''].join('\n')), c.text.slice(-1200));
   const rc = readFileSync(join(f.home, '.bashrc'), 'utf8');
   assert.equal(rc, `${renderProfileBlock([join(f.root, '.tools', 'bin'), kitBin])}\n`);

@@ -2,7 +2,7 @@
 
 ## Status of this guide
 
-This guide describes the `pilot-19` kit. `pilot-18` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This guide describes the `pilot-20` kit. `pilot-19` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 | Release | What it added |
 | --- | --- |
@@ -18,6 +18,7 @@ This guide describes the `pilot-19` kit. `pilot-18` is the previous version. Rel
 | `pilot-17` | Firstmate at `d6257ae1` (faster fleet snapshots that keep decision evidence, and coding guidelines in ship worker briefs); Figma CLI at `21e8322`, which brings in the Make deploy changes: a first deploy saves two Make versions, entry files are written last, a deploy can run detached with a status check, and a write whose reply is uncertain is confirmed by content hash. The Make deploy wording in this guide is updated to match; see the [release note](../README.md#pins-and-approval) |
 | `pilot-18` | The `firstmate` launcher no longer clears an unused environment variable. This is the only change; every pin is as in `pilot-17`, and an upgrade needs no `/updatefirstmate` |
 | `pilot-19` | Firstmate at `b69fcebc`, which removes the local-only bot's support, files, hooks, docs and tests from Firstmate; every other pin is as in `pilot-18`. An upgrade asks you to run `/updatefirstmate` first; see the [release note](../README.md#pins-and-approval) |
+| `pilot-20` | Adds OpenCode 2.3.2 as a separate Firstmate CLI choice, with a pinned npm lock, persistent TUI launcher and receipt-owned ambient helper plugin. Claude and Codex remain the worker choices. OpenCode's session digest, supervision wake and turn-end follow-up use Firstmate's project plugins and have passive TUI semantics. |
 
 **Branch-rule finder limits.** It may miss `feature/*` globs and tables headed `Naming convention`. It may over-count a sentence that mixes branch advice with a path, or file-name tables under a `Branching` heading. If this happens, record the project's branch pattern.
 
@@ -198,7 +199,8 @@ Every question shows its default in brackets. Press Enter to accept it.
 | # | Question | Default | Change it when… |
 | --- | --- | --- | --- |
 | 1 | Root folder | `~/Agentic` | that folder is already in use |
-| 2 | Agent CLIs: `codex`, `claude` or `claude,codex` | `codex` | you use Claude Code (only asked if Claude Code is already installed) |
+| 2 | Worker CLIs: `codex`, `claude` or `claude,codex` | `codex` | you use Claude Code (only asked if Claude Code is already installed) |
+| 2 (captain) | Firstmate CLI: `claude`, `codex` or `opencode` | the selected worker CLI (Claude if both) | choose OpenCode to run Firstmate in its persistent TUI; worker routing remains Claude/Codex |
 | 2a | Your Claude subscription plan (only if you chose Claude) | `skip` | you know your plan; see "The plan questions" below |
 | 2b | Your Codex (ChatGPT) subscription plan (only if you chose Codex) | `skip` | you know your plan; see below |
 | 2c | Routing mode for Firstmate: `lean`, `balanced` or `full` | depends on your plan | see below |
@@ -353,7 +355,7 @@ export PATH="$R/.tools/bin:$R/.tools/releases/<release>/bin:$R/.tools/releases/<
 
 With Figma, the fifth folder is `$R/.tools/releases/<release>/npm-figma/node_modules/.bin`. Use the exact folders your installer printed. Run this in a Terminal window to try it. With question 5b answered yes, the kit has already added this line to your profile as a marked block and you can skip this section. Otherwise, when you are happy, add the same `export` line to your own `~/.zshrc`.
 
-**Keep `<root>/.tools/bin` first.** It holds the kit's own commands (A6.6), the Treehouse wrapper, the `zoe` program the session graph needs, and, if you chose them, the kit's `codex` (full-access launch) and `claude` (tower) commands. If another folder comes first, those do not run.
+**Keep the kit's PATH folders first.** `<root>/.tools/bin` holds the kit's commands, the Treehouse wrapper and the `zoe` program. The selected release folder holds pinned OpenCode and Codex binaries. If another folder comes first, those do not run.
 
 If you already had Codex or Herdr installed some other way, the kit's versions only win once these folders come first on your PATH.
 
@@ -392,7 +394,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-19)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-20)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
 
 **3. Sign in to your agent CLIs yourself.** In the same Terminal window:
 
@@ -417,14 +419,14 @@ herdr
 **5. Start Firstmate.** Pick one way, inside Herdr:
 
 - **The key:** press `Ctrl+B`, let go, then `Shift+F` for Firstmate in Codex, or `F` for Firstmate in Claude Code (A8.2).
-- **The command:** in a Herdr pane, type `firstmate codex` (or `firstmate claude`).
-- **By hand:** in a Herdr pane, `cd ~/Agentic/firstmate`, then `codex` (or `claude`).
+- **The command:** in a Herdr pane, type `firstmate codex` (or `firstmate claude` or `firstmate opencode`).
+- **By hand:** in a Herdr pane, `cd ~/Agentic/firstmate`, then `codex` (or `claude` or `opencode`).
 
 The key and the command open a **Control Tower** workspace with a **Captain (Codex)** or **Captain (Claude)** tab and start Firstmate there, in your Firstmate home. If that tab is already running something, they only switch to it. Only one Firstmate can run in a home; do not open both Captain tabs at once.
 
 The first time Codex starts it asks you to review the kit's hooks (`/hooks`); review and approve them yourself (A2.8). With the tower and Claude Code, the tower's **Team** tab also opens on its own the first time Firstmate starts in Claude Code (A9).
 
-**6. Say hello to Firstmate.** Your agent reads Firstmate's instructions and becomes your first mate; you are the **captain**.
+**6. Say hello to Firstmate.** Your agent reads Firstmate's instructions and becomes your first mate; you are the **captain**. With OpenCode, sign in yourself using `opencode auth login` or `/connect` and select your own model with `/models`. The kit does not read credentials or set a provider or model. Keep the TUI open for session digests, queued supervision wakes and passive turn-end follow-up; headless `opencode run` cannot guarantee those continuations.
 
 - **Codex check-in:** Firstmate checks in only while you talk to it; it does not monitor the crew in the background.
 - **What to say:** anything. `ahoy` is fine, or go straight to a request such as `look at my GitHub project <your-github-login>/<project>`. In Codex, if Firstmate does not report on its own, say `start up`.
@@ -657,6 +659,8 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - If you skipped question 5b, change `<release>` in your PATH line (A2.7) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (A6.1).
 
+**Moving from `pilot-19` to `pilot-20`**, when you are asked to: run the reviewed upgrade plan and, when it names a changed Firstmate pin, complete `/updatefirstmate` in the Firstmate home before applying. After upgrade, OpenCode is an optional Firstmate CLI choice while Claude/Codex worker routing remains as saved. To choose OpenCode, rerun setup with `--reconfigure --captain opencode`; sign in yourself with `opencode auth login` or `/connect` and select a model with `/models`. Verify the `opencode-version`, `opencode-primary-plugins`, and global hooks doctor rows. Use a persistent TUI for its passive supervision callbacks.
+
 **Moving from `pilot-18` to `pilot-19`**, when you are asked to:
 
 1. Run upgrade. The plan shows `Release: pilot-18 -> pilot-19`, the changed Firstmate line (`d6257ae1` to `b69fcebc`), plus `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. See the [release note](../README.md#pins-and-approval) for the changes.
@@ -770,9 +774,9 @@ It shows a plan and asks before changing anything.
 
 - The kit's programs, releases, helper tools and kit copy in `<root>/.tools`. These are **moved** into a private backup folder, not deleted (see below).
 - The Treehouse wrapper, if you did not change it. A changed wrapper is left for you to review.
-- The kit's hook entries in `~/.claude/settings.json` and `~/.codex/hooks.json`, and its skill links in `~/.claude/skills/` and `~/.agents/skills/`.
+- The kit's hook entries in `~/.claude/settings.json` and `~/.codex/hooks.json`, its receipt-owned OpenCode plugin when selected, and its skill links in `~/.claude/skills/` and `~/.agents/skills/`.
 - The tower config the kit wrote, if you did not change it.
-- The kit's commands in `<root>/.tools/bin` (including its `codex` and `claude` commands), its Herdr keys and layout blocks, and its Herdr plugin entries, each only if you did not change it. The rest of your Herdr settings stays.
+- The kit's commands in `<root>/.tools/bin` (including its `codex`, `claude` and `opencode` commands), its Herdr keys and layout blocks, and its Herdr plugin entries, each only if you did not change it. The rest of your Herdr settings stays.
 - The tower's start-up entry in your Firstmate home, your help page if you never changed it, the Figma CLI's skills, and the Claude plugins and marketplaces the kit added (your own stay).
 - Starter routing rules written by an older kit release, if nobody changed them since.
 - The Codex "hooks on" setting, but only if the kit was the one that turned it on. If that setting was changed since, it is left alone and reported.
@@ -869,9 +873,9 @@ With question 5 answered yes, the kit writes these commands into `<root>/.tools/
 
 | Command | What it does | Written when |
 | --- | --- | --- |
-| `firstmate` / `firstmate codex` / `firstmate claude` | Start Firstmate in your Firstmate home, from a Herdr pane. It refuses outside Herdr, and refuses while another Firstmate is already running in this home | always |
+| `firstmate` / `firstmate codex` / `firstmate claude` / `firstmate opencode` | Start Firstmate in your Firstmate home, from a Herdr pane. It refuses outside Herdr, and refuses while another Firstmate is already running in this home | always |
 | `firstmate check` | Firstmate's own tool check, without starting anything | always |
-| `open-firstmate codex`, `claude` or `mates` | What the Herdr keys run (A8.2): open the **Control Tower** workspace and its Firstmate or **Mates** tab | always |
+| `open-firstmate codex`, `claude`, `opencode` or `mates` | What the Herdr keys run (A8.2): open the **Control Tower** workspace and its Firstmate or **Mates** tab | always |
 | `fm-mate` | Create a second mate: asks a name and a one-line scope, asks once more, then creates it and starts it (A7.6). `fm-mate list` lists them; `fm-mate retire <name>` retires one, and refuses while it still holds unfinished work | always |
 | `fm-help` | Print your help page (`data/captain-help.md`) | always |
 | `fm-jev on`, `off` or `status` | Turn Jev routing on or off without removing the key (A6.5) | always |
@@ -892,14 +896,14 @@ Firstmate runs inside Herdr, the terminal workspace the kit installed. In a Term
 herdr
 ```
 
-Then press `Ctrl+B Shift+F` (Codex) or `Ctrl+B F` (Claude Code), or type `firstmate codex` (or `firstmate claude`) in the Herdr pane. You can also start it by hand:
+Then press `Ctrl+B Shift+F` (Codex), `Ctrl+B F` (Claude Code) or `Ctrl+B Shift+O` (OpenCode), or type `firstmate codex` (or `firstmate claude` or `firstmate opencode`) in the Herdr pane. You can also start it by hand:
 
 ```sh
 cd ~/Agentic/firstmate
 codex
 ```
 
-Use `claude` instead of `codex` if you chose Claude Code. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
+Use `claude` or `opencode` instead of `codex` if you chose that Firstmate CLI. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
 
 ### A7.2 Talking to it
 
@@ -1615,7 +1619,8 @@ The other questions are asked after the handoff (still in the same window). Ever
 | # | Question | Default | Change it when… |
 | --- | --- | --- | --- |
 | 1 | Root folder | `~/Agentic` | that folder is already in use (asked in B2.7) |
-| 2 | Agent CLIs: `codex`, `claude` or `claude,codex` | `codex` | you use Claude Code (only asked if Claude Code is already installed **inside Ubuntu**) |
+| 2 | Worker CLIs: `codex`, `claude` or `claude,codex` | `codex` | you use Claude Code (only asked if Claude Code is already installed **inside Ubuntu**) |
+| 2 (captain) | Firstmate CLI: `claude`, `codex` or `opencode` | the selected worker CLI (Claude if both) | choose OpenCode in Ubuntu to run Firstmate in its persistent TUI; worker routing remains Claude/Codex |
 | 2a | Your Claude subscription plan (only if you chose Claude) | `skip` | you know your plan; see "The plan questions" below |
 | 2b | Your Codex (ChatGPT) subscription plan (only if you chose Codex) | `skip` | you know your plan; see below |
 | 2c | Routing mode for Firstmate: `lean`, `balanced` or `full` | depends on your plan | see below |
@@ -1770,7 +1775,7 @@ export PATH="$R/.tools/bin:$R/.tools/releases/<release>/bin:$R/.tools/releases/<
 
 With Figma, the fifth folder is `$R/.tools/releases/<release>/npm-figma/node_modules/.bin`. Use the exact folders your installer printed. Run this in an **Ubuntu** terminal to try it. With question 5b answered yes, the kit has already added this line to your Ubuntu profile as a marked block and you can skip this section. Otherwise, when you are happy, add the same `export` line to `~/.bashrc` **inside Ubuntu**.
 
-**Keep `<root>/.tools/bin` first.** It holds the kit's own commands (B6.6), the Treehouse wrapper, the `zoe` program the session graph needs, and, if you chose them, the kit's `codex` (full-access launch) and `claude` (tower) commands. If another folder comes first, those do not run.
+**Keep the kit's PATH folders first.** `<root>/.tools/bin` holds the kit's commands, the Treehouse wrapper and the `zoe` program. The selected release folder holds pinned OpenCode and Codex binaries. If another folder comes first, those do not run.
 
 Do not add these folders to the Windows PATH. They are Linux programs and only run inside Ubuntu.
 
@@ -1813,7 +1818,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-19)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-20)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
 
 **3. Sign in to your agent CLIs yourself, inside Ubuntu.** Signing in on Windows does not count here.
 
@@ -1838,14 +1843,14 @@ herdr
 **5. Start Firstmate.** Pick one way, inside Herdr:
 
 - **The key:** press `Ctrl+B`, let go, then `Shift+F` for Firstmate in Codex, or `F` for Firstmate in Claude Code (B8.2).
-- **The command:** in a Herdr pane, type `firstmate codex` (or `firstmate claude`).
-- **By hand:** in a Herdr pane, `cd ~/Agentic/firstmate`, then `codex` (or `claude`).
+- **The command:** in a Herdr pane, type `firstmate codex` (or `firstmate claude` or `firstmate opencode`).
+- **By hand:** in a Herdr pane, `cd ~/Agentic/firstmate`, then `codex` (or `claude` or `opencode`).
 
 The key and the command open a **Control Tower** workspace with a **Captain (Codex)** or **Captain (Claude)** tab and start Firstmate there, in your Firstmate home. If that tab is already running something, they only switch to it. Only one Firstmate can run in a home; do not open both Captain tabs at once.
 
 The first time Codex starts it asks you to review the kit's hooks (`/hooks`); review and approve them yourself (B2.12). With the tower and Claude Code, the tower's **Team** tab also opens on its own the first time Firstmate starts in Claude Code (B9).
 
-**6. Say hello to Firstmate.** Your agent reads Firstmate's instructions and becomes your first mate; you are the **captain**.
+**6. Say hello to Firstmate.** Your agent reads Firstmate's instructions and becomes your first mate; you are the **captain**. With OpenCode inside Ubuntu, sign in yourself using `opencode auth login` or `/connect` and select your own model with `/models`. The kit does not read credentials or set a provider or model. Keep the TUI open for session digests, queued supervision wakes and passive turn-end follow-up; headless `opencode run` cannot guarantee those continuations.
 
 - **Codex check-in:** Firstmate checks in only while you talk to it; it does not monitor the crew in the background.
 - **What to say:** anything. `ahoy` is fine, or go straight to a request such as `look at my GitHub project <your-github-login>/<project>`. In Codex, if Firstmate does not report on its own, say `start up`.
@@ -2085,6 +2090,8 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - If you skipped question 5b, change `<release>` in your Ubuntu PATH line (B2.11) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (B6.1).
 
+**Moving from `pilot-19` to `pilot-20`**, when you are asked to: run the reviewed upgrade plan inside Ubuntu and, when it names a changed Firstmate pin, complete `/updatefirstmate` in the Firstmate home before applying. OpenCode is an optional Firstmate CLI choice inside Ubuntu while Claude/Codex worker routing remains as saved. To choose OpenCode, rerun setup with `--reconfigure --captain opencode`; sign in yourself inside Ubuntu with `opencode auth login` or `/connect` and select a model with `/models`. Verify the `opencode-version`, `opencode-primary-plugins`, and global hooks doctor rows. Use a persistent TUI for its passive supervision callbacks.
+
 **Moving from `pilot-18` to `pilot-19`**, when you are asked to:
 
 1. Run upgrade. The plan shows `Release: pilot-18 -> pilot-19`, the changed Firstmate line (`d6257ae1` to `b69fcebc`), plus `Firstmate pin: run /updatefirstmate in the Firstmate home before applying`. See the [release note](../README.md#pins-and-approval) for the changes.
@@ -2198,9 +2205,9 @@ It shows a plan and asks before changing anything.
 
 - The kit's programs, releases, helper tools and kit copy in `<root>/.tools`. These are **moved** into a private backup folder, not deleted (see below).
 - The Treehouse wrapper, if you did not change it. A changed wrapper is left for you to review.
-- The kit's hook entries in `~/.claude/settings.json` and `~/.codex/hooks.json`, and its skill links in `~/.claude/skills/` and `~/.agents/skills/`.
+- The kit's hook entries in `~/.claude/settings.json` and `~/.codex/hooks.json`, its receipt-owned OpenCode plugin when selected, and its skill links in `~/.claude/skills/` and `~/.agents/skills/`.
 - The tower config the kit wrote, if you did not change it.
-- The kit's commands in `<root>/.tools/bin` (including its `codex` and `claude` commands), its Herdr keys and layout blocks, and its Herdr plugin entries, each only if you did not change it. The rest of your Herdr settings stays.
+- The kit's commands in `<root>/.tools/bin` (including its `codex`, `claude` and `opencode` commands), its Herdr keys and layout blocks, and its Herdr plugin entries, each only if you did not change it. The rest of your Herdr settings stays.
 - The tower's start-up entry in your Firstmate home, your help page if you never changed it, the Figma CLI's skills, and the Claude plugins and marketplaces the kit added (your own stay).
 - Starter routing rules written by an older kit release, if nobody changed them since.
 - The Codex "hooks on" setting, but only if the kit was the one that turned it on. If that setting was changed since, it is left alone and reported.
@@ -2291,9 +2298,9 @@ With question 5 answered yes, the kit writes these commands into `<root>/.tools/
 
 | Command | What it does | Written when |
 | --- | --- | --- |
-| `firstmate` / `firstmate codex` / `firstmate claude` | Start Firstmate in your Firstmate home, from a Herdr pane. It refuses outside Herdr, and refuses while another Firstmate is already running in this home | always |
+| `firstmate` / `firstmate codex` / `firstmate claude` / `firstmate opencode` | Start Firstmate in your Firstmate home, from a Herdr pane. It refuses outside Herdr, and refuses while another Firstmate is already running in this home | always |
 | `firstmate check` | Firstmate's own tool check, without starting anything | always |
-| `open-firstmate codex`, `claude` or `mates` | What the Herdr keys run (B8.2): open the **Control Tower** workspace and its Firstmate or **Mates** tab | always |
+| `open-firstmate codex`, `claude`, `opencode` or `mates` | What the Herdr keys run (B8.2): open the **Control Tower** workspace and its Firstmate or **Mates** tab | always |
 | `fm-mate` | Create a second mate: asks a name and a one-line scope, asks once more, then creates it and starts it (B7.6). `fm-mate list` lists them; `fm-mate retire <name>` retires one, and refuses while it still holds unfinished work | always |
 | `fm-help` | Print your help page (`data/captain-help.md`) | always |
 | `fm-jev on`, `off` or `status` | Turn Jev routing on or off without removing the key (B6.5) | always |
@@ -2314,14 +2321,14 @@ Firstmate runs inside Herdr, the terminal workspace the kit installed, **inside 
 herdr
 ```
 
-Then press `Ctrl+B Shift+F` (Codex) or `Ctrl+B F` (Claude Code), or type `firstmate codex` (or `firstmate claude`) in the Herdr pane. You can also start it by hand:
+Then press `Ctrl+B Shift+F` (Codex), `Ctrl+B F` (Claude Code) or `Ctrl+B Shift+O` (OpenCode), or type `firstmate codex` (or `firstmate claude` or `firstmate opencode`) in the Herdr pane. You can also start it by hand:
 
 ```sh
 cd ~/Agentic/firstmate
 codex
 ```
 
-Use `claude` instead of `codex` if you chose Claude Code. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
+Use `claude` or `opencode` instead of `codex` if you chose that Firstmate CLI. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
 
 Do not start Herdr or the agents from PowerShell. When an agent opens a browser page (for example `chrome-devtools-axi` or a review page), it opens in your Windows browser.
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "release": "pilot-19",
+  "release": "pilot-20",
   "nodeMinimum": "24.15.0",
   "tools": [
     {
@@ -1206,6 +1206,72 @@
       "detection": {
         "kind": "command",
         "command": "codex",
+        "args": [
+          "--version"
+        ]
+      }
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode CLI",
+      "profile": "opencode",
+      "classification": "per-user-login",
+      "version": {
+        "kind": "release",
+        "value": "2.3.2",
+        "status": "verified",
+        "reason": "Integrity-pinned in the committed npm lock (manifests/npm-opencode/package-lock.json) from registry.npmjs.org."
+      },
+      "approvedUpstream": "https://github.com/anomalyco/opencode",
+      "license": {
+        "name": "MIT",
+        "reference": "https://github.com/anomalyco/opencode/blob/dev/LICENSE"
+      },
+      "runtimeMinimum": null,
+      "artifacts": {
+        "darwin-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "darwin-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "linux-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-arm64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        },
+        "windows-x64": {
+          "url": null,
+          "sha256": null,
+          "status": "unverified",
+          "reason": "Artifact URL and SHA-256 have not been approved or verified."
+        }
+      },
+      "installLocation": {
+        "relativePath": ".agent-kit/bin"
+      },
+      "detection": {
+        "kind": "command",
+        "command": "opencode",
         "args": [
           "--version"
         ]

@@ -5,7 +5,7 @@ import { artifactFor, towerGlibcGap } from './platforms/linux.mjs';
 import { previewHooks, publicHookChanges } from './install/hooks.mjs';
 import { npmGroup, towerPaths } from './install/macos.mjs';
 import { defaultLinuxFirstmateHome, defaultLinuxRoot, describeStep, linuxPath, windowsHandoff, windowsNextSteps } from './install/windows.mjs';
-import { harnessLabel, harnessProfiles, parseHarness, towerIds, usesProfile } from './harness.mjs';
+import { captainOf, harnessLabel, harnessProfiles, parseCaptain, parseHarness, towerIds, usesProfile } from './harness.mjs';
 import { herdrConfigPath, keyBindings, previewKeys } from './shortcuts.mjs';
 
 function compareVersions(actual, minimum) {
@@ -21,7 +21,7 @@ export function validateManifest(manifest) {
   for (const tool of manifest.tools) {
     if (!/^[a-z][a-z0-9-]*$/.test(tool.id || '') || ids.has(tool.id)) throw new Error('invalid or duplicate tool id');
     ids.add(tool.id);
-    if (!['core', 'claude', 'codex', 'figma'].includes(tool.profile) || !['shareable', 'per-user-login', 'never-ship'].includes(tool.classification)) throw new Error(`invalid profile or classification for ${tool.id}`);
+    if (!['core', 'claude', 'codex', 'opencode', 'figma'].includes(tool.profile) || !['shareable', 'per-user-login', 'never-ship'].includes(tool.classification)) throw new Error(`invalid profile or classification for ${tool.id}`);
     if (!tool.approvedUpstream?.startsWith('https://') || !tool.license?.reference?.startsWith('https://')) throw new Error(`invalid upstream or license for ${tool.id}`);
     if (tool.kind === 'prerequisite') {
       if (!/^\d+\.\d+\.\d+$/.test(tool.minVersion || '') || typeof tool.required !== 'boolean' || !tool.installDocs?.startsWith('https://') || tool.version !== undefined || tool.runtimeMinimum !== undefined || tool.artifacts !== undefined || tool.installLocation !== undefined) throw new Error(`invalid prerequisite for ${tool.id}`);
@@ -53,13 +53,14 @@ export function validateManifest(manifest) {
 }
 
 export function parseArgs(argv, platform = process.platform) {
-  let command, targetRelease, json = false, harness = 'claude', withFigma = false, dryRun = false, handoff = false, yes = false, print = false, removeFirstmateHome = false, removeEnv = false, installRoot, firstmateHome, distro, root;
+  let command, targetRelease, json = false, harness = 'claude', captain = null, withFigma = false, dryRun = false, handoff = false, yes = false, print = false, removeFirstmateHome = false, removeEnv = false, installRoot, firstmateHome, distro, root;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (['check', '--check', 'plan', 'install', 'doctor', 'update', '--update', 'upgrade', 'rollback', 'repair', 'reinstall', 'uninstall', 'keys', 'secondmate-template'].includes(arg) && !command) command = arg === '--check' ? 'check' : arg === '--update' || arg === 'update' ? 'upgrade' : arg === 'reinstall' ? 'repair' : arg;
     else if (command === 'rollback' && !targetRelease && /^pilot-[0-9]+$/.test(arg)) targetRelease = arg;
     else if (arg === '--json') json = true;
     else if (arg === '--harness' && parseHarness(argv[i + 1])) harness = parseHarness(argv[++i]);
+    else if (arg === '--captain' && parseCaptain(argv[i + 1])) captain = parseCaptain(argv[++i]);
     else if (arg === '--root' && argv[i + 1]) root = argv[++i];
     else if (arg === '--with-figma') withFigma = true;
     else if (arg === '--dry-run') dryRun = true;
@@ -99,7 +100,7 @@ export function parseArgs(argv, platform = process.platform) {
     if (installRoot && !isAbsolute(installRoot)) throw new Error('--install-root must be absolute');
     if (firstmateHome && !isAbsolute(firstmateHome)) throw new Error('--firstmate-home must be absolute');
   }
-  return { command: dryRun ? 'plan' : command, targetRelease, json, harness, withFigma, installRoot, firstmateHome, root, dryRun, handoff, distro, yes, print, removeFirstmateHome, removeEnv };
+  return { command: dryRun ? 'plan' : command, targetRelease, json, harness, captain, withFigma, installRoot, firstmateHome, root, dryRun, handoff, distro, yes, print, removeFirstmateHome, removeEnv };
 }
 
 const loginSteps = {
@@ -108,6 +109,7 @@ const loginSteps = {
   'chrome-devtools-axi': 'Sign in to sites in your own browser when needed.',
   'quota-axi': 'Sign in directly with each provider before using quota-axi.',
   'no-mistakes': 'Sign in directly with your selected agent and GitHub provider.',
+  opencode: 'Run opencode auth login or /connect, then choose your model with /models.',
   'claude': 'Sign in directly with Claude Code.',
   'codex': 'Sign in directly with Codex CLI.',
   'figma-cli': 'Sign in directly with Figma and grant OS permissions yourself.',
@@ -119,11 +121,13 @@ const towerAdvisories = new Set(['zoe-fleet-runtime', 'zoetrope-herdr-plugin', '
 
 function evaluate(manifest, context, options) {
   const relevant = manifest.tools.filter(tool => tool.classification !== 'never-ship' && (options.withTower !== false || !towerIds.has(tool.id))
-    && (tool.kind === 'prerequisite' && tool.profile === 'figma' || tool.profile === 'core' || usesProfile(options.harness, tool.profile) || (options.withFigma && tool.profile === 'figma')));
+    && (tool.kind === 'prerequisite' && tool.profile === 'figma' || tool.profile === 'core' || usesProfile(options.harness, tool.profile) || (tool.profile === captainOf(options.captain, options.harness) && ['claude', 'codex', 'opencode'].includes(tool.profile)) || (options.withFigma && tool.profile === 'figma')));
   const selected = relevant.filter(tool => tool.kind !== 'prerequisite');
   const platform = inspectPlatform(context, manifest, relevant, options);
   const issues = [];
   const advisories = [];
+  if (captainOf(options.captain, options.harness) === 'opencode' && !/^2\./.test(manifest.tools.find(tool => tool.id === 'opencode')?.version?.value || ''))
+    issues.push({ status: 'fail', id: 'opencode-version', reason: 'OpenCode captain requires a reviewed OpenCode 2 pin before configuration' });
   if (compareVersions(context.nodeVersion, manifest.nodeMinimum) < 0) issues.push({ status: 'fail', id: 'node-runtime', reason: `Node ${manifest.nodeMinimum} or newer required; install it yourself: ${manifest.tools.find(x => x.id === 'node')?.installDocs || 'https://nodejs.org/en/download'}` });
   if (!platform.supported) issues.push({ status: 'fail', id: 'platform', reason: platform.message });
   for (const prereq of platform.prerequisites) if (prereq.status !== 'pass') (advisoryPrerequisites.includes(prereq.id) || prereq.required === false ? advisories : issues).push({ status: prereq.status, id: prereq.id, reason: prereq.detail });
@@ -143,7 +147,7 @@ function evaluate(manifest, context, options) {
 }
 
 export function human(result) {
-  const lines = [`Agent Kit ${result.command}: ${result.summary}`, `Platform: ${result.platform.platform}/${result.platform.arch}; harness: ${harnessLabel(result.harness)}`];
+  const lines = [`Agent Kit ${result.command}: ${result.summary}`, `Platform: ${result.platform.platform}/${result.platform.arch}; worker CLIs: ${harnessLabel(result.harness)}; captain: ${captainOf(result.captain, result.harness)}`];
   if (result.platform.message) lines.push(result.platform.message);
   if (result.command === 'plan') {
     lines.push('Person-installed prerequisites (the kit does not install these):');
@@ -200,6 +204,7 @@ function plannedLocation(tool, context, options, release, artifact) {
   if (['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint'].includes(tool.id)) return join(versioned, 'bin', tool.id);
   if (['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi'].includes(tool.id)) return join(versioned, 'npm', 'node_modules', '.bin', tool.id);
   if (tool.id === 'codex') return join(versioned, 'npm-codex', 'node_modules', '.bin', 'codex');
+  if (tool.id === 'opencode') return join(versioned, 'npm-opencode', 'node_modules', '.bin', 'opencode');
   if (tool.id === 'figma-cli') return join(versioned, 'npm-figma', 'node_modules', '.bin', 'figma-cli');
   return 'UNVERIFIED: no install adapter';
 }
@@ -227,7 +232,7 @@ export function evaluatePlan(manifest, context, options) {
   let globalHookChanges = [];
   if (options.command === 'plan' && evaluation.platform.supported && !windows && options.globalHooks !== false) {
     try {
-      globalHookChanges = publicHookChanges(previewHooks(manifest, { home: context.env.HOME, installRoot: options.installRoot || join(context.env.HOME, '.agent-kit') }));
+      globalHookChanges = publicHookChanges(previewHooks(manifest, { home: context.env.HOME, installRoot: options.installRoot || join(context.env.HOME, '.agent-kit'), captain: options.captain, env: context.env }));
     } catch (error) {
       evaluation.issues.push({ status: 'conflict', id: 'hooks', reason: error.message });
     }
@@ -238,7 +243,8 @@ export function evaluatePlan(manifest, context, options) {
   let herdrKeys = null;
   if (options.command === 'plan' && evaluation.platform.supported && !windows && options.globalHooks !== false) {
     const ids = new Set(evaluation.selected.map(tool => tool.id)), path = herdrConfigPath(context.env, context.env.HOME);
-    const keys = keyBindings({ agents: Object.fromEntries(harnessProfiles(options.harness).map(agent => [agent, true])),
+    const agents = [...new Set([...harnessProfiles(options.harness), captainOf(options.captain, options.harness)])];
+    const keys = keyBindings({ agents: Object.fromEntries(agents.map(agent => [agent, true])),
       graph: ids.has('zoetrope-herdr-plugin') && ids.has('zoe-fleet'), pluginManager: ids.has('herdr-plugin-manager') }, 'open-firstmate');
     herdrKeys = { path, keys: keys.map(k => ({ key: k.key, command: k.action || `open-firstmate ${k.mode}` })), notes: previewKeys(path, keys) };
   }
@@ -264,6 +270,7 @@ export function evaluatePlan(manifest, context, options) {
     hookChanges: [
       { owner: 'firstmate', action: 'include Claude hooks with pinned source', path: pathJoin(context)(firstmateLocation(context, options), '.claude/settings.json') },
       { owner: 'firstmate', action: 'include Codex hooks with pinned source', path: pathJoin(context)(firstmateLocation(context, options), '.codex/hooks.json') },
+      ...(captainOf(options.captain, options.harness) === 'opencode' ? [{ owner: 'firstmate', action: 'use pinned OpenCode 2 project plugins', path: pathJoin(context)(firstmateLocation(context, options), '.opencode/plugins') }] : []),
     ],
     globalHookChanges,
     herdrKeys,
@@ -272,7 +279,7 @@ export function evaluatePlan(manifest, context, options) {
       nextSteps: windowsNextSteps(evaluation.platform.wsl?.target?.name) }))(windowsHandoff({ ...options, handoff: false }, context, evaluation.platform)) : {}),
     loginSteps: evaluation.relevant.filter(tool => tool.classification === 'per-user-login' && (tool.profile !== 'figma' || options.withFigma)).map(tool => loginSteps[tool.id]).filter(Boolean),
   } : undefined;
-  const result = { command: options.command, release: manifest.release, harness: options.harness, withFigma: options.withFigma,
+  const result = { command: options.command, release: manifest.release, harness: options.harness, captain: captainOf(options.captain, options.harness), withFigma: options.withFigma,
     platform: evaluation.platform, plan, issues: evaluation.issues, advisories: evaluation.advisories,
     summary: evaluation.issues.length ? `${evaluation.issues.length} gaps or unknowns` : 'ready', readOnly: true };
   return { output: options.json ? JSON.stringify(result, null, 2) + '\n' : human(result), exitCode: evaluation.issues.length ? 1 : 0, result };

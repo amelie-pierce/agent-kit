@@ -68,7 +68,8 @@ Every question shows its default and, except the key, has a matching flag. The s
 | # | Question | Default | Flag |
 | --- | --- | --- | --- |
 | 1 | Root folder | `~/Agentic` | `--root <folder>` |
-| 2 | Agent CLIs: Codex, Claude or both (Claude is offered when its CLI is installed) | Codex | `--harness codex`, `claude` or `claude,codex` |
+| 2 | Worker CLIs: Codex, Claude or both (Claude is offered when its CLI is installed) | Codex | `--harness codex`, `claude` or `claude,codex` |
+| 2 (captain) | Firstmate CLI: Claude, Codex or OpenCode. OpenCode supervises the selected Claude/Codex workers; it is not a worker provider | The selected worker CLI (Claude when both) | `--captain claude`, `codex` or `opencode` |
 | 2a, 2b | Subscription plan for each chosen agent CLI; shapes the [starter dispatch rules](#starter-dispatch-rules-and-jev). Claude: `pro`, `max5x`, `max20x`, `team-standard`, `team-premium`, `enterprise-standard`, `enterprise-premium`, `api`. Codex: `plus`, `pro`, `business-standard`, `business-premium`, `enterprise-edu`, `api` | skip | `--claude-plan <id>`, `--codex-plan <id>` (`skip` keeps Firstmate's template) |
 | 2c | Firstmate strategy mode: `lean`, `balanced` or `full`, shown first with the owner's definitions (full: unlock full power; balanced: optimize for token saving while everything still work; lean: harder optimization for token saving while everything still work). Warns before `full` on Pro, Team Standard, Enterprise standard, Plus and Business Standard | `lean` for those plans and API keys, otherwise `balanced` | `--dispatch-mode <mode>` |
 | 2d | [Full-access Codex launch](#full-access-codex-launch), asked only with Codex after a plain warning | yes | `--codex-full-access`, `--no-codex-full-access` |
@@ -82,6 +83,8 @@ Every question shows its default and, except the key, has a matching flag. The s
 | 8 | Starter second mate, with a name and a one-line scope | no | `--starter-mate <name>`, `--starter-scope <text>` (`--no-starter-mate`) |
 | 9 | Update channel | reviewed releases | `--channel releases` or `main` |
 | 10 | Optional typesafe.ai dispatch key, typed at a hidden prompt | skip | none; the value is never a flag (later: `--reconfigure keys`) |
+
+OpenCode is pinned as a separate integrity-locked npm group (`manifests/npm-opencode/`). The kit uses its persistent TUI through `firstmate opencode` or `open-firstmate opencode` (`Ctrl+B Shift+O` when that key is free). Sign in yourself with `opencode auth login` or `/connect`, then choose your model with `/models`. The kit does not read or set OpenCode credentials, provider or model. Firstmate's OpenCode 2 project plugins handle the session digest, supervision wake and turn-end follow-up in the TUI. These callbacks are passive; unlike Claude's blocking Stop hook, they cannot block a turn or promise headless `opencode run` continuation. Claude marketplace plugins stay Claude-only. On Windows this runs inside WSL2 Ubuntu, not native Windows.
 
 With `both` agent CLIs, the kit installs the Codex CLI, checks the Claude CLI, and registers hooks for both. `--yes` runs unattended: no questions, saved answers and flags first, then the defaults. Without a terminal and without `--yes`, answers are read line by line from standard input.
 
@@ -141,7 +144,7 @@ Setup step 4 renders these into `<root>/.tools` from the receipt. No owner path,
 | File | What it does | Written when |
 | --- | --- | --- |
 | `env.sh` | `AGENTIC_ROOT`, `FM_HOME`, `FM_BACKEND=herdr` and `TREEHOUSE_ROOT` for this setup | always |
-| `bin/firstmate [claude\|codex\|check]` | starts the coordinator in a Herdr pane in the Firstmate home, only while Firstmate's session lock is free; `check` runs Firstmate's detect-only bootstrap | always |
+| `bin/firstmate [claude\|codex\|opencode\|check]` | starts the chosen coordinator in a Herdr pane in the Firstmate home, only while Firstmate's session lock is free; `check` runs Firstmate's detect-only bootstrap | always |
 | `bin/open-firstmate` | the key launcher below | always |
 | `bin/fm-mate` | `agent-kit mate`: asks a name and a one-line scope, then runs Firstmate's own `fm-brief.sh --secondmate`, `fm-home-seed.sh` and `fm-spawn.sh --secondmate`; `fm-mate list`; `fm-mate retire <name>` runs `fm-teardown.sh`, which refuses while the mate holds unlanded work | always |
 | `bin/fm-jev on\|off\|status` | `agent-kit jev`: off comments the `TYPESAFE_API_KEY` line out (the value stays in `.env`), on restores it, both push to live second mates; never prints the key | always |
@@ -162,6 +165,7 @@ The axi `SessionStart` hooks for `gh-axi` and `chrome-devtools-axi` now run thro
 | --- | --- | --- |
 | F (`prefix+f`) | `open-firstmate claude`: the Claude coordinator | you chose Claude |
 | Shift+F (`prefix+shift+f`) | `open-firstmate codex`: the Codex coordinator | you chose Codex |
+| Shift+O (`prefix+shift+o`) | `open-firstmate opencode`: the OpenCode coordinator | you chose OpenCode as captain |
 | Shift+M (`prefix+shift+m`) | `open-firstmate mates`: `fm-mate` in the Mates tab, to create a second mate | always |
 | Shift+C (`prefix+shift+c`) | the Zoetrope session graph in its own tab | the kit registered the session-graph plugin |
 | M (`prefix+m`) | the Herdr plugin manager | the kit registered it |
@@ -394,7 +398,7 @@ The default harness for this direct command is Claude; `--harness codex` selects
 
 The manifest pins the approved `pikenguyen227/firstmate` and `pikenguyen227/zoetrope` commits. Firstmate and the standalone Linux tower fallback use SHA-256 hashes computed from their pinned GitHub source archives; the macOS and WSL2 towers use release assets. Firstmate is checked out at the pinned commit into the new home, on a local `main` branch. Firstmate takes the primary home's commit from its default branch when it seeds and syncs second mates (`bin/fm-ff-lib.sh`). The installer creates empty private `data/`, `state/`, `config/`, and `projects/` directories; it never imports an existing home or runs `fm-bootstrap.sh`. Repository-owned Claude/Codex hooks and relative skills stay with that checkout.
 
-**Global hooks and skills.** `plan` and `install --dry-run` show the exact kit-owned operations for each global file and skill path. During `install`, the hooks phase prints that preview before applying it. Four pinned AXI packages and Herdr register `SessionStart` hooks in `~/.claude/settings.json` and `~/.codex/hooks.json`; all five pinned AXI packages link their published skills into `~/.claude/skills/` and `~/.agents/skills/` (Codex's documented user location). Herdr's pinned binary generates its agent-state scripts inside a disposable HOME; the kit verifies the reviewed script hashes and stores the scripts under the versioned kit root. The phase enables `[features] hooks = true` in `~/.codex/config.toml`. Hook commands carry `# agent-kit:<tool>` ownership markers. Existing unmarked hooks and other settings remain present, and an existing skill with another owner causes refusal. Edited files are backed up privately under the kit root, written atomically, and recorded in the receipt. Malformed files stop the phase. [Registration evidence and details](docs/global-hooks.md) list the upstream sources.
+**Global hooks and skills.** `plan` and `install --dry-run` show the exact kit-owned operations for each global file and skill path. During `install`, the hooks phase prints that preview before applying it. Four pinned AXI packages and Herdr register `SessionStart` hooks in `~/.claude/settings.json` and `~/.codex/hooks.json`; the OpenCode choice adds one receipt-owned OpenCode 2 plugin under `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/` for the same ambient helpers and Herdr agent state. All five pinned AXI packages link their published skills into `~/.claude/skills/` and `~/.agents/skills/`. Herdr's pinned binary generates its Claude and Codex scripts inside a disposable HOME; the kit verifies their hashes. The phase enables `[features] hooks = true` in `~/.codex/config.toml`. Existing unmarked hooks and other settings remain present, and an existing skill or OpenCode plugin with another owner causes refusal. Edited files are backed up privately under the kit root, written atomically, and recorded in the receipt. [Registration evidence and details](docs/global-hooks.md) list the upstream sources.
 
 Codex asks each person to review new or changed hooks through `/hooks`; the kit does not pre-accept them. `no-mistakes init` installs its user-level skill when that person initializes their repository. Firstmate's own hooks and skills remain in its source checkout and are not registered globally.
 
@@ -457,6 +461,13 @@ Afterwards, open Windows Terminal with your distribution's profile and run Herdr
 ## Pins and approval
 
 In the manifest, `verified` means the artifact's identity and integrity were checked against the approved upstream: a source commit, a published SHA-256 digest, or registry integrity in a committed npm lock. It does not mean owner approval, and no pin field claims it. The owner approves a release by merging the PR that changes the manifest. `install` installs only `verified` pins. Unverified pins are reported and skipped. Person-installed `kind: "prerequisite"` entries have a minimum version and vendor install link instead of a kit pin or artifact; `install` and `update` never stage them. `check`, `plan` and `doctor` test their `--version` on PATH. Version probes use disposable HOME state, because figma-cli can initialize its own settings even for `--version` and Codex can leave `~/.codex/tmp` behind when the probe times out; figma-cli is now detected by presence only.
+
+### Release changes (`pilot-19` -> `pilot-20`)
+
+- **OpenCode 2.** An exact OpenCode 2.3.2 npm lock supplies the third Firstmate CLI choice. The kit checks the major version before global registration, adds its binary to the receipt and PATH, and launches a persistent TUI with `firstmate opencode` or the free `Ctrl+B Shift+O` Herdr key.
+- **Worker routing and personal account.** The worker choice remains Claude, Codex or both. Each person signs in to OpenCode and chooses a model themselves; the kit does not write OpenCode provider, model or credentials.
+- **Lifecycle.** A global OpenCode 2 plugin supplies ambient helper hints and Herdr agent state with receipt ownership, private backups and conflict checks. Firstmate's project plugins own the session digest, supervision wake and turn-end follow-up. Their callbacks are passive and require the persistent TUI. Repair, upgrade and uninstall handle the kit-owned plugin and binary.
+- **Firstmate.** The reviewed OpenCode 2 project-plugin port is required in the Firstmate pin before this release can ship. Linux and WSL2 Ubuntu remain unverified live platforms.
 
 ### Release changes (`pilot-18` -> `pilot-19`)
 

@@ -22,9 +22,9 @@ export class ProfileChanged extends Error {
 // installRoot is <root>/.tools; groups are the npm phases the release holds.
 export function kitFolders(installRoot, release, groups = ['npm']) {
   const npm = group => posix.join(installRoot, 'releases', release, group, 'node_modules', '.bin');
-  return [posix.join(installRoot, 'bin'), posix.join(installRoot, 'releases', release, 'bin'), ...['npm', 'npm-codex', 'npm-figma'].filter(g => groups.includes(g)).map(npm)];
+  return [posix.join(installRoot, 'bin'), posix.join(installRoot, 'releases', release, 'bin'), ...['npm', 'npm-codex', 'npm-opencode', 'npm-figma'].filter(g => groups.includes(g)).map(npm)];
 }
-export const groupsOf = receipt => ['npm', 'npm-codex', 'npm-figma'].filter(g => receipt?.phases?.[g]);
+export const groupsOf = receipt => ['npm', 'npm-codex', 'npm-opencode', 'npm-figma'].filter(g => receipt?.phases?.[g]);
 export const foldersOf = (receipt, installRoot) => kitFolders(installRoot, receipt.release, groupsOf(receipt));
 export const renderProfileBlock = folders => [beginMark, '# Managed by Agent Kit: puts the kit\'s tools first on your PATH. agent-kit uninstall removes this block.',
   `export PATH=${folders.map(quote).join(':')}:"$PATH"`, endMark].join('\n');

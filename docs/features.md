@@ -1,6 +1,6 @@
 # Agent Kit: all features
 
-This page lists the functions in the `pilot-19` kit. `pilot-18` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This page lists the functions in the `pilot-20` kit. `pilot-19` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 **How to read the support columns.** **Yes**: works today. **Partial**: works with a limit, explained in the row. **No**: not supported.
 
@@ -74,7 +74,8 @@ Run these with `node "$AK" <command>`. On Windows, run them in your **Ubuntu** t
 | # | Question | Default | Flag | macOS | Linux | Windows (WSL2) |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Root folder | `~/Agentic` | `--root <folder>` | Yes | Yes | Yes |
-| 2 | Agent CLIs: `codex`, `claude` or `claude,codex` (Claude is offered only when Claude Code is already installed) | `codex` | `--harness ...` | Yes | Yes | Yes |
+| 2 | Worker CLIs: `codex`, `claude` or `claude,codex` (Claude is offered only when Claude Code is already installed) | `codex` | `--harness ...` | Yes | Yes | Yes |
+| 2a | Firstmate CLI: `claude`, `codex` or `opencode`; OpenCode supervises Claude/Codex workers only | selected worker CLI | `--captain ...` | Yes | Yes | Yes (inside Ubuntu) |
 | 2a | Claude subscription plan (only if Claude was chosen): `pro`, `max5x`, `max20x`, `team-standard`, `team-premium`, `enterprise-standard`, `enterprise-premium`, `api`, or `skip` | `skip` | `--claude-plan <id>` | Yes | Yes | Yes |
 | 2b | Codex subscription plan (only if Codex was chosen): `plus`, `pro`, `business-standard`, `business-premium`, `enterprise-edu`, `api`, or `skip` | `skip` | `--codex-plan <id>` | Yes | Yes | Yes |
 | 2c | Routing mode: `lean`, `balanced` or `full`, shown first with what each means (full: unlock full power; balanced: optimize for token saving while everything still work; lean: harder optimization for token saving while everything still work). Selected as Firstmate's token strategy at install, key or not. Warns before `full` on Claude Pro, Team Standard, Enterprise standard, ChatGPT Plus and Business Standard | `lean` on those plans and on `api`, otherwise `balanced` | `--dispatch-mode <mode>` | Yes | Yes | Yes |
@@ -109,6 +110,7 @@ Every download is checked against a fixed checksum. Nothing is started and no on
 | Herdr 0.9.3 | The terminal workspace the agents run in | `herdr` | Yes | Yes | Yes |
 | Treehouse 2.3.0 | Gives each worker its own clean copy of a repo; a kit wrapper keeps the copies under `<root>/.treehouse` | Used by Firstmate | Yes | Yes | Yes |
 | Codex CLI 0.164.0 | OpenAI's agent CLI, installed only when you choose `codex` | `codex` (sign in with `codex login`) | Yes | Yes | Yes |
+| OpenCode CLI 2.3.2 | Separate integrity-locked npm group, installed only when chosen as the Firstmate CLI. Sign in with `opencode auth login` or `/connect` and choose your own model with `/models`; the kit sets neither provider nor model | `firstmate opencode` | Yes | Yes (unverified live) | Yes inside Ubuntu (unverified live) |
 | no-mistakes 1.79.0 | Checks code before a PR is opened | Used by Firstmate | Yes | Yes | Yes |
 | ShellCheck 0.11.0 | Shell script checker | `shellcheck` | Yes | Yes | Yes |
 | actionlint 1.7.12 | GitHub Actions workflow checker | `actionlint` | Yes | Yes | Yes |
@@ -137,8 +139,8 @@ Written into `<root>/.tools/bin` from your receipt. They run once that folder is
 
 | Command | What it does | Written when | macOS | Linux | Windows (WSL2) |
 | --- | --- | --- | --- | --- | --- |
-| `firstmate [claude\|codex\|check]` | Starts Firstmate in your Firstmate home from a Herdr pane, only while no other Firstmate runs there; `check` runs Firstmate's own tool check without starting anything | always | Yes | Yes | Yes |
-| `open-firstmate [claude\|codex\|mates]` | What the Herdr keys run: opens the **Control Tower** workspace and its **Captain (Claude)**, **Captain (Codex)** or **Mates** tab, creating them when missing; types only into an idle shell | always | Yes | Yes | Yes |
+| `firstmate [claude\|codex\|opencode\|check]` | Starts Firstmate in your Firstmate home from a Herdr pane, only while no other Firstmate runs there; `check` runs Firstmate's own tool check without starting anything | always | Yes | Yes | Yes |
+| `open-firstmate [claude\|codex\|opencode\|mates]` | What the Herdr keys run: opens the **Control Tower** workspace and its **Captain (Claude)**, **Captain (Codex)**, **Captain (OpenCode)** or **Mates** tab, creating them when missing; types only into an idle shell | always | Yes | Yes | Yes |
 | `fm-mate` | Creates a second mate (asks a name, a one-line scope and a final yes, then creates and starts it); `fm-mate list`; `fm-mate retire <name>` | always | Yes | Yes | Yes |
 | `fm-help` | Prints your help page | always | Yes | Yes | Yes |
 | `fm-jev on\|off\|status` | Turns Jev routing off (key kept, commented out) or back on; never shows the key | always | Yes | Yes | Yes |
@@ -167,6 +169,7 @@ Installed with your own `claude` command, from marketplaces pinned to reviewed c
 | Function | What it does | Where | macOS | Linux | Windows (WSL2) |
 | --- | --- | --- | --- | --- | --- |
 | Start-up hooks | Session start hooks for gh-axi, chrome-devtools-axi, lavish-axi, tasks-axi and Herdr's agent-state script, in every Claude Code and Codex session. The gh-axi and chrome-devtools-axi hooks run through small gates that do nothing outside your Firstmate home | `~/.claude/settings.json`, `~/.codex/hooks.json` | Yes | Yes | Yes |
+| OpenCode ambient plugin | Passive OpenCode 2 context callback supplies the same helper hints and reports Herdr agent state. The gh-axi and Chrome hints run only in the Firstmate home; Firstmate's project plugins own the digest, wake and turn-end follow-up in a persistent TUI | `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/agent-kit-ambient.js` | Yes | Yes (unverified live) | Yes inside Ubuntu (unverified live) |
 | Codex hooks setting | Turns on hooks in Codex. Codex still asks you to review the new hooks once (`/hooks`) | `~/.codex/config.toml` | Yes | Yes | Yes |
 | Helper skills | Links the skills of gh-axi, chrome-devtools-axi, lavish, quota-axi and tasks-axi, and with Figma the Figma CLI's five skills (`atomicaui-release`, `atomicaui-upgrade-prototype`, `figma-cli`, `figma-make` and `figma-make-team`) | `~/.claude/skills/`, `~/.agents/skills/` | Yes | Yes | Yes |
 | Safe merge | Keeps your own hooks and settings, backs up each file first, and stops with a conflict instead of overwriting a skill you own with the same name | `<root>/.tools/backups/hooks/` | Yes | Yes | Yes |

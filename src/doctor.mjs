@@ -1,12 +1,13 @@
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync, readdirSync, readlinkSync, realpathSync } from 'node:fs';
+import { existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, realpathSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { tmpdir } from 'node:os';
 import { previewHooks } from './install/hooks.mjs';
 import { npmGroup, towerPaths } from './install/macos.mjs';
 import { inspectPlatform } from './platforms/index.mjs';
 import { artifactFor } from './platforms/linux.mjs';
-import { usesProfile } from './harness.mjs';
+import { captainOf, usesProfile } from './harness.mjs';
 import { jevReadiness } from './dispatch.mjs';
 import { shortcutsHealth } from './shortcuts.mjs';
 import { herdrPathHealth } from './herdr-path.mjs';
@@ -87,16 +88,17 @@ export function doctor(manifest, { installRoot, home, env = process.env, herdrPa
   if (existsSync(root) && (!lstatSync(root).isDirectory() || lstatSync(root).isSymbolicLink())) throw new Error('doctor requires a plain kit root directory');
   checks.push(status('node', versionAtLeast(nodeVersion, manifest.nodeMinimum) ? 'pass' : 'fail', `requires Node ${manifest.nodeMinimum} or newer; install it yourself: ${manifest.tools.find(x => x.id === 'node')?.installDocs || 'https://nodejs.org/en/download'}`));
   const receiptPath = join(root, 'receipt.json'), receiptFile = safeFile(receiptPath);
-  let recordedHarness = 'claude';
+  let recordedHarness = 'claude', recordedCaptain = 'claude';
   if (receiptFile) {
     try {
       const recorded = JSON.parse(readFileSync(receiptPath, 'utf8'));
       recordedHarness = recorded.setup?.answers?.harness || (recorded.phases?.['npm-codex'] ? 'codex' : 'claude');
+      recordedCaptain = captainOf(recorded.setup?.answers?.captain, recordedHarness);
     }
     catch { /* The receipt validation below reports malformed JSON. */ }
   }
   const platform = inspectPlatform({ env, platform: platformName, arch, nodeVersion, installRoot: root }, manifest,
-    manifest.tools.filter(tool => tool.kind === 'prerequisite' && (tool.profile === 'core' || usesProfile(recordedHarness, tool.profile) || tool.profile === 'figma')));
+    manifest.tools.filter(tool => tool.kind === 'prerequisite' && (tool.profile === 'core' || usesProfile(recordedHarness, tool.profile) || tool.profile === recordedCaptain || tool.profile === 'figma')));
   for (const prerequisite of platform.prerequisites || []) if (!['terminal', 'browser', 'virtualization'].includes(prerequisite.id))
     checks.push(status(`prerequisite-${prerequisite.id}`, prerequisite.required === false && prerequisite.status !== 'pass' ? 'warn' : prerequisite.status, prerequisite.detail));
   if (!receiptFile) {
@@ -133,7 +135,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, herdrPa
   const byId = new Map(manifest.tools.map(t => [t.id, t]));
   for (const [id, entry] of Object.entries(receipt.phases)) {
     if (id === 'hooks') continue;
-    if (!byId.has(id) && !['npm', 'npm-codex', 'npm-figma', 'zoe-fleet-tower', 'treehouse-root'].includes(id)) { checks.push(status(id, 'fail', 'unknown receipt phase')); continue; }
+    if (!byId.has(id) && !['npm', 'npm-codex', 'npm-opencode', 'npm-figma', 'zoe-fleet-tower', 'treehouse-root'].includes(id)) { checks.push(status(id, 'fail', 'unknown receipt phase')); continue; }
     const path = phasePath(root, id, entry);
     if (!path) { checks.push(status(id, 'fail', 'unsafe receipt path')); continue; }
     if (id === 'zoe-fleet-tower') {
@@ -156,7 +158,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, herdrPa
     const tool = byId.get(id);
     if (tool?.kind !== 'prerequisite' && tool && tool.version.value !== entry.version) checks.push(status(`${id}-pin`, 'unknown', `installed ${entry.version}; reviewed checkout pins ${tool.version.value || 'unverified'}`));
     if (tool?.kind !== 'prerequisite' && tool) checks.push(status(`${id}-origin`, entry.artifactSha256 === artifactFor(tool, platform.artifactTarget || `${platformName}-${arch}`)?.sha256 ? 'pass' : 'unknown', 'artifact digest compared with reviewed manifest origin'));
-    if (id === 'npm' || id === 'npm-codex' || id === 'npm-figma') {
+    if (id === 'npm' || id === 'npm-codex' || id === 'npm-opencode' || id === 'npm-figma') {
       const lock = readFileSync(new URL(`../manifests/${id}/package-lock.json`, import.meta.url));
       checks.push(status(`${id}-origin`, entry.artifactSha256 === sha(lock) ? 'pass' : 'unknown', 'npm lock digest compared with reviewed registry origin'));
     }
@@ -185,10 +187,38 @@ export function doctor(manifest, { installRoot, home, env = process.env, herdrPa
     checks.push(status(`${tool.id}-path`, !found ? 'unknown' : same || kitLauncher ? 'pass' : 'fail', !found ? 'not on PATH' : same ? 'kit npm binary has PATH precedence'
       : kitLauncher ? 'the kit launcher in front of the pinned binary has PATH precedence' : 'another binary has PATH precedence'));
   }
+  const captain = captainOf(receipt.setup?.answers?.captain, recordedHarness);
+  if (captain === 'opencode') {
+    const phase = receipt.phases['npm-opencode'], base = phase && phasePath(root, 'npm-opencode', phase);
+    const binary = base && join(base, 'node_modules', '.bin', 'opencode');
+    if (!binary || !existsSync(binary)) checks.push(status('opencode-version', 'fail', 'pinned OpenCode executable missing'));
+    else {
+      const probeHome = mkdtempSync(join(tmpdir(), 'agent-kit-opencode-doctor-'));
+      try {
+        const result = spawnSync(binary, ['--version'], { encoding: 'utf8', timeout: 10000, env: { ...env, HOME: probeHome, XDG_CONFIG_HOME: join(probeHome, '.config'), XDG_DATA_HOME: join(probeHome, '.local', 'share') } });
+        const version = (result.stdout || '').trim();
+        checks.push(status('opencode-version', result.status === 0 && /(?:^|\s)v?2\./.test(version) ? 'pass' : 'fail', result.status === 0 ? `${version}; version 2 required` : 'OpenCode version probe failed'));
+      } finally { rmSync(probeHome, { recursive: true, force: true }); }
+    }
+    const fmHome = receipt.phases.firstmate?.path, pluginDir = fmHome && join(fmHome, '.opencode', 'plugins');
+    let files = [], api2 = false;
+    try {
+      if (pluginDir && lstatSync(pluginDir).isDirectory() && !lstatSync(pluginDir).isSymbolicLink()) {
+        files = readdirSync(pluginDir).filter(name => /^fm-primary-.*\.js$/.test(name));
+        api2 = files.length >= 5 && files.every(name => {
+          const path = join(pluginDir, name), st = lstatSync(path);
+          return st.isFile() && !st.isSymbolicLink() && /\bsetup\s*\(/.test(readFileSync(path, 'utf8'));
+        });
+      }
+    } catch { api2 = false; }
+    checks.push(status('opencode-primary-plugins', api2 ? 'pass' : 'fail', api2 ? `${files.length} Firstmate OpenCode 2 project plugins present` : 'Firstmate OpenCode 2 primary plugins absent or not ported'));
+    checks.push(status('opencode-auth', 'unknown', 'personal OpenCode sign-in is not inspected'));
+    checks.push(status('opencode-tui', 'unknown', 'supervision and turn-end follow-up require a persistent TUI smoke'));
+  }
   if (receipt.phases.hooks) {
     try {
-      const preview = previewHooks({ ...manifest, release: receipt.release }, { home: home || env.HOME, installRoot: root });
-      const changed = preview.files.some(f => f.changes.length) || preview.skills.length || preview.scripts.length;
+      const preview = previewHooks({ ...manifest, release: receipt.release }, { home: home || env.HOME, installRoot: root, captain, env });
+      const changed = preview.files.some(f => f.changes.length) || preview.skills.length || preview.scripts.length || preview.plugins.length;
       checks.push(status('hooks', changed ? 'fail' : 'pass', changed ? 'kit hook markers or skill targets differ' : 'kit hook markers and skill targets intact'));
     } catch { checks.push(status('hooks', 'fail', 'hook ownership cannot be verified')); }
   } else checks.push(status('hooks', 'unknown', 'global hooks not recorded in receipt'));
@@ -253,7 +283,8 @@ function doctorResult(checks, release, manifest, receipt, root) {
     const installed = path && existsSync(path) ? 'pass' : 'unknown';
     const verifiedDigest = find(phaseId);
     const configured = tool.id === 'firstmate' ? ['bin', 'data', 'state', 'config', 'projects'].every(dir => find(`firstmate-layout-${dir}`) === 'pass') ? 'pass' : 'fail'
-      : ['herdr', 'gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'tasks-axi'].includes(tool.id) ? find('hooks') : 'unknown';
+      : tool.id === 'opencode' ? find('opencode-primary-plugins') === 'pass' && find('hooks') === 'pass' ? 'pass' : 'fail'
+        : ['herdr', 'gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'tasks-axi'].includes(tool.id) ? find('hooks') : 'unknown';
     return { id: tool.id, installed, verifiedDigest, configured, authenticated: 'unknown', liveTested: 'unknown' };
   });
   return { command: 'doctor', release, checks, components, exitCode: checks.some(x => x.status === 'fail') ? 1 : 0, readOnly: true };

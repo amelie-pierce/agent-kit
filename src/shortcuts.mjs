@@ -6,6 +6,7 @@ import { dirname, isAbsolute, join } from 'node:path';
 import { findOnPath } from './platforms/macos.mjs';
 import { applyPlugin, describePlugin, planPlugin } from './herdr-plugin.mjs';
 import { claudePluginsHealth, placeClaudePlugins, recordClaudePreviousRevision } from './claude-plugins.mjs';
+import { captainOf } from './harness.mjs';
 
 // Keyboard shortcuts for a teammate's Firstmate: kit-owned launchers in <root>/.tools/bin (open-firstmate runs
 // the kit's templates/shortcuts/open_firstmate.py, fm-mate runs `agent-kit mate`) with paths from the receipt,
@@ -36,37 +37,42 @@ const onPath = (name, env) => findOnPath(name, env.PATH || '')[0] || null;
 export function shortcutInputs(receipt, root, env, recorded = null, kitPath = null) {
   const phase = id => receipt.phases?.[id]?.state === 'complete' && typeof receipt.phases[id].path === 'string' ? join(root, receipt.phases[id].path) : null;
   const harness = receipt.setup?.answers?.harness || 'codex';
+  const captain = captainOf(receipt.setup?.answers?.captain, harness);
   const python = recorded?.python && stat(recorded.python) ? recorded.python : onPath('python3', env);
   const codexTree = phase('npm-codex');
+  const opencodeTree = phase('npm-opencode');
   const agents = {
-    ...(harness !== 'codex' ? { claude: recorded?.agents?.claude && stat(recorded.agents.claude) ? recorded.agents.claude : onPath('claude', env) || 'claude' } : {}),
-    ...(harness !== 'claude' && codexTree ? { codex: join(codexTree, 'node_modules', '.bin', 'codex') } : {}),
+    ...(harness !== 'codex' || captain === 'claude' ? { claude: recorded?.agents?.claude && stat(recorded.agents.claude) ? recorded.agents.claude : onPath('claude', env) || 'claude' } : {}),
+    ...((harness !== 'claude' || captain === 'codex') && codexTree ? { codex: join(codexTree, 'node_modules', '.bin', 'codex') } : {}),
+    ...(captain === 'opencode' && opencodeTree ? { opencode: join(opencodeTree, 'node_modules', '.bin', 'opencode') } : {}),
   };
   // The installed kit copy at its pinned commit (during an upgrade, the new copy), never a temporary checkout.
   const kit = kitPath || receipt.setup?.kit?.path, program = kit && stat(join(kit, programFile)) ? join(kit, programFile) : null;
   const node = recorded?.node && stat(recorded.node) ? recorded.node : process.execPath;
   const runtime = phase('zoe-fleet-runtime'), npm = phase('npm'), answers = receipt.setup?.answers || {};
   // The person's own Claude CLI, never the kit's telemetry wrapper in <root>/.tools/bin.
-  const realClaude = harness === 'codex' ? null : recorded?.realClaude && stat(recorded.realClaude) ? recorded.realClaude
+  const realClaude = harness === 'codex' && captain !== 'claude' ? null : recorded?.realClaude && stat(recorded.realClaude) ? recorded.realClaude
     : findOnPath('claude', env.PATH || '').find(path => dirname(path) !== join(root, 'bin')) || null;
   const firstmateHome = receipt.setup?.paths?.firstmateHome || receipt.phases?.firstmate?.path || null;
-  return { herdr: phase('herdr'), python, node, kit, firstmateHome, agents, realClaude, mate: join(root, mateFile), graph: !!recorded?.plugin?.entrySha256, pluginManager: !!recorded?.plugin?.managerSha256,
+  return { herdr: phase('herdr'), python, node, kit, firstmateHome, agents, captain, realClaude, mate: join(root, mateFile), graph: !!recorded?.plugin?.entrySha256, pluginManager: !!recorded?.plugin?.managerSha256,
     lock: join(root, '.open-firstmate.lock'), program, firstmate: join(root, 'bin', 'firstmate'),
     paths: { root: receipt.setup?.paths?.root || dirname(root), treehouseRoot: receipt.setup?.paths?.treehouseRoot || dirname(root), installRoot: root },
     tower: receipt.phases?.['zoe-fleet-tower'] && runtime ? { launcher: join(runtime, 'bin', 'zoe-fleet-tower'), runtime } : null,
-    fullAccess: harness !== 'claude' && answers.codexFullAccess !== false && !!codexTree };
+    fullAccess: (harness !== 'claude' || captain === 'codex') && answers.codexFullAccess !== false && !!codexTree };
 }
 
 export const launcherScript = inputs => `#!/bin/sh
-# agent-kit:open-firstmate - opens the Firstmate coordinator (claude or codex) or the Mates tab, where fm-mate
+# agent-kit:open-firstmate - opens the Firstmate coordinator (claude, codex or opencode) or the Mates tab, where fm-mate
 # creates a second mate (mates), from a Herdr pane or key. Written by Agent Kit from its receipt; repair rewrites it.
 OPEN_FIRSTMATE_HERDR=${quote(inputs.herdr)}
 OPEN_FIRSTMATE_HOME=${quote(inputs.firstmateHome)}
 OPEN_FIRSTMATE_CLAUDE=${quote(inputs.agents.claude ? inputs.firstmate : '')}
 OPEN_FIRSTMATE_CODEX=${quote(inputs.agents.codex ? inputs.firstmate : '')}
+OPEN_FIRSTMATE_OPENCODE=${quote(inputs.agents.opencode ? inputs.firstmate : '')}
+OPEN_FIRSTMATE_DEFAULT=${quote(inputs.captain || (inputs.agents.claude ? 'claude' : 'codex'))}
 OPEN_FIRSTMATE_MATE=${quote(inputs.mate)}
 OPEN_FIRSTMATE_LOCK=${quote(inputs.lock)}
-export OPEN_FIRSTMATE_HERDR OPEN_FIRSTMATE_HOME OPEN_FIRSTMATE_CLAUDE OPEN_FIRSTMATE_CODEX OPEN_FIRSTMATE_MATE OPEN_FIRSTMATE_LOCK
+export OPEN_FIRSTMATE_HERDR OPEN_FIRSTMATE_HOME OPEN_FIRSTMATE_CLAUDE OPEN_FIRSTMATE_CODEX OPEN_FIRSTMATE_OPENCODE OPEN_FIRSTMATE_DEFAULT OPEN_FIRSTMATE_MATE OPEN_FIRSTMATE_LOCK
 exec ${quote(inputs.python)} ${quote(inputs.program)} "$@"
 `;
 const header = (id, what) => `#!/bin/sh\n# agent-kit:${id} - ${what}\n# Written by Agent Kit from its receipt; agent-kit repair rewrites it and uninstall removes it.\n`;
@@ -82,16 +88,16 @@ export AGENTIC_ROOT FM_HOME FM_BACKEND TREEHOUSE_ROOT
 // The coordinator launcher: in a Herdr pane, in the Firstmate home, only while Firstmate's own session lock is
 // free. Codex gets full access only when this person answered yes at setup.
 export const firstmateScript = inputs => `#!/bin/bash
-# agent-kit:firstmate - start the Firstmate coordinator (claude or codex) in a Herdr pane, or check the home.
+# agent-kit:firstmate - start the Firstmate coordinator (claude, codex or opencode) in a Herdr pane, or check the home.
 # Written by Agent Kit from its receipt; agent-kit repair rewrites it and uninstall removes it.
 set -eu
 . ${quote(join(inputs.paths.installRoot, 'env.sh'))}
-mode=\${1:-${inputs.agents.claude ? 'claude' : 'codex'}}
+mode=\${1:-${inputs.captain || (inputs.agents.claude ? 'claude' : 'codex')}}
 if [ "$#" -gt 0 ]; then shift; fi
 case "$mode" in
   check) cd "$FM_HOME"; FM_BOOTSTRAP_DETECT_ONLY=1 exec bash bin/fm-bootstrap.sh ;;
-  claude|codex) ;;
-  *) echo 'Usage: firstmate [claude|codex|check]' >&2; exit 2 ;;
+  claude|codex|opencode) ;;
+  *) echo 'Usage: firstmate [claude|codex|opencode|check]' >&2; exit 2 ;;
 esac
 if [ "\${HERDR_ENV:-}" != 1 ]; then
   echo 'Open a Herdr pane, then run firstmate (or press Ctrl+B, then F).' >&2
@@ -103,10 +109,11 @@ case "$lock_status" in
   'lock: free'|'lock: stale '*) ;;
   *) printf '%s\\n' "$lock_status" 'Exit the current coordinator cleanly before switching.' >&2; exit 3 ;;
 esac
-unset CLAUDECODE CODEX_THREAD_ID PI_CODING_AGENT FM_TASK_ID
+unset CLAUDECODE CLAUDE_CODE_ENTRYPOINT CLAUDE_CODE_SSE_PORT CODEX_THREAD_ID CODEX_SESSION_ID PI_CODING_AGENT FM_TASK_ID
 case "$mode" in
   claude) ${inputs.agents.claude ? `exec ${quote(inputs.tower && inputs.realClaude ? join(inputs.paths.installRoot, 'bin', 'claude') : inputs.agents.claude)} "$@"` : `echo 'Claude is not set up by Agent Kit here.' >&2; exit 2`} ;;
   codex) ${inputs.agents.codex ? `exec ${quote(inputs.agents.codex)}${inputs.fullAccess ? ` --sandbox danger-full-access --ask-for-approval never --add-dir ${quote(inputs.paths.root)} --enable hooks` : ''} "$@"` : `echo 'Codex is not set up by Agent Kit here.' >&2; exit 2`} ;;
+  opencode) ${inputs.agents.opencode ? `exec ${quote(inputs.agents.opencode)} "$@"` : `echo 'OpenCode is not set up by Agent Kit here.' >&2; exit 2`} ;;
 esac
 `;
 export const helpScript = inputs => `${header('fm-help', "print this Firstmate home's captain guide (data/captain-help.md), when the home keeps one.")}home=\${FM_HOME:-${quote(inputs.firstmateHome)}}
@@ -185,6 +192,7 @@ exec ${quote(inputs.node)} ${quote(join(inputs.kit, 'bin', 'agent-kit.mjs'))} ma
 export const kitKeys = [
   { mode: 'claude', key: 'prefix+f', description: 'Firstmate: Claude coordinator', purpose: 'open the Claude coordinator' },
   { mode: 'codex', key: 'prefix+shift+f', description: 'Firstmate: Codex coordinator', purpose: 'open the Codex coordinator' },
+  { mode: 'opencode', key: 'prefix+shift+o', description: 'Firstmate: OpenCode coordinator', purpose: 'open the OpenCode coordinator' },
   { mode: 'mates', key: 'prefix+shift+m', description: 'Firstmate: new second mate (Mates tab)', purpose: 'create a second mate in the Mates tab' },
   { mode: 'graph', key: 'prefix+shift+c', action: 'furkankly.zoetrope.open-tab', description: 'zoetrope: session graph (tab)', purpose: 'open the session graph in a tab' },
   { mode: 'plugins', key: 'prefix+m', action: 'ray.plugin-manager.open', description: 'Plugin Manager', purpose: 'open the Herdr plugin manager' },
@@ -211,7 +219,7 @@ export function previewKeys(configPath, entries) {
     : defaults.filter(d => d.key === entry.key).map(d => overrideNote(entry, d.action, rest)));
 }
 export function keyBindings(inputs, launcher, keys = kitKeys) {
-  const wanted = { claude: !!inputs.agents.claude, codex: !!inputs.agents.codex, mates: true, graph: inputs.graph, plugins: inputs.pluginManager };
+  const wanted = { claude: !!inputs.agents.claude, codex: !!inputs.agents.codex, opencode: !!inputs.agents.opencode, mates: true, graph: inputs.graph, plugins: inputs.pluginManager };
   return keys.filter(entry => entry.key && wanted[entry.mode]).map(entry => ({ ...entry, command: entry.action || `${quote(launcher)} ${entry.mode}` }));
 }
 // Herdr default actions still on their default key: an action the person set in their config is no longer there.

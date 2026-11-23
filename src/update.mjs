@@ -9,6 +9,7 @@ import { herdrConfigPath, ownedFiles, placeKitExtras, shortcutInputs } from './s
 import { pluginsPath, zoeFile } from './herdr-plugin.mjs';
 import { ProfileChanged, profileTarget, reconcileProfile, saveProfileRecord } from './shell-profile.mjs';
 import { applyStarter, describeStarter, harnessOf, modeOf, planStarter, plansOf, strategyTakesPlans } from './dispatch.mjs';
+import { captainOf } from './harness.mjs';
 import { validateManifest } from './kit.mjs';
 import { artifactFor, artifactTarget, linuxIdentity } from './platforms/linux.mjs';
 
@@ -31,6 +32,7 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
   if (receipt.schemaVersion !== 1 || !receipt.phases || receipt.pendingUpdate && receipt.pendingUpdate !== manifest.release) throw new Error('incompatible receipt or another update is pending');
   const answers = receipt.setup?.answers || {};
   const effectiveHarness = answers.harness || (receipt.phases['npm-codex'] ? 'codex' : harness);
+  const effectiveCaptain = captainOf(answers.captain, effectiveHarness);
   const oldManifest = structuredClone(manifest);
   for (const tool of oldManifest.tools) if (tool.kind !== 'prerequisite' && receipt.phases[tool.id]?.version) tool.version.value = receipt.phases[tool.id].version;
   const health = doctor(oldManifest, { installRoot: root, home, env, nodeVersion, platform, arch });
@@ -41,9 +43,9 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
   if (unsafe.length) throw new Error((unsafe.some(x => x.id === 'firstmate') && firstmate && firstmateIssue(firstmateEntry?.path, firstmateEntry?.version, firstmate.approvedUpstream, firstmate.version.value))
     || `owned installation fails verification: ${unsafe.map(x => x.id).join(', ')}`);
   const target = platform === 'linux' ? artifactTarget(linuxIdentity({ env }), arch) : `${platform}-${arch}`;
-  const changes = selected(manifest, effectiveHarness, answers.figma ?? withFigma, answers.tower ?? true).map(tool => {
+  const changes = selected(manifest, effectiveHarness, answers.figma ?? withFigma, answers.tower ?? true, effectiveCaptain).map(tool => {
     const group = npmGroup(tool.id), entry = receipt.phases[group || tool.id];
-    const beforeVersion = group ? entry?.packages?.[tool.id === 'codex' ? '@openai/codex' : tool.id] || null : entry?.version || null;
+    const beforeVersion = group ? entry?.packages?.[tool.id === 'codex' ? '@openai/codex' : tool.id === 'opencode' ? '@opencode/cli' : tool.id] || null : entry?.version || null;
     const beforeSha256 = entry?.artifactSha256 || null;
     const lock = group ? readFileSync(manifestsDir ? join(manifestsDir, group, 'package-lock.json') : new URL(`../manifests/${group}/package-lock.json`, import.meta.url)) : null;
     const afterSha256 = group ? sha(lock) : artifactFor(tool, target)?.sha256 || null;
@@ -52,7 +54,7 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
       action: beforeVersion === afterVersion && beforeSha256 === afterSha256 ? 'retain or stage in new release' : tool.version.status === 'verified' && afterSha256 ? 'stage and verify' : 'unverified' };
   });
   if (receipt.release === manifest.release && changes.some(x => x.action === 'stage and verify')) throw new Error('changed pins require a new manifest release name');
-  return { command: 'update', fromRelease: receipt.release, toRelease: manifest.release, harness: effectiveHarness, changes,
+  return { command: 'update', fromRelease: receipt.release, toRelease: manifest.release, harness: effectiveHarness, captain: effectiveCaptain, changes,
     firstmateHome: receipt.phases.firstmate?.path || null, setup: receipt.setup || null, noMistakesBin: receipt.phases['no-mistakes']?.path ? join(root, receipt.phases['no-mistakes'].path) : null, apply: false,
     note: 'Plan only. --yes stages and activates reviewed artifacts. Previous release binaries remain for rollback; user state rollback is not promised.' };
 }
@@ -60,7 +62,7 @@ export async function applyUpdate(manifest, options) {
   const plan = planUpdate(manifest, options);
   if (!plan.firstmateHome) throw new Error('Firstmate home is absent from receipt');
   const answers = plan.setup?.answers || {};
-  const result = await installPlatform(manifest, { ...options, harness: plan.harness, update: true, firstmateHome: plan.firstmateHome,
+  const result = await installPlatform(manifest, { ...options, harness: plan.harness, captain: plan.captain, update: true, firstmateHome: plan.firstmateHome,
     withFigma: answers.figma ?? options.withFigma, withTower: answers.tower ?? true, globalHooks: answers.globalHooks ?? true, towerState: plan.setup?.paths?.towerState,
     isRunning: options.isRunning || (id => processRunning(id, plan.noMistakesBin)) });
   // The kit's launchers, Herdr keys and session-graph plugin arrive with an upgrade too, placed by this (the new)
