@@ -119,7 +119,7 @@ test('OpenCode key and launcher use a persistent TUI from the Firstmate home wit
   const f = fixture(t, { harness: 'codex', captain: 'opencode', tower: false });
   mkdirSync(join(f.firstmate, 'bin'), { recursive: true });
   writeFileSync(join(f.firstmate, 'bin', 'fm-lock.sh'), '#!/bin/sh\necho "lock: free"\n', { mode: 0o755 });
-  writeFileSync(join(f.root, 'releases', 'r', 'npm-opencode', 'node_modules', '.bin', 'opencode'), '#!/bin/sh\nprintf "%s|%s|%s\\n" "$PWD" "${CLAUDECODE:-}" "${CODEX_THREAD_ID:-}"\n', { mode: 0o755 });
+  writeFileSync(join(f.root, 'releases', 'r', 'npm-opencode', 'node_modules', '.bin', 'opencode'), '#!/bin/sh\nprintf "%s|%s|%s|%s\\n" "$PWD" "$1" "${CLAUDECODE:-}" "${CODEX_THREAD_ID:-}"\n', { mode: 0o755 });
   const result = await f.run();
   assert.deepEqual(result.keys.bound, ['prefix+shift+f', 'prefix+shift+o', 'prefix+shift+m']);
   assert.match(readFileSync(f.configPath, 'utf8'), /open-firstmate' opencode/);
@@ -127,7 +127,7 @@ test('OpenCode key and launcher use a persistent TUI from the Firstmate home wit
   const launcher = join(f.root, 'bin', 'firstmate');
   const run = spawnSync(launcher, ['opencode'], { encoding: 'utf8', env: { ...f.env, HERDR_ENV: '1', CLAUDECODE: 'inherited', CODEX_THREAD_ID: 'inherited' } });
   assert.equal(run.status, 0, run.stderr);
-  assert.equal(run.stdout.trim(), `${f.firstmate}||`);
+  assert.equal(run.stdout.trim(), `${f.firstmate}|--auto||`);
 });
 
 test('a rejected config is restored from the backup, and an edited kit block is left alone and released', posixOnly, async t => {

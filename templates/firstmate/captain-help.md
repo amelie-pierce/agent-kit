@@ -20,7 +20,7 @@ Keys you bound yourself win: the kit skips any key you already use.
 
 ## Everyday commands
 
-- `firstmate [claude|codex|opencode|check]`: start the coordinator in this home, or check it without starting anything. OpenCode uses a persistent TUI and passive lifecycle plugins.
+- `firstmate [claude|codex|opencode|check]`: start the coordinator in this home, or check it without starting anything. OpenCode uses a persistent TUI and passive lifecycle plugins; its kit launcher passes `--auto` to avoid tool approval prompts unless a policy denies the tool.
 - `fm-mate`: create a second mate (it asks for a name and a one-line scope). `fm-mate list` shows them. `fm-mate retire <name>` retires one through Firstmate's own teardown.
 - `fm-jev on|off|status`: turn Jev routing on or off. Off keeps your TYPESAFE_API_KEY in `.env`, commented out.
 - `agent-kit keys`: add, change or remove TYPESAFE_API_KEY at a hidden prompt, from your own terminal.

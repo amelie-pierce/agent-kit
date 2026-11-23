@@ -229,6 +229,8 @@ The default is **yes**, as on the kit owner's own setup. Read the warning before
 - **With no:** Codex keeps its normal sandbox and asks before it acts.
 - **To change it later:** re-run the installer with `--reconfigure` and answer again, or run `bash install.sh --no-codex-full-access` to turn it off. Doctor shows `codex full-access launch: on` or `off` (A6.1). Uninstall removes the kit's `codex` command.
 
+If you choose OpenCode as the Firstmate CLI, `firstmate opencode` and its `Ctrl+B Shift+O` tab always pass `--auto`. OpenCode approves tool requests without prompting unless a policy explicitly denies them. For the same posture when starting OpenCode by hand, run `opencode --auto` in your Firstmate home. The kit does not edit your OpenCode permission settings, provider or model.
+
 **About question 5.** If you say yes, the kit:
 
 - adds small start-up hooks to `~/.claude/settings.json` and `~/.codex/hooks.json`, turns on hooks in `~/.codex/config.toml`, and links its helper skills into `~/.claude/skills/` and `~/.agents/skills/`. The hooks run in **every** Claude Code and Codex session on your account; the `gh-axi` and `chrome-devtools-axi` hooks do nothing outside your Firstmate home;
@@ -903,7 +905,7 @@ cd ~/Agentic/firstmate
 codex
 ```
 
-Use `claude` or `opencode` instead of `codex` if you chose that Firstmate CLI. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
+Use `claude` instead of `codex` if you chose Claude. For OpenCode, use `opencode --auto` to match the kit launcher without approval prompts unless a policy explicitly denies the tool. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
 
 ### A7.2 Talking to it
 
@@ -1649,6 +1651,8 @@ The default is **yes**, as on the kit owner's own setup. Read the warning before
 - **With no:** Codex keeps its normal sandbox and asks before it acts.
 - **To change it later:** re-run `install.ps1` with `--reconfigure` and answer again, or add `--no-codex-full-access` to the `install.ps1` command line to turn it off. Doctor shows `codex full-access launch: on` or `off` (B6.1). Uninstall removes the kit's `codex` command.
 
+If you choose OpenCode as the Firstmate CLI, `firstmate opencode` and its `Ctrl+B Shift+O` tab always pass `--auto`. OpenCode approves tool requests without prompting unless a policy explicitly denies them. For the same posture when starting OpenCode by hand inside Ubuntu, run `opencode --auto` in your Firstmate home. The kit does not edit your OpenCode permission settings, provider or model.
+
 **About question 5.** If you say yes, the kit, inside Ubuntu:
 
 - adds small start-up hooks to `~/.claude/settings.json` and `~/.codex/hooks.json`, turns on hooks in `~/.codex/config.toml`, and links its helper skills into `~/.claude/skills/` and `~/.agents/skills/`. These are files in your **Ubuntu** home, not in Windows. The hooks run in **every** Claude Code and Codex session inside Ubuntu; the `gh-axi` and `chrome-devtools-axi` hooks do nothing outside your Firstmate home;
@@ -1842,11 +1846,11 @@ herdr
 
 **5. Start Firstmate.** Pick one way, inside Herdr:
 
-- **The key:** press `Ctrl+B`, let go, then `Shift+F` for Firstmate in Codex, or `F` for Firstmate in Claude Code (B8.2).
+- **The key:** press `Ctrl+B`, let go, then `Shift+F` for Firstmate in Codex, `F` for Firstmate in Claude Code, or `Shift+O` for Firstmate in OpenCode (B8.2).
 - **The command:** in a Herdr pane, type `firstmate codex` (or `firstmate claude` or `firstmate opencode`).
-- **By hand:** in a Herdr pane, `cd ~/Agentic/firstmate`, then `codex` (or `claude` or `opencode`).
+- **By hand:** in a Herdr pane, `cd ~/Agentic/firstmate`, then `codex`, `claude` or `opencode --auto`.
 
-The key and the command open a **Control Tower** workspace with a **Captain (Codex)** or **Captain (Claude)** tab and start Firstmate there, in your Firstmate home. If that tab is already running something, they only switch to it. Only one Firstmate can run in a home; do not open both Captain tabs at once.
+The key and the command open a **Control Tower** workspace with a **Captain (Codex)**, **Captain (Claude)** or **Captain (OpenCode)** tab and start Firstmate there, in your Firstmate home. If that tab is already running something, they only switch to it. Only one Firstmate can run in a home; do not open multiple Captain tabs at once.
 
 The first time Codex starts it asks you to review the kit's hooks (`/hooks`); review and approve them yourself (B2.12). With the tower and Claude Code, the tower's **Team** tab also opens on its own the first time Firstmate starts in Claude Code (B9).
 
@@ -2328,7 +2332,7 @@ cd ~/Agentic/firstmate
 codex
 ```
 
-Use `claude` or `opencode` instead of `codex` if you chose that Firstmate CLI. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
+Use `claude` instead of `codex` if you chose Claude. For OpenCode, use `opencode --auto` to match the kit launcher without approval prompts unless a policy explicitly denies the tool. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
 
 Do not start Herdr or the agents from PowerShell. When an agent opens a browser page (for example `chrome-devtools-axi` or a review page), it opens in your Windows browser.
 
