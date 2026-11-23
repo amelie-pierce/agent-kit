@@ -1,0 +1,43 @@
+src/shortcuts.mjs
+  s_68f116debfce38::t_bf7c1ceb15f814 116
+test/shortcuts.test.mjs
+  s_68f116debfce38::t_bf7c1ceb15f814 122,130
+docs/features.md
+  s_68f116debfce38::t_4fede5d432e7c2 113
+templates/firstmate/captain-help.md
+  s_68f116debfce38::t_4fede5d432e7c2 23
+README.md
+  s_68f116debfce38::t_4fede5d432e7c2 87,140
+  s_8eab86ff1a4632::t_0b3c747d7bc2ff 141
+docs/user-guide.md
+  s_68f116debfce38::t_9f5e5910908940 232-233,1654
+  s_68f116debfce38::t_b7a8ffa409471a 908,2335
+  s_68f116debfce38::t_f7378fd63b08a9 1849,1851,1853
+  s_68f116debfce38::t_6f59c918aacc83 1655
+_vaults/agent-kit/wiki/architecture/opencode-captain.md
+  s_68f116debfce38::t_4fede5d432e7c2 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "70f70687c462fea4b8ec20711784ec578e40bea1",
+  "prompts": {},
+  "sessions": {
+    "s_68f116debfce38": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20751-ac16-7f31-a7af-37adc26d3628",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    },
+    "s_8eab86ff1a4632": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "122a2952-ddef-4391-b88b-1eb4df4eb201",
+        "model": "unknown"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
