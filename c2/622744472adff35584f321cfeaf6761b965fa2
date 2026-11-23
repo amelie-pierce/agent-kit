@@ -1,0 +1,151 @@
+test/lifecycle.test.mjs
+  s_68f116debfce38::t_17e2b960a3b68f 641,656,665,669,674,681
+  s_68f116debfce38::t_69a0b9b8fcff57 131-142,144-148
+  s_68f116debfce38::t_4a72713c27d06e 143
+src/harness.mjs
+  s_68f116debfce38::t_67df02ae4ed7d7 12-14
+src/shell-profile.mjs
+  s_68f116debfce38::t_043fbe6d16dd34 25,27
+src/update.mjs
+  s_68f116debfce38::t_ab00912115c598 12,35,46,48,57,65
+src/shortcuts.mjs
+  s_68f116debfce38::t_c2a86a06a75d7e 9,40,43,47,57,65,71,91,99-100,112,116,195,222
+  s_68f116debfce38::t_0753267d7ad6c3 45-46,54,61
+  s_68f116debfce38::t_f4285ddac6ce00 72,75,95
+_vaults/agent-kit/wiki/architecture/index.md
+  s_68f116debfce38::t_29356450317679 25
+src/kit.mjs
+  s_68f116debfce38::t_0753267d7ad6c3 124
+  s_68f116debfce38::t_540abd79f16bd4 235
+  s_68f116debfce38::t_692dd1f41b8d14 129-130
+  s_68f116debfce38::t_f1dd5d8dba9ece 8,24,56,63,112,150,207,246-247,273,282
+  s_68f116debfce38::t_969af833f7734f 103
+test/kit.test.mjs
+  s_68f116debfce38::t_3c919a987ead4d 387-390
+  s_68f116debfce38::t_df9acf6abf0e6b 399,631-654
+  s_68f116debfce38::t_edd8f1fb459211 376
+  s_68f116debfce38::t_7744991bee8b89 10,384-386,391-398
+  s_68f116debfce38::t_621cf35ff5d9c3 38,367
+  s_fa52f3f9c04f54::t_1fa87d3a4eb96e 400
+test/shortcuts.test.mjs
+  s_68f116debfce38::t_eb11c6dfedb57f 20,24,33,36
+  s_68f116debfce38::t_e123b3266385f6 118-132
+  s_68f116debfce38::t_621cf35ff5d9c3 173,175
+test/setup.test.mjs
+  s_68f116debfce38::t_b1e070e13bbad1 288-289,291-298
+  s_68f116debfce38::t_bed1e27e15a15c 48-51
+  s_68f116debfce38::t_c08f7e4c3a315a 369
+  s_68f116debfce38::t_edd8f1fb459211 265,358
+  s_68f116debfce38::t_b1bdc809f04df9 290
+src/install/windows.mjs
+  s_68f116debfce38::t_2c3cdaf466375e 67
+  s_68f116debfce38::t_b747e3268f7e88 32,36,40,82
+src/install/macos.mjs
+  s_68f116debfce38::t_90730e6e45f3e0 687
+  s_68f116debfce38::t_cd957f22ca4cf1 10,13-14,16,41,255,443-444,612,635,668
+  s_68f116debfce38::t_19649cfc083899 424-425
+  s_68f116debfce38::t_b13e15376bcf63 4,323-341
+  s_68f116debfce38::t_0753267d7ad6c3 257,672
+  s_68f116debfce38::t_e920470f70e8ce 615-625,627-629
+  s_68f116debfce38::t_8d9e490ec79f14 644
+  s_68f116debfce38::t_5803c5f3dc98fb 626
+docs/features.md
+  s_68f116debfce38::t_cc0f609f4e7479 3,77-78,113,142-143,172
+manifests/npm-opencode/package.json
+  s_68f116debfce38::t_2a5d7b156bc49d 1-8
+src/setup.mjs
+  s_68f116debfce38::t_505252206fbb89 14,28,43,54,80,214-215,317,417-418,421,424,428,510,557
+  s_68f116debfce38::t_0753267d7ad6c3 247,310
+  s_68f116debfce38::t_70b02db653aec7 257
+  s_68f116debfce38::t_0c8c492c085b06 362
+  s_68f116debfce38::t_a38f6f10a1c1ea 216,318
+_vaults/agent-kit/wiki/architecture/opencode-captain.md
+  s_68f116debfce38::t_1936095eb372fc 1-15
+templates/shortcuts/open_firstmate.py
+  s_68f116debfce38::t_1ef46227c56aa9 4,6,23,113-114,117
+manifests/pilot-skeleton.json
+  s_68f116debfce38::t_f47b581423f88e 3,1214-1274
+  s_68f116debfce38::t_8342a03ca2ff3b 1275-1279
+test/doctor-update.test.mjs
+  s_68f116debfce38::t_5743e0a415eda7 65-86
+src/doctor.mjs
+  s_68f116debfce38::t_7611923bb6c4b8 204-213
+  s_68f116debfce38::t_10e2af37241e1b 2,5,10,138,161,190-199,201-203,214-217,220-221,286-287
+  s_68f116debfce38::t_5803c5f3dc98fb 200
+  s_68f116debfce38::t_0ac5d1313eda6e 91,96,101
+docs/user-guide.md
+  s_68f116debfce38::t_93c349ede0fb84 358,1778
+  s_68f116debfce38::t_da9fde328b8f4a 5,21,202-203,397,422-423,777,779,876,878,899,906,1622-1623,1821,1846-1847,2208,2210,2301,2303,2324,2331
+  s_68f116debfce38::t_950b80a3e04f43 662-663,2093
+  s_68f116debfce38::t_ffa5c54d13ab25 429,1853
+  s_8eab86ff1a4632::t_5b6d9fba15f4f8 2094
+src/lifecycle.mjs
+  s_68f116debfce38::t_b2aad1570ac51b 258,366,389,407,567
+  s_68f116debfce38::t_8d9e490ec79f14 570
+  s_68f116debfce38::t_f8b264987dfdad 326
+templates/firstmate/captain-help.md
+  s_68f116debfce38::t_29356450317679 9,23
+src/install/hooks.mjs
+  s_68f116debfce38::t_c85c41a67079f9 7,220,225-228,285-287,299-300,347,364-368,391-397,402-403,411-412,468-470,473-476,485,497-501
+  s_68f116debfce38::t_7785f125cdfb78 424
+  s_68f116debfce38::t_70b02db653aec7 416,418
+  s_68f116debfce38::t_71ff6a323cf67f 472
+  s_68f116debfce38::t_be4078d37549ad 288-296
+  s_68f116debfce38::t_c67d864bfbb397 5,471
+README.md
+  s_68f116debfce38::t_8c27bc0f16f6d7 71-72,87
+  s_68f116debfce38::t_ee158ef718c435 465-471
+  s_68f116debfce38::t_d79bd9e305e7fd 147,168,401
+  s_ffea73d5f3eb3a::t_a373ae4085d310 88
+docs/global-hooks.md
+  s_68f116debfce38::t_29356450317679 3,15,20-21
+docs/windows-pilot-check.md
+  s_68f116debfce38::t_58b6baa427afb3 76-77,101,104
+test/windows.test.mjs
+  s_68f116debfce38::t_d45b035518639f 317-326
+src/install/opencode-plugin.mjs
+  s_68f116debfce38::t_dfca7415e75790 1-33,35-66
+  s_68f116debfce38::t_e3c0c4ea069ebd 34
+manifests/npm-opencode/package-lock.json
+  s_68f116debfce38::t_87827dc1271f35 1-205
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c2622744472adff35584f321cfeaf6761b965fa2",
+  "prompts": {},
+  "sessions": {
+    "s_68f116debfce38": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20751-ac16-7f31-a7af-37adc26d3628",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    },
+    "s_8eab86ff1a4632": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "122a2952-ddef-4391-b88b-1eb4df4eb201",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    },
+    "s_fa52f3f9c04f54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20754-4e5d-7622-8a6d-18ca4acb66ba",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    },
+    "s_ffea73d5f3eb3a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20761-ebce-7590-86dc-d66f8720c3bc",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
