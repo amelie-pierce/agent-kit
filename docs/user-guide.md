@@ -2,7 +2,7 @@
 
 ## Status of this guide
 
-This guide describes the `pilot-21` kit. `pilot-19` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This guide describes the `pilot-22` kit. `pilot-21` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 | Release | What it added |
 | --- | --- |
@@ -19,6 +19,7 @@ This guide describes the `pilot-21` kit. `pilot-19` is the previous version. Rel
 | `pilot-18` | The `firstmate` launcher no longer clears an unused environment variable. This is the only change; every pin is as in `pilot-17`, and an upgrade needs no `/updatefirstmate` |
 | `pilot-19` | Firstmate at `b69fcebc`, which removes the local-only bot's support, files, hooks, docs and tests from Firstmate; every other pin is as in `pilot-18`. An upgrade asks you to run `/updatefirstmate` first; see the [release note](../README.md#pins-and-approval) |
 | `pilot-21` | Adds OpenCode 2.3.2 as a separate Firstmate CLI choice, with a pinned npm lock, persistent TUI launcher and receipt-owned ambient helper plugin. Pins Firstmate at `657f0af6` for its OpenCode 2 project plugins and inherited Claude watcher repair. OpenCode's session digest, supervision wake and turn-end follow-up have passive TUI semantics. |
+| `pilot-22` | Adds OpenCode as a worker choice, alongside the OpenCode Firstmate CLI choice from `pilot-21`. All pins stay unchanged; upgrading from `pilot-21` needs no `/updatefirstmate`, while upgrading from `pilot-19` does. |
 
 **Branch-rule finder limits.** It may miss `feature/*` globs and tables headed `Naming convention`. It may over-count a sentence that mixes branch advice with a path, or file-name tables under a `Branching` heading. If this happens, record the project's branch pattern.
 
@@ -399,7 +400,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-21)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-22)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see A6.1 and A10.
 
 **3. Sign in to your agent CLIs yourself.** In the same Terminal window:
 
@@ -665,7 +666,9 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - If you skipped question 5b, change `<release>` in your PATH line (A2.7) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (A6.1).
 
-**Moving from `pilot-19` to `pilot-21`**, when you are asked to: run the reviewed upgrade plan and, when it names a changed Firstmate pin, complete `/updatefirstmate` in the Firstmate home before applying. After upgrade, OpenCode is an optional Firstmate CLI choice while Claude/Codex worker routing remains as saved. To choose OpenCode, rerun setup with `--reconfigure --captain opencode`; sign in yourself with `opencode auth login` or `/connect` and select a model with `/models`. OpenCode may preselect a free model whose provider terms collect or train on your data; check the model in `/models` and its terms at https://opencode.ai/docs/console/models/ before use. Verify the `opencode-version`, `opencode-primary-plugins`, and global hooks doctor rows. Use a persistent TUI for its passive supervision callbacks.
+**Moving from `pilot-21` to `pilot-22`**, when you are asked to: run the reviewed upgrade plan. The Firstmate pin remains `657f0af6`, so no `/updatefirstmate` is needed. OpenCode is also available as a worker: rerun setup with `--reconfigure` and select it, or use `--harness ...,opencode`. The kit never selects an OpenCode model. A fresh install may open on a free model that collects data; check `/models` and its provider terms before use. Lifecycle process checks now scope to the current account. Claude and Codex routing stays as saved.
+
+**Moving from `pilot-19` to `pilot-22`**, when you are asked to: run the reviewed upgrade plan and complete `/updatefirstmate` in the Firstmate home before applying. After upgrade, OpenCode is an optional Firstmate CLI choice while Claude/Codex worker routing remains as saved. To choose OpenCode, rerun setup with `--reconfigure --captain opencode`; sign in yourself with `opencode auth login` or `/connect` and select a model with `/models`. OpenCode may preselect a free model whose provider terms collect or train on your data; check the model in `/models` and its terms at https://opencode.ai/docs/console/models/ before use. Verify the `opencode-version`, `opencode-primary-plugins`, and global hooks doctor rows. Use a persistent TUI for its passive supervision callbacks.
 
 **Moving from `pilot-18` to `pilot-19`**, when you are asked to:
 
@@ -1830,7 +1833,7 @@ AK="$HOME/Agentic/.tools/kit/<commit>/bin/agent-kit.mjs"
 node "$AK" doctor
 ```
 
-Healthy output starts with `Agent Kit doctor: pass (pilot-21)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
+Healthy output starts with `Agent Kit doctor: pass (pilot-22)`. These lines are normal and expected: `UNKNOWN authenticated: …`, `UNKNOWN live-tested: …`, and `WARN jev: not ready: TYPESAFE_API_KEY is not set…` if you did not add a key. You should also see `PASS firstmate-fork: firstmate origin: … (approved fork)` and, with Codex, `PASS codex-full-access: codex full-access launch: on` (or `off`). A `FAIL` line is not normal: see B6.1 and B10.
 
 **3. Sign in to your agent CLIs yourself, inside Ubuntu.** Signing in on Windows does not count here.
 
@@ -2103,7 +2106,9 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - If you skipped question 5b, change `<release>` in your Ubuntu PATH line (B2.11) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (B6.1).
 
-**Moving from `pilot-19` to `pilot-21`**, when you are asked to: run the reviewed upgrade plan inside Ubuntu and, when it names a changed Firstmate pin, complete `/updatefirstmate` in the Firstmate home before applying. OpenCode is an optional Firstmate CLI choice inside Ubuntu while Claude/Codex worker routing remains as saved. To choose OpenCode, rerun setup with `--reconfigure --captain opencode`; sign in yourself inside Ubuntu with `opencode auth login` or `/connect` and select a model with `/models`. OpenCode may preselect a free model whose provider terms collect or train on your data; check the model in `/models` and its terms at https://opencode.ai/docs/console/models/ before use. Verify the `opencode-version`, `opencode-primary-plugins`, and global hooks doctor rows. Use a persistent TUI for its passive supervision callbacks.
+**Moving from `pilot-21` to `pilot-22`**, when you are asked to: run the reviewed upgrade plan. The Firstmate pin remains `657f0af6`, so no `/updatefirstmate` is needed. OpenCode is also available as a worker: rerun setup with `--reconfigure` and select it, or use `--harness ...,opencode`. The kit never selects an OpenCode model. A fresh install may open on a free model that collects data; check `/models` and its provider terms before use. Lifecycle process checks now scope to the current account. Claude and Codex routing stays as saved.
+
+**Moving from `pilot-19` to `pilot-22`**, when you are asked to: run the reviewed upgrade plan inside Ubuntu and complete `/updatefirstmate` in the Firstmate home before applying. OpenCode is an optional Firstmate CLI choice inside Ubuntu while Claude/Codex worker routing remains as saved. To choose OpenCode, rerun setup with `--reconfigure --captain opencode`; sign in yourself inside Ubuntu with `opencode auth login` or `/connect` and select a model with `/models`. OpenCode may preselect a free model whose provider terms collect or train on your data; check the model in `/models` and its terms at https://opencode.ai/docs/console/models/ before use. Verify the `opencode-version`, `opencode-primary-plugins`, and global hooks doctor rows. Use a persistent TUI for its passive supervision callbacks.
 
 **Moving from `pilot-18` to `pilot-19`**, when you are asked to:
 
