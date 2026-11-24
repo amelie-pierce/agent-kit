@@ -661,7 +661,7 @@ test('upgrade from pilot-16 to pilot-17 shows the Firstmate re-pin, asks for /up
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate d6257ae1\n', 'the kit never touches the home');
 });
 
-test('upgrade from pilot-18 to the current release shows the Firstmate re-pin, asks for /updatefirstmate first, then applies', { skip: process.platform === 'win32' }, async t => {
+test('upgrade from pilot-18 to pilot-21 shows the Firstmate re-pin, asks for /updatefirstmate first, then applies', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t), oldPin = f.git('rev-parse', 'HEAD');
   writeFileSync(join(f.firstmate, 'README.md'), 'firstmate b69fcebc\n');
   f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qam', 'firstmate pilot-19 removes Grok support');
@@ -675,8 +675,7 @@ test('upgrade from pilot-18 to the current release shows the Firstmate re-pin, a
   const fetchKit = async (_commit, _env, destination) => {
     await stagedKit(_commit, _env, destination);
     const target = structuredClone(f.manifest);
-    target.release = bundled.release;
-    assert.equal(bundled.release, 'pilot-21');
+    target.release = 'pilot-21';
     target.tools.find(x => x.id === 'firstmate').version.value = newPin;
     writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
   };

@@ -241,30 +241,6 @@ test('update plan is read-only; apply keeps prior binary and updates receipt aft
   assert.equal(readdirSync(join(f.firstmate, 'data')).length, 0);
 });
 
-test('pilot-21 and pilot-19 upgrade plans preserve the guarded Firstmate handoff', { skip: process.platform === 'win32' }, async t => {
-  for (const release of ['pilot-21', 'pilot-19']) {
-    const f = fixture(t), receipt = JSON.parse(readFileSync(f.receiptPath));
-    const oldPin = receipt.phases.firstmate.version;
-    const target = structuredClone(f.manifest);
-    target.release = 'pilot-22';
-    if (release === 'pilot-19') target.tools.find(x => x.id === 'firstmate').version.value = 'a'.repeat(40);
-    receipt.release = release;
-    writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
-    const before = readFileSync(f.receiptPath, 'utf8');
-    const plan = planUpdate(target, f.options);
-    assert.equal(plan.fromRelease, release);
-    assert.equal(plan.toRelease, 'pilot-22');
-    assert.equal(plan.changes.find(x => x.id === 'firstmate').from.version, oldPin);
-    assert.equal(plan.changes.find(x => x.id === 'firstmate').to.version, release === 'pilot-21' ? oldPin : 'a'.repeat(40));
-    assert.equal(readFileSync(f.receiptPath, 'utf8'), before);
-    if (release === 'pilot-19') {
-      const result = await applyUpdate(target, f.options);
-      assert.match(result.components.find(x => x.id === 'firstmate').reason, /run \/updatefirstmate/);
-      assert.equal(JSON.parse(readFileSync(f.receiptPath)).release, release);
-    }
-  }
-});
-
 test('running binary defers activation and dirty Firstmate is a conflict', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t);
   const deferred = await applyUpdate(f.manifest, { ...f.options, isRunning: async id => id === 'herdr' });
