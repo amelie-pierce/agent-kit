@@ -1,0 +1,23 @@
+docs/user-guide.md
+  s_68f116debfce38::t_e888794507ad1e 21
+README.md
+  s_68f116debfce38::t_e888794507ad1e 472
+manifests/pilot-skeleton.json
+  s_68f116debfce38::t_f899cb45ed24f1 79,91-92,97-98,103-104,109-110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3fec7e304272d68f006725934acc07fbf7d15787",
+  "prompts": {},
+  "sessions": {
+    "s_68f116debfce38": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20751-ac16-7f31-a7af-37adc26d3628",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
