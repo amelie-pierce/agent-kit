@@ -110,7 +110,7 @@ Every download is checked against a fixed checksum. Nothing is started and no on
 | Herdr 0.9.3 | The terminal workspace the agents run in | `herdr` | Yes | Yes | Yes |
 | Treehouse 2.3.0 | Gives each worker its own clean copy of a repo; a kit wrapper keeps the copies under `<root>/.treehouse` | Used by Firstmate | Yes | Yes | Yes |
 | Codex CLI 0.164.0 | OpenAI's agent CLI, installed only when you choose `codex` | `codex` (sign in with `codex login`) | Yes | Yes | Yes |
-| OpenCode CLI 2.3.2 | Separate integrity-locked npm group, installed only when chosen as the Firstmate CLI. `firstmate opencode` passes `--auto` so tool requests do not prompt unless explicitly denied; the kit leaves OpenCode config alone. Sign in with `opencode auth login` or `/connect` and choose your own model with `/models`; the kit sets neither provider nor model | `firstmate opencode` | Yes | Yes (unverified live) | Yes inside Ubuntu (unverified live) |
+| OpenCode CLI 2.3.2 | Separate integrity-locked npm group, installed only when chosen as the Firstmate CLI. `firstmate opencode` passes `--standalone --auto` so tool requests do not prompt unless explicitly denied; the kit leaves OpenCode config alone. Sign in with `opencode auth login` or `/connect` and choose your own model with `/models`; the kit sets neither provider nor model | `firstmate opencode` | Yes | Yes (unverified live) | Yes inside Ubuntu (unverified live) |
 | no-mistakes 1.79.0 | Checks code before a PR is opened | Used by Firstmate | Yes | Yes | Yes |
 | ShellCheck 0.11.0 | Shell script checker | `shellcheck` | Yes | Yes | Yes |
 | actionlint 1.7.12 | GitHub Actions workflow checker | `actionlint` | Yes | Yes | Yes |

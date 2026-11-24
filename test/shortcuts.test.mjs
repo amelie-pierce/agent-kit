@@ -127,7 +127,8 @@ test('OpenCode key and launcher use a persistent TUI from the Firstmate home wit
   const launcher = join(f.root, 'bin', 'firstmate');
   const run = spawnSync(launcher, ['opencode'], { encoding: 'utf8', env: { ...f.env, HERDR_ENV: '1', CLAUDECODE: 'inherited', CODEX_THREAD_ID: 'inherited' } });
   assert.equal(run.status, 0, run.stderr);
-  assert.equal(run.stdout.trim(), `${f.firstmate}|--auto||`);
+  assert.equal(run.stdout.trim(), `${f.firstmate}|--standalone||`);
+  assert.match(readFileSync(launcher, 'utf8'), /--standalone --auto/);
 });
 
 test('a rejected config is restored from the backup, and an edited kit block is left alone and released', posixOnly, async t => {

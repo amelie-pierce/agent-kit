@@ -113,7 +113,7 @@ unset CLAUDECODE CLAUDE_CODE_ENTRYPOINT CLAUDE_CODE_SSE_PORT CODEX_THREAD_ID COD
 case "$mode" in
   claude) ${inputs.agents.claude ? `exec ${quote(inputs.tower && inputs.realClaude ? join(inputs.paths.installRoot, 'bin', 'claude') : inputs.agents.claude)} "$@"` : `echo 'Claude is not set up by Agent Kit here.' >&2; exit 2`} ;;
   codex) ${inputs.agents.codex ? `exec ${quote(inputs.agents.codex)}${inputs.fullAccess ? ` --sandbox danger-full-access --ask-for-approval never --add-dir ${quote(inputs.paths.root)} --enable hooks` : ''} "$@"` : `echo 'Codex is not set up by Agent Kit here.' >&2; exit 2`} ;;
-  opencode) ${inputs.agents.opencode ? `exec ${quote(inputs.agents.opencode)} --auto "$@"` : `echo 'OpenCode is not set up by Agent Kit here.' >&2; exit 2`} ;;
+  opencode) ${inputs.agents.opencode ? `exec ${quote(inputs.agents.opencode)} --standalone --auto "$@"` : `echo 'OpenCode is not set up by Agent Kit here.' >&2; exit 2`} ;;
 esac
 `;
 export const helpScript = inputs => `${header('fm-help', "print this Firstmate home's captain guide (data/captain-help.md), when the home keeps one.")}home=\${FM_HOME:-${quote(inputs.firstmateHome)}}

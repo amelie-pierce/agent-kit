@@ -230,7 +230,7 @@ The default is **yes**, as on the kit owner's own setup. Read the warning before
 - **With no:** Codex keeps its normal sandbox and asks before it acts.
 - **To change it later:** re-run the installer with `--reconfigure` and answer again, or run `bash install.sh --no-codex-full-access` to turn it off. Doctor shows `codex full-access launch: on` or `off` (A6.1). Uninstall removes the kit's `codex` command.
 
-If you choose OpenCode as the Firstmate CLI, `firstmate opencode` and its `Ctrl+B Shift+O` tab always pass `--auto`. OpenCode approves tool requests without prompting unless a policy explicitly denies them. For the same posture when starting OpenCode by hand, run `opencode --auto` in your Firstmate home. The kit does not edit your OpenCode permission settings, provider or model.
+If you choose OpenCode as the Firstmate CLI, `firstmate opencode` and its `Ctrl+B Shift+O` tab always pass `--standalone --auto` so the OpenCode server exits with the TUI. OpenCode approves tool requests without prompting unless a policy explicitly denies them. For the same posture when starting OpenCode by hand, run `opencode --standalone --auto` in your Firstmate home. The kit does not edit your OpenCode permission settings, provider or model.
 
 **About question 5.** If you say yes, the kit:
 
@@ -906,7 +906,7 @@ cd ~/Agentic/firstmate
 codex
 ```
 
-Use `claude` instead of `codex` if you chose Claude. For OpenCode, use `opencode --auto` to match the kit launcher without approval prompts unless a policy explicitly denies the tool. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
+Use `claude` instead of `codex` if you chose Claude. For OpenCode, use `opencode --standalone --auto` to match the kit launcher without approval prompts unless a policy explicitly denies the tool. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
 
 ### A7.2 Talking to it
 
@@ -1652,7 +1652,7 @@ The default is **yes**, as on the kit owner's own setup. Read the warning before
 - **With no:** Codex keeps its normal sandbox and asks before it acts.
 - **To change it later:** re-run `install.ps1` with `--reconfigure` and answer again, or add `--no-codex-full-access` to the `install.ps1` command line to turn it off. Doctor shows `codex full-access launch: on` or `off` (B6.1). Uninstall removes the kit's `codex` command.
 
-If you choose OpenCode as the Firstmate CLI, `firstmate opencode` and its `Ctrl+B Shift+O` tab always pass `--auto`. OpenCode approves tool requests without prompting unless a policy explicitly denies them. For the same posture when starting OpenCode by hand inside Ubuntu, run `opencode --auto` in your Firstmate home. The kit does not edit your OpenCode permission settings, provider or model.
+If you choose OpenCode as the Firstmate CLI, `firstmate opencode` and its `Ctrl+B Shift+O` tab always pass `--standalone --auto` so the OpenCode server exits with the TUI. OpenCode approves tool requests without prompting unless a policy explicitly denies them. For the same posture when starting OpenCode by hand inside Ubuntu, run `opencode --standalone --auto` in your Firstmate home. The kit does not edit your OpenCode permission settings, provider or model.
 
 **About question 5.** If you say yes, the kit, inside Ubuntu:
 
@@ -2333,7 +2333,7 @@ cd ~/Agentic/firstmate
 codex
 ```
 
-Use `claude` instead of `codex` if you chose Claude. For OpenCode, use `opencode --auto` to match the kit launcher without approval prompts unless a policy explicitly denies the tool. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
+Use `claude` instead of `codex` if you chose Claude. For OpenCode, use `opencode --standalone --auto` to match the kit launcher without approval prompts unless a policy explicitly denies the tool. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
 
 Do not start Herdr or the agents from PowerShell. When an agent opens a browser page (for example `chrome-devtools-axi` or a review page), it opens in your Windows browser.
 
