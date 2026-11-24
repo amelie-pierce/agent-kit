@@ -1,0 +1,29 @@
+manifests/pilot-skeleton.json
+  s_10cea1e170b0fb::t_0f90fb83db88e3 3
+README.md
+  s_10cea1e170b0fb::t_0f90fb83db88e3 470-476
+test/fixtures/pilot-22-plan.txt
+  s_10cea1e170b0fb::t_5fadefbeaea658 1-33
+docs/features.md
+  s_10cea1e170b0fb::t_0f90fb83db88e3 3
+docs/user-guide.md
+  s_10cea1e170b0fb::t_0f90fb83db88e3 5,22,403,669-671,1836,2109-2111
+test/doctor-update.test.mjs
+  s_10cea1e170b0fb::t_9e79681ae4a0bc 244-267
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eb32048cd2c1db1ec97cd917d84b82caa7507bdd",
+  "prompts": {},
+  "sessions": {
+    "s_10cea1e170b0fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20c90-a746-7f41-af7a-c86c5dbe59aa",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
