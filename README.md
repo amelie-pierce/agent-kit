@@ -464,7 +464,7 @@ Afterwards, open Windows Terminal with your distribution's profile and run Herdr
 
 In the manifest, `verified` means the artifact's identity and integrity were checked against the approved upstream: a source commit, a published SHA-256 digest, or registry integrity in a committed npm lock. It does not mean owner approval, and no pin field claims it. The owner approves a release by merging the PR that changes the manifest. `install` installs only `verified` pins. Unverified pins are reported and skipped. Person-installed `kind: "prerequisite"` entries have a minimum version and vendor install link instead of a kit pin or artifact; `install` and `update` never stage them. `check`, `plan` and `doctor` test their `--version` on PATH. Version probes use disposable HOME state, because figma-cli can initialize its own settings even for `--version` and Codex can leave `~/.codex/tmp` behind when the probe times out; figma-cli is now detected by presence only.
 
-### Release changes (`pilot-19` -> `pilot-20`)
+### Release changes (`pilot-19` -> `pilot-21`)
 
 - **OpenCode 2.** An exact OpenCode 2.3.2 npm lock supplies the third Firstmate CLI choice. The kit checks the major version before global registration, adds its binary to the receipt and PATH, and launches a persistent TUI with `firstmate opencode` or the free `Ctrl+B Shift+O` Herdr key.
 - **Worker routing and personal account.** The worker choice remains Claude, Codex or both. Each person signs in to OpenCode and chooses a model themselves; the kit does not write OpenCode provider, model or credentials.
