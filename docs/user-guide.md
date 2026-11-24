@@ -425,7 +425,7 @@ herdr
 - **The command:** in a Herdr pane, type `firstmate codex` (or `firstmate claude` or `firstmate opencode`).
 - **By hand:** in a Herdr pane, `cd ~/Agentic/firstmate`, then `codex`, `claude` or `opencode --standalone` (add `--auto` only if you answered yes to 2e).
 
-The key and the command open a **Control Tower** workspace with a **Captain (Codex)**, **Captain (Claude)** or **Captain (OpenCode)** tab and start Firstmate there, in your Firstmate home. If that tab is already running something, they only switch to it. Only one Firstmate can run in a home; do not open both Captain tabs at once.
+The key and the command open a **Control Tower** workspace with a **Captain (Codex)**, **Captain (Claude)** or **Captain (OpenCode)** tab and start Firstmate there, in your Firstmate home. If that tab is already running something, they only switch to it. Only one Firstmate can run in a home; do not open more than one Captain tab at once.
 
 The first time Codex starts it asks you to review the kit's hooks (`/hooks`); review and approve them yourself (A2.8). With the tower and Claude Code, the tower's **Team** tab also opens on its own the first time Firstmate starts in Claude Code (A9).
 
@@ -1345,7 +1345,7 @@ No real Mac has run the tower, the session graph or the automatic opening from t
 - **`herdr` or `codex` not found, or an old version runs:** the PATH line from A2.7 is missing or not first. If you said yes to question 5b the kit put it in your profile: open a new Terminal window, or run `agent-kit repair` if the block is gone. Otherwise add it to `~/.zshrc` yourself.
 - **`firstmate`, `fm-mate` or `fm-help` not found:** `<root>/.tools/bin` is not on your PATH (A2.7), or you said `n` to question 5.
 - **`Open a Herdr pane, then run firstmate (or press Ctrl+B, then F).`:** `firstmate` only starts Firstmate inside Herdr. Run `herdr` first.
-- **`Exit the current coordinator cleanly before switching.`:** Only one Firstmate can run in a home; do not open both Captain tabs at once. Switch to its tab, or quit it, before starting another.
+- **`Exit the current coordinator cleanly before switching.`:** Only one Firstmate can run in a home; do not open more than one Captain tab at once. Switch to its tab, or quit it, before starting another.
 - **Firstmate says treehouse, no-mistakes, gh-axi or other tools are missing, or doctor shows `WARN herdr-path-env`:** Herdr was already running before you added the PATH line, so it kept its old PATH. Run `herdr server stop`, then start `herdr` again from a Terminal window that has the PATH line (A2.7).
 - **A Herdr key does nothing:** check `fm-help` for the keys you actually got. Press `Ctrl+B Shift+R` to reload Herdr's settings, or restart Herdr. The session graph keys need Herdr started from a Terminal window whose PATH has `<root>/.tools/bin` first.
 - **Changes to `~/.zshrc` do nothing:** open a new Terminal window, or run `source ~/.zshrc`.
@@ -2803,7 +2803,7 @@ Everything else (Firstmate, Herdr, the crew, second mates) works without the tow
 - **Node, git or gh "not found" after the handoff:** install them **inside Ubuntu** too, and sign in there with `gh auth login`. Windows and Ubuntu are separate. Run the check in B2.2 step 3.
 - **`herdr`, `codex`, `firstmate`, `fm-mate` or `node "$AK"` not found:** you are probably in PowerShell. Open the **Ubuntu** terminal. If it still fails there, check your Ubuntu PATH (B2.11) and open a new Ubuntu terminal. `firstmate`, `fm-mate` and `fm-help` are also missing if you said `n` to question 5.
 - **`Open a Herdr pane, then run firstmate (or press Ctrl+B, then F).`:** `firstmate` only starts Firstmate inside Herdr. Run `herdr` first.
-- **`Exit the current coordinator cleanly before switching.`:** Only one Firstmate can run in a home; do not open both Captain tabs at once. Switch to its tab, or quit it, before starting another.
+- **`Exit the current coordinator cleanly before switching.`:** Only one Firstmate can run in a home; do not open more than one Captain tab at once. Switch to its tab, or quit it, before starting another.
 - **Firstmate says treehouse, no-mistakes, gh-axi or other tools are missing, or doctor shows `WARN herdr-path-env`:** Herdr was already running before you added the PATH line, so it kept its old PATH. Inside Ubuntu, run `herdr server stop`, then start `herdr` again from an Ubuntu tab that has the PATH line (B2.11).
 - **A Herdr key does nothing:** check `fm-help` for the keys you actually got. Press `Ctrl+B Shift+R` to reload Herdr's settings, or restart Herdr. The session graph keys need Herdr started from an Ubuntu terminal whose PATH has `<root>/.tools/bin` first. If a `Ctrl+B Shift+…` key still does nothing in Windows Terminal, use the matching command (B6.6) and tell the person who shared this guide.
 - **`run fm-mate inside the WSL2 distribution`** (or the same for `keys` or `jev`): you ran the kit from PowerShell. Run it in Ubuntu.

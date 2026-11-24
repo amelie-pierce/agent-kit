@@ -146,6 +146,19 @@ test('uninstall removes only the receipt-owned OpenCode ambient plugin', { skip:
   assert.equal(readFileSync(foreign, 'utf8'), '// person\n');
 });
 
+test('repair keeps a direct install\'s OpenCode captain recorded only by its npm phase', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t);
+  const tree = join(f.root, 'releases', 'old-release', 'npm-opencode');
+  mkdirSync(tree, { recursive: true });
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  delete receipt.setup.answers.captain;
+  receipt.phases['npm-opencode'] = { state: 'complete', version: '2.3.2', path: 'releases/old-release/npm-opencode', ownedSha256: '0'.repeat(64) };
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const before = readFileSync(f.receiptPath, 'utf8');
+  await assert.rejects(applyRepair(f.manifest, f.options), /OpenCode captain requires a reviewed OpenCode 2 pin/, 'repair asks the installer for the OpenCode captain instead of switching to Claude');
+  assert.deepEqual(JSON.parse(readFileSync(f.receiptPath, 'utf8')), JSON.parse(before), 'the receipt is restored with its OpenCode phase');
+});
+
 test('repair reports a changed Firstmate home and manifest-unverified tools while restoring kit files', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t), path = join(f.bin, 'herdr');
   const runtime = structuredClone(bundled.tools.find(x => x.id === 'zoe-fleet-runtime'));

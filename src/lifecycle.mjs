@@ -324,7 +324,7 @@ export async function applyRepair(manifest, options = {}) {
     await atomicJson(join(plan.root, 'receipt.json'), receipt);
     const answer = receipt.setup?.answers || {};
     const result = await installPlatform(manifest, { ...options, home: options.home, installRoot: plan.root, firstmateHome: homeOf(current),
-      harness: answer.harness || 'claude', captain: receiptCaptain(receipt, answer.harness || 'claude'), withFigma: answer.figma || false, withTower: answer.tower !== false, globalHooks: answer.globalHooks !== false,
+      harness: answer.harness || 'claude', captain: receiptCaptain(current, answer.harness || 'claude'), withFigma: answer.figma || false, withTower: answer.tower !== false, globalHooks: answer.globalHooks !== false,
       towerState: receipt.setup?.paths?.towerState });
     const { failed, nextSteps } = unresolved(result.components, manifest, options.platform || process.platform, options.arch || process.arch, true);
     if (failed.length) throw new Error('repair has unresolved kit components');
