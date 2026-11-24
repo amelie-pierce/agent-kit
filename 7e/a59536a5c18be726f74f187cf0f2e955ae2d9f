@@ -1,0 +1,45 @@
+test/dispatch.test.mjs
+  s_e169b3df7da0dc::t_0291630e0b1f1d 493-509
+test/setup.test.mjs
+  s_e169b3df7da0dc::t_0a3dd447babf8c 270-271,302-304,308-309,311-336,339-388,540,598
+  s_e169b3df7da0dc::t_7099d88506ce33 305-307,310,337-338
+test/lifecycle.test.mjs
+  s_e169b3df7da0dc::t_0291630e0b1f1d 162-171
+_vaults/agent-kit/wiki/architecture/opencode-captain.md
+  s_e169b3df7da0dc::t_2e1014954b3bdd 11
+  s_e169b3df7da0dc::t_35676657050bd3 13
+src/install/macos.mjs
+  s_e169b3df7da0dc::t_e266ec37e0e249 675-676
+src/doctor.mjs
+  s_e169b3df7da0dc::t_e266ec37e0e249 290
+src/dispatch.mjs
+  s_e169b3df7da0dc::t_378c440fd9593d 194-195,228-234,297-300,326,334-336
+src/harness.mjs
+  s_e169b3df7da0dc::t_e266ec37e0e249 18
+src/setup.mjs
+  s_e169b3df7da0dc::t_7da724f7f120d0 211-212,214-219
+test/doctor-update.test.mjs
+  s_e169b3df7da0dc::t_2e1014954b3bdd 129-157
+README.md
+  s_e169b3df7da0dc::t_bc7b440d7fee5f 473
+docs/features.md
+  s_e169b3df7da0dc::t_567b4e7a752187 77-78
+docs/user-guide.md
+  s_e169b3df7da0dc::t_5049583cd4faf0 233,1629,1660
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7ea59536a5c18be726f74f187cf0f2e955ae2d9f",
+  "prompts": {},
+  "sessions": {
+    "s_e169b3df7da0dc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d3a3f29a-a337-43cc-82c1-195433ca3753",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
