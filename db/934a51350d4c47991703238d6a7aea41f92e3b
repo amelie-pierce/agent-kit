@@ -1,0 +1,41 @@
+src/harness.mjs
+  s_def87f013b458d::t_899db3ad7cf53d 15-16
+docs/user-guide.md
+  s_def87f013b458d::t_899db3ad7cf53d 783,2218
+src/update.mjs
+  s_def87f013b458d::t_899db3ad7cf53d 12,35
+src/shortcuts.mjs
+  s_def87f013b458d::t_899db3ad7cf53d 9,40
+src/install/hooks.mjs
+  s_def87f013b458d::t_899db3ad7cf53d 8,228
+test/shortcuts.test.mjs
+  s_def87f013b458d::t_6d07158c474f3f 20,33,118-122
+  s_def87f013b458d::t_b9870343d1a33e 123-124
+src/doctor.mjs
+  s_def87f013b458d::t_899db3ad7cf53d 10,96,190
+src/lifecycle.mjs
+  s_def87f013b458d::t_cf91576c027741 13
+  s_def87f013b458d::t_899db3ad7cf53d 259,327,568
+test/doctor-update.test.mjs
+  s_def87f013b458d::t_6d07158c474f3f 87-99
+src/install/macos.mjs
+  s_def87f013b458d::t_899db3ad7cf53d 10,443
+docs/features.md
+  s_def87f013b458d::t_899db3ad7cf53d 78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "db934a51350d4c47991703238d6a7aea41f92e3b",
+  "prompts": {},
+  "sessions": {
+    "s_def87f013b458d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5f467f7a-28df-449f-b983-38dfec877534",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}

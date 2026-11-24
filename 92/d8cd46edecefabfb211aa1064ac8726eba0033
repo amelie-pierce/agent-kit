@@ -1,0 +1,23 @@
+docs/user-guide.md
+  s_def87f013b458d::t_71e72efe5ef40c 428,1348,2806
+src/lifecycle.mjs
+  s_def87f013b458d::t_71e72efe5ef40c 327
+test/lifecycle.test.mjs
+  s_def87f013b458d::t_71e72efe5ef40c 149-161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "92d8cd46edecefabfb211aa1064ac8726eba0033",
+  "prompts": {},
+  "sessions": {
+    "s_def87f013b458d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5f467f7a-28df-449f-b983-38dfec877534",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
