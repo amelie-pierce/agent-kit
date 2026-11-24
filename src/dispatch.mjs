@@ -23,8 +23,9 @@ const plainFile = path => { const s = stat(path); return !!s && s.isFile() && !s
 
 export const plansOf = receipt => receipt?.setup?.answers?.plans || {};
 export const modeOf = receipt => receipt?.setup?.answers?.dispatchMode;
-export const harnessOf = receipt => receipt?.setup?.answers?.harness || (receipt?.phases?.['npm-codex'] ? 'codex' : 'claude');
-export const providersOf = harness => harnessProfiles(harness).join(',');
+export const harnessOf = receipt => receipt?.setup?.answers?.harness || receipt?.workerHarness || (receipt?.phases?.['npm-codex'] ? 'codex' : 'claude');
+// Firstmate's pinned token strategy knows Claude/Codex subscriptions only.
+export const providersOf = harness => harnessProfiles(harness).filter(profile => profile !== 'opencode').join(',');
 
 // The plan-to-model table is one reviewed data file. Plan ids match Firstmate's fm-strategy.sh --plans names;
 // "not-sure" (shown as skip) is kit-only and keeps Firstmate's template unchanged.
@@ -57,7 +58,7 @@ export function loadPlanTable(path = tablePath) {
 export const planIds = (table, harness) => (table.harnesses[harness]?.plans || []).map(row => row.id);
 const planRow = (table, harness, id) => (table.harnesses[harness]?.plans || []).find(row => row.id === id && row.profile) || null;
 export const effectivePlans = (providers, plans = {}, table = loadPlanTable()) =>
-  Object.fromEntries(providers.split(',').map(h => [h, planRow(table, h, plans?.[h]) ? plans[h] : 'not-sure']));
+  Object.fromEntries((providers ? providers.split(',') : []).map(h => [h, planRow(table, h, plans?.[h]) ? plans[h] : 'not-sure']));
 
 // The plan's roles at one mode, with the row's substitutes applied (Enterprise/Edu without 6.1 Sol).
 function planRoles(table, harness, id, mode) {
@@ -70,10 +71,12 @@ function planRoles(table, harness, id, mode) {
 // Default mode: lean when any chosen plan defaults to lean (small plans, API keys), else balanced. Full
 // is warned about on Pro, Team Standard, Enterprise standard, Plus and Business Standard.
 export function defaultMode(providers, plans = {}, table = loadPlanTable()) {
+  if (!providers) return 'balanced';
   const rows = Object.entries(effectivePlans(providers, plans, table)).map(([h, id]) => (table.harnesses[h].plans || []).find(row => row.id === id));
   return rows.some(row => row?.modes.default === 'lean') ? 'lean' : 'balanced';
 }
 export function fullWarnings(providers, plans = {}, table = loadPlanTable()) {
+  if (!providers) return [];
   return Object.entries(effectivePlans(providers, plans, table)).map(([h, id]) => planRow(table, h, id)).filter(row => row?.modes.warnFull)
     .map(row => row.label);
 }
@@ -183,6 +186,7 @@ const nativeUnchanged = (firstmateHome, record) => !!record.sha256 && !!record.s
 export function planStarter(firstmateHome, { harness, plans = {}, mode, table = loadPlanTable(), record = null, create = false, restore = false } = {}) {
   const path = join(firstmateHome, starterFile), strategy = join(firstmateHome, strategyFile);
   const providers = providersOf(harness), chosen = effectivePlans(providers, plans, table);
+  if (!providers) return { action: 'none', path, providers, mode, record };
   mode = modes.includes(mode) ? mode : defaultMode(providers, plans, table);
   const keep = (action, detail) => ({ action, path, providers, mode, record: action === 'skip' ? record : null, detail });
   const native = (action, extra = {}) => ({ action, path, providers, plans: chosen, mode, record, argv: setArgv(mode, providers, chosen), ...extra });
@@ -314,6 +318,7 @@ export function describeStarter(plan) {
 // Summary-screen text before anything is written; the home may not exist yet on a first install.
 export function previewStarter(firstmateHome, { harness, plans = {}, mode, table = loadPlanTable(), record = null, keySet = false } = {}) {
   const path = join(firstmateHome, starterFile), providers = providersOf(harness);
+  if (!providers) return 'not written; OpenCode-only workers follow Firstmate\'s selected OpenCode primary harness';
   mode = modes.includes(mode) ? mode : defaultMode(providers, plans, table);
   if (stat(join(firstmateHome, strategyFile))) return nativeRecord(record) && nativeUnchanged(firstmateHome, record)
     ? `keep Firstmate's strategy the kit selected; refreshed with bin/fm-strategy.sh for ${providers}${planText(effectivePlans(providers, plans, table))}`

@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpath
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { applyShortcuts, describeShortcuts, herdrConfigPath, keysBegin, keysEnd, kitKeys, launcherScript, planRemoveShortcuts, planShortcuts, previewKeys, removeShortcuts, shortcutsHealth, splitBlock } from '../src/shortcuts.mjs';
+import { applyShortcuts, describeShortcuts, herdrConfigPath, keysBegin, keysEnd, kitKeys, launcherScript, planRemoveShortcuts, planShortcuts, previewKeys, removeShortcuts, shortcutInputs, shortcutsHealth, splitBlock } from '../src/shortcuts.mjs';
 import { applyUninstall, planUninstall } from '../src/lifecycle.mjs';
 
 const kit = fileURLToPath(new URL('..', import.meta.url));
@@ -46,6 +46,17 @@ function fixture(t, { harness = 'both', captain = null, opencodePhase = captain 
   };
   return { base, home, root, firstmate, configPath, env, readReceipt, run, launcher: join(root, 'bin', 'open-firstmate'), mate: join(root, 'bin', 'fm-mate') };
 }
+
+test('OpenCode worker selection leaves the Claude captain launcher and agent keys intact', posixOnly, t => {
+  const mixed = fixture(t, { harness: 'claude,opencode', captain: 'claude', opencodePhase: true });
+  const inputs = shortcutInputs(mixed.readReceipt(), mixed.root, mixed.env);
+  assert.deepEqual(Object.keys(inputs.agents), ['claude']);
+  assert.equal(inputs.captain, 'claude');
+  const only = fixture(t, { harness: 'opencode', captain: 'opencode', opencodePhase: true });
+  const open = shortcutInputs(only.readReceipt(), only.root, only.env);
+  assert.deepEqual(Object.keys(open.agents), ['opencode']);
+  assert.equal(open.realClaude, null);
+});
 
 test('the keys block binds only free keys, keeps your own bindings and is fenced by agent-kit markers', posixOnly, async t => {
   const mine = '[keys]\nprefix = "ctrl+b"\n\n# my own key, kept\n[[keys.command]]\nkey = "prefix+f"\ntype = "shell"\ncommand = "lazygit"\n';

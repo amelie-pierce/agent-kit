@@ -31,7 +31,7 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
   const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
   if (receipt.schemaVersion !== 1 || !receipt.phases || receipt.pendingUpdate && receipt.pendingUpdate !== manifest.release) throw new Error('incompatible receipt or another update is pending');
   const answers = receipt.setup?.answers || {};
-  const effectiveHarness = answers.harness || (receipt.phases['npm-codex'] ? 'codex' : harness);
+  const effectiveHarness = answers.harness || receipt.workerHarness || (receipt.phases['npm-codex'] ? 'codex' : harness);
   const effectiveCaptain = receiptCaptain(receipt, effectiveHarness);
   const oldManifest = structuredClone(manifest);
   for (const tool of oldManifest.tools) if (tool.kind !== 'prerequisite' && receipt.phases[tool.id]?.version) tool.version.value = receipt.phases[tool.id].version;

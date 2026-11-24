@@ -11,7 +11,7 @@ export { charterText };
 import { atomicJson, formatInstall, installPlatform, lock, systemDirs, within } from './install/macos.mjs';
 import { globalHookPaths } from './install/hooks.mjs';
 import { doctor, formatDoctor } from './doctor.mjs';
-import { captainOf, defaultCaptain, harnessLabel, harnessProfiles, parseCaptain, parseHarness } from './harness.mjs';
+import { captainOf, defaultCaptain, harnessLabel, harnessProfiles, parseCaptain, parseHarness, usesProfile } from './harness.mjs';
 import { findOnPath } from './platforms/macos.mjs';
 import { linuxIdentity } from './platforms/linux.mjs';
 import { kitCommit, kitUpstream, linuxPath, powershellCommand, windowsNextSteps } from './install/windows.mjs';
@@ -52,7 +52,7 @@ const oneLine = (value, flag, max) => {
   return value.trim();
 };
 export const validators = {
-  harness: value => parseHarness(value) || (() => { throw new Error('--harness must be claude, codex or claude,codex'); })(),
+  harness: value => parseHarness(value) || (() => { throw new Error('--harness must select claude, codex, opencode or a comma-separated combination'); })(),
   captain: (value, harness) => parseCaptain(value, harness) || (() => { throw new Error(`--captain must be ${defaultCaptain(harness)} or opencode with these agent CLIs`); })(),
   githubOwner: value => /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(value) ? value : (() => { throw new Error('--github-owner must be a GitHub account or organization name'); })(),
   gitName: value => oneLine(value, '--git-name', 100),
@@ -211,16 +211,16 @@ export async function collectAnswers(flags, saved, ctx, io, paths) {
     if (!claudeInstalled) {
       answers.harness = 'codex';
       output.write('2. Agent CLIs: codex (Claude Code is offered once its CLI is installed: https://code.claude.com/docs/en/setup)\n');
-    } else answers.harness = yes ? 'codex' : await io.valid('2. Agent CLIs: codex, claude or claude,codex', 'codex', validators.harness);
+    } else answers.harness = yes ? 'codex' : await io.valid('2. Agent CLIs: codex, claude, opencode or a comma-separated combination', 'codex', validators.harness);
   }
   if (flags.captain !== undefined) answers.captain = validators.captain(flags.captain, answers.harness);
   else if (want('captain')) answers.captain = yes ? defaultCaptain(answers.harness)
-    : await io.valid(`2. Firstmate captain CLI: ${defaultCaptain(answers.harness)} or opencode (workers still use the Agent CLIs above)`, defaultCaptain(answers.harness), value => validators.captain(value, answers.harness));
+    : await io.valid(`2. Firstmate captain CLI: ${defaultCaptain(answers.harness)} or opencode${usesProfile(answers.harness, 'opencode') ? '' : ' (workers still use the Agent CLIs above)'}`, defaultCaptain(answers.harness), value => validators.captain(value, answers.harness));
   else answers.captain = captainOf(answers.captain, answers.harness);
   // One plan per chosen agent CLI from the kit's plan table, then the starter routing mode. Plan ids match
   // Firstmate's fm-strategy.sh --plans names; skip (saved as not-sure) keeps Firstmate's template. Only names are saved.
   const table = ctx.planTable || loadPlanTable(), plans = {};
-  for (const cli of harnessProfiles(answers.harness)) {
+  for (const cli of harnessProfiles(answers.harness).filter(cli => cli !== 'opencode')) {
     const ids = planIds(table, cli), flag = flags[`${cli}-plan`];
     const check = value => { const id = value === 'skip' ? 'not-sure' : value; if (ids.includes(id)) return id; throw new Error(`--${cli}-plan must be one of: ${ids.filter(x => x !== 'not-sure').join(', ')} or skip`); };
     if (flag !== undefined) plans[cli] = check(flag);
@@ -264,7 +264,7 @@ export async function collectAnswers(flags, saved, ctx, io, paths) {
   await toggle('figma', 'with-figma', 'no-figma', 3, 'Figma support: check figma-cli and guide Figma Desktop sign-in (never patches or restarts Figma)');
   await toggle('tower', 'with-tower', 'no-tower', 4, 'Fleet tower: install the Zoe fleet tower and write its launcher config (never launched)');
   if (!flags['global-hooks'] && !flags['no-global-hooks'] && answers.globalHooks === undefined && !yes)
-    output.write(`5. Global hooks and skills touch these files; each existing file or link is backed up under ${join(paths.installRoot, 'backups', 'hooks')} first:\n${globalHookPaths(env.HOME, env, answers.captain).map(x => `   ${x}`).join('\n')}\n`);
+    output.write(`5. Global hooks and skills touch these files; each existing file or link is backed up under ${join(paths.installRoot, 'backups', 'hooks')} first:\n${globalHookPaths(env.HOME, env, answers.captain, answers.harness).map(x => `   ${x}`).join('\n')}\n`);
   await toggle('globalHooks', 'global-hooks', 'no-global-hooks', 5, 'Register these kit hooks and skills');
   if (answers.globalHooks) await toggle('herdrLayout', 'herdr-layout', 'no-herdr-layout', '5a', 'Herdr layout: the kit\'s theme, sidebar, tab bar and pane settings in your Herdr config (settings you already have win)');
   else if (flags['herdr-layout']) throw new Error('--herdr-layout needs global hooks and skills');
@@ -317,7 +317,7 @@ export async function collectAnswers(flags, saved, ctx, io, paths) {
   return { answers, current, gitStale: yes ? stale : null, channelOverride };
 }
 
-const summaryFolders = (paths, answers, release) => kitFolders(paths.installRoot, release, ['npm', ...(harnessProfiles(answers.harness).includes('codex') ? ['npm-codex'] : []), ...(answers.captain === 'opencode' ? ['npm-opencode'] : []), ...(answers.figma ? ['npm-figma'] : [])]);
+const summaryFolders = (paths, answers, release) => kitFolders(paths.installRoot, release, ['npm', ...(harnessProfiles(answers.harness).includes('codex') ? ['npm-codex'] : []), ...(answers.captain === 'opencode' || harnessProfiles(answers.harness).includes('opencode') ? ['npm-opencode'] : []), ...(answers.figma ? ['npm-figma'] : [])]);
 const shellQuote = value => `'${value.replaceAll("'", "'\\''")}'`;
 const yesNo = value => value ? 'on' : 'off';
 const indent = text => `${text.trimEnd().replace(/^/gm, '  ')}\n`;
@@ -432,7 +432,7 @@ export function nextSteps({ answers, paths, install, kit, shortcuts, profile = n
       : [`  1. Add these folders to the start of your PATH yourself (${answers.shellProfile ? profile?.detail || 'the kit did not change your shell profile' : 'you chose not to let the kit edit your shell profile'}), then open a new terminal:\n       ${[dirname(paths.wrapper), install.bin, install.npmBin, install.codexBin, install.opencodeBin, install.figmaBin].filter(Boolean).join('\n       ')}`]),
     ...(kit.commit ? [`  2. Health check later: node ${join(paths.kit, 'bin', 'agent-kit.mjs')} doctor --install-root ${paths.installRoot}`]
       : ['  2. Health check later: node bin/agent-kit.mjs doctor --install-root ' + paths.installRoot + ' from this checkout']),
-    `  3. Sign in to ${[...new Set([...agents, captain])].join(' and ')} yourself in that terminal; the kit never signs in for you.${captain === 'opencode' ? ' For OpenCode, run opencode auth login or /connect and select your model with /models.' : ''}`,
+    `  3. Sign in to ${[...new Set([...agents, captain])].join(' and ')} yourself in that terminal; the kit never signs in for you.${agents.includes('opencode') || captain === 'opencode' ? ' For OpenCode, run opencode auth login or /connect and select your model with /models.' : ''}`,
     ...(herdr?.stale ? ['  4. Herdr is already running and cannot see the kit tools, so restart it before you start Firstmate. The installer does not stop it for you, because that ends every agent running in it:',
       '       a. quit the agents you have open in Herdr (let their work finish first)', '       b. run: herdr server stop', '       c. open a new terminal (inside Ubuntu on Windows)', '       d. run: herdr']
       : ['  4. Start Herdr: herdr']),

@@ -97,6 +97,24 @@ test('doctor treats a direct install recorded with OpenCode phases as the OpenCo
   assert.equal(rows['opencode-version'], 'pass', 'the OpenCode executable is still checked without a setup answer');
 });
 
+test('doctor reports OpenCode worker readiness without requiring primary plugins or reading auth', { skip: process.platform === 'win32' }, t => {
+  const f = fixture(t);
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.workerHarness = 'claude,opencode';
+  receipt.phases['npm-opencode'] = { state: 'complete', path: 'releases/old-release/npm-opencode', version: '2.3.2', ownedSha256: '0'.repeat(64) };
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const bin = join(f.root, 'releases', 'old-release', 'npm-opencode', 'node_modules', '.bin');
+  mkdirSync(bin, { recursive: true });
+  const executable = join(bin, 'opencode');
+  writeFileSync(executable, '#!/bin/sh\necho "opencode v2.3.2"\n', { mode: 0o755 });
+  const rows = () => Object.fromEntries(doctor(f.manifest, f.options).checks.map(x => [x.id, x.status]));
+  assert.equal(rows()['opencode-worker'], 'pass');
+  assert.equal(rows()['opencode-primary-plugins'], undefined);
+  assert.equal(rows()['opencode-auth'], 'unknown');
+  writeFileSync(executable, '#!/bin/sh\necho "opencode v1.9.0"\n', { mode: 0o755 });
+  assert.equal(rows()['opencode-worker'], 'fail');
+});
+
 test('doctor labels OpenCode configured unknown unless it is the captain with global hooks recorded', { skip: process.platform === 'win32' }, t => {
   const f = fixture(t);
   f.manifest.tools.push(structuredClone(bundled.tools.find(x => x.id === 'opencode')));

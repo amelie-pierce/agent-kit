@@ -5,7 +5,7 @@ import { chmod, mkdir, mkdtemp, readFile, rename, rm, symlink, unlink, writeFile
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 import { opencodePluginBody, opencodePluginPath } from './opencode-plugin.mjs';
-import { opencodePinned, receiptCaptain } from '../harness.mjs';
+import { opencodePinned, receiptCaptain, usesProfile } from '../harness.mjs';
 
 // These are the published skill directories in the integrity-locked npm packages.
 const tools = [
@@ -218,14 +218,14 @@ function previousHooksSetting(receipt, root, config) {
   return /^\s*hooks\s*=\s*false(?:\s*#.*)?$/m.test(before) ? false : null;
 }
 
-export function previewHooks(manifest, { home, installRoot, captain = null, env = process.env }) {
+export function previewHooks(manifest, { home, installRoot, captain = null, harness = null, env = process.env }) {
   if (!home || !installRoot) throw new Error('hooks preview requires HOME and --install-root');
   const root = resolve(installRoot), release = manifest.release;
   const selected = new Set(manifest.tools.filter(tool => tool.kind !== 'prerequisite' && tool.classification !== 'never-ship' && tool.profile === 'core' && tool.version.status === 'verified').map(tool => tool.id));
   const axi = new Map(), fmHome = receiptHome(root), gates = [];
   let prior = null;
   try { prior = JSON.parse(readFileSync(join(root, 'receipt.json'), 'utf8')); } catch { /* A new install has no receipt. */ }
-  const useOpenCode = (captain || receiptCaptain(prior)) === 'opencode';
+  const useOpenCode = (captain || receiptCaptain(prior)) === 'opencode' || usesProfile(harness || prior?.setup?.answers?.harness, 'opencode');
   if (useOpenCode && !opencodePinned(manifest)) throw new Error('OpenCode hooks require a reviewed OpenCode 2 pin');
   for (const id of hookTools) if (selected.has(id)) {
     const gated = !!fmHome && gatedTools.has(id);
@@ -414,9 +414,9 @@ export function publicHookChanges(preview) {
 }
 
 // Every user-level path the hooks phase may write, for prompts and summaries before any preview runs.
-export function globalHookPaths(home, env = process.env, captain = null) {
+export function globalHookPaths(home, env = process.env, captain = null, harness = null) {
   return [join(home, '.claude', 'settings.json'), join(home, '.codex', 'hooks.json'), join(home, '.codex', 'config.toml'),
-    ...(captain === 'opencode' ? [opencodePluginPath(home, env)] : []),
+    ...(captain === 'opencode' || usesProfile(harness, 'opencode') ? [opencodePluginPath(home, env)] : []),
     ...tools.flatMap(([, skill]) => [join(home, '.claude', 'skills', skill), join(home, '.agents', 'skills', skill)])];
 }
 

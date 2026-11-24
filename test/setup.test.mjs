@@ -78,6 +78,20 @@ test('harness accepts claude, codex and both in either order', () => {
   assert.throws(() => parseArgs(['doctor', '--root', '/x', '--install-root', '/y']), /conflicts/);
 });
 
+test('OpenCode is a worker choice without changing legacy captain and receipt defaults', () => {
+  for (const [input, expected] of [
+    ['opencode', 'opencode'], ['claude,opencode', 'claude,opencode'],
+    ['opencode,codex', 'codex,opencode'], ['opencode,claude,codex', 'claude,codex,opencode'],
+  ]) assert.equal(parseHarness(input), expected);
+  assert.equal(parseHarness('opencode,opencode'), 'opencode');
+  assert.equal(parseHarness('opencode,gemini'), null);
+  assert.equal(parseArgs(['plan', '--harness', 'claude,opencode']).captain, null);
+  assert.equal(receiptCaptain({ phases: { 'npm-opencode': {} }, workerHarness: 'claude,opencode' }, 'claude,opencode'), 'claude');
+  assert.equal(receiptCaptain({ phases: { 'npm-opencode': {} } }, 'codex'), 'opencode', 'legacy captain receipt stays readable');
+  assert.equal(receiptCaptain({ setup: { answers: { captain: 'codex' } }, phases: {} }, 'codex'), 'codex');
+  assert.equal(receiptCaptain({ setup: { answers: { captain: 'claude' } }, phases: {} }, 'both'), 'claude');
+});
+
 test('setup flags validate values and refuse contradictions', () => {
   assert.deepEqual(parseSetupArgs(['--harness', 'codex,claude', '--no-figma', '--yes']), { harness: 'both', 'no-figma': true, yes: true });
   for (const [argv, message] of [

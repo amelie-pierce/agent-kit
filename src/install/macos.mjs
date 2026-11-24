@@ -272,7 +272,7 @@ export function selected(manifest, harness, withFigma, withTower = true, captain
 async function figmaSkills(root, receipt, save, harness, options) {
   const entry = join(root, receipt.phases['npm-figma'].path, 'node_modules', '@amelie-pierce', 'figma-cli', 'src', 'index.js');
   const results = [];
-  for (const agent of usesProfile(harness, 'claude') && usesProfile(harness, 'codex') ? ['claude', 'codex'] : [usesProfile(harness, 'claude') ? 'claude' : 'codex']) {
+  for (const agent of ['claude', 'codex'].filter(agent => usesProfile(harness, agent))) {
     try {
       const { stdout } = await (options.runFigma || ((args, env) => exec(process.execPath, [entry, ...args], { env, timeout: 60000, maxBuffer: 1024 * 1024 })))(
         ['skills', 'install', '--agent', agent], { ...toolEnv(options.home, root), FIGMA_CLI_SKIP_SKILLS: '1' });
@@ -433,7 +433,7 @@ export async function installPlatform(manifest, options = {}) {
   if (!options.installRoot || !isAbsolute(options.installRoot)) throw new Error('--install-root must be an absolute path');
   if (!options.home || !isAbsolute(options.home)) throw new Error('HOME must be an absolute path');
   const requestedCaptain = captainOf(options.captain, options.harness || 'claude');
-  if (requestedCaptain === 'opencode' && !opencodePinned(manifest)) throw new Error('OpenCode captain requires a reviewed OpenCode 2 pin');
+  if ((requestedCaptain === 'opencode' || usesProfile(options.harness, 'opencode')) && !opencodePinned(manifest)) throw new Error(`OpenCode ${requestedCaptain === 'opencode' ? 'captain' : 'worker'} requires a reviewed OpenCode 2 pin`);
   const root = resolve(options.installRoot), release = manifest.release;
   const firstmateHome = await checkFirstmateHome(options.firstmateHome, root, options.home, platform);
   if (!safePart(release)) throw new Error('unsafe release name');
@@ -454,7 +454,7 @@ export async function installPlatform(manifest, options = {}) {
     const captain = options.captain ? captainOf(options.captain, harness) : receiptCaptain(receipt, harness);
     const chosen = selected(manifest, harness, !!options.withFigma, options.withTower !== false, captain);
     await mkdir(join(root, 'releases', release, 'staging'), { recursive: true, mode: 0o700 });
-    if (captain !== 'opencode' && receipt.phases['npm-opencode']) await dropOwnedTree(root, release, receipt, 'npm-opencode', save);
+    if (captain !== 'opencode' && !usesProfile(harness, 'opencode') && receipt.phases['npm-opencode']) await dropOwnedTree(root, release, receipt, 'npm-opencode', save);
     for (const tool of chosen) {
       if (npmGroup(tool.id)) continue;
       const a = artifactFor(tool, targetKey);
@@ -644,7 +644,7 @@ export async function installPlatform(manifest, options = {}) {
       components.push(figma);
       if (['installed', 'skipped'].includes(figma.status) && options.globalHooks !== false) components.push(await figmaSkills(root, receipt, save, harness, options));
     }
-    const shouldRegister = chosen.some(t => npmIds.has(t.id) && !['codex', 'opencode'].includes(t.id)) || receipt.phases.hooks || captain === 'opencode';
+    const shouldRegister = chosen.some(t => npmIds.has(t.id) && !['codex', 'opencode'].includes(t.id)) || receipt.phases.hooks || captain === 'opencode' || usesProfile(harness, 'opencode');
     let hookChanges = [];
     if (options.globalHooks === false) {
       components.push({ id: 'hooks', status: 'skipped', reason: receipt.phases.hooks ? 'global hooks and skills not selected; entries registered earlier are left as they are'
@@ -653,7 +653,7 @@ export async function installPlatform(manifest, options = {}) {
       components.push({ id: 'hooks', status: 'deferred', reason: 'kit hook activation waits for all dependent components; rerun agent-kit update --yes after conflicts clear' });
     } else if (shouldRegister && (components.some(x => x.id === 'npm' && ['installed', 'skipped'].includes(x.status)) || (!coreNpm && receipt.phases.hooks))) {
       try {
-        const preview = previewHooks(manifest, { home: options.home, installRoot: root, captain, env: options.env || process.env });
+        const preview = previewHooks(manifest, { home: options.home, installRoot: root, captain, harness, env: options.env || process.env });
         hookChanges = publicHookChanges(preview);
         await options.onHooksPreview?.(hookChanges);
         components.push(await applyHooks(preview, { installRoot: root, receipt, save }));
@@ -672,6 +672,8 @@ export async function installPlatform(manifest, options = {}) {
       delete receipt.pendingUpdate;
       await save();
     }
+    if (usesProfile(harness, 'opencode')) { receipt.workerHarness = harness; await save(); }
+    else if (receipt.workerHarness) { delete receipt.workerHarness; await save(); }
     const incomplete = components.some(x => ['unverified', 'conflict', 'deferred'].includes(x.status)) || chosen.some(x => x.id === 'zoe-fleet');
     return { status: incomplete ? 'partial' : 'installed', exitCode: incomplete ? 1 : 0, components,
       receipt: receiptPath, bin: join(root, 'releases', release, 'bin'),

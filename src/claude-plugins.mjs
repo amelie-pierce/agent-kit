@@ -4,6 +4,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { atomicJson } from './install/macos.mjs';
+import { usesProfile } from './harness.mjs';
 
 // The owner's Claude Code plugins, installed with the person's own claude CLI when Claude is chosen
 // (manifests/claude-plugins.json). Each marketplace is added from its repository pinned to a commit; a
@@ -15,7 +16,7 @@ export const pluginTable = () => JSON.parse(readFileSync(new URL('../manifests/c
 const configDir = (env, home) => env.CLAUDE_CONFIG_DIR || join(home, '.claude');
 
 function wantedPlugins(table, answers) {
-  const claude = answers.harness === 'claude' || answers.harness === 'both' || answers.harness === undefined;
+  const claude = usesProfile(answers.harness, 'claude');
   return table.marketplaces.flatMap(m => m.plugins.filter(p => claude && (p.when === 'claude' || (p.when === 'claude+figma' && answers.figma))).map(p => ({ ...p, market: m })));
 }
 const readJson = path => { try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return {}; } };
