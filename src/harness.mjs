@@ -15,7 +15,7 @@ export const harnessLabel = harness => harness === 'both' ? 'claude,codex' : har
 export const defaultCaptain = harness => usesProfile(harness, 'claude') ? 'claude' : usesProfile(harness, 'codex') ? 'codex' : 'opencode';
 export const parseCaptain = (value, harness) => value === 'opencode' || value === defaultCaptain(harness) ? value : null;
 export const captainOf = (captain, harness) => captain === 'opencode' ? 'opencode' : defaultCaptain(harness);
-export const receiptCaptain = (receipt, harness) => captainOf(receipt?.setup?.answers?.captain
+export const receiptCaptain = (receipt, harness) => captainOf(receipt?.setup?.answers?.captain ?? receipt?.captain
   ?? (receipt?.phases?.['npm-opencode'] && !usesProfile(harness, 'opencode') ? 'opencode' : null), harness);
 export const opencodePinned = manifest => /^2\./.test(manifest.tools.find(tool => tool.id === 'opencode')?.version?.value || '');
 export const isOpenCode2 = version => /(?:^|\s)v?2\./.test(version || '');

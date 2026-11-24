@@ -672,8 +672,8 @@ export async function installPlatform(manifest, options = {}) {
       delete receipt.pendingUpdate;
       await save();
     }
-    if (usesProfile(harness, 'opencode')) { receipt.workerHarness = harness; await save(); }
-    else if (receipt.workerHarness) { delete receipt.workerHarness; await save(); }
+    if (usesProfile(harness, 'opencode')) { receipt.workerHarness = harness; receipt.captain = captain; await save(); }
+    else if (receipt.workerHarness || receipt.captain) { delete receipt.workerHarness; delete receipt.captain; await save(); }
     const incomplete = components.some(x => ['unverified', 'conflict', 'deferred'].includes(x.status)) || chosen.some(x => x.id === 'zoe-fleet');
     return { status: incomplete ? 'partial' : 'installed', exitCode: incomplete ? 1 : 0, components,
       receipt: receiptPath, bin: join(root, 'releases', release, 'bin'),

@@ -208,10 +208,15 @@ export async function collectAnswers(flags, saved, ctx, io, paths) {
   const claudeInstalled = findOnPath('claude', env.PATH || '').length > 0;
   if (flags.harness !== undefined) answers.harness = flags.harness;
   else if (want('harness')) {
-    if (!claudeInstalled) {
+    const claudeLater = '(Claude Code is offered once its CLI is installed: https://code.claude.com/docs/en/setup)';
+    if (yes) {
       answers.harness = 'codex';
-      output.write('2. Agent CLIs: codex (Claude Code is offered once its CLI is installed: https://code.claude.com/docs/en/setup)\n');
-    } else answers.harness = yes ? 'codex' : await io.valid('2. Agent CLIs: codex, claude, opencode or a comma-separated combination', 'codex', validators.harness);
+      if (!claudeInstalled) output.write(`2. Agent CLIs: codex ${claudeLater}\n`);
+    } else answers.harness = await io.valid(`2. Agent CLIs: ${claudeInstalled ? 'codex, claude, opencode or a comma-separated combination' : `codex, opencode or codex,opencode ${claudeLater}`}`, 'codex', value => {
+      const harness = validators.harness(value);
+      if (!claudeInstalled && usesProfile(harness, 'claude')) throw new Error(`--harness can include claude once Claude Code is installed ${claudeLater}`);
+      return harness;
+    });
   }
   if (flags.captain !== undefined) answers.captain = validators.captain(flags.captain, answers.harness);
   else if (want('captain')) answers.captain = yes ? defaultCaptain(answers.harness)

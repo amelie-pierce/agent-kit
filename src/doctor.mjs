@@ -287,7 +287,7 @@ function doctorResult(checks, release, manifest, receipt, root) {
     const installed = path && existsSync(path) ? 'pass' : 'unknown';
     const verifiedDigest = find(phaseId);
     const configured = tool.id === 'firstmate' ? ['bin', 'data', 'state', 'config', 'projects'].every(dir => find(`firstmate-layout-${dir}`) === 'pass') ? 'pass' : 'fail'
-      : tool.id === 'opencode' ? find('hooks') === 'unknown' ? 'unknown'
+      : tool.id === 'opencode' ? !checks.some(x => x.id === 'opencode-version') || find('hooks') === 'unknown' ? 'unknown'
         : (checks.some(x => x.id === 'opencode-primary-plugins') && find('opencode-primary-plugins') !== 'pass') || find('hooks') !== 'pass' ? 'fail' : 'pass'
         : ['herdr', 'gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'tasks-axi'].includes(tool.id) ? find('hooks') : 'unknown';
     return { id: tool.id, installed, verifiedDigest, configured, authenticated: 'unknown', liveTested: 'unknown' };

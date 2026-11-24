@@ -126,6 +126,35 @@ test('doctor labels OpenCode configured unknown unless it is the captain with gl
   assert.equal(configured(), 'unknown', 'an OpenCode captain who declined global hooks has nothing to verify');
 });
 
+test('doctor keeps OpenCode configured unknown for Claude-only and Codex-only homes with global hooks recorded', { skip: process.platform === 'win32' }, t => {
+  const f = fixture(t);
+  f.manifest.tools.push(structuredClone(bundled.tools.find(x => x.id === 'opencode')));
+  for (const harness of ['claude', 'codex', 'both']) {
+    const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+    receipt.setup = { answers: { harness } };
+    receipt.phases.hooks = { state: 'complete', files: [], skills: [], scripts: [], plugins: [] };
+    writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+    const result = doctor(f.manifest, f.options);
+    assert.ok(result.checks.some(x => x.id === 'hooks'), 'the hooks check ran');
+    assert.equal(result.components.find(x => x.id === 'opencode').configured, 'unknown', `${harness} never configures OpenCode`);
+  }
+});
+
+test('lifecycle process checks scan only the current account, and every process where no account id exists', { skip: process.platform === 'win32' }, t => {
+  const f = fixture(t), bin = join(f.base, 'ps-bin'), log = join(f.base, 'ps-args');
+  mkdirSync(bin);
+  // A ps stand-in: one Herdr server runs under another account, so only an all-account listing shows it.
+  writeFileSync(join(bin, 'ps'), `#!/bin/sh\necho "$*" >> '${log}'\ncase " $* " in *" -A "*) echo "/home/other/.tools/bin/herdr server";; esac\necho "/usr/bin/sleep 30"\n`, { mode: 0o755 });
+  const path = process.env.PATH, getuid = process.getuid;
+  t.after(() => { process.env.PATH = path; process.getuid = getuid; });
+  process.env.PATH = `${bin}:${path}`;
+  assert.equal(processRunning('herdr'), false, 'another account\'s Herdr does not block this home');
+  assert.equal(readFileSync(log, 'utf8'), `-U ${getuid()} -o args=\n`);
+  process.getuid = undefined;
+  assert.equal(processRunning('herdr'), true, 'without an account id every process counts');
+  assert.equal(readFileSync(log, 'utf8').split('\n')[1], '-A -o args=');
+});
+
 test('doctor reports every bundled figma-cli skill linked per agent, including the AtomicAUI release and upgrade skills', { skip: process.platform === 'win32' }, t => {
   const f = fixture(t);
   const names = ['atomicaui-release', 'atomicaui-upgrade-prototype', 'figma-cli', 'figma-make', 'figma-make-team'];
