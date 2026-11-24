@@ -8,6 +8,7 @@ import { gunzipSync } from 'node:zlib';
 import { applyHooks, previewHooks, publicHookChanges } from './hooks.mjs';
 import { artifactFor, artifactTarget, linuxIdentity, towerGlibcGap } from '../platforms/linux.mjs';
 import { captainOf, isOpenCode2, opencodePinned, receiptCaptain, towerIds, usesProfile } from '../harness.mjs';
+import { harnessOf } from '../dispatch.mjs';
 
 const exec = promisify(execFile);
 const npmIds = new Set(['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi', 'codex', 'opencode']);
@@ -451,7 +452,7 @@ export async function installPlatform(manifest, options = {}) {
     const save = () => atomicJson(receiptPath, receipt);
     if (options.update && receipt.release !== release) { receipt.pendingUpdate = release; await save(); }
     const components = [], targetKey = linux ? artifactTarget(linux, arch) : `${platform}-${arch}`, harness = options.harness || 'claude';
-    const captain = options.captain ? captainOf(options.captain, harness) : receiptCaptain(receipt, harness);
+    const captain = captainOf(options.captain || receiptCaptain(receipt, harnessOf(receipt)), harness);
     const chosen = selected(manifest, harness, !!options.withFigma, options.withTower !== false, captain);
     await mkdir(join(root, 'releases', release, 'staging'), { recursive: true, mode: 0o700 });
     if (captain !== 'opencode' && !usesProfile(harness, 'opencode') && receipt.phases['npm-opencode']) await dropOwnedTree(root, release, receipt, 'npm-opencode', save);

@@ -384,6 +384,16 @@ test('a direct install with OpenCode workers keeps its OpenCode captain for doct
   const after = JSON.parse(readFileSync(receiptPath, 'utf8'));
   assert.equal(after.captain, undefined, 'the captain record leaves with the OpenCode workers');
   assert.equal(after.workerHarness, undefined);
+
+  await install('codex', 'opencode');
+  const legacy = JSON.parse(readFileSync(receiptPath, 'utf8'));
+  assert.equal(legacy.captain, undefined, 'a captain-only direct install records the OpenCode captain by its npm phase alone');
+  assert.ok(legacy.phases['npm-opencode']);
+  await install('codex,opencode', null);
+  const added = JSON.parse(readFileSync(receiptPath, 'utf8'));
+  assert.equal(added.captain, 'opencode', 'adding OpenCode workers without --captain keeps the OpenCode captain');
+  assert.equal(receiptCaptain(added, added.workerHarness), 'opencode');
+  assert.ok(doctor(fixtureManifest, { installRoot, home: f.home, env: f.env }).checks.some(x => x.id === 'opencode-tui'), 'doctor still checks the OpenCode captain');
 });
 
 test('guided OpenCode choice records a captain while keeping Codex as the worker provider', posixOnly, async t => {
