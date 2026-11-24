@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, rmSync, readFileSync, copyFileSync, existsSync, readlinkSync, realpathSync, symlinkSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, writeFileSync, readdirSync, rmSync, readFileSync, copyFileSync, existsSync, readlinkSync, realpathSync, symlinkSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { run, validateManifest } from '../src/kit.mjs';
-import { formatInstall, installPlatform } from '../src/install/macos.mjs';
+import { formatInstall, installPlatform, selected } from '../src/install/macos.mjs';
+import { opencodePluginBody } from '../src/install/opencode-plugin.mjs';
 import { applyHooks, previewHooks, previewUnregister, applyUnregister, publicHookChanges } from '../src/install/hooks.mjs';
 import { createHash } from 'node:crypto';
 
@@ -396,6 +397,53 @@ test('OpenCode captain stays separate from worker selection and rejects a non-2 
   const installRoot = join(root, 'kit');
   await assert.rejects(installPlatform(bad, { home, installRoot, firstmateHome: join(root, 'firstmate'), harness: 'codex', captain: 'opencode', platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0' }), /OpenCode 2 pin/);
   assert.equal(existsSync(installRoot), false);
+});
+
+test('a Claude or Codex captain is only the default for the chosen agent CLIs; crossing them is refused', t => {
+  const { home, bin } = tempFixture(t);
+  const context = { platform: 'darwin', arch: 'arm64', env: { HOME: home, PATH: bin }, nodeVersion: '24.15.0', applicationDirs: [] };
+  for (const [harness, captain] of [['claude', 'codex'], ['codex', 'claude'], ['claude,codex', 'codex']])
+    assert.throws(() => run(['plan', '--json', '--harness', harness, '--captain', captain], manifest, context), /--captain must be (claude|codex) or opencode/);
+  assert.equal(run(['plan', '--json', '--harness', 'claude', '--captain', 'claude'], manifest, context).result.captain, 'claude');
+  assert.equal(selected(manifest, 'claude', false, true, 'codex').some(tool => tool.id === 'codex'), false, 'a recorded crossed captain installs no extra CLI');
+});
+
+test('agent-kit install passes --captain opencode to the installer', { skip: process.platform === 'win32' }, t => {
+  const { root, home } = tempFixture(t);
+  const kit = join(root, 'kit-copy');
+  for (const dir of ['bin', 'src', 'manifests', 'templates']) cpSync(join(fileURLToPath(new URL('..', import.meta.url)), dir), join(kit, dir), { recursive: true });
+  const copied = structuredClone(manifest);
+  copied.nodeMinimum = copied.tools.find(tool => tool.id === 'node').minVersion = process.versions.node;
+  copied.tools.find(tool => tool.id === 'opencode').version.value = '1.9.0';
+  writeFileSync(join(kit, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(copied)}\n`);
+  const installRoot = join(root, 'install');
+  const result = spawnSync(process.execPath, [join(kit, 'bin', 'agent-kit.mjs'), 'install', '--install-root', installRoot, '--firstmate-home', join(installRoot, 'firstmate'), '--harness', 'codex', '--captain', 'opencode'],
+    { encoding: 'utf8', env: { HOME: home, PATH: process.env.PATH } });
+  assert.equal(result.status, 2, result.stdout);
+  assert.match(result.stderr, /OpenCode captain requires a reviewed OpenCode 2 pin/);
+  assert.equal(existsSync(installRoot), false);
+});
+
+test('the OpenCode ambient plugin runs its helpers without blocking OpenCode and adds their hints to the session context', { skip: process.platform === 'win32' }, async t => {
+  const { root } = tempFixture(t);
+  const bin = join(root, 'releases', 'r', 'npm', 'node_modules', '.bin'), calls = join(root, 'calls');
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, 'lavish-axi'), `#!/bin/sh\necho x >> '${calls}'\nsleep 0.3\necho lavish hint\n`, { mode: 0o755 });
+  writeFileSync(join(bin, 'tasks-axi'), '#!/bin/sh\nsleep 0.3\necho ignored\nexit 1\n', { mode: 0o755 });
+  const plugin = join(root, 'agent-kit-ambient.mjs');
+  writeFileSync(plugin, opencodePluginBody(root, 'r', join(root, 'firstmate'), new Set(['lavish-axi', 'tasks-axi']), false));
+  const hooks = {};
+  await (await import(pathToFileURL(plugin).href)).default.setup({ location: { directory: root }, session: { hook: async (name, callback) => { hooks[name] = callback; } } });
+  let ticked = false;
+  setTimeout(() => { ticked = true; }, 50);
+  const first = { sessionID: 's1', system: [] };
+  await hooks.context(first);
+  assert.equal(ticked, true, 'timers keep running while the helpers work');
+  assert.deepEqual(first.system, [{ type: 'text', text: 'lavish hint' }], 'a failed helper adds nothing');
+  const again = { sessionID: 's1', system: [] };
+  await hooks.context(again);
+  assert.deepEqual(again.system, first.system);
+  assert.equal(readFileSync(calls, 'utf8'), 'x\n', 'helpers run once per session');
 });
 
 test('install dry-run plans the selected root and stays read-only', t => {

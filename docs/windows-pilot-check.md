@@ -101,7 +101,7 @@ Plan about 45 minutes. Use a normal (not administrator) PowerShell window unless
     opencode --version  # only if you selected OpenCode as the Firstmate CLI
     ```
 
-    Optionally run `lavish-axi --help`, or `chrome-devtools-axi open https://example.com` and note whether a Windows browser opens. Do not sign in to any agent CLI for this check. If you later use OpenCode, sign in inside Ubuntu with `opencode auth login` or `/connect`, choose your own model with `/models`, and keep the TUI open for passive Firstmate supervision. This check does not establish live TUI parity on Windows or WSL2.
+    Optionally run `lavish-axi --help`, or `chrome-devtools-axi open https://example.com` and note whether a Windows browser opens. Do not sign in to any agent CLI for this check. If you later use OpenCode, sign in inside Ubuntu with `opencode auth login` or `/connect`, choose your own model with `/models` (OpenCode may preselect a free model whose provider terms collect or train on your data; check the model in `/models` and its terms at https://opencode.ai/docs/console/models/ before use), and keep the TUI open for passive Firstmate supervision. This check does not establish live TUI parity on Windows or WSL2.
 11. **Tower.** In the same Ubuntu shell, run the launcher path the installer printed on its `Tower launcher:` line:
 
     ```sh

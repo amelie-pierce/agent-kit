@@ -45,10 +45,7 @@ function fixture(t) {
   const installOptions = { fetchArtifact: async (url, target) => { downloads.push(url); writeFileSync(target, artifacts[url]); } };
   const ctx = (argv, input = '') => {
     const chunks = [];
-    const harnessAt = argv.indexOf('--harness');
-    const captain = harnessAt < 0 || argv[harnessAt + 1] !== 'claude' ? 'codex' : 'claude';
-    const setupArgv = argv.includes('--captain') ? argv : [...argv, '--captain', captain];
-    return { argv: setupArgv, env, platform: 'linux', arch: 'x64', nodeVersion: '24.21.0', libc: 'glibc', procVersion: 'Linux version 6.8.0-generic', osRelease: 'PRETTY_NAME="Fixture Linux"', herdrPath: { servers: () => [] },
+    return { argv, env, platform: 'linux', arch: 'x64', nodeVersion: '24.21.0', libc: 'glibc', procVersion: 'Linux version 6.8.0-generic', osRelease: 'PRETTY_NAME="Fixture Linux"', herdrPath: { servers: () => [] },
       input: Readable.from(input ? [input] : []), output: new Writable({ write(chunk, _enc, done) { chunks.push(chunk.toString()); done(); } }), installOptions,
       get text() { return chunks.join(''); } };
   };
@@ -255,7 +252,8 @@ test('setup writes Firstmate\'s balanced starter rules only once the key is set 
 test('the plan and mode questions use the approved plan ids, warn before full on a small plan, and change with --reconfigure', posixOnly, async t => {
   const f = fixture(t);
   const c = ttyCtx(f, ['--root', f.root, '--no-tower', '--no-global-hooks', '--no-figma', '--github-owner', 'my-org', '--no-starter-mate', '--channel', 'releases'],
-    [[/2b\. Codex subscription plan, for starter dispatch rules: plus, pro, business-standard, business-premium, enterprise-edu, api or skip \[skip\][^\n]*$/, 'plus\n'],
+    [[/2\. Firstmate captain CLI: codex or opencode \(workers still use the Agent CLIs above\) \[codex\][^\n]*$/, '\n'],
+      [/2b\. Codex subscription plan, for starter dispatch rules: plus, pro, business-standard, business-premium, enterprise-edu, api or skip \[skip\][^\n]*$/, 'plus\n'],
       [/2c\. Starter routing mode for Firstmate's dispatch strategy: lean, balanced or full \[lean\][^\n]*$/, 'full\n'],
       [/Warning: full on ChatGPT Plus can reach the five-hour limit first, then the weekly limit\. Use full anyway[^\n]*$/, 'n\n'],
       [/2d\. Use the full-access Codex launch[^\n]*$/, '\n'],
@@ -294,6 +292,45 @@ test('guided OpenCode choice records a captain while keeping Codex as the worker
   assert.match(c.text, /Firstmate captain CLI: opencode/);
   assert.doesNotMatch(c.text, /token|password|secret/i);
   assert.equal(existsSync(f.root), false);
+});
+
+test('--yes without --captain records the captain the chosen agent CLIs default to; a crossed Claude/Codex captain is refused', posixOnly, async t => {
+  const f = fixture(t);
+  const saved = () => JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8')).setup.answers;
+  for (const [harness, captain] of [['codex', 'codex'], ['claude,codex', 'claude']]) {
+    const c = f.ctx(['--yes', '--reconfigure', '--root', f.root, '--harness', harness, '--no-tower', '--no-global-hooks']);
+    c.installPlatform = keyInstall;
+    assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+    assert.doesNotMatch(c.text, /Firstmate captain CLI: [a-z]+ or opencode/, '--yes never shows the captain question');
+    assert.equal(saved().captain, captain);
+    assert.match(c.text, new RegExp(`2\\. Firstmate captain CLI: ${captain} `));
+  }
+  for (const argv of [['--harness', 'codex', '--captain', 'claude'], ['--harness', 'claude,codex', '--captain', 'codex'], ['--captain', 'claude']])
+    await assert.rejects(setup(f.fixtureManifest, f.ctx(['--yes', '--dry-run', '--reconfigure', '--root', f.root, ...argv])), /--captain must be (codex|claude) or opencode/);
+});
+
+test('the OpenCode auto-approve launch follows its warning, is on by default, is saved, and stays off when answered no', posixOnly, async t => {
+  const f = fixture(t);
+  f.fixtureManifest.tools.push(structuredClone(manifest.tools.find(x => x.id === 'opencode')));
+  const saved = () => JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8')).setup.answers;
+  const flags = ['--root', f.root, '--harness', 'codex', '--captain', 'opencode', '--no-tower', '--no-global-hooks', '--no-figma', '--github-owner', 'my-org', '--no-starter-mate', '--channel', 'releases', '--codex-plan', 'skip', '--dispatch-mode', 'balanced', '--no-codex-full-access'];
+  const asked = ttyCtx(f, flags, [[/2e\. Use the auto-approve OpenCode launch \(y\/n\) \[y\][^\n]*$/, '\n'],
+    [/Keep it as it is[^\n]*$/, 'y\n'], [/Add optional TYPESAFE_API_KEY[^\n]*$/, 'n\n'], [/Write these changes now[^\n]*$/, 'y\n']]);
+  await setup(f.fixtureManifest, asked);
+  const warning = asked.text.indexOf('2e. Auto-approve OpenCode launch: the OpenCode captain runs every tool it asks for'), question = asked.text.indexOf('2e. Use the auto-approve OpenCode launch');
+  assert.ok(warning >= 0 && warning < question, 'the warning comes before the question');
+  assert.match(asked.text, /2e\. Auto-approve OpenCode launch: ON - the OpenCode captain runs tools/);
+  assert.equal(saved().opencodeAuto, true);
+  const declined = f.ctx(['--yes', '--root', f.root, '--no-opencode-auto']);
+  declined.installPlatform = keyInstall;
+  await setup(f.fixtureManifest, declined);
+  assert.match(declined.text, /2e\. Auto-approve OpenCode launch: off \(OpenCode keeps its normal approval prompts\)/);
+  assert.equal(saved().opencodeAuto, false);
+  const back = f.ctx(['--yes', '--reconfigure', '--root', f.root, '--harness', 'codex', '--no-tower', '--no-global-hooks']);
+  back.installPlatform = keyInstall;
+  assert.equal(await setup(f.fixtureManifest, back), 0, back.text);
+  assert.equal(saved().opencodeAuto, undefined, 'the answer is dropped with the Codex captain');
+  await assert.rejects(setup(f.fixtureManifest, f.ctx(['--yes', '--dry-run', '--root', f.root, '--opencode-auto'])), /--opencode-auto needs --captain opencode/);
 });
 
 test('a terminal dry run never asks for the key and shows only its current status', posixOnly, async t => {
@@ -340,7 +377,7 @@ test('the add-later key hint keeps a custom install root and pastes as shell arg
 test('scripted answers drive every prompt; nothing is written before yes; answers are saved without secrets', posixOnly, async t => {
   const f = fixture(t);
   const kit = kitCheckout(t, f.base);
-  const answers = [f.root, 'y', '', '', 'n', 'n', 'n', 'y', '', '', 'my-org', 'n', 'Pat Example', 'pat@example.test', 'y', 'n', 'main'];
+  const answers = [f.root, 'y', '', '', '', 'n', 'n', 'n', 'y', '', '', 'my-org', 'n', 'Pat Example', 'pat@example.test', 'y', 'n', 'main'];
   const declined = f.ctx(['--kit-dir', kit.dir, '--kit-commit', kit.commit], [...answers, 'n', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, declined), 1);
   assert.match(declined.text, /Cancelled; nothing was written/);
@@ -350,7 +387,7 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   const c = f.ctx(['--kit-dir', kit.dir, '--kit-commit', kit.commit], [...answers, 'y', ''].join('\n'));
   const code = await setup(f.fixtureManifest, c);
   assert.equal(code, 0, c.text);
-  for (const prompt of ['1. Root folder', '3. Figma support', '4. Fleet tower', '5. Register these kit hooks', '6. GitHub account', '7. Git identity', '8. Create a starter', '9. Update channel'])
+  for (const prompt of ['1. Root folder', '2. Firstmate captain CLI: codex or opencode', '3. Figma support', '4. Fleet tower', '5. Register these kit hooks', '6. GitHub account', '7. Git identity', '8. Create a starter', '9. Update channel'])
     assert.ok(c.text.includes(prompt), prompt);
   const receipt = JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8'));
   assert.equal(statSync(join(f.root, '.tools', 'receipt.json')).mode & 0o777, 0o600);
@@ -398,7 +435,7 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   assert.equal(await setup(f.fixtureManifest, override), 0, override.text);
   assert.match(override.text, /9\. Update channel: releases \(from --channel; your saved answer was main\)/);
   // --reconfigure asks again.
-  const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, '', '', '', 'n', 'n', 'n', '', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
+  const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, '', '', '', '', 'n', 'n', 'n', '', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, reconfigure), 0, reconfigure.text);
   assert.match(reconfigure.text, /3\. Figma support: check/);
   const skippedProfile = f.ctx(['--yes', '--root', f.root, '--no-shell-profile']);

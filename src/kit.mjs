@@ -5,7 +5,7 @@ import { artifactFor, towerGlibcGap } from './platforms/linux.mjs';
 import { previewHooks, publicHookChanges } from './install/hooks.mjs';
 import { npmGroup, towerPaths } from './install/macos.mjs';
 import { defaultLinuxFirstmateHome, defaultLinuxRoot, describeStep, linuxPath, windowsHandoff, windowsNextSteps } from './install/windows.mjs';
-import { captainOf, harnessLabel, harnessProfiles, parseCaptain, parseHarness, towerIds, usesProfile } from './harness.mjs';
+import { captainOf, defaultCaptain, harnessLabel, harnessProfiles, opencodePinned, parseCaptain, parseHarness, towerIds, usesProfile } from './harness.mjs';
 import { herdrConfigPath, keyBindings, previewKeys } from './shortcuts.mjs';
 
 function compareVersions(actual, minimum) {
@@ -60,7 +60,7 @@ export function parseArgs(argv, platform = process.platform) {
     else if (command === 'rollback' && !targetRelease && /^pilot-[0-9]+$/.test(arg)) targetRelease = arg;
     else if (arg === '--json') json = true;
     else if (arg === '--harness' && parseHarness(argv[i + 1])) harness = parseHarness(argv[++i]);
-    else if (arg === '--captain' && parseCaptain(argv[i + 1])) captain = parseCaptain(argv[++i]);
+    else if (arg === '--captain' && argv[i + 1]) captain = argv[++i];
     else if (arg === '--root' && argv[i + 1]) root = argv[++i];
     else if (arg === '--with-figma') withFigma = true;
     else if (arg === '--dry-run') dryRun = true;
@@ -74,6 +74,7 @@ export function parseArgs(argv, platform = process.platform) {
     else if (arg === '--distro' && /^[A-Za-z0-9._-]+$/.test(argv[i + 1] || '')) distro = argv[++i];
     else throw new Error(`unknown argument: ${arg}`);
   }
+  if (captain !== null && !parseCaptain(captain, harness)) throw new Error(`--captain must be ${defaultCaptain(harness)} or opencode with --harness ${harnessLabel(harness)}`);
   if (!command) throw new Error('usage: agent-kit <setup|check|plan|install|doctor|repair|upgrade|rollback|uninstall|keys|secondmate-template> [--json] [--root <root>] [--yes]');
   if (command === 'rollback' && !targetRelease) throw new Error('rollback requires a previous release name, such as pilot-12');
   if (root !== undefined) {
@@ -121,12 +122,12 @@ const towerAdvisories = new Set(['zoe-fleet-runtime', 'zoetrope-herdr-plugin', '
 
 function evaluate(manifest, context, options) {
   const relevant = manifest.tools.filter(tool => tool.classification !== 'never-ship' && (options.withTower !== false || !towerIds.has(tool.id))
-    && (tool.kind === 'prerequisite' && tool.profile === 'figma' || tool.profile === 'core' || usesProfile(options.harness, tool.profile) || (tool.profile === captainOf(options.captain, options.harness) && ['claude', 'codex', 'opencode'].includes(tool.profile)) || (options.withFigma && tool.profile === 'figma')));
+    && (tool.kind === 'prerequisite' && tool.profile === 'figma' || tool.profile === 'core' || usesProfile(options.harness, tool.profile) || (tool.profile === 'opencode' && captainOf(options.captain, options.harness) === 'opencode') || (options.withFigma && tool.profile === 'figma')));
   const selected = relevant.filter(tool => tool.kind !== 'prerequisite');
   const platform = inspectPlatform(context, manifest, relevant, options);
   const issues = [];
   const advisories = [];
-  if (captainOf(options.captain, options.harness) === 'opencode' && !/^2\./.test(manifest.tools.find(tool => tool.id === 'opencode')?.version?.value || ''))
+  if (captainOf(options.captain, options.harness) === 'opencode' && !opencodePinned(manifest))
     issues.push({ status: 'fail', id: 'opencode-version', reason: 'OpenCode captain requires a reviewed OpenCode 2 pin before configuration' });
   if (compareVersions(context.nodeVersion, manifest.nodeMinimum) < 0) issues.push({ status: 'fail', id: 'node-runtime', reason: `Node ${manifest.nodeMinimum} or newer required; install it yourself: ${manifest.tools.find(x => x.id === 'node')?.installDocs || 'https://nodejs.org/en/download'}` });
   if (!platform.supported) issues.push({ status: 'fail', id: 'platform', reason: platform.message });

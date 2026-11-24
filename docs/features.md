@@ -1,6 +1,6 @@
 # Agent Kit: all features
 
-This page lists the functions in the `pilot-21` kit. `pilot-20` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This page lists the functions in the `pilot-21` kit. `pilot-19` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 **How to read the support columns.** **Yes**: works today. **Partial**: works with a limit, explained in the row. **No**: not supported.
 
@@ -75,11 +75,12 @@ Run these with `node "$AK" <command>`. On Windows, run them in your **Ubuntu** t
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Root folder | `~/Agentic` | `--root <folder>` | Yes | Yes | Yes |
 | 2 | Worker CLIs: `codex`, `claude` or `claude,codex` (Claude is offered only when Claude Code is already installed) | `codex` | `--harness ...` | Yes | Yes | Yes |
-| 2a | Firstmate CLI: `claude`, `codex` or `opencode`; OpenCode supervises Claude/Codex workers only | selected worker CLI | `--captain ...` | Yes | Yes | Yes (inside Ubuntu) |
+| 2a | Firstmate CLI: the worker default (`claude`, or `codex` when Codex is the only worker CLI) or `opencode`; OpenCode supervises Claude/Codex workers only | worker default | `--captain ...` | Yes | Yes | Yes (inside Ubuntu) |
 | 2a | Claude subscription plan (only if Claude was chosen): `pro`, `max5x`, `max20x`, `team-standard`, `team-premium`, `enterprise-standard`, `enterprise-premium`, `api`, or `skip` | `skip` | `--claude-plan <id>` | Yes | Yes | Yes |
 | 2b | Codex subscription plan (only if Codex was chosen): `plus`, `pro`, `business-standard`, `business-premium`, `enterprise-edu`, `api`, or `skip` | `skip` | `--codex-plan <id>` | Yes | Yes | Yes |
 | 2c | Routing mode: `lean`, `balanced` or `full`, shown first with what each means (full: unlock full power; balanced: optimize for token saving while everything still work; lean: harder optimization for token saving while everything still work). Selected as Firstmate's token strategy at install, key or not. Warns before `full` on Claude Pro, Team Standard, Enterprise standard, ChatGPT Plus and Business Standard | `lean` on those plans and on `api`, otherwise `balanced` | `--dispatch-mode <mode>` | Yes | Yes | Yes |
 | 2d | Full-access Codex launch (only if Codex was chosen). A warning is shown first (below). Changeable later with `--reconfigure` or `--no-codex-full-access` | **yes** | `--codex-full-access`, `--no-codex-full-access` | Yes | Yes | Yes |
+| 2e | Auto-approve OpenCode launch (only if OpenCode is the Firstmate CLI). A warning is shown first. Changeable later with `--reconfigure` or `--no-opencode-auto` | **yes** | `--opencode-auto`, `--no-opencode-auto` | Yes | Yes | Yes (inside Ubuntu) |
 | 3 | Figma support: installs the Figma CLI and its `atomicaui-release`, `atomicaui-upgrade-prototype`, `figma-cli`, `figma-make` and `figma-make-team` skills (and its Claude plugin with Claude) and shows the Figma Desktop sign-in | yes | `--no-figma` | Yes | Yes | Yes (Figma Desktop reach from Ubuntu not confirmed) |
 | 4 | Fleet tower | yes | `--no-tower` | Partial | Partial | Partial |
 | 5 | Register global hooks and skills, and with them the kit's commands, Herdr keys, Herdr plugins and Claude plugins | yes | `--no-global-hooks` | Yes | Yes | Yes |
@@ -110,7 +111,7 @@ Every download is checked against a fixed checksum. Nothing is started and no on
 | Herdr 0.9.3 | The terminal workspace the agents run in | `herdr` | Yes | Yes | Yes |
 | Treehouse 2.3.0 | Gives each worker its own clean copy of a repo; a kit wrapper keeps the copies under `<root>/.treehouse` | Used by Firstmate | Yes | Yes | Yes |
 | Codex CLI 0.164.0 | OpenAI's agent CLI, installed only when you choose `codex` | `codex` (sign in with `codex login`) | Yes | Yes | Yes |
-| OpenCode CLI 2.3.2 | Separate integrity-locked npm group, installed only when chosen as the Firstmate CLI. `firstmate opencode` passes `--standalone --auto` so tool requests do not prompt unless explicitly denied; the kit leaves OpenCode config alone. Sign in with `opencode auth login` or `/connect` and choose your own model with `/models`; the kit sets neither provider nor model | `firstmate opencode` | Yes (package and preview) | Yes (Ubuntu arm64 live TUI) | Yes inside Ubuntu (unverified live) |
+| OpenCode CLI 2.3.2 | Separate integrity-locked npm group, installed only when chosen as the Firstmate CLI. `firstmate opencode` passes `--standalone`, plus `--auto` only when you answered yes to 2e so tool requests do not prompt unless explicitly denied; the kit leaves OpenCode config alone. Sign in with `opencode auth login` or `/connect` and choose your own model with `/models`; the kit sets neither provider nor model. OpenCode may preselect a free model whose provider terms collect or train on your data; check the model in `/models` and its terms at https://opencode.ai/docs/console/models/ before use. | `firstmate opencode` | Yes (package and preview) | Yes (Ubuntu arm64 live TUI) | Yes inside Ubuntu (unverified live) |
 | no-mistakes 1.79.0 | Checks code before a PR is opened | Used by Firstmate | Yes | Yes | Yes |
 | ShellCheck 0.11.0 | Shell script checker | `shellcheck` | Yes | Yes | Yes |
 | actionlint 1.7.12 | GitHub Actions workflow checker | `actionlint` | Yes | Yes | Yes |

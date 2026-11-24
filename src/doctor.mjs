@@ -7,7 +7,7 @@ import { previewHooks } from './install/hooks.mjs';
 import { npmGroup, towerPaths } from './install/macos.mjs';
 import { inspectPlatform } from './platforms/index.mjs';
 import { artifactFor } from './platforms/linux.mjs';
-import { captainOf, usesProfile } from './harness.mjs';
+import { captainOf, isOpenCode2, usesProfile } from './harness.mjs';
 import { jevReadiness } from './dispatch.mjs';
 import { shortcutsHealth } from './shortcuts.mjs';
 import { herdrPathHealth } from './herdr-path.mjs';
@@ -98,7 +98,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, herdrPa
     catch { /* The receipt validation below reports malformed JSON. */ }
   }
   const platform = inspectPlatform({ env, platform: platformName, arch, nodeVersion, installRoot: root }, manifest,
-    manifest.tools.filter(tool => tool.kind === 'prerequisite' && (tool.profile === 'core' || usesProfile(recordedHarness, tool.profile) || tool.profile === recordedCaptain || tool.profile === 'figma')));
+    manifest.tools.filter(tool => tool.kind === 'prerequisite' && (tool.profile === 'core' || usesProfile(recordedHarness, tool.profile) || (tool.profile === 'opencode' && recordedCaptain === 'opencode') || tool.profile === 'figma')));
   for (const prerequisite of platform.prerequisites || []) if (!['terminal', 'browser', 'virtualization'].includes(prerequisite.id))
     checks.push(status(`prerequisite-${prerequisite.id}`, prerequisite.required === false && prerequisite.status !== 'pass' ? 'warn' : prerequisite.status, prerequisite.detail));
   if (!receiptFile) {
@@ -197,7 +197,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, herdrPa
       try {
         const result = spawnSync(binary, ['--version'], { encoding: 'utf8', timeout: 10000, env: { ...env, HOME: probeHome, XDG_CONFIG_HOME: join(probeHome, '.config'), XDG_DATA_HOME: join(probeHome, '.local', 'share') } });
         const version = (result.stdout || '').trim();
-        checks.push(status('opencode-version', result.status === 0 && /(?:^|\s)v?2\./.test(version) ? 'pass' : 'fail', result.status === 0 ? `${version}; version 2 required` : 'OpenCode version probe failed'));
+        checks.push(status('opencode-version', result.status === 0 && isOpenCode2(version) ? 'pass' : 'fail', result.status === 0 ? `${version}; version 2 required` : 'OpenCode version probe failed'));
       } finally { rmSync(probeHome, { recursive: true, force: true }); }
     }
     const fmHome = receipt.phases.firstmate?.path, pluginDir = fmHome && join(fmHome, '.opencode', 'plugins');
@@ -283,7 +283,8 @@ function doctorResult(checks, release, manifest, receipt, root) {
     const installed = path && existsSync(path) ? 'pass' : 'unknown';
     const verifiedDigest = find(phaseId);
     const configured = tool.id === 'firstmate' ? ['bin', 'data', 'state', 'config', 'projects'].every(dir => find(`firstmate-layout-${dir}`) === 'pass') ? 'pass' : 'fail'
-      : tool.id === 'opencode' ? find('opencode-primary-plugins') === 'pass' && find('hooks') === 'pass' ? 'pass' : 'fail'
+      : tool.id === 'opencode' ? !checks.some(x => x.id === 'opencode-primary-plugins') || find('hooks') === 'unknown' ? 'unknown'
+        : find('opencode-primary-plugins') === 'pass' && find('hooks') === 'pass' ? 'pass' : 'fail'
         : ['herdr', 'gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'tasks-axi'].includes(tool.id) ? find('hooks') : 'unknown';
     return { id: tool.id, installed, verifiedDigest, configured, authenticated: 'unknown', liveTested: 'unknown' };
   });

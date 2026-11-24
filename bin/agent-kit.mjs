@@ -164,7 +164,7 @@ try {
       process.exitCode = result.exitCode;
     } else {
       const result = await installPlatform(manifest, { platform: context.platform, arch: context.arch, home: process.env.HOME, env: process.env,
-        installRoot: options.installRoot, firstmateHome: options.firstmateHome, harness: options.harness, withFigma: options.withFigma, nodeVersion: context.nodeVersion,
+        installRoot: options.installRoot, firstmateHome: options.firstmateHome, harness: options.harness, captain: options.captain, withFigma: options.withFigma, nodeVersion: context.nodeVersion,
         onHooksPreview: changes => {
           process.stderr.write('Global hook and skill changes before apply (kit-owned entries only):\n');
           for (const change of changes) process.stderr.write(`${change.path}: ${JSON.stringify(change.changes)}\n`);

@@ -5,6 +5,7 @@ import { chmod, mkdir, mkdtemp, readFile, rename, rm, symlink, unlink, writeFile
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 import { opencodePluginBody, opencodePluginPath } from './opencode-plugin.mjs';
+import { opencodePinned } from '../harness.mjs';
 
 // These are the published skill directories in the integrity-locked npm packages.
 const tools = [
@@ -225,7 +226,7 @@ export function previewHooks(manifest, { home, installRoot, captain = null, env 
   let prior = null;
   try { prior = JSON.parse(readFileSync(join(root, 'receipt.json'), 'utf8')); } catch { /* A new install has no receipt. */ }
   const useOpenCode = (captain || prior?.setup?.answers?.captain) === 'opencode';
-  if (useOpenCode && !/^2\./.test(manifest.tools.find(t => t.id === 'opencode')?.version?.value || '')) throw new Error('OpenCode hooks require a reviewed OpenCode 2 pin');
+  if (useOpenCode && !opencodePinned(manifest)) throw new Error('OpenCode hooks require a reviewed OpenCode 2 pin');
   for (const id of hookTools) if (selected.has(id)) {
     const gated = !!fmHome && gatedTools.has(id);
     axi.set(id, { matcher: '', hooks: [{ type: 'command', command: commandFor(root, release, id, gated), timeout: 10 }] });

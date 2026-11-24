@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { inspectWindows } from '../platforms/windows.mjs';
+import { parseCaptain } from '../harness.mjs';
 
 export const kitUpstream = 'https://github.com/amelie-pierce/agent-kit.git';
 export const defaultLinuxRoot = '~/.agent-kit';
@@ -33,7 +34,7 @@ export function handoffArgv({ distro, commit, installRoot, firstmateHome, harnes
   if (!/^[A-Za-z0-9._-]+$/.test(distro || '')) throw new Error('unsafe WSL distribution name');
   if (!/^[a-f0-9]{40}$/.test(commit || '')) throw new Error('kit commit must be a full SHA-1');
   if (!['claude', 'codex', 'both'].includes(harness)) throw new Error('unsupported harness');
-  if (captain !== null && !['claude', 'codex', 'opencode'].includes(captain)) throw new Error('unsupported captain');
+  if (captain !== null && !parseCaptain(captain, harness)) throw new Error('unsupported captain');
   const root = linuxPath(installRoot, '--install-root'), home = linuxPath(firstmateHome, '--firstmate-home');
   if (root === home) throw new Error('--firstmate-home must differ from --install-root');
   return ['-d', distro, '--exec', 'bash', '-l', '-c', handoffScript, 'agent-kit-handoff', commit, root, home,

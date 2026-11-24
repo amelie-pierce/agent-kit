@@ -84,6 +84,17 @@ test('doctor checks an OpenCode 2 executable and project plugin API without insp
   assert.equal(rows()['opencode-version'], 'fail');
 });
 
+test('doctor labels OpenCode configured unknown unless it is the captain with global hooks recorded', { skip: process.platform === 'win32' }, t => {
+  const f = fixture(t);
+  f.manifest.tools.push(structuredClone(bundled.tools.find(x => x.id === 'opencode')));
+  const configured = () => doctor(f.manifest, f.options).components.find(x => x.id === 'opencode').configured;
+  assert.equal(configured(), 'unknown', 'a Claude or Codex captain never configures OpenCode');
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.setup = { answers: { harness: 'codex', captain: 'opencode', globalHooks: false } };
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  assert.equal(configured(), 'unknown', 'an OpenCode captain who declined global hooks has nothing to verify');
+});
+
 test('doctor reports every bundled figma-cli skill linked per agent, including the AtomicAUI release and upgrade skills', { skip: process.platform === 'win32' }, t => {
   const f = fixture(t);
   const names = ['atomicaui-release', 'atomicaui-upgrade-prototype', 'figma-cli', 'figma-make', 'figma-make-team'];

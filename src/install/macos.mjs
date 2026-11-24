@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { applyHooks, previewHooks, publicHookChanges } from './hooks.mjs';
 import { artifactFor, artifactTarget, linuxIdentity, towerGlibcGap } from '../platforms/linux.mjs';
-import { captainOf, towerIds, usesProfile } from '../harness.mjs';
+import { captainOf, isOpenCode2, opencodePinned, towerIds, usesProfile } from '../harness.mjs';
 
 const exec = promisify(execFile);
 const npmIds = new Set(['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi', 'codex', 'opencode']);
@@ -254,7 +254,7 @@ async function checkReceipt(root, receipt, id, version, artifactSha, options = {
 }
 export function selected(manifest, harness, withFigma, withTower = true, captain = null) {
   return manifest.tools.filter(t => t.kind !== 'prerequisite' && t.classification !== 'never-ship' && (withTower || !towerIds.has(t.id))
-    && (t.profile === 'core' || usesProfile(harness, t.profile) || (t.profile === captainOf(captain, harness) && ['claude', 'codex', 'opencode'].includes(t.profile)) || (withFigma && t.profile === 'figma')));
+    && (t.profile === 'core' || usesProfile(harness, t.profile) || (t.profile === 'opencode' && captainOf(captain, harness) === 'opencode') || (withFigma && t.profile === 'figma')));
 }
 // figma-cli's own skills install (figma-cli, figma-make, figma-make-team) for each chosen agent CLI. It never
 // overwrites a skill the person changed or a skill another tool owns; those are reported. Recorded for uninstall.
@@ -422,7 +422,7 @@ export async function installPlatform(manifest, options = {}) {
   if (!options.installRoot || !isAbsolute(options.installRoot)) throw new Error('--install-root must be an absolute path');
   if (!options.home || !isAbsolute(options.home)) throw new Error('HOME must be an absolute path');
   const requestedCaptain = captainOf(options.captain, options.harness || 'claude');
-  if (requestedCaptain === 'opencode' && !/^2\./.test(manifest.tools.find(t => t.id === 'opencode')?.version?.value || '')) throw new Error('OpenCode captain requires a reviewed OpenCode 2 pin');
+  if (requestedCaptain === 'opencode' && !opencodePinned(manifest)) throw new Error('OpenCode captain requires a reviewed OpenCode 2 pin');
   const root = resolve(options.installRoot), release = manifest.release;
   const firstmateHome = await checkFirstmateHome(options.firstmateHome, root, options.home, platform);
   if (!safePart(release)) throw new Error('unsafe release name');
@@ -623,7 +623,7 @@ export async function installPlatform(manifest, options = {}) {
           const version = options.runOpenCodeVersion ? await options.runOpenCodeVersion(binary) : (await exec(binary, ['--version'], {
             env: { ...toolEnv(probeHome, root), XDG_CONFIG_HOME: join(probeHome, '.config'), XDG_DATA_HOME: join(probeHome, '.local', 'share') }, timeout: 10000,
           })).stdout.trim();
-          if (!/(?:^|\s)v?2\./.test(version)) throw new Error(`OpenCode 2 required; pinned executable reported ${version || 'no version'}`);
+          if (!isOpenCode2(version)) throw new Error(`OpenCode 2 required; pinned executable reported ${version || 'no version'}`);
         } finally { await rm(probeHome, { recursive: true, force: true }); }
       }
     }

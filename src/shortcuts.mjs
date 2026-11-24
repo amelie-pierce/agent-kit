@@ -42,8 +42,8 @@ export function shortcutInputs(receipt, root, env, recorded = null, kitPath = nu
   const codexTree = phase('npm-codex');
   const opencodeTree = phase('npm-opencode');
   const agents = {
-    ...(harness !== 'codex' || captain === 'claude' ? { claude: recorded?.agents?.claude && stat(recorded.agents.claude) ? recorded.agents.claude : onPath('claude', env) || 'claude' } : {}),
-    ...((harness !== 'claude' || captain === 'codex') && codexTree ? { codex: join(codexTree, 'node_modules', '.bin', 'codex') } : {}),
+    ...(harness !== 'codex' ? { claude: recorded?.agents?.claude && stat(recorded.agents.claude) ? recorded.agents.claude : onPath('claude', env) || 'claude' } : {}),
+    ...(harness !== 'claude' && codexTree ? { codex: join(codexTree, 'node_modules', '.bin', 'codex') } : {}),
     ...(captain === 'opencode' && opencodeTree ? { opencode: join(opencodeTree, 'node_modules', '.bin', 'opencode') } : {}),
   };
   // The installed kit copy at its pinned commit (during an upgrade, the new copy), never a temporary checkout.
@@ -51,14 +51,14 @@ export function shortcutInputs(receipt, root, env, recorded = null, kitPath = nu
   const node = recorded?.node && stat(recorded.node) ? recorded.node : process.execPath;
   const runtime = phase('zoe-fleet-runtime'), npm = phase('npm'), answers = receipt.setup?.answers || {};
   // The person's own Claude CLI, never the kit's telemetry wrapper in <root>/.tools/bin.
-  const realClaude = harness === 'codex' && captain !== 'claude' ? null : recorded?.realClaude && stat(recorded.realClaude) ? recorded.realClaude
+  const realClaude = harness === 'codex' ? null : recorded?.realClaude && stat(recorded.realClaude) ? recorded.realClaude
     : findOnPath('claude', env.PATH || '').find(path => dirname(path) !== join(root, 'bin')) || null;
   const firstmateHome = receipt.setup?.paths?.firstmateHome || receipt.phases?.firstmate?.path || null;
   return { herdr: phase('herdr'), python, node, kit, firstmateHome, agents, captain, realClaude, mate: join(root, mateFile), graph: !!recorded?.plugin?.entrySha256, pluginManager: !!recorded?.plugin?.managerSha256,
     lock: join(root, '.open-firstmate.lock'), program, firstmate: join(root, 'bin', 'firstmate'),
     paths: { root: receipt.setup?.paths?.root || dirname(root), treehouseRoot: receipt.setup?.paths?.treehouseRoot || dirname(root), installRoot: root },
     tower: receipt.phases?.['zoe-fleet-tower'] && runtime ? { launcher: join(runtime, 'bin', 'zoe-fleet-tower'), runtime } : null,
-    fullAccess: (harness !== 'claude' || captain === 'codex') && answers.codexFullAccess !== false && !!codexTree };
+    fullAccess: harness !== 'claude' && answers.codexFullAccess !== false && !!codexTree, opencodeAuto: captain === 'opencode' && answers.opencodeAuto === true };
 }
 
 export const launcherScript = inputs => `#!/bin/sh
@@ -69,7 +69,7 @@ OPEN_FIRSTMATE_HOME=${quote(inputs.firstmateHome)}
 OPEN_FIRSTMATE_CLAUDE=${quote(inputs.agents.claude ? inputs.firstmate : '')}
 OPEN_FIRSTMATE_CODEX=${quote(inputs.agents.codex ? inputs.firstmate : '')}
 OPEN_FIRSTMATE_OPENCODE=${quote(inputs.agents.opencode ? inputs.firstmate : '')}
-OPEN_FIRSTMATE_DEFAULT=${quote(inputs.captain || (inputs.agents.claude ? 'claude' : 'codex'))}
+OPEN_FIRSTMATE_DEFAULT=${quote(inputs.captain)}
 OPEN_FIRSTMATE_MATE=${quote(inputs.mate)}
 OPEN_FIRSTMATE_LOCK=${quote(inputs.lock)}
 export OPEN_FIRSTMATE_HERDR OPEN_FIRSTMATE_HOME OPEN_FIRSTMATE_CLAUDE OPEN_FIRSTMATE_CODEX OPEN_FIRSTMATE_OPENCODE OPEN_FIRSTMATE_DEFAULT OPEN_FIRSTMATE_MATE OPEN_FIRSTMATE_LOCK
@@ -92,7 +92,7 @@ export const firstmateScript = inputs => `#!/bin/bash
 # Written by Agent Kit from its receipt; agent-kit repair rewrites it and uninstall removes it.
 set -eu
 . ${quote(join(inputs.paths.installRoot, 'env.sh'))}
-mode=\${1:-${inputs.captain || (inputs.agents.claude ? 'claude' : 'codex')}}
+mode=\${1:-${inputs.captain}}
 if [ "$#" -gt 0 ]; then shift; fi
 case "$mode" in
   check) cd "$FM_HOME"; FM_BOOTSTRAP_DETECT_ONLY=1 exec bash bin/fm-bootstrap.sh ;;
@@ -113,7 +113,7 @@ unset CLAUDECODE CLAUDE_CODE_ENTRYPOINT CLAUDE_CODE_SSE_PORT CODEX_THREAD_ID COD
 case "$mode" in
   claude) ${inputs.agents.claude ? `exec ${quote(inputs.tower && inputs.realClaude ? join(inputs.paths.installRoot, 'bin', 'claude') : inputs.agents.claude)} "$@"` : `echo 'Claude is not set up by Agent Kit here.' >&2; exit 2`} ;;
   codex) ${inputs.agents.codex ? `exec ${quote(inputs.agents.codex)}${inputs.fullAccess ? ` --sandbox danger-full-access --ask-for-approval never --add-dir ${quote(inputs.paths.root)} --enable hooks` : ''} "$@"` : `echo 'Codex is not set up by Agent Kit here.' >&2; exit 2`} ;;
-  opencode) ${inputs.agents.opencode ? `exec ${quote(inputs.agents.opencode)} --standalone --auto "$@"` : `echo 'OpenCode is not set up by Agent Kit here.' >&2; exit 2`} ;;
+  opencode) ${inputs.agents.opencode ? `exec ${quote(inputs.agents.opencode)} --standalone${inputs.opencodeAuto ? ' --auto' : ''} "$@"` : `echo 'OpenCode is not set up by Agent Kit here.' >&2; exit 2`} ;;
 esac
 `;
 export const helpScript = inputs => `${header('fm-help', "print this Firstmate home's captain guide (data/captain-help.md), when the home keeps one.")}home=\${FM_HOME:-${quote(inputs.firstmateHome)}}
@@ -641,5 +641,6 @@ export function shortcutsHealth(receipt, root) {
   if (record.captainHelp?.path) row('captain-help', existsSync(record.captainHelp.path), existsSync(record.captainHelp.path) ? `${record.captainHelp.path} (print it with fm-help)` : `${record.captainHelp.path} is missing`);
   checks.push(...claudePluginsHealth(record.claudePlugins, process.env, process.env.HOME, receipt.setup?.answers || {}));
   if (receipt.setup?.answers?.codexFullAccess !== undefined) checks.push({ id: 'codex-full-access', status: 'pass', detail: `codex full-access launch: ${receipt.setup.answers.codexFullAccess ? 'on' : 'off'}` });
+  if (receipt.setup?.answers?.opencodeAuto !== undefined) checks.push({ id: 'opencode-auto', status: 'pass', detail: `opencode auto-approve launch: ${receipt.setup.answers.opencodeAuto ? 'on' : 'off'}` });
   return checks;
 }

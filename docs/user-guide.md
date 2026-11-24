@@ -2,7 +2,7 @@
 
 ## Status of this guide
 
-This guide describes the `pilot-21` kit. `pilot-20` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
+This guide describes the `pilot-21` kit. `pilot-19` is the previous version. Release names have the form `pilot-N`; older releases were named `macos-pilot-N`.
 
 | Release | What it added |
 | --- | --- |
@@ -18,8 +18,7 @@ This guide describes the `pilot-21` kit. `pilot-20` is the previous version. Rel
 | `pilot-17` | Firstmate at `d6257ae1` (faster fleet snapshots that keep decision evidence, and coding guidelines in ship worker briefs); Figma CLI at `21e8322`, which brings in the Make deploy changes: a first deploy saves two Make versions, entry files are written last, a deploy can run detached with a status check, and a write whose reply is uncertain is confirmed by content hash. The Make deploy wording in this guide is updated to match; see the [release note](../README.md#pins-and-approval) |
 | `pilot-18` | The `firstmate` launcher no longer clears an unused environment variable. This is the only change; every pin is as in `pilot-17`, and an upgrade needs no `/updatefirstmate` |
 | `pilot-19` | Firstmate at `b69fcebc`, which removes the local-only bot's support, files, hooks, docs and tests from Firstmate; every other pin is as in `pilot-18`. An upgrade asks you to run `/updatefirstmate` first; see the [release note](../README.md#pins-and-approval) |
-| `pilot-20` | Adds OpenCode 2.3.2 as a separate Firstmate CLI choice, with a pinned npm lock, persistent TUI launcher and receipt-owned ambient helper plugin. Claude and Codex remain the worker choices. |
-| `pilot-21` | Pins Firstmate at `657f0af6` for its OpenCode 2 project plugins and inherited Claude watcher repair. OpenCode's session digest, supervision wake and turn-end follow-up have passive TUI semantics. |
+| `pilot-21` | Adds OpenCode 2.3.2 as a separate Firstmate CLI choice, with a pinned npm lock, persistent TUI launcher and receipt-owned ambient helper plugin; Claude and Codex remain the worker choices. Pins Firstmate at `657f0af6` for its OpenCode 2 project plugins and inherited Claude watcher repair. OpenCode's session digest, supervision wake and turn-end follow-up have passive TUI semantics. |
 
 **Branch-rule finder limits.** It may miss `feature/*` globs and tables headed `Naming convention`. It may over-count a sentence that mixes branch advice with a path, or file-name tables under a `Branching` heading. If this happens, record the project's branch pattern.
 
@@ -201,11 +200,12 @@ Every question shows its default in brackets. Press Enter to accept it.
 | --- | --- | --- | --- |
 | 1 | Root folder | `~/Agentic` | that folder is already in use |
 | 2 | Worker CLIs: `codex`, `claude` or `claude,codex` | `codex` | you use Claude Code (only asked if Claude Code is already installed) |
-| 2 (captain) | Firstmate CLI: `claude`, `codex` or `opencode` | the selected worker CLI (Claude if both) | choose OpenCode to run Firstmate in its persistent TUI; worker routing remains Claude/Codex |
+| 2 (captain) | Firstmate CLI: the worker default or `opencode` | the worker default (`codex` with Codex only, otherwise `claude`) | choose OpenCode to run Firstmate in its persistent TUI; worker routing remains Claude/Codex |
 | 2a | Your Claude subscription plan (only if you chose Claude) | `skip` | you know your plan; see "The plan questions" below |
 | 2b | Your Codex (ChatGPT) subscription plan (only if you chose Codex) | `skip` | you know your plan; see below |
 | 2c | Routing mode for Firstmate: `lean`, `balanced` or `full` | depends on your plan | see below |
 | 2d | Use the full-access Codex launch? (only if you chose Codex) | **yes** | say `n` if you want Codex to keep asking before it acts (see below) |
+| 2e | Use the auto-approve OpenCode launch? (only if you chose OpenCode as the Firstmate CLI) | **yes** | say `n` if you want OpenCode to keep asking before it acts (see below) |
 | 3 | Figma support | yes | say `n` unless you work with Figma |
 | 4 | Fleet tower | yes | say `n` if you already have your own tower set up (`~/.config/zoe-fleet/config` exists) |
 | 5 | Register global hooks and skills (this also covers the kit's commands, Herdr keys, Herdr plugins and Claude plugins) | yes | say `n` only if you want none of these (see below) |
@@ -230,7 +230,7 @@ The default is **yes**, as on the kit owner's own setup. Read the warning before
 - **With no:** Codex keeps its normal sandbox and asks before it acts.
 - **To change it later:** re-run the installer with `--reconfigure` and answer again, or run `bash install.sh --no-codex-full-access` to turn it off. Doctor shows `codex full-access launch: on` or `off` (A6.1). Uninstall removes the kit's `codex` command.
 
-If you choose OpenCode as the Firstmate CLI, `firstmate opencode` and its `Ctrl+B Shift+O` tab always pass `--standalone --auto` so the OpenCode server exits with the TUI. OpenCode approves tool requests without prompting unless a policy explicitly denies them. For the same posture when starting OpenCode by hand, run `opencode --standalone --auto` in your Firstmate home. The kit does not edit your OpenCode permission settings, provider or model.
+If you choose OpenCode as the Firstmate CLI, setup shows this warning before question 2e: "Auto-approve OpenCode launch: the OpenCode captain runs every tool it asks for, including commands and file changes anywhere your user account can reach, without asking you first, unless an OpenCode permission rule denies that tool. Answer no to keep OpenCode's normal approval prompts." `firstmate opencode` and its `Ctrl+B Shift+O` tab pass `--standalone` so the OpenCode server exits with the TUI, and add `--auto` only when you answered yes. With `--auto`, OpenCode approves tool requests without prompting unless a policy explicitly denies them. To change it later, re-run the installer with `--reconfigure` or add `--no-opencode-auto`; doctor shows `opencode auto-approve launch: on` or `off`. When starting OpenCode by hand, run `opencode --standalone` (add `--auto` only if you want that posture) in your Firstmate home. The kit does not edit your OpenCode permission settings, provider or model.
 
 **About question 5.** If you say yes, the kit:
 
@@ -429,7 +429,7 @@ The key and the command open a **Control Tower** workspace with a **Captain (Cod
 
 The first time Codex starts it asks you to review the kit's hooks (`/hooks`); review and approve them yourself (A2.8). With the tower and Claude Code, the tower's **Team** tab also opens on its own the first time Firstmate starts in Claude Code (A9).
 
-**6. Say hello to Firstmate.** Your agent reads Firstmate's instructions and becomes your first mate; you are the **captain**. With OpenCode, sign in yourself using `opencode auth login` or `/connect` and select your own model with `/models`. The kit does not read credentials or set a provider or model. Keep the TUI open for session digests, queued supervision wakes and passive turn-end follow-up; headless `opencode run` cannot guarantee those continuations.
+**6. Say hello to Firstmate.** Your agent reads Firstmate's instructions and becomes your first mate; you are the **captain**. With OpenCode, sign in yourself using `opencode auth login` or `/connect` and select your own model with `/models`. OpenCode may preselect a free model whose provider terms collect or train on your data; check the model in `/models` and its terms at https://opencode.ai/docs/console/models/ before use. The kit does not read credentials or set a provider or model. Keep the TUI open for session digests, queued supervision wakes and passive turn-end follow-up; headless `opencode run` cannot guarantee those continuations.
 
 - **Codex check-in:** Firstmate checks in only while you talk to it; it does not monitor the crew in the background.
 - **What to say:** anything. `ahoy` is fine, or go straight to a request such as `look at my GitHub project <your-github-login>/<project>`. In Codex, if Firstmate does not report on its own, say `start up`.
@@ -580,6 +580,7 @@ These rows cover what `pilot-9` added. Most report `PASS` or `WARN`; `shell-prof
 | --- | --- | --- |
 | `firstmate-fork` | `firstmate origin: … (approved fork)`: your Firstmate home updates from the kit owner's approved copy of Firstmate | its `origin` was changed; see A10.4 |
 | `codex-full-access` | `codex full-access launch: on` or `off`, your answer to 2d | (always `PASS`; it only reports your answer) |
+| `opencode-auto` | `opencode auto-approve launch: on` or `off`, your answer to 2e | (always `PASS`; it only reports your answer) |
 | `launcher-<name>` (one per kit command, A6.6) | the command matches what the kit wrote | changed or missing; run repair |
 | `herdr-keys`, `herdr-layout` | the kit's marked blocks are in your Herdr settings | missing (repair restores it) or changed by you (left as you edited it) |
 | `herdr-plugin-…`, `zoe`, `zoetrope-keys` | the Herdr plugins, the `zoe` program and the session graph's keys are in place | stop Herdr, then run repair |
@@ -662,7 +663,7 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - If you skipped question 5b, change `<release>` in your PATH line (A2.7) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (A6.1).
 
-**Moving from `pilot-19` to `pilot-21`**, when you are asked to: run the reviewed upgrade plan and, when it names a changed Firstmate pin, complete `/updatefirstmate` in the Firstmate home before applying. After upgrade, OpenCode is an optional Firstmate CLI choice while Claude/Codex worker routing remains as saved. To choose OpenCode, rerun setup with `--reconfigure --captain opencode`; sign in yourself with `opencode auth login` or `/connect` and select a model with `/models`. Verify the `opencode-version`, `opencode-primary-plugins`, and global hooks doctor rows. Use a persistent TUI for its passive supervision callbacks.
+**Moving from `pilot-19` to `pilot-21`**, when you are asked to: run the reviewed upgrade plan and, when it names a changed Firstmate pin, complete `/updatefirstmate` in the Firstmate home before applying. After upgrade, OpenCode is an optional Firstmate CLI choice while Claude/Codex worker routing remains as saved. To choose OpenCode, rerun setup with `--reconfigure --captain opencode`; sign in yourself with `opencode auth login` or `/connect` and select a model with `/models`. OpenCode may preselect a free model whose provider terms collect or train on your data; check the model in `/models` and its terms at https://opencode.ai/docs/console/models/ before use. Verify the `opencode-version`, `opencode-primary-plugins`, and global hooks doctor rows. Use a persistent TUI for its passive supervision callbacks.
 
 **Moving from `pilot-18` to `pilot-19`**, when you are asked to:
 
@@ -906,7 +907,7 @@ cd ~/Agentic/firstmate
 codex
 ```
 
-Use `claude` instead of `codex` if you chose Claude. For OpenCode, use `opencode --standalone --auto` to match the kit launcher without approval prompts unless a policy explicitly denies the tool. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
+Use `claude` instead of `codex` if you chose Claude. For OpenCode, use `opencode --standalone`, adding `--auto` only if you answered yes to 2e, to match the kit launcher. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
 
 ### A7.2 Talking to it
 
@@ -1623,11 +1624,12 @@ The other questions are asked after the handoff (still in the same window). Ever
 | --- | --- | --- | --- |
 | 1 | Root folder | `~/Agentic` | that folder is already in use (asked in B2.7) |
 | 2 | Worker CLIs: `codex`, `claude` or `claude,codex` | `codex` | you use Claude Code (only asked if Claude Code is already installed **inside Ubuntu**) |
-| 2 (captain) | Firstmate CLI: `claude`, `codex` or `opencode` | the selected worker CLI (Claude if both) | choose OpenCode in Ubuntu to run Firstmate in its persistent TUI; worker routing remains Claude/Codex |
+| 2 (captain) | Firstmate CLI: the worker default or `opencode` | the worker default (`codex` with Codex only, otherwise `claude`) | choose OpenCode in Ubuntu to run Firstmate in its persistent TUI; worker routing remains Claude/Codex |
 | 2a | Your Claude subscription plan (only if you chose Claude) | `skip` | you know your plan; see "The plan questions" below |
 | 2b | Your Codex (ChatGPT) subscription plan (only if you chose Codex) | `skip` | you know your plan; see below |
 | 2c | Routing mode for Firstmate: `lean`, `balanced` or `full` | depends on your plan | see below |
 | 2d | Use the full-access Codex launch? (only if you chose Codex) | **yes** | say `n` if you want Codex to keep asking before it acts (see below) |
+| 2e | Use the auto-approve OpenCode launch? (only if you chose OpenCode as the Firstmate CLI) | **yes** | say `n` if you want OpenCode to keep asking before it acts (see below) |
 | 3 | Figma support | yes | say `n` unless you work with Figma |
 | 4 | Fleet tower | yes | say `n` if you do not need the tower, or your Ubuntu is older than 22.04 (B9) |
 | 5 | Register global hooks and skills (this also covers the kit's commands, Herdr keys, Herdr plugins and Claude plugins) | yes | say `n` only if you want none of these (see below) |
@@ -1652,7 +1654,7 @@ The default is **yes**, as on the kit owner's own setup. Read the warning before
 - **With no:** Codex keeps its normal sandbox and asks before it acts.
 - **To change it later:** re-run `install.ps1` with `--reconfigure` and answer again, or add `--no-codex-full-access` to the `install.ps1` command line to turn it off. Doctor shows `codex full-access launch: on` or `off` (B6.1). Uninstall removes the kit's `codex` command.
 
-If you choose OpenCode as the Firstmate CLI, `firstmate opencode` and its `Ctrl+B Shift+O` tab always pass `--standalone --auto` so the OpenCode server exits with the TUI. OpenCode approves tool requests without prompting unless a policy explicitly denies them. For the same posture when starting OpenCode by hand inside Ubuntu, run `opencode --standalone --auto` in your Firstmate home. The kit does not edit your OpenCode permission settings, provider or model.
+If you choose OpenCode as the Firstmate CLI, setup shows this warning before question 2e: "Auto-approve OpenCode launch: the OpenCode captain runs every tool it asks for, including commands and file changes anywhere your user account can reach, without asking you first, unless an OpenCode permission rule denies that tool. Answer no to keep OpenCode's normal approval prompts." `firstmate opencode` and its `Ctrl+B Shift+O` tab pass `--standalone` so the OpenCode server exits with the TUI, and add `--auto` only when you answered yes. With `--auto`, OpenCode approves tool requests without prompting unless a policy explicitly denies them. To change it later, re-run `install.ps1` with `--reconfigure` or add `--no-opencode-auto`; doctor shows `opencode auto-approve launch: on` or `off`. When starting OpenCode by hand inside Ubuntu, run `opencode --standalone` (add `--auto` only if you want that posture) in your Firstmate home. The kit does not edit your OpenCode permission settings, provider or model.
 
 **About question 5.** If you say yes, the kit, inside Ubuntu:
 
@@ -1849,13 +1851,13 @@ herdr
 
 - **The key:** press `Ctrl+B`, let go, then `Shift+F` for Firstmate in Codex, `F` for Firstmate in Claude Code, or `Shift+O` for Firstmate in OpenCode (B8.2).
 - **The command:** in a Herdr pane, type `firstmate codex` (or `firstmate claude` or `firstmate opencode`).
-- **By hand:** in a Herdr pane, `cd ~/Agentic/firstmate`, then `codex`, `claude` or `opencode --auto`.
+- **By hand:** in a Herdr pane, `cd ~/Agentic/firstmate`, then `codex`, `claude` or `opencode --standalone` (add `--auto` only if you answered yes to 2e).
 
 The key and the command open a **Control Tower** workspace with a **Captain (Codex)**, **Captain (Claude)** or **Captain (OpenCode)** tab and start Firstmate there, in your Firstmate home. If that tab is already running something, they only switch to it. Only one Firstmate can run in a home; do not open multiple Captain tabs at once.
 
 The first time Codex starts it asks you to review the kit's hooks (`/hooks`); review and approve them yourself (B2.12). With the tower and Claude Code, the tower's **Team** tab also opens on its own the first time Firstmate starts in Claude Code (B9).
 
-**6. Say hello to Firstmate.** Your agent reads Firstmate's instructions and becomes your first mate; you are the **captain**. With OpenCode inside Ubuntu, sign in yourself using `opencode auth login` or `/connect` and select your own model with `/models`. The kit does not read credentials or set a provider or model. Keep the TUI open for session digests, queued supervision wakes and passive turn-end follow-up; headless `opencode run` cannot guarantee those continuations.
+**6. Say hello to Firstmate.** Your agent reads Firstmate's instructions and becomes your first mate; you are the **captain**. With OpenCode inside Ubuntu, sign in yourself using `opencode auth login` or `/connect` and select your own model with `/models`. OpenCode may preselect a free model whose provider terms collect or train on your data; check the model in `/models` and its terms at https://opencode.ai/docs/console/models/ before use. The kit does not read credentials or set a provider or model. Keep the TUI open for session digests, queued supervision wakes and passive turn-end follow-up; headless `opencode run` cannot guarantee those continuations.
 
 - **Codex check-in:** Firstmate checks in only while you talk to it; it does not monitor the crew in the background.
 - **What to say:** anything. `ahoy` is fine, or go straight to a request such as `look at my GitHub project <your-github-login>/<project>`. In Codex, if Firstmate does not report on its own, say `start up`.
@@ -2013,6 +2015,7 @@ These rows cover what `pilot-9` added. Most report `PASS` or `WARN`; `shell-prof
 | --- | --- | --- |
 | `firstmate-fork` | `firstmate origin: … (approved fork)`: your Firstmate home updates from the kit owner's approved copy of Firstmate | its `origin` was changed; see B10.4 |
 | `codex-full-access` | `codex full-access launch: on` or `off`, your answer to 2d | (always `PASS`; it only reports your answer) |
+| `opencode-auto` | `opencode auto-approve launch: on` or `off`, your answer to 2e | (always `PASS`; it only reports your answer) |
 | `launcher-<name>` (one per kit command, B6.6) | the command matches what the kit wrote | changed or missing; run repair |
 | `herdr-keys`, `herdr-layout` | the kit's marked blocks are in your Herdr settings | missing (repair restores it) or changed by you (left as you edited it) |
 | `herdr-plugin-…`, `zoe`, `zoetrope-keys` | the Herdr plugins, the `zoe` program and the session graph's keys are in place | stop Herdr, then run repair |
@@ -2095,7 +2098,7 @@ Like repair, upgrade refuses while Herdr, the no-mistakes daemon or the tower is
 - If you skipped question 5b, change `<release>` in your Ubuntu PATH line (B2.11) to the new release name from the plan's `Release: <old> -> <new>` line. An unchanged kit-owned block is refreshed for you. The old release folder stays in place, so an old PATH still runs the old tools and doctor reports `FAIL <tool>-path`.
 - Run doctor (B6.1).
 
-**Moving from `pilot-19` to `pilot-21`**, when you are asked to: run the reviewed upgrade plan inside Ubuntu and, when it names a changed Firstmate pin, complete `/updatefirstmate` in the Firstmate home before applying. OpenCode is an optional Firstmate CLI choice inside Ubuntu while Claude/Codex worker routing remains as saved. To choose OpenCode, rerun setup with `--reconfigure --captain opencode`; sign in yourself inside Ubuntu with `opencode auth login` or `/connect` and select a model with `/models`. Verify the `opencode-version`, `opencode-primary-plugins`, and global hooks doctor rows. Use a persistent TUI for its passive supervision callbacks.
+**Moving from `pilot-19` to `pilot-21`**, when you are asked to: run the reviewed upgrade plan inside Ubuntu and, when it names a changed Firstmate pin, complete `/updatefirstmate` in the Firstmate home before applying. OpenCode is an optional Firstmate CLI choice inside Ubuntu while Claude/Codex worker routing remains as saved. To choose OpenCode, rerun setup with `--reconfigure --captain opencode`; sign in yourself inside Ubuntu with `opencode auth login` or `/connect` and select a model with `/models`. OpenCode may preselect a free model whose provider terms collect or train on your data; check the model in `/models` and its terms at https://opencode.ai/docs/console/models/ before use. Verify the `opencode-version`, `opencode-primary-plugins`, and global hooks doctor rows. Use a persistent TUI for its passive supervision callbacks.
 
 **Moving from `pilot-18` to `pilot-19`**, when you are asked to:
 
@@ -2333,7 +2336,7 @@ cd ~/Agentic/firstmate
 codex
 ```
 
-Use `claude` instead of `codex` if you chose Claude. For OpenCode, use `opencode --standalone --auto` to match the kit launcher without approval prompts unless a policy explicitly denies the tool. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
+Use `claude` instead of `codex` if you chose Claude. For OpenCode, use `opencode --standalone`, adding `--auto` only if you answered yes to 2e, to match the kit launcher. The agent reads Firstmate's instructions and becomes your first mate. You are the **captain**.
 
 Do not start Herdr or the agents from PowerShell. When an agent opens a browser page (for example `chrome-devtools-axi` or a review page), it opens in your Windows browser.
 

@@ -12,19 +12,22 @@ export const opencodePluginBody = (root, release, firstmateHome, selected, hasHe
     .filter(id => selected.has(id)).map(id => [id, join(root, 'releases', release, 'npm', 'node_modules', '.bin', id)]));
   return `// agent-kit:opencode-ambient - receipt-owned OpenCode 2 helper registration.
 // OpenCode discovers this file from the user's config plugins directory.
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { createConnection } from 'node:net';
 
 const firstmateHome = ${JSON.stringify(firstmateHome)};
 const binaries = ${JSON.stringify(binaries)};
 const hasHerdr = ${hasHerdr};
-const once = new Map();
+const sessions = new Map();
 
 function helper(path) {
-  try {
-    return execFileSync(path, [], { encoding: 'utf8', timeout: 10000, maxBuffer: 16384,
-      env: process.env, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-  } catch { return ''; }
+  return new Promise(resolve => {
+    try {
+      const child = execFile(path, [], { encoding: 'utf8', timeout: 10000, maxBuffer: 16384, env: process.env },
+        (error, stdout) => resolve(error ? '' : String(stdout).trim()));
+      child.stdin?.end();
+    } catch { resolve(''); }
+  });
 }
 
 function reportHerdr(sessionID) {
@@ -43,22 +46,20 @@ function reportHerdr(sessionID) {
 export default {
   id: 'agent-kit.ambient',
   async setup(ctx) {
-    await ctx.session.hook('context', (event) => {
+    await ctx.session.hook('context', async (event) => {
       const sessionID = event.sessionID;
       if (!sessionID) return;
-      if (!once.has(sessionID)) {
+      let entry = sessions.get(sessionID);
+      if (!entry) {
         const inFirstmate = ctx.location.directory === firstmateHome && process.env.FM_HOME === firstmateHome;
-        const output = [];
-        for (const [id, path] of Object.entries(binaries)) {
-          if ((id === 'gh-axi' || id === 'chrome-devtools-axi') && !inFirstmate) continue;
-          const hint = helper(path);
-          if (hint) output.push(hint);
-        }
+        const paths = Object.entries(binaries).filter(([id]) => inFirstmate || (id !== 'gh-axi' && id !== 'chrome-devtools-axi')).map(([, path]) => path);
+        entry = { hint: null };
+        entry.ready = Promise.all(paths.map(helper)).then(parts => { entry.hint = parts.filter(Boolean).join('\\n\\n'); });
+        sessions.set(sessionID, entry);
         if (inFirstmate) reportHerdr(sessionID);
-        once.set(sessionID, output.join('\\n\\n'));
       }
-      const hint = once.get(sessionID);
-      if (hint) event.system.push({ type: 'text', text: hint });
+      if (entry.hint === null) await entry.ready;
+      if (entry.hint) event.system.push({ type: 'text', text: entry.hint });
     });
   },
 };

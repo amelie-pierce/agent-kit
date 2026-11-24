@@ -9,7 +9,9 @@ export function parseHarness(value) {
 export const harnessProfiles = harness => harness === 'both' ? ['claude', 'codex'] : [harness || 'claude'];
 export const usesProfile = (harness, profile) => harnessProfiles(harness).includes(profile);
 export const harnessLabel = harness => harness === 'both' ? 'claude,codex' : harness || 'claude';
-export const parseCaptain = value => ['claude', 'codex', 'opencode'].includes(value) ? value : null;
 export const defaultCaptain = harness => harness === 'codex' ? 'codex' : 'claude';
-export const captainOf = (captain, harness) => parseCaptain(captain) || defaultCaptain(harness);
+export const parseCaptain = (value, harness) => value === 'opencode' || value === defaultCaptain(harness) ? value : null;
+export const captainOf = (captain, harness) => captain === 'opencode' ? 'opencode' : defaultCaptain(harness);
+export const opencodePinned = manifest => /^2\./.test(manifest.tools.find(tool => tool.id === 'opencode')?.version?.value || '');
+export const isOpenCode2 = version => /(?:^|\s)v?2\./.test(version || '');
 export const towerIds = new Set(['zoe-fleet', 'zoe-fleet-runtime', 'zoetrope-herdr-plugin']);
