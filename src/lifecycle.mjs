@@ -10,6 +10,7 @@ import { installPlatform, atomicJson, towerPaths, systemDirs, within } from './i
 import { applyUnregister, previewHooks, previewUnregister } from './install/hooks.mjs';
 import { applyUpdate as applyCurrentUpdate, extrasPaths as currentExtrasPaths, placeUpdateExtras as placeCurrentExtras, processRunning } from './update.mjs';
 import { wrapperScript } from './setup.mjs';
+import { receiptCaptain } from './harness.mjs';
 import { envManaged, keyStatus } from './keys.mjs';
 import { applyStarter, harnessOf, modeOf, planStarter, plansOf, starterRemovable } from './dispatch.mjs';
 import { herdrConfigPath, placeKitExtras, planRemoveShortcuts, removeShortcuts } from './shortcuts.mjs';
@@ -255,7 +256,7 @@ export function planRepair(manifest, { installRoot, home, env = process.env, isR
   const firstmate = homeOf(receipt);
   const fm = doctor(manifest, { installRoot: root, home, env }).checks.find(x => x.id === 'firstmate');
   let hooks = null, hookError = null;
-  if (receipt.setup?.answers?.globalHooks !== false) try { hooks = previewHooks(manifest, { home, installRoot: root }); }
+  if (receipt.setup?.answers?.globalHooks !== false) try { hooks = previewHooks(manifest, { home, installRoot: root, captain: receiptCaptain(receipt, receipt.setup?.answers?.harness), env }); }
   catch (error) { hookError = error.message; }
   const tower = towerConfig(receipt, env, home, firstmate);
   const towerAction = !tower ? 'not installed' : !stat(tower.path) ? 'restore missing' : digest(tower.path) === tower.ownedSha256 ? 'verify' : 'backup and replace changed';
@@ -323,7 +324,7 @@ export async function applyRepair(manifest, options = {}) {
     await atomicJson(join(plan.root, 'receipt.json'), receipt);
     const answer = receipt.setup?.answers || {};
     const result = await installPlatform(manifest, { ...options, home: options.home, installRoot: plan.root, firstmateHome: homeOf(current),
-      harness: answer.harness || 'claude', withFigma: answer.figma || false, withTower: answer.tower !== false, globalHooks: answer.globalHooks !== false,
+      harness: answer.harness || 'claude', captain: receiptCaptain(current, answer.harness || 'claude'), withFigma: answer.figma || false, withTower: answer.tower !== false, globalHooks: answer.globalHooks !== false,
       towerState: receipt.setup?.paths?.towerState });
     const { failed, nextSteps } = unresolved(result.components, manifest, options.platform || process.platform, options.arch || process.arch, true);
     if (failed.length) throw new Error('repair has unresolved kit components');
@@ -363,7 +364,7 @@ export async function applyRepair(manifest, options = {}) {
 export function planUninstall({ installRoot, home, env = process.env, isRunning = processRunning, removeFirstmateHome = false, confirmHome, removeEnv = false, confirmEnv, matesRunning } = {}) {
   const root = rootOf(installRoot), { receipt } = receiptAt(root);
   if (!home || !isAbsolute(home)) throw new Error('HOME must be absolute');
-  const firstmate = homeOf(receipt), registration = previewUnregister({ home, installRoot: root, receipt });
+  const firstmate = homeOf(receipt), registration = previewUnregister({ home, installRoot: root, receipt, env });
   const envPath = join(firstmate, '.env'), envFile = stat(envPath);
   if (removeEnv && !removeFirstmateHome && (confirmEnv !== envPath || (envFile && (!envFile.isFile() || envFile.isSymbolicLink() || envFile.nlink !== 1))))
     throw new Error(confirmEnv !== envPath ? `type the exact Firstmate .env path to confirm: ${envPath}` : 'unsafe .env file; refusing removal');
@@ -386,7 +387,7 @@ export function planUninstall({ installRoot, home, env = process.env, isRunning 
   const wrapperPath = wrapper ? phaseOwned(root, 'treehouse-root', wrapper) : null;
   return { command: 'uninstall', root, firstmate, removeFirstmateHome, removeEnv, envPath, running,
     kitPaths: ['kit', 'releases', 'npm-cache', 'cargo-home', 'empty-user.npmrc', 'empty-global.npmrc', 'receipt.json'].map(name => join(root, name)).filter(path => !!stat(path)),
-    registration: { files: registration.files.filter(x => x.changes.length).map(x => x.path), skills: registration.skills.map(x => x.path),
+    registration: { files: [...registration.files.filter(x => x.changes.length).map(x => x.path), ...registration.plugins.map(x => x.path)], skills: registration.skills.map(x => x.path),
       kept: registration.files.filter(x => x.note).map(x => `${x.path}: ${x.note}`) },
     tower: tower?.path && digest(tower.path) === tower.ownedSha256 ? { path: tower.path, action: 'remove unchanged kit config' } : { path: tower?.path || null, action: 'keep changed or absent config' },
     wrapper: wrapperPath ? { path: wrapperPath, action: digest(wrapperPath) === wrapper.ownedSha256 ? 'remove unchanged wrapper' : 'keep changed or absent wrapper' } : null,
@@ -404,7 +405,7 @@ export function planUninstall({ installRoot, home, env = process.env, isRunning 
 export async function applyUninstall(options = {}) {
   const plan = planUninstall(options);
   assertStopped(plan.running);
-  const root = plan.root, { receipt } = receiptAt(root), preview = previewUnregister({ home: options.home, installRoot: root, receipt });
+  const root = plan.root, { receipt } = receiptAt(root), preview = previewUnregister({ home: options.home, installRoot: root, receipt, env: options.env || process.env });
   const recordDir = join(dirname(root), 'agent-kit-uninstall'), backup = join(recordDir, 'backups', randomUUID());
   for (const path of [recordDir, join(recordDir, 'backups')]) if (stat(path) && (!stat(path).isDirectory() || stat(path).isSymbolicLink()))
     throw new Error(`${path}: expected a plain backup directory`);
@@ -564,9 +565,10 @@ export async function applyUpgrade(plan, options = {}) {
       Object.assign(receipt.phases, rollbackPhases(root, receipt.rollback));
       await atomicJson(join(root, 'receipt.json'), receipt);
     }
-    const preview = previewHooks(plan.manifest, { home: options.home, installRoot: root });
+    const preview = previewHooks(plan.manifest, { home: options.home, installRoot: root, captain: receiptCaptain(receipt, receipt.setup?.answers?.harness), env: options.env || process.env });
     for (const file of preview.files) capture(file.path);
     for (const skill of preview.skills) capture(skill.path);
+    for (const plugin of preview.plugins) capture(plugin.path);
     const tower = towerConfig(receipt, options.env || process.env, options.home, homeOf(receipt)); if (tower?.path) capture(tower.path);
     if (receipt.setup?.answers?.tower !== false) capture(towerPaths(options.env || process.env, options.home, homeOf(receipt), receipt.setup?.paths?.towerState).config);
     const wrapper = receipt.phases['treehouse-root']; if (wrapper) capture(phaseOwned(root, 'treehouse-root', wrapper));

@@ -22,3 +22,4 @@ date: 2026-10-26
 - [Starter dispatch rules and Jev readiness](starter-dispatch-rules.md) — plan- and mode-fitted starter rules after the key, the native fm-strategy --plans selection with its bridge fallback, Firstmate's plan ladders and the owner tiers that follow them, ownership digests and the doctor jev row.
 - [figma-cli pin locations](figma-cli-pin.md) — every file that pins a figma-cli commit, why the npm lock and marketplace pin move together, and where the deploy contract lives.
 - [Launcher refresh on upgrade](launcher-refresh.md) — how an unchanged kit launcher is rewritten on upgrade and an edited one kept.
+- [OpenCode captain](opencode-captain.md) — captain selection, pinned OpenCode 2 install, passive plugin boundaries and receipt ownership.

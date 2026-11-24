@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, rmSync, readFileSync, copyFileSync, existsSync, readlinkSync, realpathSync, symlinkSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, writeFileSync, readdirSync, rmSync, readFileSync, copyFileSync, existsSync, readlinkSync, realpathSync, symlinkSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { run, validateManifest } from '../src/kit.mjs';
-import { formatInstall, installPlatform } from '../src/install/macos.mjs';
-import { applyHooks, previewHooks, publicHookChanges } from '../src/install/hooks.mjs';
+import { formatInstall, installPlatform, selected } from '../src/install/macos.mjs';
+import { opencodePluginBody } from '../src/install/opencode-plugin.mjs';
+import { applyHooks, previewHooks, previewUnregister, applyUnregister, publicHookChanges } from '../src/install/hooks.mjs';
 import { createHash } from 'node:crypto';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -35,11 +36,11 @@ function tempFixture(t) {
 
 test('bundled manifest keeps verified source commits and macOS/Linux digests', () => {
   validateManifest(manifest);
-  assert.equal(manifest.release, 'pilot-19');
+  assert.equal(manifest.release, 'pilot-21');
   const firstmate = manifest.tools.find(x => x.id === 'firstmate');
-  assert.equal(firstmate.version.value, 'b69fcebcf0bba5c5dd9e991d0d4266fb6a60a528');
+  assert.equal(firstmate.version.value, '657f0af6ccb54841f5cba81dd1674d1980b9f005');
   assert.equal(firstmate.approvedUpstream, 'https://github.com/pikenguyen227/firstmate');
-  assert.equal(firstmate.artifacts['darwin-arm64'].sha256, '5091d52d0eceaaa711afc1c039e170162b87adbe6934e9f2254e7940c786b91e');
+  assert.equal(firstmate.artifacts['darwin-arm64'].sha256, 'f3dcd3aedf85c868393d0895948d1c528411325e57bbe9c718cdc09512b76038');
   const zoetropePlugin = manifest.tools.find(x => x.id === 'zoetrope-herdr-plugin');
   assert.equal(zoetropePlugin.version.value, 'b1736f30d34e0ace87eb871b3d6fd1cc79f17c84');
   assert.equal(zoetropePlugin.artifacts['darwin-arm64'].sha256, '5843ffdb9b258b31ec26b5b74233b983aacfd9e65aaf35bafbff697fac1bad22');
@@ -364,7 +365,7 @@ test('plan lists the unselected harness and Figma as optional kit components', t
   const context = { platform: 'linux', arch: 'x64', env: { HOME: home, PATH: bin }, nodeVersion: '24.15.0', libc: 'glibc', procVersion: '', osRelease: '' };
   const claude = run(['plan', '--json'], manifest, context);
   const optional = claude.result.plan.optionalComponents;
-  assert.deepEqual(optional.map(x => x.id).sort(), ['codex', 'figma-cli']);
+  assert.deepEqual(optional.map(x => x.id).sort(), ['codex', 'figma-cli', 'opencode']);
   const codex = optional.find(x => x.id === 'codex');
   const lock = manifest.tools.find(x => x.id === 'codex');
   assert.equal(codex.status, 'optional, not selected');
@@ -373,12 +374,76 @@ test('plan lists the unselected harness and Figma as optional kit components', t
   assert.ok(claude.result.plan.loginSteps.some(x => x.includes('GitHub CLI')));
   assert.ok(claude.result.plan.loginSteps.some(x => x.includes('Claude Code')));
   const selected = run(['plan', '--json', '--harness', 'codex', '--with-figma'], manifest, context);
-  assert.deepEqual(selected.result.plan.optionalComponents.map(x => x.id), []);
+  assert.deepEqual(selected.result.plan.optionalComponents.map(x => x.id), ['opencode']);
   const figma = selected.result.plan.tools.find(x => x.id === 'figma-cli');
   assert.deepEqual([figma.version, figma.lockGroup], ['21e8322764b6f6e24cc33ec9ac080182e82c3a57', 'npm-figma']);
   const text = run(['plan'], manifest, context).output;
   assert.match(text, new RegExp(`- ${lock.name}: optional, not selected; ${lock.version.value.replace(/\./g, '\\.')} from ${lock.approvedUpstream}`));
   assert.deepEqual(readdirSync(home), []);
+});
+
+test('OpenCode captain stays separate from worker selection and rejects a non-2 pin before install writes', async t => {
+  const { home, bin, root } = tempFixture(t);
+  const context = { platform: 'darwin', arch: 'arm64', env: { HOME: home, PATH: bin }, nodeVersion: '24.15.0', applicationDirs: [] };
+  const result = run(['plan', '--json', '--harness', 'codex', '--captain', 'opencode'], manifest, context).result;
+  const plan = result.plan;
+  assert.equal(result.captain, 'opencode');
+  assert.equal(result.harness, 'codex');
+  assert.ok(plan.tools.some(t => t.id === 'opencode'));
+  assert.ok(plan.tools.some(t => t.id === 'codex'));
+  assert.deepEqual(plan.optionalComponents.map(t => t.id), ['figma-cli']);
+  const bad = structuredClone(manifest);
+  bad.tools.find(t => t.id === 'opencode').version.value = '1.9.0';
+  const installRoot = join(root, 'kit');
+  await assert.rejects(installPlatform(bad, { home, installRoot, firstmateHome: join(root, 'firstmate'), harness: 'codex', captain: 'opencode', platform: 'darwin', arch: 'arm64', nodeVersion: '24.15.0' }), /OpenCode 2 pin/);
+  assert.equal(existsSync(installRoot), false);
+});
+
+test('a Claude or Codex captain is only the default for the chosen agent CLIs; crossing them is refused', t => {
+  const { home, bin } = tempFixture(t);
+  const context = { platform: 'darwin', arch: 'arm64', env: { HOME: home, PATH: bin }, nodeVersion: '24.15.0', applicationDirs: [] };
+  for (const [harness, captain] of [['claude', 'codex'], ['codex', 'claude'], ['claude,codex', 'codex']])
+    assert.throws(() => run(['plan', '--json', '--harness', harness, '--captain', captain], manifest, context), /--captain must be (claude|codex) or opencode/);
+  assert.equal(run(['plan', '--json', '--harness', 'claude', '--captain', 'claude'], manifest, context).result.captain, 'claude');
+  assert.equal(selected(manifest, 'claude', false, true, 'codex').some(tool => tool.id === 'codex'), false, 'a recorded crossed captain installs no extra CLI');
+});
+
+test('agent-kit install passes --captain opencode to the installer', { skip: process.platform === 'win32' }, t => {
+  const { root, home } = tempFixture(t);
+  const kit = join(root, 'kit-copy');
+  for (const dir of ['bin', 'src', 'manifests', 'templates']) cpSync(join(fileURLToPath(new URL('..', import.meta.url)), dir), join(kit, dir), { recursive: true });
+  const copied = structuredClone(manifest);
+  copied.nodeMinimum = copied.tools.find(tool => tool.id === 'node').minVersion = process.versions.node;
+  copied.tools.find(tool => tool.id === 'opencode').version.value = '1.9.0';
+  writeFileSync(join(kit, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(copied)}\n`);
+  const installRoot = join(root, 'install');
+  const result = spawnSync(process.execPath, [join(kit, 'bin', 'agent-kit.mjs'), 'install', '--install-root', installRoot, '--firstmate-home', join(installRoot, 'firstmate'), '--harness', 'codex', '--captain', 'opencode'],
+    { encoding: 'utf8', env: { HOME: home, PATH: process.env.PATH } });
+  assert.equal(result.status, 2, result.stdout);
+  assert.match(result.stderr, /OpenCode captain requires a reviewed OpenCode 2 pin/);
+  assert.equal(existsSync(installRoot), false);
+});
+
+test('the OpenCode ambient plugin runs its helpers without blocking OpenCode and adds their hints to the session context', { skip: process.platform === 'win32' }, async t => {
+  const { root } = tempFixture(t);
+  const bin = join(root, 'releases', 'r', 'npm', 'node_modules', '.bin'), calls = join(root, 'calls');
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, 'lavish-axi'), `#!/bin/sh\necho x >> '${calls}'\nsleep 0.3\necho lavish hint\n`, { mode: 0o755 });
+  writeFileSync(join(bin, 'tasks-axi'), '#!/bin/sh\nsleep 0.3\necho ignored\nexit 1\n', { mode: 0o755 });
+  const plugin = join(root, 'agent-kit-ambient.mjs');
+  writeFileSync(plugin, opencodePluginBody(root, 'r', join(root, 'firstmate'), new Set(['lavish-axi', 'tasks-axi']), false));
+  const hooks = {};
+  await (await import(pathToFileURL(plugin).href)).default.setup({ location: { directory: root }, session: { hook: async (name, callback) => { hooks[name] = callback; } } });
+  let ticked = false;
+  setTimeout(() => { ticked = true; }, 50);
+  const first = { sessionID: 's1', system: [] };
+  await hooks.context(first);
+  assert.equal(ticked, true, 'timers keep running while the helpers work');
+  assert.deepEqual(first.system, [{ type: 'text', text: 'lavish hint' }], 'a failed helper adds nothing');
+  const again = { sessionID: 's1', system: [] };
+  await hooks.context(again);
+  assert.deepEqual(again.system, first.system);
+  assert.equal(readFileSync(calls, 'utf8'), 'x\n', 'helpers run once per session');
 });
 
 test('install dry-run plans the selected root and stays read-only', t => {
@@ -610,6 +675,30 @@ function hookFixture(t) {
   const save = async () => {};
   return { ...f, installRoot, fixtureManifest, receipt, save, packageSkills };
 }
+
+test('OpenCode ambient plugin is receipt owned, keeps foreign files, and uninstalls only unchanged content', { skip: process.platform === 'win32' }, async t => {
+  const f = hookFixture(t);
+  f.fixtureManifest.tools.push(structuredClone(manifest.tools.find(t => t.id === 'opencode')));
+  const plugin = join(f.home, '.config', 'opencode', 'plugins', 'agent-kit-ambient.js');
+  const opts = { ...f, captain: 'opencode', env: { HOME: f.home } };
+  mkdirSync(dirname(plugin), { recursive: true });
+  writeFileSync(plugin, '// personal\n');
+  assert.throws(() => previewHooks(f.fixtureManifest, opts), /unowned or changed OpenCode plugin/);
+  rmSync(plugin);
+  const preview = previewHooks(f.fixtureManifest, opts);
+  assert.deepEqual(preview.plugins.map(p => p.op), ['add']);
+  assert.ok(publicHookChanges(preview).some(p => p.kind === 'plugin' && p.path === plugin));
+  await applyHooks(preview, f);
+  assert.match(readFileSync(plugin, 'utf8'), /id: 'agent-kit\.ambient'/);
+  writeFileSync(join(f.installRoot, 'receipt.json'), `${JSON.stringify(f.receipt)}\n`, { mode: 0o600 });
+  assert.deepEqual(previewHooks(f.fixtureManifest, opts).plugins, []);
+  const removal = previewUnregister({ home: f.home, installRoot: f.installRoot, receipt: f.receipt, env: opts.env });
+  assert.equal(removal.plugins.length, 1);
+  const backup = join(f.installRoot, 'unregister-backup');
+  await applyUnregister(removal, backup);
+  assert.equal(existsSync(plugin), false);
+  assert.ok(existsSync(join(backup, 'opencode-ambient.js')));
+});
 
 test('global registration previews exact owned changes, preserves unknown settings, and reruns unchanged', { skip: process.platform === 'win32' }, async t => {
   const f = hookFixture(t);

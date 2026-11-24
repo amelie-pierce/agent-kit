@@ -11,7 +11,8 @@ import { withOwnerTiers } from '../src/dispatch.mjs';
 import { finishLine, charterText, checkRoot, derivePaths, expandRoot, parseSetupArgs, resumeSummary, setup, wrapperScript } from '../src/setup.mjs';
 import { doctor } from '../src/doctor.mjs';
 import { planRemoveProfile, renderProfileBlock } from '../src/shell-profile.mjs';
-import { parseHarness } from '../src/harness.mjs';
+import { parseHarness, receiptCaptain } from '../src/harness.mjs';
+import { installPlatform } from '../src/install/macos.mjs';
 import { parseArgs } from '../src/kit.mjs';
 
 const kitRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -252,14 +253,15 @@ test('setup writes Firstmate\'s balanced starter rules only once the key is set 
 test('the plan and mode questions use the approved plan ids, warn before full on a small plan, and change with --reconfigure', posixOnly, async t => {
   const f = fixture(t);
   const c = ttyCtx(f, ['--root', f.root, '--no-tower', '--no-global-hooks', '--no-figma', '--github-owner', 'my-org', '--no-starter-mate', '--channel', 'releases'],
-    [[/2b\. Codex subscription plan, for starter dispatch rules: plus, pro, business-standard, business-premium, enterprise-edu, api or skip \[skip\][^\n]*$/, 'plus\n'],
+    [[/2\. Firstmate captain CLI: codex or opencode \(workers still use the Agent CLIs above\) \[codex\][^\n]*$/, '\n'],
+      [/2b\. Codex subscription plan, for starter dispatch rules: plus, pro, business-standard, business-premium, enterprise-edu, api or skip \[skip\][^\n]*$/, 'plus\n'],
       [/2c\. Starter routing mode for Firstmate's dispatch strategy: lean, balanced or full \[lean\][^\n]*$/, 'full\n'],
       [/Warning: full on ChatGPT Plus can reach the five-hour limit first, then the weekly limit\. Use full anyway[^\n]*$/, 'n\n'],
       [/2d\. Use the full-access Codex launch[^\n]*$/, '\n'],
       [/Keep it as it is[^\n]*$/, 'y\n'], [/Add optional TYPESAFE_API_KEY[^\n]*$/, 'n\n'], [/Write these changes now[^\n]*$/, 'y\n']]);
   assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
   assert.match(c.text, /2c\. Firstmate token strategy modes:\n   full: unlock full power\n   balanced: optimize for token saving while everything still work\n   lean: harder optimization for token saving while everything still work\n/, 'the owner\'s definitions come before the question');
-  assert.match(c.text, /2\. Agent CLIs: codex \(plan: codex plus; starter routing mode: lean\)/);
+  assert.match(c.text, /2\. Worker Agent CLIs: codex \(plan: codex plus; starter routing mode: lean\)/);
   assert.match(c.text, /2d\. Full-access Codex launch: ON - Codex workers can read and write anything your account can/, 'the default is on and the summary says so');
   assert.equal(JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8')).setup.answers.codexFullAccess, true);
   const receiptPath = join(f.root, '.tools', 'receipt.json'), saved = () => JSON.parse(readFileSync(receiptPath, 'utf8')).setup.answers;
@@ -280,6 +282,113 @@ test('the plan and mode questions use the approved plan ids, warn before full on
   for (const [argv, message] of [[['--codex-plan', 'max5x'], /--codex-plan must be one of: plus, pro, business-standard, business-premium, enterprise-edu, api or skip/],
     [['--claude-plan', 'pro'], /--claude-plan needs claude among the agent CLIs/], [['--dispatch-mode', 'turbo'], /--dispatch-mode must be lean, balanced or full/]])
     await assert.rejects(setup(f.fixtureManifest, f.ctx(['--yes', '--dry-run', '--root', f.root, ...argv])), message);
+});
+
+test('guided OpenCode choice records a captain while keeping Codex as the worker provider', posixOnly, async t => {
+  const f = fixture(t);
+  f.fixtureManifest.tools.push(structuredClone(manifest.tools.find(x => x.id === 'opencode')));
+  const c = f.ctx(['--yes', '--dry-run', '--root', f.root, '--harness', 'codex', '--captain', 'opencode']);
+  assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+  assert.match(c.text, /Worker Agent CLIs: codex/);
+  assert.match(c.text, /Firstmate captain CLI: opencode/);
+  assert.doesNotMatch(c.text, /token|password|secret/i);
+  assert.equal(existsSync(f.root), false);
+});
+
+test('--yes without --captain records the captain the chosen agent CLIs default to; a crossed Claude/Codex captain is refused', posixOnly, async t => {
+  const f = fixture(t);
+  const saved = () => JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8')).setup.answers;
+  for (const [harness, captain] of [['codex', 'codex'], ['claude,codex', 'claude']]) {
+    const c = f.ctx(['--yes', '--reconfigure', '--root', f.root, '--harness', harness, '--no-tower', '--no-global-hooks']);
+    c.installPlatform = keyInstall;
+    assert.equal(await setup(f.fixtureManifest, c), 0, c.text);
+    assert.doesNotMatch(c.text, /Firstmate captain CLI: [a-z]+ or opencode/, '--yes never shows the captain question');
+    assert.equal(saved().captain, captain);
+    assert.match(c.text, new RegExp(`2\\. Firstmate captain CLI: ${captain} `));
+  }
+  for (const argv of [['--harness', 'codex', '--captain', 'claude'], ['--harness', 'claude,codex', '--captain', 'codex'], ['--captain', 'claude']])
+    await assert.rejects(setup(f.fixtureManifest, f.ctx(['--yes', '--dry-run', '--reconfigure', '--root', f.root, ...argv])), /--captain must be (codex|claude) or opencode/);
+});
+
+test('a direct install that switches from OpenCode back to the default captain drops the OpenCode receipt phase', posixOnly, async t => {
+  const f = fixture(t);
+  const installRoot = join(f.root, '.tools'), receiptPath = join(installRoot, 'receipt.json');
+  const install = (captain, globalHooks = false) => installPlatform(f.fixtureManifest, { platform: 'linux', arch: 'x64', home: f.home, env: f.env, nodeVersion: '24.21.0', libc: 'glibc', procVersion: 'Linux version 6.8.0-generic', osRelease: 'PRETTY_NAME="Fixture Linux"',
+    installRoot, firstmateHome: join(f.root, 'firstmate'), harness: 'codex', captain, withTower: false, globalHooks, ...f.installOptions });
+  await install(null);
+  const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+  receipt.phases['npm-opencode'] = { state: 'complete', path: 'releases/fixture-1/npm-opencode', version: '2.3.2', ownedSha256: '0'.repeat(64) };
+  writeFileSync(receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  assert.equal(receiptCaptain(JSON.parse(readFileSync(receiptPath, 'utf8')), 'codex'), 'opencode', 'an OpenCode direct install reads back as OpenCode');
+  await install('codex');
+  const after = JSON.parse(readFileSync(receiptPath, 'utf8'));
+  assert.equal(after.phases['npm-opencode'], undefined);
+  assert.equal(receiptCaptain(after, 'codex'), 'codex', 'later doctor, update, repair and launcher reads use the new choice');
+  const plugin = join(f.home, '.config', 'opencode', 'plugins', 'agent-kit-ambient.js');
+  mkdirSync(join(f.home, '.config', 'opencode', 'plugins'), { recursive: true });
+  writeFileSync(plugin, '// edited by the person\n');
+  after.phases['npm-opencode'] = receipt.phases['npm-opencode'];
+  after.phases.hooks = { state: 'complete', files: [], skills: [], scripts: [], plugins: [{ path: plugin, sha256: '0'.repeat(64) }] };
+  writeFileSync(receiptPath, `${JSON.stringify(after)}\n`, { mode: 0o600 });
+  const conflicted = await install('codex', true);
+  assert.equal(conflicted.components.find(x => x.id === 'hooks').status, 'conflict', 'the edited plugin blocks its removal');
+  const kept = JSON.parse(readFileSync(receiptPath, 'utf8'));
+  assert.equal(kept.phases.hooks.plugins.length, 1, 'the unremoved plugin stays recorded for repair');
+  assert.equal(receiptCaptain(kept, 'codex'), 'codex', 'a blocked plugin removal does not bring the OpenCode captain back');
+});
+
+test('switching the captain from OpenCode to Codex and back in one release reinstalls the pinned OpenCode tree', posixOnly, async t => {
+  const f = fixture(t);
+  const installRoot = join(f.root, '.tools'), receiptPath = join(installRoot, 'receipt.json');
+  const tree = join(installRoot, 'releases', 'fixture-1', 'npm-opencode'), staging = join(installRoot, 'releases', 'fixture-1', 'staging');
+  const fixtureManifest = { ...f.fixtureManifest, tools: [...f.fixtureManifest.tools, structuredClone(manifest.tools.find(x => x.id === 'opencode'))] };
+  let npmRuns = 0;
+  const runNpm = async stage => {
+    npmRuns++;
+    const pkg = join(stage, 'node_modules', '@opencode', 'cli-linux-x64-baseline');
+    mkdirSync(join(pkg, 'bin'), { recursive: true });
+    writeFileSync(join(pkg, 'package.json'), JSON.stringify({ version: '2.3.2' }));
+    writeFileSync(join(pkg, 'bin', 'opencode'), 'fixture opencode', { mode: 0o755 });
+    mkdirSync(join(stage, 'node_modules', '@opencode', 'cli', 'bin'), { recursive: true });
+  };
+  const install = captain => installPlatform(fixtureManifest, { platform: 'linux', arch: 'x64', home: f.home, env: f.env, nodeVersion: '24.21.0', libc: 'glibc', procVersion: 'Linux version 6.8.0-generic', osRelease: 'PRETTY_NAME="Fixture Linux"',
+    installRoot, firstmateHome: join(f.root, 'firstmate'), harness: 'codex', captain, withTower: false, globalHooks: false, runNpm, runOpenCodeVersion: async () => '2.3.2', ...f.installOptions });
+  const opencode = result => result.components.find(x => x.id === 'npm-opencode')?.status;
+  assert.equal(opencode(await install('opencode')), 'installed');
+  assert.ok(existsSync(join(tree, 'node_modules', '@opencode', 'cli', 'bin', 'opencode.exe')));
+  assert.equal(opencode(await install('codex')), undefined);
+  assert.equal(existsSync(tree), false, 'the kit-owned OpenCode tree leaves with its receipt phase');
+  assert.deepEqual(readdirSync(staging).filter(name => name.startsWith('npm-opencode')), []);
+  assert.equal(opencode(await install('opencode')), 'installed', 'switching back reinstalls instead of refusing a leftover tree');
+  assert.equal(npmRuns, 2);
+  writeFileSync(join(tree, 'node_modules', '@opencode', 'cli', 'bin', 'opencode.exe'), 'edited by the person');
+  await assert.rejects(install('codex'), /kit-owned npm-opencode changed; refusing to remove it/);
+  assert.equal(readFileSync(join(tree, 'node_modules', '@opencode', 'cli', 'bin', 'opencode.exe'), 'utf8'), 'edited by the person');
+  assert.ok(JSON.parse(readFileSync(receiptPath, 'utf8')).phases['npm-opencode'], 'a changed tree keeps its receipt phase for repair');
+});
+
+test('the OpenCode auto-approve launch follows its warning, is on by default, is saved, and stays off when answered no', posixOnly, async t => {
+  const f = fixture(t);
+  f.fixtureManifest.tools.push(structuredClone(manifest.tools.find(x => x.id === 'opencode')));
+  const saved = () => JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8')).setup.answers;
+  const flags = ['--root', f.root, '--harness', 'codex', '--captain', 'opencode', '--no-tower', '--no-global-hooks', '--no-figma', '--github-owner', 'my-org', '--no-starter-mate', '--channel', 'releases', '--codex-plan', 'skip', '--dispatch-mode', 'balanced', '--no-codex-full-access'];
+  const asked = ttyCtx(f, flags, [[/2e\. Use the auto-approve OpenCode launch \(y\/n\) \[y\][^\n]*$/, '\n'],
+    [/Keep it as it is[^\n]*$/, 'y\n'], [/Add optional TYPESAFE_API_KEY[^\n]*$/, 'n\n'], [/Write these changes now[^\n]*$/, 'y\n']]);
+  await setup(f.fixtureManifest, asked);
+  const warning = asked.text.indexOf('2e. Auto-approve OpenCode launch: the OpenCode captain runs every tool it asks for'), question = asked.text.indexOf('2e. Use the auto-approve OpenCode launch');
+  assert.ok(warning >= 0 && warning < question, 'the warning comes before the question');
+  assert.match(asked.text, /2e\. Auto-approve OpenCode launch: ON - the OpenCode captain runs tools/);
+  assert.equal(saved().opencodeAuto, true);
+  const declined = f.ctx(['--yes', '--root', f.root, '--no-opencode-auto']);
+  declined.installPlatform = keyInstall;
+  await setup(f.fixtureManifest, declined);
+  assert.match(declined.text, /2e\. Auto-approve OpenCode launch: off \(OpenCode keeps its normal approval prompts\)/);
+  assert.equal(saved().opencodeAuto, false);
+  const back = f.ctx(['--yes', '--reconfigure', '--root', f.root, '--harness', 'codex', '--no-tower', '--no-global-hooks']);
+  back.installPlatform = keyInstall;
+  assert.equal(await setup(f.fixtureManifest, back), 0, back.text);
+  assert.equal(saved().opencodeAuto, undefined, 'the answer is dropped with the Codex captain');
+  await assert.rejects(setup(f.fixtureManifest, f.ctx(['--yes', '--dry-run', '--root', f.root, '--opencode-auto'])), /--opencode-auto needs --captain opencode/);
 });
 
 test('a terminal dry run never asks for the key and shows only its current status', posixOnly, async t => {
@@ -326,7 +435,7 @@ test('the add-later key hint keeps a custom install root and pastes as shell arg
 test('scripted answers drive every prompt; nothing is written before yes; answers are saved without secrets', posixOnly, async t => {
   const f = fixture(t);
   const kit = kitCheckout(t, f.base);
-  const answers = [f.root, 'y', '', '', 'n', 'n', 'n', 'y', '', '', 'my-org', 'n', 'Pat Example', 'pat@example.test', 'y', 'n', 'main'];
+  const answers = [f.root, 'y', '', '', '', 'n', 'n', 'n', 'y', '', '', 'my-org', 'n', 'Pat Example', 'pat@example.test', 'y', 'n', 'main'];
   const declined = f.ctx(['--kit-dir', kit.dir, '--kit-commit', kit.commit], [...answers, 'n', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, declined), 1);
   assert.match(declined.text, /Cancelled; nothing was written/);
@@ -336,12 +445,12 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   const c = f.ctx(['--kit-dir', kit.dir, '--kit-commit', kit.commit], [...answers, 'y', ''].join('\n'));
   const code = await setup(f.fixtureManifest, c);
   assert.equal(code, 0, c.text);
-  for (const prompt of ['1. Root folder', '3. Figma support', '4. Fleet tower', '5. Register these kit hooks', '6. GitHub account', '7. Git identity', '8. Create a starter', '9. Update channel'])
+  for (const prompt of ['1. Root folder', '2. Firstmate captain CLI: codex or opencode', '3. Figma support', '4. Fleet tower', '5. Register these kit hooks', '6. GitHub account', '7. Git identity', '8. Create a starter', '9. Update channel'])
     assert.ok(c.text.includes(prompt), prompt);
   const receipt = JSON.parse(readFileSync(join(f.root, '.tools', 'receipt.json'), 'utf8'));
   assert.equal(statSync(join(f.root, '.tools', 'receipt.json')).mode & 0o777, 0o600);
   assert.match(c.text, /2d\. Full-access Codex launch: Codex workers that Firstmate starts can read and write anything your user account can, run any command without asking you first, and run hooks without the hook trust review\./);
-  assert.deepEqual(receipt.setup.answers, { root: f.root, harness: 'codex', plans: { codex: 'not-sure' }, dispatchMode: 'balanced', codexFullAccess: false, figma: false, tower: false, globalHooks: true, herdrLayout: true, shellProfile: true, githubOwner: 'my-org',
+  assert.deepEqual(receipt.setup.answers, { root: f.root, harness: 'codex', captain: 'codex', plans: { codex: 'not-sure' }, dispatchMode: 'balanced', codexFullAccess: false, figma: false, tower: false, globalHooks: true, herdrLayout: true, shellProfile: true, githubOwner: 'my-org',
     gitIdentity: { action: 'set', name: 'Pat Example', email: 'pat@example.test' }, starterMate: { create: false }, channel: 'main' });
   assert.deepEqual(receipt.setup.paths, { root: f.root, installRoot: join(f.root, '.tools'), firstmateHome: join(f.root, 'firstmate'), treehouseRoot: f.root, towerState: join(f.root, '.zoe-fleet') });
   assert.deepEqual(Object.values(receipt.setup.steps).map(x => x.state), ['complete', 'complete', 'complete', 'complete', 'complete', 'not-selected', 'complete', 'complete']);
@@ -352,7 +461,7 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
     `  2. Health check later: node ${join(kitCopyOf(f, kit), 'bin', 'agent-kit.mjs')} doctor --install-root ${join(f.root, '.tools')}`,
     '  3. Sign in to codex yourself in that terminal; the kit never signs in for you.',
     '  4. Start Herdr: herdr',
-    `  5. In a Herdr pane, start codex in your Firstmate home: cd '${fm}' && codex`,
+    '  5. In a Herdr pane, start the captain in your Firstmate home: firstmate codex',
     'Start-up walkthrough: see "After a successful install: start it up" in the Agent Kit guide.', ''].join('\n')), c.text.slice(-1200));
   const rc = readFileSync(join(f.home, '.bashrc'), 'utf8');
   assert.equal(rc, `${renderProfileBlock([join(f.root, '.tools', 'bin'), kitBin])}\n`);
@@ -384,7 +493,7 @@ test('scripted answers drive every prompt; nothing is written before yes; answer
   assert.equal(await setup(f.fixtureManifest, override), 0, override.text);
   assert.match(override.text, /9\. Update channel: releases \(from --channel; your saved answer was main\)/);
   // --reconfigure asks again.
-  const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, '', '', '', 'n', 'n', 'n', '', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
+  const reconfigure = f.ctx(['--reconfigure', '--dry-run'], [f.root, '', '', '', '', 'n', 'n', 'n', '', 'my-org', 'y', 'n', 'releases', ''].join('\n'));
   assert.equal(await setup(f.fixtureManifest, reconfigure), 0, reconfigure.text);
   assert.match(reconfigure.text, /3\. Figma support: check/);
   const skippedProfile = f.ctx(['--yes', '--root', f.root, '--no-shell-profile']);

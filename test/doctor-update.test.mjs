@@ -62,6 +62,52 @@ test('doctor verifies receipt, digest, path precedence, modes and unknown auth/l
   assert.equal(doctor(f.manifest, f.options).checks.find(x => x.id === 'receipt-mode').status, 'fail');
 });
 
+test('doctor checks an OpenCode 2 executable and project plugin API without inspecting sign-in', { skip: process.platform === 'win32' }, t => {
+  const f = fixture(t);
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.setup = { answers: { harness: 'codex', captain: 'opencode' } };
+  receipt.phases['npm-opencode'] = { state: 'complete', path: 'releases/old-release/npm-opencode', version: '2.3.2', ownedSha256: '0'.repeat(64) };
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const bin = join(f.root, 'releases', 'old-release', 'npm-opencode', 'node_modules', '.bin');
+  mkdirSync(bin, { recursive: true });
+  const executable = join(bin, 'opencode');
+  writeFileSync(executable, '#!/bin/sh\necho "opencode v2.3.2"\n', { mode: 0o755 });
+  const plugins = join(f.firstmate, '.opencode', 'plugins');
+  mkdirSync(plugins, { recursive: true });
+  for (const name of ['a', 'b', 'c', 'd', 'e']) writeFileSync(join(plugins, `fm-primary-${name}.js`), 'export default { async setup(ctx) {} };\n');
+  const rows = () => Object.fromEntries(doctor(f.manifest, f.options).checks.map(x => [x.id, x.status]));
+  assert.equal(rows()['opencode-version'], 'pass');
+  assert.equal(rows()['opencode-primary-plugins'], 'pass');
+  assert.equal(rows()['opencode-auth'], 'unknown');
+  assert.equal(rows()['opencode-tui'], 'unknown');
+  writeFileSync(executable, '#!/bin/sh\necho "opencode v1.9.0"\n', { mode: 0o755 });
+  assert.equal(rows()['opencode-version'], 'fail');
+});
+
+test('doctor treats a direct install recorded with OpenCode phases as the OpenCode captain', { skip: process.platform === 'win32' }, t => {
+  const f = fixture(t);
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.setup = { answers: { harness: 'codex' } };
+  receipt.phases['npm-opencode'] = { state: 'complete', path: 'releases/old-release/npm-opencode', version: '2.3.2', ownedSha256: '0'.repeat(64) };
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const bin = join(f.root, 'releases', 'old-release', 'npm-opencode', 'node_modules', '.bin');
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, 'opencode'), '#!/bin/sh\necho "opencode v2.3.2"\n', { mode: 0o755 });
+  const rows = Object.fromEntries(doctor(f.manifest, f.options).checks.map(x => [x.id, x.status]));
+  assert.equal(rows['opencode-version'], 'pass', 'the OpenCode executable is still checked without a setup answer');
+});
+
+test('doctor labels OpenCode configured unknown unless it is the captain with global hooks recorded', { skip: process.platform === 'win32' }, t => {
+  const f = fixture(t);
+  f.manifest.tools.push(structuredClone(bundled.tools.find(x => x.id === 'opencode')));
+  const configured = () => doctor(f.manifest, f.options).components.find(x => x.id === 'opencode').configured;
+  assert.equal(configured(), 'unknown', 'a Claude or Codex captain never configures OpenCode');
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.setup = { answers: { harness: 'codex', captain: 'opencode', globalHooks: false } };
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  assert.equal(configured(), 'unknown', 'an OpenCode captain who declined global hooks has nothing to verify');
+});
+
 test('doctor reports every bundled figma-cli skill linked per agent, including the AtomicAUI release and upgrade skills', { skip: process.platform === 'win32' }, t => {
   const f = fixture(t);
   const names = ['atomicaui-release', 'atomicaui-upgrade-prototype', 'figma-cli', 'figma-make', 'figma-make-team'];

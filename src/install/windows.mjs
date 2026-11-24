@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { inspectWindows } from '../platforms/windows.mjs';
+import { parseCaptain } from '../harness.mjs';
 
 export const kitUpstream = 'https://github.com/amelie-pierce/agent-kit.git';
 export const defaultLinuxRoot = '~/.agent-kit';
@@ -29,14 +30,15 @@ export const handoffScript = [
   'exec node $src/bin/agent-kit.mjs install --install-root $root --firstmate-home $home $@',
 ].join('; ');
 
-export function handoffArgv({ distro, commit, installRoot, firstmateHome, harness = 'claude', withFigma = false, json = false }) {
+export function handoffArgv({ distro, commit, installRoot, firstmateHome, harness = 'claude', captain = null, withFigma = false, json = false }) {
   if (!/^[A-Za-z0-9._-]+$/.test(distro || '')) throw new Error('unsafe WSL distribution name');
   if (!/^[a-f0-9]{40}$/.test(commit || '')) throw new Error('kit commit must be a full SHA-1');
   if (!['claude', 'codex', 'both'].includes(harness)) throw new Error('unsupported harness');
+  if (captain !== null && !parseCaptain(captain, harness)) throw new Error('unsupported captain');
   const root = linuxPath(installRoot, '--install-root'), home = linuxPath(firstmateHome, '--firstmate-home');
   if (root === home) throw new Error('--firstmate-home must differ from --install-root');
   return ['-d', distro, '--exec', 'bash', '-l', '-c', handoffScript, 'agent-kit-handoff', commit, root, home,
-    '--harness', harness, ...(withFigma ? ['--with-figma'] : []), ...(json ? ['--json'] : [])];
+    '--harness', harness, ...(captain ? ['--captain', captain] : []), ...(withFigma ? ['--with-figma'] : []), ...(json ? ['--json'] : [])];
 }
 
 // Quote anything beyond plain characters; `~` stays quoted because newer PowerShell expands a bare `~` to the Windows profile.
@@ -63,7 +65,7 @@ export const beforeHandoff = 'Inside WSL first: install git and Node.js 24.15.0 
 
 export const windowsNextSteps = distro => [
   `Open Windows Terminal and choose the ${distro || 'WSL distribution'} profile; run Herdr, the tower and agent CLIs in that WSL shell.`,
-  'Sign in to GitHub, Claude or Codex inside WSL yourself, following each vendor guide; the kit does not share Windows credentials with Linux.',
+  'Sign in to GitHub and your chosen agent CLI inside WSL yourself. For OpenCode use opencode auth login or /connect, then /models; the kit does not share Windows credentials with Linux.',
   'chrome-devtools-axi and Lavish open the browser on the Windows side.',
 ];
 
@@ -78,7 +80,7 @@ export function windowsHandoff(options, context, inspected) {
   if (!platform.supported || !platform.ready) return { ...base, status: 'needs-setup', exitCode: 1, message: platform.message, command: null };
   const kit = (context.kitCommit || kitCommit)(context);
   if (!kit.commit || kit.reason) return { ...base, status: 'unpinned', exitCode: 2, message: `Cannot pin the kit for the WSL handoff: ${kit.reason}. Use a clean git clone of ${kitUpstream}.`, command: null };
-  const argv = handoffArgv({ distro: platform.wsl.target.name, commit: kit.commit, installRoot, firstmateHome, harness: options.harness, withFigma: options.withFigma, json: options.json });
+  const argv = handoffArgv({ distro: platform.wsl.target.name, commit: kit.commit, installRoot, firstmateHome, harness: options.harness, captain: options.captain, withFigma: options.withFigma, json: options.json });
   const command = powershellCommand(argv);
   if (!options.handoff) return { ...base, status: 'handoff-ready', exitCode: 0, commit: kit.commit, command, argv,
     message: `WSL2 distribution ${platform.wsl.target.name} is ready. ${beforeHandoff} Then run this command, or rerun with --handoff to run it now:` };

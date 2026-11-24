@@ -1,19 +1,19 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFile, writeFile, mkdir, open, rename, rm, lstat, readdir, chmod, readlink, realpath } from 'node:fs/promises';
+import { copyFile, readFile, writeFile, mkdir, open, rename, rm, lstat, readdir, chmod, readlink, realpath } from 'node:fs/promises';
 import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { applyHooks, previewHooks, publicHookChanges } from './hooks.mjs';
 import { artifactFor, artifactTarget, linuxIdentity, towerGlibcGap } from '../platforms/linux.mjs';
-import { towerIds, usesProfile } from '../harness.mjs';
+import { captainOf, isOpenCode2, opencodePinned, receiptCaptain, towerIds, usesProfile } from '../harness.mjs';
 
 const exec = promisify(execFile);
-const npmIds = new Set(['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi', 'codex']);
-export const npmGroup = id => id === 'codex' ? 'npm-codex' : id === 'figma-cli' ? 'npm-figma' : npmIds.has(id) ? 'npm' : null;
+const npmIds = new Set(['gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'quota-axi', 'tasks-axi', 'codex', 'opencode']);
+export const npmGroup = id => id === 'codex' ? 'npm-codex' : id === 'opencode' ? 'npm-opencode' : id === 'figma-cli' ? 'npm-figma' : npmIds.has(id) ? 'npm' : null;
 // npm package names that map to a different manifest tool id.
-const npmTool = { '@openai/codex': 'codex', '@amelie-pierce/figma-cli': 'figma-cli' };
+const npmTool = { '@openai/codex': 'codex', '@opencode/cli': 'opencode', '@amelie-pierce/figma-cli': 'figma-cli' };
 // A tool pinned to a git commit installs from that commit's codeload archive, integrity-pinned in its lock.
 const codeload = tool => `https://codeload.github.com/${tool.approvedUpstream.replace(/^https:\/\/github\.com\//, '')}/tar.gz/${tool.version.value}`;
 const binaryIds = new Set(['herdr', 'treehouse', 'no-mistakes', 'shellcheck', 'actionlint']);
@@ -38,6 +38,7 @@ const login = {
   'no-mistakes': 'Use your own selected agent and GitHub sign-ins before running no-mistakes.',
   claude: 'Run claude and follow its sign-in flow (https://code.claude.com/docs/en/setup).',
   codex: 'Run codex login (https://developers.openai.com/codex/auth).',
+  opencode: 'Run opencode auth login or /connect, then choose your own model with /models.',
   'figma-cli': 'Use the Figma CLI sign-in instructions for your own account.',
 };
 
@@ -251,9 +252,20 @@ async function checkReceipt(root, receipt, id, version, artifactSha, options = {
   if (digest !== entry.ownedSha256) throw new Error(`kit-owned ${id} changed; refusing overwrite`);
   return true;
 }
-export function selected(manifest, harness, withFigma, withTower = true) {
+async function dropOwnedTree(root, release, receipt, id, save) {
+  const entry = receipt.phases[id], path = join(root, entry.path || '');
+  if (!entry.path || !resolve(path).startsWith(`${resolve(root)}${sep}`) || entry.path.split(sep).includes('..')) throw new Error(`unsafe receipt path for ${id}`);
+  const st = await exists(path);
+  if (st && (!st.isDirectory() || await hashTree(path) !== entry.ownedSha256)) throw new Error(`kit-owned ${id} changed; refusing to remove it (agent-kit repair backs it up)`);
+  const trash = ownedPath(root, 'releases', release, 'staging', `${id}-removed-${randomUUID()}`);
+  if (st) await rename(path, trash);
+  delete receipt.phases[id];
+  await save();
+  if (st) await rm(trash, { recursive: true, force: true });
+}
+export function selected(manifest, harness, withFigma, withTower = true, captain = null) {
   return manifest.tools.filter(t => t.kind !== 'prerequisite' && t.classification !== 'never-ship' && (withTower || !towerIds.has(t.id))
-    && (t.profile === 'core' || usesProfile(harness, t.profile) || (withFigma && t.profile === 'figma')));
+    && (t.profile === 'core' || usesProfile(harness, t.profile) || (t.profile === 'opencode' && captainOf(captain, harness) === 'opencode') || (withFigma && t.profile === 'figma')));
 }
 // figma-cli's own skills install (figma-cli, figma-make, figma-make-team) for each chosen agent CLI. It never
 // overwrites a skill the person changed or a skill another tool owns; those are reported. Recorded for uninstall.
@@ -319,6 +331,25 @@ async function npmPhase(root, release, group, manifest, receipt, save, options) 
     env: toolEnv(options.home, root),
     timeout: 300000, maxBuffer: 65536,
   })))(stage, group);
+  if (group === 'npm-opencode') {
+    // The reviewed vendor postinstall copies its platform binary (and can fetch a fallback).
+    // Keep scripts disabled and copy only the matching binary from this committed lock.
+    const platform = options.platform || process.platform, arch = options.arch || process.arch;
+    const variant = platform === 'darwin' && arch === 'arm64' ? 'darwin-arm64'
+      : platform === 'darwin' && arch === 'x64' ? 'darwin-x64-baseline'
+        : platform === 'linux' && arch === 'arm64' ? 'linux-arm64'
+          : platform === 'linux' && arch === 'x64' ? 'linux-x64-baseline' : null;
+    if (!variant) throw new Error(`OpenCode has no reviewed binary for ${platform}-${arch}`);
+    const name = `@opencode/cli-${variant}`;
+    const source = join(stage, 'node_modules', name, 'bin', 'opencode');
+    const packagePath = join(stage, 'node_modules', name, 'package.json');
+    const target = join(stage, 'node_modules', '@opencode', 'cli', 'bin', 'opencode.exe');
+    const version = JSON.parse(await readFile(packagePath, 'utf8')).version;
+    if (version !== packages['@opencode/cli'] || locked.packages[`node_modules/${name}`]?.version !== version || !(await exists(source))?.isFile())
+      throw new Error(`locked OpenCode ${variant} binary missing or mismatched`);
+    await copyFile(source, target);
+    await chmod(target, 0o755);
+  }
   const digest = await hashTree(stage);
   receipt.phases[id] = { state: 'pending', version: locked.version, packages, artifactSha256: lockSha, path: relative(root, target), ownedSha256: digest };
   await save();
@@ -401,6 +432,8 @@ export async function installPlatform(manifest, options = {}) {
   if (actual.some((part, index) => part !== minimum[index] && actual.slice(0, index).every((x, i) => x === minimum[i]) && part < minimum[index])) throw new Error(`Node ${manifest.nodeMinimum} or newer required`);
   if (!options.installRoot || !isAbsolute(options.installRoot)) throw new Error('--install-root must be an absolute path');
   if (!options.home || !isAbsolute(options.home)) throw new Error('HOME must be an absolute path');
+  const requestedCaptain = captainOf(options.captain, options.harness || 'claude');
+  if (requestedCaptain === 'opencode' && !opencodePinned(manifest)) throw new Error('OpenCode captain requires a reviewed OpenCode 2 pin');
   const root = resolve(options.installRoot), release = manifest.release;
   const firstmateHome = await checkFirstmateHome(options.firstmateHome, root, options.home, platform);
   if (!safePart(release)) throw new Error('unsafe release name');
@@ -418,8 +451,10 @@ export async function installPlatform(manifest, options = {}) {
     const save = () => atomicJson(receiptPath, receipt);
     if (options.update && receipt.release !== release) { receipt.pendingUpdate = release; await save(); }
     const components = [], targetKey = linux ? artifactTarget(linux, arch) : `${platform}-${arch}`, harness = options.harness || 'claude';
-    const chosen = selected(manifest, harness, !!options.withFigma, options.withTower !== false);
+    const captain = options.captain ? captainOf(options.captain, harness) : receiptCaptain(receipt, harness);
+    const chosen = selected(manifest, harness, !!options.withFigma, options.withTower !== false, captain);
     await mkdir(join(root, 'releases', release, 'staging'), { recursive: true, mode: 0o700 });
+    if (captain !== 'opencode' && receipt.phases['npm-opencode']) await dropOwnedTree(root, release, receipt, 'npm-opencode', save);
     for (const tool of chosen) {
       if (npmGroup(tool.id)) continue;
       const a = artifactFor(tool, targetKey);
@@ -586,15 +621,30 @@ export async function installPlatform(manifest, options = {}) {
         }
       }
     }
-    const coreNpm = chosen.some(t => npmIds.has(t.id) && t.id !== 'codex');
+    const coreNpm = chosen.some(t => npmIds.has(t.id) && !['codex', 'opencode'].includes(t.id));
     if (coreNpm) components.push(await npmPhase(root, release, 'npm', manifest, receipt, save, options));
     if (chosen.some(t => t.id === 'codex')) components.push(await npmPhase(root, release, 'npm-codex', manifest, receipt, save, options));
+    if (chosen.some(t => t.id === 'opencode')) {
+      const installed = await npmPhase(root, release, 'npm-opencode', manifest, receipt, save, options);
+      components.push(installed);
+      if (['installed', 'skipped'].includes(installed.status)) {
+        const probeHome = join(root, 'releases', release, 'staging', `opencode-version-${randomUUID()}`);
+        await mkdir(probeHome, { mode: 0o700 });
+        try {
+          const binary = join(root, 'releases', release, 'npm-opencode', 'node_modules', '.bin', 'opencode');
+          const version = options.runOpenCodeVersion ? await options.runOpenCodeVersion(binary) : (await exec(binary, ['--version'], {
+            env: { ...toolEnv(probeHome, root), XDG_CONFIG_HOME: join(probeHome, '.config'), XDG_DATA_HOME: join(probeHome, '.local', 'share') }, timeout: 10000,
+          })).stdout.trim();
+          if (!isOpenCode2(version)) throw new Error(`OpenCode 2 required; pinned executable reported ${version || 'no version'}`);
+        } finally { await rm(probeHome, { recursive: true, force: true }); }
+      }
+    }
     if (chosen.some(t => t.id === 'figma-cli')) {
       const figma = await npmPhase(root, release, 'npm-figma', manifest, receipt, save, options);
       components.push(figma);
       if (['installed', 'skipped'].includes(figma.status) && options.globalHooks !== false) components.push(await figmaSkills(root, receipt, save, harness, options));
     }
-    const shouldRegister = chosen.some(t => npmIds.has(t.id) && t.id !== 'codex') || receipt.phases.hooks;
+    const shouldRegister = chosen.some(t => npmIds.has(t.id) && !['codex', 'opencode'].includes(t.id)) || receipt.phases.hooks || captain === 'opencode';
     let hookChanges = [];
     if (options.globalHooks === false) {
       components.push({ id: 'hooks', status: 'skipped', reason: receipt.phases.hooks ? 'global hooks and skills not selected; entries registered earlier are left as they are'
@@ -603,7 +653,7 @@ export async function installPlatform(manifest, options = {}) {
       components.push({ id: 'hooks', status: 'deferred', reason: 'kit hook activation waits for all dependent components; rerun agent-kit update --yes after conflicts clear' });
     } else if (shouldRegister && (components.some(x => x.id === 'npm' && ['installed', 'skipped'].includes(x.status)) || (!coreNpm && receipt.phases.hooks))) {
       try {
-        const preview = previewHooks(manifest, { home: options.home, installRoot: root });
+        const preview = previewHooks(manifest, { home: options.home, installRoot: root, captain, env: options.env || process.env });
         hookChanges = publicHookChanges(preview);
         await options.onHooksPreview?.(hookChanges);
         components.push(await applyHooks(preview, { installRoot: root, receipt, save }));
@@ -627,10 +677,11 @@ export async function installPlatform(manifest, options = {}) {
       receipt: receiptPath, bin: join(root, 'releases', release, 'bin'),
       npmBin: coreNpm ? join(root, 'releases', release, 'npm', 'node_modules', '.bin') : null,
       codexBin: chosen.some(t => t.id === 'codex') ? join(root, 'releases', release, 'npm-codex', 'node_modules', '.bin') : null,
+      opencodeBin: chosen.some(t => t.id === 'opencode') ? join(root, 'releases', release, 'npm-opencode', 'node_modules', '.bin') : null,
       figmaBin: chosen.some(t => t.id === 'figma-cli') ? join(root, 'releases', release, 'npm-figma', 'node_modules', '.bin') : null,
       firstmateHome: components.some(x => x.id === 'firstmate' && ['installed', 'skipped'].includes(x.status)) ? firstmateHome : null,
       towerParity, towerLauncher, hookChanges,
-      loginSteps: manifest.tools.filter(t => t.classification === 'per-user-login' && (t.profile === 'core' || usesProfile(harness, t.profile) || (options.withFigma && t.profile === 'figma'))).map(t => login[t.id]).filter(Boolean),
+      loginSteps: manifest.tools.filter(t => t.classification === 'per-user-login' && (t.profile === 'core' || usesProfile(harness, t.profile) || t.profile === captain || (options.withFigma && t.profile === 'figma'))).map(t => login[t.id]).filter(Boolean),
       nextSteps: [
         'Codex reviews new or changed hooks interactively; review and approve them yourself when prompted.',
         'no-mistakes init installs its user-level skill when you initialize your own repository.',
@@ -645,6 +696,7 @@ export function formatInstall(result) {
     `Agent Kit install: ${result.status}`, ...(result.message ? [result.message] : []), ...result.components.map(x => `- ${x.id}: ${x.status}; ${x.reason}`),
     `Kit binaries: ${result.bin || 'none'}`, ...(result.npmBin ? [`npm binaries: ${result.npmBin}`] : []),
     ...(result.codexBin ? [`Codex binaries: ${result.codexBin}`] : []),
+    ...(result.opencodeBin ? [`OpenCode binaries: ${result.opencodeBin}`] : []),
     ...(result.firstmateHome ? [`Fresh Firstmate home: ${result.firstmateHome}`] : []),
     `Tower parity: ${result.towerParity}`, ...(result.towerLauncher ? [`Tower launcher: ${result.towerLauncher}`] : []), ...result.loginSteps.map(x => `Sign in yourself: ${x}`), ...(result.nextSteps || []).map(x => `Next step: ${x}`),
   ].join('\n') + '\n';

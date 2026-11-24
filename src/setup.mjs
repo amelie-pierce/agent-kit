@@ -11,7 +11,7 @@ export { charterText };
 import { atomicJson, formatInstall, installPlatform, lock, systemDirs, within } from './install/macos.mjs';
 import { globalHookPaths } from './install/hooks.mjs';
 import { doctor, formatDoctor } from './doctor.mjs';
-import { harnessLabel, harnessProfiles, parseHarness } from './harness.mjs';
+import { captainOf, defaultCaptain, harnessLabel, harnessProfiles, parseCaptain, parseHarness } from './harness.mjs';
 import { findOnPath } from './platforms/macos.mjs';
 import { linuxIdentity } from './platforms/linux.mjs';
 import { kitCommit, kitUpstream, linuxPath, powershellCommand, windowsNextSteps } from './install/windows.mjs';
@@ -25,11 +25,12 @@ import { applyStarter, strategyTakesPlans, defaultMode, describeStarter, fullWar
 
 const sha = data => createHash('sha256').update(data).digest('hex');
 export const defaultRoot = '~/Agentic';
-export const setupAnswerKeys = ['harness', 'plans', 'dispatchMode', 'codexFullAccess', 'figma', 'tower', 'globalHooks', 'herdrLayout', 'shellProfile', 'githubOwner', 'gitIdentity', 'starterMate', 'channel'];
+export const setupAnswerKeys = ['harness', 'captain', 'plans', 'dispatchMode', 'codexFullAccess', 'opencodeAuto', 'figma', 'tower', 'globalHooks', 'herdrLayout', 'shellProfile', 'githubOwner', 'gitIdentity', 'starterMate', 'channel'];
 // The owner's own one-line definitions of Firstmate's three token strategies, shown before question 2c.
 export const modeMeanings = { full: 'unlock full power', balanced: 'optimize for token saving while everything still work', lean: 'harder optimization for token saving while everything still work' };
 // Shown before the full-access answer, in the README and in the PR, word for word.
 export const fullAccessWarning = 'Full-access Codex launch: Codex workers that Firstmate starts can read and write anything your user account can, run any command without asking you first, and run hooks without the hook trust review. This matches the kit owner\'s own setup. Answer no to keep Codex\'s normal sandbox and approval prompts.';
+export const opencodeAutoWarning = 'Auto-approve OpenCode launch: the OpenCode captain runs every tool it asks for, including commands and file changes anywhere your user account can reach, without asking you first, unless an OpenCode permission rule denies that tool. Answer no to keep OpenCode\'s normal approval prompts.';
 export const steps = [
   ['kit', 'kit source at its pinned commit'],
   ['tools', 'pinned tools, Firstmate home, tower and global hooks'],
@@ -40,9 +41,10 @@ export const steps = [
   ['logins', 'guided personal sign-ins'],
   ['doctor', 'health check'],
 ];
-const valueFlags = ['--root', '--install-root', '--firstmate-home', '--harness', '--claude-plan', '--codex-plan', '--dispatch-mode', '--github-owner', '--git-name', '--git-email', '--starter-mate', '--starter-scope',
+const valueFlags = ['--root', '--install-root', '--firstmate-home', '--harness', '--captain', '--claude-plan', '--codex-plan', '--dispatch-mode', '--github-owner', '--git-name', '--git-email', '--starter-mate', '--starter-scope',
   '--channel', '--kit-dir', '--kit-commit', '--distro'];
 const booleanFlags = ['--with-figma', '--no-figma', '--with-tower', '--no-tower', '--global-hooks', '--no-global-hooks', '--codex-full-access', '--no-codex-full-access',
+  '--opencode-auto', '--no-opencode-auto',
   '--herdr-layout', '--no-herdr-layout', '--shell-profile', '--no-shell-profile', '--no-starter-mate', '--yes', '--reconfigure',
   '--dry-run', '--handoff', '--allow-existing-root'];
 const oneLine = (value, flag, max) => {
@@ -51,6 +53,7 @@ const oneLine = (value, flag, max) => {
 };
 export const validators = {
   harness: value => parseHarness(value) || (() => { throw new Error('--harness must be claude, codex or claude,codex'); })(),
+  captain: (value, harness) => parseCaptain(value, harness) || (() => { throw new Error(`--captain must be ${defaultCaptain(harness)} or opencode with these agent CLIs`); })(),
   githubOwner: value => /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(value) ? value : (() => { throw new Error('--github-owner must be a GitHub account or organization name'); })(),
   gitName: value => oneLine(value, '--git-name', 100),
   gitEmail: value => /^[^\s@<>]+@[^\s@<>]+$/.test(value) && value.length <= 254 ? value : (() => { throw new Error('--git-email must be an email address'); })(),
@@ -69,13 +72,14 @@ export function parseSetupArgs(argv, platform = process.platform) {
     } else if (booleanFlags.includes(arg)) flags[arg.slice(2)] = true;
     else throw new Error(`unknown setup argument: ${arg}`);
   }
-  for (const [a, b] of [['with-figma', 'no-figma'], ['with-tower', 'no-tower'], ['global-hooks', 'no-global-hooks'], ['codex-full-access', 'no-codex-full-access'], ['herdr-layout', 'no-herdr-layout'], ['shell-profile', 'no-shell-profile'], ['starter-mate', 'no-starter-mate']])
+  for (const [a, b] of [['with-figma', 'no-figma'], ['with-tower', 'no-tower'], ['global-hooks', 'no-global-hooks'], ['codex-full-access', 'no-codex-full-access'], ['opencode-auto', 'no-opencode-auto'], ['herdr-layout', 'no-herdr-layout'], ['shell-profile', 'no-shell-profile'], ['starter-mate', 'no-starter-mate']])
     if (flags[a] !== undefined && flags[b] !== undefined) throw new Error(`--${a} and --${b} conflict`);
   if (flags['starter-scope'] !== undefined && flags['no-starter-mate']) throw new Error('--starter-scope conflicts with --no-starter-mate');
   if (flags.handoff && flags['dry-run']) throw new Error('--handoff applies only without --dry-run');
   if ((flags.handoff || flags.distro !== undefined) && platform !== 'win32') throw new Error('--handoff and --distro apply only on Windows');
   if (flags['kit-commit'] !== undefined && !/^[a-f0-9]{40}$/.test(flags['kit-commit'])) throw new Error('--kit-commit must be a full commit SHA');
   if (flags.harness !== undefined) flags.harness = validators.harness(flags.harness);
+  if (flags.captain !== undefined && flags.harness !== undefined) validators.captain(flags.captain, flags.harness);
   if (flags['github-owner'] !== undefined) validators.githubOwner(flags['github-owner']);
   if (flags['git-name'] !== undefined) flags['git-name'] = validators.gitName(flags['git-name']);
   if (flags['git-email'] !== undefined) validators.gitEmail(flags['git-email']);
@@ -209,6 +213,10 @@ export async function collectAnswers(flags, saved, ctx, io, paths) {
       output.write('2. Agent CLIs: codex (Claude Code is offered once its CLI is installed: https://code.claude.com/docs/en/setup)\n');
     } else answers.harness = yes ? 'codex' : await io.valid('2. Agent CLIs: codex, claude or claude,codex', 'codex', validators.harness);
   }
+  if (flags.captain !== undefined) answers.captain = validators.captain(flags.captain, answers.harness);
+  else if (want('captain')) answers.captain = yes ? defaultCaptain(answers.harness)
+    : await io.valid(`2. Firstmate captain CLI: ${defaultCaptain(answers.harness)} or opencode (workers still use the Agent CLIs above)`, defaultCaptain(answers.harness), value => validators.captain(value, answers.harness));
+  else answers.captain = captainOf(answers.captain, answers.harness);
   // One plan per chosen agent CLI from the kit's plan table, then the starter routing mode. Plan ids match
   // Firstmate's fm-strategy.sh --plans names; skip (saved as not-sure) keeps Firstmate's template. Only names are saved.
   const table = ctx.planTable || loadPlanTable(), plans = {};
@@ -246,10 +254,17 @@ export async function collectAnswers(flags, saved, ctx, io, paths) {
     if (flags['codex-full-access']) throw new Error('--codex-full-access needs codex among the agent CLIs');
     delete answers.codexFullAccess;
   }
+  if (answers.captain === 'opencode') {
+    if (!flags['opencode-auto'] && !flags['no-opencode-auto'] && want('opencodeAuto') && !yes) output.write(`2e. ${opencodeAutoWarning}\n`);
+    await toggle('opencodeAuto', 'opencode-auto', 'no-opencode-auto', '2e', 'Use the auto-approve OpenCode launch');
+  } else {
+    if (flags['opencode-auto']) throw new Error('--opencode-auto needs --captain opencode');
+    delete answers.opencodeAuto;
+  }
   await toggle('figma', 'with-figma', 'no-figma', 3, 'Figma support: check figma-cli and guide Figma Desktop sign-in (never patches or restarts Figma)');
   await toggle('tower', 'with-tower', 'no-tower', 4, 'Fleet tower: install the Zoe fleet tower and write its launcher config (never launched)');
   if (!flags['global-hooks'] && !flags['no-global-hooks'] && answers.globalHooks === undefined && !yes)
-    output.write(`5. Global hooks and skills touch these files; each existing file or link is backed up under ${join(paths.installRoot, 'backups', 'hooks')} first:\n${globalHookPaths(env.HOME).map(x => `   ${x}`).join('\n')}\n`);
+    output.write(`5. Global hooks and skills touch these files; each existing file or link is backed up under ${join(paths.installRoot, 'backups', 'hooks')} first:\n${globalHookPaths(env.HOME, env, answers.captain).map(x => `   ${x}`).join('\n')}\n`);
   await toggle('globalHooks', 'global-hooks', 'no-global-hooks', 5, 'Register these kit hooks and skills');
   if (answers.globalHooks) await toggle('herdrLayout', 'herdr-layout', 'no-herdr-layout', '5a', 'Herdr layout: the kit\'s theme, sidebar, tab bar and pane settings in your Herdr config (settings you already have win)');
   else if (flags['herdr-layout']) throw new Error('--herdr-layout needs global hooks and skills');
@@ -302,15 +317,17 @@ export async function collectAnswers(flags, saved, ctx, io, paths) {
   return { answers, current, gitStale: yes ? stale : null, channelOverride };
 }
 
-const summaryFolders = (paths, answers, release) => kitFolders(paths.installRoot, release, ['npm', ...(harnessProfiles(answers.harness).includes('codex') ? ['npm-codex'] : []), ...(answers.figma ? ['npm-figma'] : [])]);
+const summaryFolders = (paths, answers, release) => kitFolders(paths.installRoot, release, ['npm', ...(harnessProfiles(answers.harness).includes('codex') ? ['npm-codex'] : []), ...(answers.captain === 'opencode' ? ['npm-opencode'] : []), ...(answers.figma ? ['npm-figma'] : [])]);
 const shellQuote = value => `'${value.replaceAll("'", "'\\''")}'`;
 const yesNo = value => value ? 'on' : 'off';
 const indent = text => `${text.trimEnd().replace(/^/gm, '  ')}\n`;
 export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, channelOverride, kit, home, env = {}, platform = process.platform, release = '<release>', keyPlan = { managed: true, status: 'not set' } }) {
   const g = answers.gitIdentity, tower = plan.plan?.towerConfig;
   const lines = ['', 'Agent Kit setup summary. Nothing has been written yet.', 'Answers:',
-    `  1. Root folder: ${paths.root}`, `  2. Agent CLIs: ${harnessLabel(answers.harness)} (plan: ${Object.entries(answers.plans || {}).map(([cli, id]) => `${cli} ${id === 'not-sure' ? 'skip' : id}`).join(', ') || 'skip'}; starter routing mode: ${answers.dispatchMode})`,
-    ...(answers.codexFullAccess !== undefined ? [`  2d. Full-access Codex launch: ${answers.codexFullAccess ? 'ON - Codex workers can read and write anything your account can, run commands without asking and run hooks without the trust review' : 'off (Codex keeps its normal sandbox and approvals)'}`] : []), `  3. Figma support: ${yesNo(answers.figma)}`, `  4. Fleet tower: ${yesNo(answers.tower)}`,
+    `  1. Root folder: ${paths.root}`, `  2. Worker Agent CLIs: ${harnessLabel(answers.harness)} (plan: ${Object.entries(answers.plans || {}).map(([cli, id]) => `${cli} ${id === 'not-sure' ? 'skip' : id}`).join(', ') || 'skip'}; starter routing mode: ${answers.dispatchMode})`,
+    `  2. Firstmate captain CLI: ${captainOf(answers.captain, answers.harness)} (OpenCode uses your own sign-in and model)`,
+    ...(answers.codexFullAccess !== undefined ? [`  2d. Full-access Codex launch: ${answers.codexFullAccess ? 'ON - Codex workers can read and write anything your account can, run commands without asking and run hooks without the trust review' : 'off (Codex keeps its normal sandbox and approvals)'}`] : []),
+    ...(answers.opencodeAuto !== undefined ? [`  2e. Auto-approve OpenCode launch: ${answers.opencodeAuto ? 'ON - the OpenCode captain runs tools, commands and file changes without asking unless an OpenCode permission rule denies them' : 'off (OpenCode keeps its normal approval prompts)'}`] : []), `  3. Figma support: ${yesNo(answers.figma)}`, `  4. Fleet tower: ${yesNo(answers.tower)}`,
     `  5. Global hooks and skills: ${yesNo(answers.globalHooks)}`, ...(answers.globalHooks ? [`  5a. Herdr layout settings: ${yesNo(answers.herdrLayout !== false)}`] : []), `  5b. Shell profile PATH block: ${yesNo(answers.shellProfile)}`, `  6. GitHub owner: ${answers.githubOwner || 'none'} (recorded only; nothing is created on GitHub)`,
     `  7. Git identity: ${g.action === 'set' ? `set user.name "${g.name}" and user.email "${g.email}" with git config --global` : `keep (${gitCurrent.name || 'no name'} <${gitCurrent.email || 'no email'}>)`}${gitStale ? `; your saved "${gitStale.name}" <${gitStale.email}> was not applied because git's value changed since (pass --git-name and --git-email, or --reconfigure, to change it)` : ''}`,
     `  8. Starter second mate: ${answers.starterMate.create ? `${answers.starterMate.id}: ${answers.starterMate.scope}` : 'no'}`, `  9. Update channel: ${answers.channel}${channelOverride ? ` (from --channel; your saved answer was ${channelOverride})` : ''}`,
@@ -353,7 +370,7 @@ export function formatSummary({ answers, paths, plan, gitCurrent, gitStale, chan
 
 const blocking = plan => {
   const prereqIds = new Set((plan.platform.prerequisites || []).filter(x => !['terminal', 'browser', 'virtualization'].includes(x.id) && x.required !== false).map(x => x.id));
-  return plan.issues.filter(x => x.status === 'fail' && (prereqIds.has(x.id) || ['node-runtime', 'platform'].includes(x.id)));
+  return plan.issues.filter(x => x.status === 'fail' && (prereqIds.has(x.id) || ['node-runtime', 'platform', 'opencode-version'].includes(x.id)));
 };
 
 async function placeKit(paths, kit, env) {
@@ -408,18 +425,18 @@ export const finishLine = (failed, partial) => failed
 
 // What to do after setup, in order; the guide's "After a successful install: start it up" section walks through it.
 export function nextSteps({ answers, paths, install, kit, shortcuts, profile = null, herdr = null }) {
-  const agents = harnessProfiles(answers.harness), keys = new Set(shortcuts?.keys?.bound || []);
-  const shortcut = kitKeys.filter(k => agents.includes(k.mode) && keys.has(k.key)).map(k => `${k.key} for ${k.mode}`);
+  const agents = harnessProfiles(answers.harness), captain = captainOf(answers.captain, answers.harness), keys = new Set(shortcuts?.keys?.bound || []);
+  const shortcut = kitKeys.filter(k => k.mode === captain && keys.has(k.key)).map(k => `${k.key} for ${k.mode}`);
   return ['Next steps:',
     ...((profile?.action === 'verify' || answers.shellProfile && ['add', 'refresh'].includes(profile?.action)) ? [`  1. Open a new terminal. The kit put its PATH block in ${profile.path}, so every new terminal finds the kit tools (undo it with agent-kit uninstall).`]
-      : [`  1. Add these folders to the start of your PATH yourself (${answers.shellProfile ? profile?.detail || 'the kit did not change your shell profile' : 'you chose not to let the kit edit your shell profile'}), then open a new terminal:\n       ${[dirname(paths.wrapper), install.bin, install.npmBin, install.codexBin, install.figmaBin].filter(Boolean).join('\n       ')}`]),
+      : [`  1. Add these folders to the start of your PATH yourself (${answers.shellProfile ? profile?.detail || 'the kit did not change your shell profile' : 'you chose not to let the kit edit your shell profile'}), then open a new terminal:\n       ${[dirname(paths.wrapper), install.bin, install.npmBin, install.codexBin, install.opencodeBin, install.figmaBin].filter(Boolean).join('\n       ')}`]),
     ...(kit.commit ? [`  2. Health check later: node ${join(paths.kit, 'bin', 'agent-kit.mjs')} doctor --install-root ${paths.installRoot}`]
       : ['  2. Health check later: node bin/agent-kit.mjs doctor --install-root ' + paths.installRoot + ' from this checkout']),
-    `  3. Sign in to ${agents.join(' and ')} yourself in that terminal; the kit never signs in for you.`,
+    `  3. Sign in to ${[...new Set([...agents, captain])].join(' and ')} yourself in that terminal; the kit never signs in for you.${captain === 'opencode' ? ' For OpenCode, run opencode auth login or /connect and select your model with /models.' : ''}`,
     ...(herdr?.stale ? ['  4. Herdr is already running and cannot see the kit tools, so restart it before you start Firstmate. The installer does not stop it for you, because that ends every agent running in it:',
       '       a. quit the agents you have open in Herdr (let their work finish first)', '       b. run: herdr server stop', '       c. open a new terminal (inside Ubuntu on Windows)', '       d. run: herdr']
       : ['  4. Start Herdr: herdr']),
-    `  5. In a Herdr pane, start ${agents.join(' or ')} in your Firstmate home: cd ${shellQuote(paths.firstmateHome)} && ${agents[0]}${shortcut.length ? ` (or press ${shortcut.join(', ')})` : ''}`,
+    `  5. In a Herdr pane, start the captain in your Firstmate home: firstmate ${captain}${shortcut.length ? ` (or press ${shortcut.join(', ')})` : ''}`,
     'Start-up walkthrough: see "After a successful install: start it up" in the Agent Kit guide.', ''].join('\n');
 }
 
@@ -501,7 +518,7 @@ export async function setup(manifest, ctx) {
     }
     const keyPlan = { value: keyValue, managed, status: keyValue ? 'will set' : wasSet ? 'set' : 'not set',
       starter: managed ? previewStarter(paths.firstmateHome, { harness: answers.harness, plans: answers.plans, mode: answers.dispatchMode, table: ctx.planTable, record: receipt?.setup?.dispatch, keySet: !!keyValue || wasSet }) : null };
-    const options = { command: 'plan', harness: answers.harness, withFigma: answers.figma, withTower: answers.tower, globalHooks: answers.globalHooks,
+    const options = { command: 'plan', harness: answers.harness, captain: answers.captain, withFigma: answers.figma, withTower: answers.tower, globalHooks: answers.globalHooks,
       installRoot: paths.installRoot, firstmateHome: paths.firstmateHome, towerState: paths.towerState };
     const context = { env, platform, arch: ctx.arch, nodeVersion: ctx.nodeVersion, procVersion: ctx.procVersion, osRelease: ctx.osRelease, libc: ctx.libc, glibcVersion: ctx.glibcVersion, runCommand: ctx.runCommand, applicationDirs: ctx.applicationDirs };
     const plan = evaluatePlan(manifest, context, options).result;
@@ -548,7 +565,7 @@ export async function setup(manifest, ctx) {
       let install;
       await stepRun(1, async () => {
         install = await (ctx.installPlatform || installPlatform)(manifest, { platform, arch: ctx.arch, home, env, nodeVersion: ctx.nodeVersion, procVersion: ctx.procVersion, osRelease: ctx.osRelease, libc: ctx.libc, glibcVersion: ctx.glibcVersion,
-          installRoot: paths.installRoot, firstmateHome: paths.firstmateHome, harness: answers.harness, withFigma: answers.figma, withTower: answers.tower, globalHooks: answers.globalHooks,
+          installRoot: paths.installRoot, firstmateHome: paths.firstmateHome, harness: answers.harness, captain: answers.captain, withFigma: answers.figma, withTower: answers.tower, globalHooks: answers.globalHooks,
           towerState: paths.towerState, ...ctx.installOptions,
           onHooksPreview: changes => output.write(`  Global hook and skill changes (kit-owned entries only; existing files backed up first):\n${changes.map(c => `    ${c.path}: ${c.changes.map(x => `${x.op} ${x.owner || x.path}`).join(', ')}`).join('\n') || '    none'}\n`) });
         output.write(indent(formatInstall(install)));

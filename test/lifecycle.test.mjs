@@ -128,6 +128,37 @@ test('uninstall removes tagged hooks while retaining an unrelated hook', { skip:
   assert.deepEqual(after.hooks.SessionStart[0].hooks, [{ type: 'command', command: 'echo personal' }]);
 });
 
+test('uninstall removes only the receipt-owned OpenCode ambient plugin', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t);
+  const dir = join(f.home, '.config', 'opencode', 'plugins');
+  mkdirSync(dir, { recursive: true });
+  const plugin = join(dir, 'agent-kit-ambient.js');
+  const foreign = join(dir, 'person.js');
+  writeFileSync(plugin, '// agent-kit:opencode-ambient\n');
+  writeFileSync(foreign, '// person\n');
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.setup.answers.captain = 'opencode';
+  receipt.phases.hooks = { state: 'complete', files: [], skills: [], plugins: [{ path: plugin, sha256: sha(readFileSync(plugin)) }] };
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  assert.ok(planUninstall(f.options).registration.files.includes(plugin));
+  await applyUninstall(f.options);
+  assert.equal(existsSync(plugin), false);
+  assert.equal(readFileSync(foreign, 'utf8'), '// person\n');
+});
+
+test('repair keeps a direct install\'s OpenCode captain recorded only by its npm phase', { skip: process.platform === 'win32' }, async t => {
+  const f = fixture(t);
+  const tree = join(f.root, 'releases', 'old-release', 'npm-opencode');
+  mkdirSync(tree, { recursive: true });
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  delete receipt.setup.answers.captain;
+  receipt.phases['npm-opencode'] = { state: 'complete', version: '2.3.2', path: 'releases/old-release/npm-opencode', ownedSha256: '0'.repeat(64) };
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const before = readFileSync(f.receiptPath, 'utf8');
+  await assert.rejects(applyRepair(f.manifest, f.options), /OpenCode captain requires a reviewed OpenCode 2 pin/, 'repair asks the installer for the OpenCode captain instead of switching to Claude');
+  assert.deepEqual(JSON.parse(readFileSync(f.receiptPath, 'utf8')), JSON.parse(before), 'the receipt is restored with its OpenCode phase');
+});
+
 test('repair reports a changed Firstmate home and manifest-unverified tools while restoring kit files', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t), path = join(f.bin, 'herdr');
   const runtime = structuredClone(bundled.tools.find(x => x.id === 'zoe-fleet-runtime'));
@@ -620,7 +651,7 @@ test('upgrade from pilot-16 to pilot-17 shows the Firstmate re-pin, asks for /up
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate d6257ae1\n', 'the kit never touches the home');
 });
 
-test('upgrade from pilot-18 to pilot-19 shows the Firstmate re-pin, asks for /updatefirstmate first, then applies', { skip: process.platform === 'win32' }, async t => {
+test('upgrade from pilot-18 to the current release shows the Firstmate re-pin, asks for /updatefirstmate first, then applies', { skip: process.platform === 'win32' }, async t => {
   const f = fixture(t), oldPin = f.git('rev-parse', 'HEAD');
   writeFileSync(join(f.firstmate, 'README.md'), 'firstmate b69fcebc\n');
   f.git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qam', 'firstmate pilot-19 removes Grok support');
@@ -635,7 +666,7 @@ test('upgrade from pilot-18 to pilot-19 shows the Firstmate re-pin, asks for /up
     await stagedKit(_commit, _env, destination);
     const target = structuredClone(f.manifest);
     target.release = bundled.release;
-    assert.equal(bundled.release, 'pilot-19');
+    assert.equal(bundled.release, 'pilot-21');
     target.tools.find(x => x.id === 'firstmate').version.value = newPin;
     writeFileSync(join(destination, 'manifests', 'pilot-skeleton.json'), `${JSON.stringify(target)}\n`);
   };
@@ -644,23 +675,23 @@ test('upgrade from pilot-18 to pilot-19 shows the Firstmate re-pin, asks for /up
   const plan = await planUpgrade(args);
   t.after(() => rmSync(plan.stage, { recursive: true, force: true }));
   assert.equal(plan.fromRelease, 'pilot-18');
-  assert.equal(plan.toRelease, 'pilot-19');
+  assert.equal(plan.toRelease, 'pilot-21');
   assert.equal(plan.firstmatePinChange, true);
   assert.deepEqual(plan.changes.filter(x => x.from.version !== x.to.version).map(x => x.id), ['firstmate']);
   const text = formatLifecycle(plan);
-  assert.match(text, /\nRelease: pilot-18 -> pilot-19\n/);
+  assert.match(text, /\nRelease: pilot-18 -> pilot-21\n/);
   assert.match(text, new RegExp(`\\n- firstmate: ${oldPin} -> ${newPin}; stage and verify\\n`));
   assert.match(text, /\nFirstmate pin: run \/updatefirstmate in the Firstmate home before applying\n/);
   await assert.rejects(applyUpgrade(plan, f.options), new RegExp(`Firstmate pin changed; run /updatefirstmate from ${f.firstmate}, then rerun agent-kit upgrade`));
   assert.equal(readFileSync(f.receiptPath, 'utf8'), before, 'nothing changes before /updatefirstmate');
-  assert.equal(existsSync(join(f.root, 'releases', 'pilot-19')), false);
+  assert.equal(existsSync(join(f.root, 'releases', 'pilot-21')), false);
   f.git('checkout', '-q', '--detach', newPin);
   const ready = await planUpgrade(args);
   assert.match(formatLifecycle(ready), /\nFirstmate pin: guarded update already verified\n/);
   const result = await applyUpgrade(ready, f.options);
   assert.equal(result.status, 'upgraded');
   const after = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
-  assert.equal(after.release, 'pilot-19');
+  assert.equal(after.release, 'pilot-21');
   assert.equal(after.phases.firstmate.version, newPin);
   assert.equal(readFileSync(join(f.root, 'releases', 'pilot-18', 'bin', 'herdr'), 'utf8'), 'original', 'the pilot-18 release stays for rollback');
   assert.equal(readFileSync(join(f.firstmate, 'README.md'), 'utf8'), 'firstmate b69fcebc\n', 'the kit never touches the home');

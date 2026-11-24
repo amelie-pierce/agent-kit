@@ -73,6 +73,8 @@ Plan about 45 minutes. Use a normal (not administrator) PowerShell window unless
 
    Accept the root `~/Agentic`. This checks the Windows prerequisites and WSL2 only; it does not ask the other questions. Success: it prints `Agent Kit install (Windows): handoff-ready` and one `wsl.exe -d Ubuntu --exec bash -l -c '...' agent-kit-setup <SHA> ... --dry-run` command. Nothing runs inside WSL.
 7. **WSL dry run.** Paste that printed `wsl.exe ...` command into the same PowerShell window. Success: every setup question and the summary appear, it ends with `Dry run: nothing was written.`, and afterwards `wsl -e sh -c 'ls ~/Agentic'` reports no such file or directory.
+
+   To check the OpenCode choice, repeat the dry run inside Ubuntu with `--captain opencode` while keeping `--harness codex` or `--harness claude`. The preview should list the pinned OpenCode 2 npm group and its global ambient plugin path under the Ubuntu home. This choice does not install OpenCode on native Windows or select an OpenCode worker.
 8. **Real install.**
 
    ```powershell
@@ -96,9 +98,10 @@ Plan about 45 minutes. Use a normal (not administrator) PowerShell window unless
     herdr --version
     treehouse --version
     no-mistakes --version
+    opencode --version  # only if you selected OpenCode as the Firstmate CLI
     ```
 
-    Optionally run `lavish-axi --help`, or `chrome-devtools-axi open https://example.com` and note whether a Windows browser opens. Do not sign in to any agent CLI for this check.
+    Optionally run `lavish-axi --help`, or `chrome-devtools-axi open https://example.com` and note whether a Windows browser opens. Do not sign in to any agent CLI for this check. If you later use OpenCode, sign in inside Ubuntu with `opencode auth login` or `/connect`, choose your own model with `/models` (OpenCode may preselect a free model whose provider terms collect or train on your data; check the model in `/models` and its terms at https://opencode.ai/docs/console/models/ before use), and keep the TUI open for passive Firstmate supervision. This check does not establish live TUI parity on Windows or WSL2.
 11. **Tower.** In the same Ubuntu shell, run the launcher path the installer printed on its `Tower launcher:` line:
 
     ```sh

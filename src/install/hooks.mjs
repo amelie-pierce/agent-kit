@@ -2,8 +2,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { existsSync, lstatSync, readFileSync, readlinkSync, readdirSync } from 'node:fs';
 import { chmod, mkdir, mkdtemp, readFile, rename, rm, symlink, unlink, writeFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
+import { opencodePluginBody, opencodePluginPath } from './opencode-plugin.mjs';
+import { opencodePinned, receiptCaptain } from '../harness.mjs';
 
 // These are the published skill directories in the integrity-locked npm packages.
 const tools = [
@@ -216,11 +218,15 @@ function previousHooksSetting(receipt, root, config) {
   return /^\s*hooks\s*=\s*false(?:\s*#.*)?$/m.test(before) ? false : null;
 }
 
-export function previewHooks(manifest, { home, installRoot }) {
+export function previewHooks(manifest, { home, installRoot, captain = null, env = process.env }) {
   if (!home || !installRoot) throw new Error('hooks preview requires HOME and --install-root');
   const root = resolve(installRoot), release = manifest.release;
   const selected = new Set(manifest.tools.filter(tool => tool.kind !== 'prerequisite' && tool.classification !== 'never-ship' && tool.profile === 'core' && tool.version.status === 'verified').map(tool => tool.id));
   const axi = new Map(), fmHome = receiptHome(root), gates = [];
+  let prior = null;
+  try { prior = JSON.parse(readFileSync(join(root, 'receipt.json'), 'utf8')); } catch { /* A new install has no receipt. */ }
+  const useOpenCode = (captain || receiptCaptain(prior)) === 'opencode';
+  if (useOpenCode && !opencodePinned(manifest)) throw new Error('OpenCode hooks require a reviewed OpenCode 2 pin');
   for (const id of hookTools) if (selected.has(id)) {
     const gated = !!fmHome && gatedTools.has(id);
     axi.set(id, { matcher: '', hooks: [{ type: 'command', command: commandFor(root, release, id, gated), timeout: 10 }] });
@@ -277,9 +283,22 @@ export function previewHooks(manifest, { home, installRoot }) {
     if (source !== null && sha(source) !== sha(gate.body)) throw new Error(`${gate.path}: kit hook gate changed; refusing hooks phase`);
     if (source === null) scripts.push({ path: gate.path, id: gate.id, op: 'add', sha256: sha(gate.body), body: gate.body });
   }
+  const plugins = [];
+  const pluginPath = opencodePluginPath(home, env);
+  const ownedPlugin = prior?.phases?.hooks?.plugins?.find(p => p.path === pluginPath);
+  let afterPlugin = null;
+  if (useOpenCode || ownedPlugin) {
+    plainParents(env.XDG_CONFIG_HOME && pluginPath.startsWith(env.XDG_CONFIG_HOME) ? env.XDG_CONFIG_HOME : home, pluginPath);
+    const beforePlugin = safeFile(pluginPath);
+    if (beforePlugin !== null && (!ownedPlugin || sha(beforePlugin) !== ownedPlugin.sha256)) throw new Error(`${pluginPath}: existing unowned or changed OpenCode plugin; refusing hooks phase`);
+    afterPlugin = useOpenCode ? opencodePluginBody(root, release, fmHome, selected, hasHerdr) : null;
+    if (beforePlugin !== afterPlugin) plugins.push({ path: pluginPath, before: beforePlugin, after: afterPlugin,
+      op: afterPlugin === null ? 'remove' : beforePlugin === null ? 'add' : 'replace', sha256: afterPlugin === null ? null : sha(afterPlugin) });
+  }
   return { files, skills, scripts, binaries: [...axi.keys()].map(id => join(root, 'releases', release, 'npm', 'node_modules', '.bin', id)),
     herdrBinary: hasHerdr ? join(root, 'releases', release, 'bin', 'herdr') : null,
-    changed: files.some(x => x.changes.length) || skills.length > 0 || scripts.length > 0 };
+    plugins, pluginRecord: afterPlugin === null ? [] : [{ path: pluginPath, sha256: sha(afterPlugin) }],
+    changed: files.some(x => x.changes.length) || skills.length > 0 || scripts.length > 0 || plugins.length > 0 };
 }
 
 async function generateHerdr(preview, installRoot) {
@@ -326,6 +345,7 @@ export async function applyHooks(preview, { installRoot, receipt, save, generate
       throw new Error(`${script.path}: changed since preview; refusing hooks phase`);
     if (script.op === 'add' && sha(scripts.get(script.id) || '') !== script.sha256) throw new Error(`${script.path}: generated script digest mismatch; refusing hooks phase`);
   }
+  for (const plugin of preview.plugins) if (safeFile(plugin.path) !== plugin.before) throw new Error(`${plugin.path}: changed since preview; refusing hooks phase`);
   const backupDir = join(installRoot, 'backups', 'hooks', randomUUID());
   for (const file of preview.files) if (file.changes.length && file.before !== null) {
     const backup = join(backupDir, file.path.includes(`${sep}.claude${sep}`) ? 'claude-settings.json' : file.kind === 'toml' ? 'codex-config.toml' : 'codex-hooks.json');
@@ -341,6 +361,11 @@ export async function applyHooks(preview, { installRoot, receipt, save, generate
     const backup = join(backupDir, 'herdr', script.id);
     await mkdir(dirname(backup), { recursive: true, mode: 0o700 });
     await writeFile(backup, await readFile(script.path), { mode: 0o600, flag: 'wx' });
+  }
+  for (const plugin of preview.plugins) if (plugin.before !== null) {
+    const backup = join(backupDir, 'opencode-ambient.js');
+    await mkdir(dirname(backup), { recursive: true, mode: 0o700 });
+    await writeFile(backup, plugin.before, { mode: 0o600, flag: 'wx' });
   }
   for (const script of preview.scripts) if (script.op === 'add') {
     await mkdir(dirname(script.path), { recursive: true, mode: 0o700 });
@@ -364,11 +389,19 @@ export async function applyHooks(preview, { installRoot, receipt, save, generate
     } else if (skill.before) await unlink(skill.path);
   }
   for (const script of preview.scripts) if (script.op === 'remove') await unlink(script.path);
+  for (const plugin of preview.plugins) {
+    if (plugin.after === null) { await unlink(plugin.path); continue; }
+    await mkdir(dirname(plugin.path), { recursive: true, mode: 0o700 });
+    const temp = `${plugin.path}.${randomUUID()}.tmp`;
+    await writeFile(temp, plugin.after, { mode: 0o600, flag: 'wx' });
+    await rename(temp, plugin.path);
+  }
   const configPath = preview.files.find(x => x.kind === 'toml')?.path;
   const previouslyEnabled = configPath ? previousHooksSetting(receipt, installRoot, configPath) : undefined;
   const codexChange = preview.files.find(x => x.kind === 'toml')?.changes.find(x => x.path === 'features.hooks');
   receipt.phases.hooks = { state: 'complete', ...(previouslyEnabled !== undefined || codexChange ? { codexHooksPrevious: previouslyEnabled !== undefined ? previouslyEnabled : codexChange.before } : {}), files: preview.files.filter(x => x.changes.length).map(x => ({ path: x.path, kind: x.kind, changes: x.changes.map(c => c.owner || c.path) })),
-    skills: preview.skills.map(x => ({ path: x.path, owner: x.owner, target: x.after })), scripts: preview.scripts.map(x => ({ path: x.path, owner: `agent-kit:${x.id}`, action: x.op, sha256: x.sha256 })) };
+    skills: preview.skills.map(x => ({ path: x.path, owner: x.owner, target: x.after })), scripts: preview.scripts.map(x => ({ path: x.path, owner: `agent-kit:${x.id}`, action: x.op, sha256: x.sha256 })),
+    plugins: preview.pluginRecord };
   await save();
   return { id: 'hooks', status: 'installed', reason: 'kit-owned global hooks and skills merged with private backups' };
 }
@@ -376,18 +409,20 @@ export async function applyHooks(preview, { installRoot, receipt, save, generate
 export function publicHookChanges(preview) {
   return [...preview.files.filter(x => x.changes.length).map(({ path, kind, changes }) => ({ path, kind, changes })),
     ...preview.skills.map(({ path, op, before, after, owner }) => ({ path, kind: 'symlink', changes: [{ op, owner, before, after }] })),
-    ...preview.scripts.map(({ path, id, op, sha256 }) => ({ path, kind: 'script', changes: [{ op, owner: `agent-kit:${id}`, sha256 }] }))];
+    ...preview.scripts.map(({ path, id, op, sha256 }) => ({ path, kind: 'script', changes: [{ op, owner: `agent-kit:${id}`, sha256 }] })),
+    ...preview.plugins.map(({ path, op, sha256 }) => ({ path, kind: 'plugin', changes: [{ op, owner: 'agent-kit:opencode-ambient', sha256 }] }))];
 }
 
 // Every user-level path the hooks phase may write, for prompts and summaries before any preview runs.
-export function globalHookPaths(home) {
+export function globalHookPaths(home, env = process.env, captain = null) {
   return [join(home, '.claude', 'settings.json'), join(home, '.codex', 'hooks.json'), join(home, '.codex', 'config.toml'),
+    ...(captain === 'opencode' ? [opencodePluginPath(home, env)] : []),
     ...tools.flatMap(([, skill]) => [join(home, '.claude', 'skills', skill), join(home, '.agents', 'skills', skill)])];
 }
 
 // Removing registration uses the same ownership parser as installation. A marker alone does
 // not authorize removing a hook whose command was changed outside this kit's release tree.
-export function previewUnregister({ home, installRoot, receipt }) {
+export function previewUnregister({ home, installRoot, receipt, env = process.env }) {
   const root = resolve(installRoot), files = [];
   for (const path of [join(home, '.claude', 'settings.json'), join(home, '.codex', 'hooks.json')]) {
     plainParents(home, path);
@@ -431,7 +466,15 @@ export function previewUnregister({ home, installRoot, receipt }) {
     const target = resolve(dirname(path), readlinkSync(path));
     if (target.startsWith(join(root, 'releases') + sep) && target.endsWith(join('node_modules', id, 'skills', skill))) skills.push({ path, target, owner: `agent-kit:${id}` });
   }
-  return { files, skills, changed: files.some(x => x.changes.length) || skills.length > 0 };
+  const plugins = [];
+  for (const owned of receipt.phases?.hooks?.plugins || []) {
+    const path = owned.path;
+    if (typeof path !== 'string' || !isAbsolute(path) || !path.endsWith(join('opencode', 'plugins', 'agent-kit-ambient.js')) || !/^[a-f0-9]{64}$/.test(owned.sha256 || '')) continue;
+    plainParents(dirname(dirname(dirname(path))), path);
+    const source = safeFile(path);
+    if (source !== null && sha(source) === owned.sha256) plugins.push({ path, before: source });
+  }
+  return { files, skills, plugins, changed: files.some(x => x.changes.length) || skills.length > 0 || plugins.length > 0 };
 }
 
 export async function applyUnregister(preview, backupDir) {
@@ -440,6 +483,7 @@ export async function applyUnregister(preview, backupDir) {
     const st = lstatSync(skill.path, { throwIfNoEntry: false });
     if (!st?.isSymbolicLink() || resolve(dirname(skill.path), readlinkSync(skill.path)) !== skill.target) throw new Error(`${skill.path}: changed since plan`);
   }
+  for (const plugin of preview.plugins) if (safeFile(plugin.path) !== plugin.before) throw new Error(`${plugin.path}: changed since plan`);
   for (const file of preview.files) if (file.changes.length) {
     if (file.before !== null) {
       const backup = join(backupDir, file.path.includes(`${sep}.claude${sep}`) ? 'claude-settings.json' : file.path.endsWith('.toml') ? 'codex-config.toml' : 'codex-hooks.json');
@@ -451,4 +495,9 @@ export async function applyUnregister(preview, backupDir) {
     await rename(temp, file.path);
   }
   for (const skill of preview.skills) await unlink(skill.path);
+  for (const plugin of preview.plugins) {
+    await mkdir(backupDir, { recursive: true, mode: 0o700 });
+    await writeFile(join(backupDir, 'opencode-ambient.js'), plugin.before, { mode: 0o600, flag: 'wx' });
+    await unlink(plugin.path);
+  }
 }

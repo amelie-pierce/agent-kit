@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpath
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { applyShortcuts, describeShortcuts, herdrConfigPath, keysBegin, keysEnd, kitKeys, launcherScript, planRemoveShortcuts, planShortcuts, previewKeys, removeShortcuts, splitBlock } from '../src/shortcuts.mjs';
+import { applyShortcuts, describeShortcuts, herdrConfigPath, keysBegin, keysEnd, kitKeys, launcherScript, planRemoveShortcuts, planShortcuts, previewKeys, removeShortcuts, shortcutsHealth, splitBlock } from '../src/shortcuts.mjs';
 import { applyUninstall, planUninstall } from '../src/lifecycle.mjs';
 
 const kit = fileURLToPath(new URL('..', import.meta.url));
@@ -17,11 +17,11 @@ const ok = () => ({ ok: true, detail: '' });
 
 // A kit root as setup leaves it: Herdr, Codex and the tower runtime recorded in the receipt, the kit copy at
 // this checkout, a temp HOME and PATH that holds python3 and a claude stub.
-function fixture(t, { harness = 'both', tower = true, config = null } = {}) {
+function fixture(t, { harness = 'both', captain = null, opencodePhase = captain === 'opencode', tower = true, config = null, answers = {} } = {}) {
   const base = realpathSync(mkdtempSync(join(tmpdir(), 'kit-shortcuts-')));
   t.after(() => rmSync(base, { recursive: true, force: true }));
   const home = join(base, 'home'), root = join(base, 'Agentic', '.tools'), firstmate = join(base, 'Agentic', 'firstmate'), bin = join(base, 'bin');
-  for (const dir of [home, bin, firstmate, join(root, 'releases', 'r', 'bin'), join(root, 'releases', 'r', 'npm-codex', 'node_modules', '.bin'), join(root, 'releases', 'r', 'zoe-fleet-runtime', 'bin')])
+  for (const dir of [home, bin, firstmate, join(root, 'releases', 'r', 'bin'), join(root, 'releases', 'r', 'npm-codex', 'node_modules', '.bin'), join(root, 'releases', 'r', 'npm-opencode', 'node_modules', '.bin'), join(root, 'releases', 'r', 'zoe-fleet-runtime', 'bin')])
     mkdirSync(dir, { recursive: true });
   writeFileSync(join(root, 'releases', 'r', 'bin', 'herdr'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
   writeFileSync(join(bin, 'claude'), '#!/bin/sh\n', { mode: 0o755 });
@@ -30,9 +30,10 @@ function fixture(t, { harness = 'both', tower = true, config = null } = {}) {
   if (config !== null) { mkdirSync(dirname(configPath), { recursive: true }); writeFileSync(configPath, config); }
   const receipt = { schemaVersion: 1, release: 'r', phases: {
     herdr: { state: 'complete', path: 'releases/r/bin/herdr' }, 'npm-codex': { state: 'complete', path: 'releases/r/npm-codex' },
+    ...(opencodePhase ? { 'npm-opencode': { state: 'complete', path: 'releases/r/npm-opencode' } } : {}),
     ...(tower ? { 'zoe-fleet-runtime': { state: 'complete', path: 'releases/r/zoe-fleet-runtime' }, 'zoe-fleet-tower': { state: 'complete', path: join(home, '.config', 'zoe-fleet', 'config') } } : {}),
     firstmate: { state: 'complete', path: firstmate } },
-  setup: { answers: { harness, globalHooks: true, tower }, paths: { firstmateHome: firstmate, installRoot: root }, kit: { commit: 'fixture', path: kit } } };
+  setup: { answers: { harness, ...(captain ? { captain } : {}), globalHooks: true, tower, ...answers }, paths: { firstmateHome: firstmate, installRoot: root }, kit: { commit: 'fixture', path: kit } } };
   writeFileSync(join(root, 'receipt.json'), `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
   const env = { HOME: home, PATH: `${bin}:/usr/bin:/bin` };
   const readReceipt = () => JSON.parse(readFileSync(join(root, 'receipt.json'), 'utf8'));
@@ -114,6 +115,31 @@ test('only the chosen agent CLIs get coordinator keys; Herdr defaults the kit wo
   assert.deepEqual(previewKeys(f.configPath, [{ key: 'prefix+n', purpose: 'x' }]), [], 'a default you moved is no longer replaced');
 });
 
+test('a direct install with no setup answer keeps OpenCode as the default coordinator from its recorded phase', posixOnly, async t => {
+  const f = fixture(t, { harness: 'codex', opencodePhase: true, tower: false });
+  const result = await f.run();
+  assert.deepEqual(result.keys.bound, ['prefix+shift+f', 'prefix+shift+o', 'prefix+shift+m']);
+  assert.match(readFileSync(f.launcher, 'utf8'), /OPEN_FIRSTMATE_DEFAULT='opencode'/);
+});
+
+for (const [opencodeAuto, flags, shown] of [[true, '--standalone --auto', 'on'], [false, '--standalone', 'off']]) {
+  test(`OpenCode key and launcher use a persistent TUI from the Firstmate home with identity cleared; auto-approve answered ${shown}`, posixOnly, async t => {
+    const f = fixture(t, { harness: 'codex', captain: 'opencode', tower: false, answers: { opencodeAuto } });
+    mkdirSync(join(f.firstmate, 'bin'), { recursive: true });
+    writeFileSync(join(f.firstmate, 'bin', 'fm-lock.sh'), '#!/bin/sh\necho "lock: free"\n', { mode: 0o755 });
+    writeFileSync(join(f.root, 'releases', 'r', 'npm-opencode', 'node_modules', '.bin', 'opencode'), '#!/bin/sh\nprintf "%s|%s|%s|%s\\n" "$PWD" "$*" "${CLAUDECODE:-}" "${CODEX_THREAD_ID:-}"\n', { mode: 0o755 });
+    const result = await f.run();
+    assert.deepEqual(result.keys.bound, ['prefix+shift+f', 'prefix+shift+o', 'prefix+shift+m']);
+    assert.match(readFileSync(f.configPath, 'utf8'), /open-firstmate' opencode/);
+    assert.match(readFileSync(f.launcher, 'utf8'), /OPEN_FIRSTMATE_DEFAULT='opencode'/);
+    const launcher = join(f.root, 'bin', 'firstmate');
+    const run = spawnSync(launcher, ['opencode'], { encoding: 'utf8', env: { ...f.env, HERDR_ENV: '1', CLAUDECODE: 'inherited', CODEX_THREAD_ID: 'inherited' } });
+    assert.equal(run.status, 0, run.stderr);
+    assert.equal(run.stdout.trim(), `${f.firstmate}|${flags}||`);
+    assert.deepEqual(shortcutsHealth(f.readReceipt(), f.root).find(x => x.id === 'opencode-auto'), { id: 'opencode-auto', status: 'pass', detail: `opencode auto-approve launch: ${shown}` });
+  });
+}
+
 test('a rejected config is restored from the backup, and an edited kit block is left alone and released', posixOnly, async t => {
   const f = fixture(t, { config: 'theme = "x"\n' });
   const rejected = await f.run({ check: () => ({ ok: false, detail: 'unknown key type' }) });
@@ -154,9 +180,9 @@ test('upgrade drops the old Grok variable from an unchanged kit firstmate launch
   const f = fixture(t);
   await f.run();
   const path = join(f.root, 'bin', 'firstmate'), current = readFileSync(path, 'utf8');
-  assert.match(current, /^unset CLAUDECODE CODEX_THREAD_ID PI_CODING_AGENT FM_TASK_ID$/m);
+  assert.match(current, /^unset CLAUDECODE .*CODEX_THREAD_ID CODEX_SESSION_ID PI_CODING_AGENT FM_TASK_ID$/m);
   // An install from an earlier kit: the launcher carried the Grok variable and the receipt recorded that digest.
-  const old = current.replace('CODEX_THREAD_ID PI_CODING_AGENT', 'CODEX_THREAD_ID GROK_AGENT PI_CODING_AGENT');
+  const old = current.replace('CODEX_SESSION_ID PI_CODING_AGENT', 'CODEX_SESSION_ID GROK_AGENT PI_CODING_AGENT');
   assert.notEqual(old, current);
   writeFileSync(path, old, { mode: 0o755 });
   const receipt = f.readReceipt(); receipt.setup.shortcuts.files['bin/firstmate'] = sha(old);
