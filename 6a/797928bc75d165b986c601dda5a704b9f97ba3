@@ -1,0 +1,21 @@
+docs/features.md
+  s_7a28b20ee65c0a::t_3a476991895a76 114
+docs/global-hooks.md
+  s_7a28b20ee65c0a::t_3a476991895a76 21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6a797928bc75d165b986c601dda5a704b9f97ba3",
+  "prompts": {},
+  "sessions": {
+    "s_7a28b20ee65c0a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a29c171d-311d-4dcf-bf68-4380a543f484",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
