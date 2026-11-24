@@ -124,7 +124,10 @@ export function processRunning(id, noMistakesBin) {
     if (/daemon running/i.test(daemon.stdout)) return true;
     if (!/daemon (?:stopped|not running)/i.test(daemon.stdout)) return true;
   }
-  const result = spawnSync('ps', ['-A', '-o', 'args='], { encoding: 'utf8', timeout: 10000, maxBuffer: 1024 * 1024 });
+  // Kit services belong to this person's account; another VM user's agents must not block this home.
+  const uid = process.getuid?.();
+  const psArgs = uid === undefined ? ['-A', '-o', 'args='] : ['-U', String(uid), '-o', 'args='];
+  const result = spawnSync('ps', psArgs, { encoding: 'utf8', timeout: 10000, maxBuffer: 1024 * 1024 });
   if (result.status !== 0) return true;
   const pattern = id === 'zoe-fleet-tower' ? /(?:^|[\s/])zoe-fleet-tower(?:\s|$)/ : new RegExp(`(?:^|[\\s/])${id}(?:\\s|$)`);
   return result.stdout.split('\n').some(line => pattern.test(line.trim()));
