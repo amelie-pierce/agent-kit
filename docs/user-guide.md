@@ -358,7 +358,7 @@ export PATH="$R/.tools/bin:$R/.tools/releases/<release>/bin:$R/.tools/releases/<
 
 With Figma, the fifth folder is `$R/.tools/releases/<release>/npm-figma/node_modules/.bin`. Use the exact folders your installer printed. Run this in a Terminal window to try it. With question 5b answered yes, the kit has already added this line to your profile as a marked block and you can skip this section. Otherwise, when you are happy, add the same `export` line to your own `~/.zshrc`.
 
-**Keep the kit's PATH folders first.** `<root>/.tools/bin` holds the kit's commands, the Treehouse wrapper and the `zoe` program. The selected release folder holds pinned OpenCode and Codex binaries. If another folder comes first, those do not run.
+**Keep the kit's PATH folders first.** `<root>/.tools/bin` holds the kit's own commands (A6.6), the Treehouse wrapper, the `zoe` program the session graph needs, and, if you chose them, the kit's `codex` (full-access launch) and `claude` (tower) commands; it must come before the release folder so those wrappers win. The selected release folder holds the pinned binaries, including OpenCode when you chose it as the Firstmate CLI. If another folder comes first, those do not run.
 
 If you already had Codex or Herdr installed some other way, the kit's versions only win once these folders come first on your PATH.
 
@@ -423,7 +423,7 @@ herdr
 
 - **The key:** press `Ctrl+B`, let go, then `Shift+F` for Firstmate in Codex, or `F` for Firstmate in Claude Code (A8.2).
 - **The command:** in a Herdr pane, type `firstmate codex` (or `firstmate claude` or `firstmate opencode`).
-- **By hand:** in a Herdr pane, `cd ~/Agentic/firstmate`, then `codex` (or `claude` or `opencode`).
+- **By hand:** in a Herdr pane, `cd ~/Agentic/firstmate`, then `codex`, `claude` or `opencode --standalone` (add `--auto` only if you answered yes to 2e).
 
 The key and the command open a **Control Tower** workspace with a **Captain (Codex)** or **Captain (Claude)** tab and start Firstmate there, in your Firstmate home. If that tab is already running something, they only switch to it. Only one Firstmate can run in a home; do not open both Captain tabs at once.
 
@@ -1782,7 +1782,7 @@ export PATH="$R/.tools/bin:$R/.tools/releases/<release>/bin:$R/.tools/releases/<
 
 With Figma, the fifth folder is `$R/.tools/releases/<release>/npm-figma/node_modules/.bin`. Use the exact folders your installer printed. Run this in an **Ubuntu** terminal to try it. With question 5b answered yes, the kit has already added this line to your Ubuntu profile as a marked block and you can skip this section. Otherwise, when you are happy, add the same `export` line to `~/.bashrc` **inside Ubuntu**.
 
-**Keep the kit's PATH folders first.** `<root>/.tools/bin` holds the kit's commands, the Treehouse wrapper and the `zoe` program. The selected release folder holds pinned OpenCode and Codex binaries. If another folder comes first, those do not run.
+**Keep the kit's PATH folders first.** `<root>/.tools/bin` holds the kit's own commands (B6.6), the Treehouse wrapper, the `zoe` program the session graph needs, and, if you chose them, the kit's `codex` (full-access launch) and `claude` (tower) commands; it must come before the release folder so those wrappers win. The selected release folder holds the pinned binaries, including OpenCode when you chose it as the Firstmate CLI. If another folder comes first, those do not run.
 
 Do not add these folders to the Windows PATH. They are Linux programs and only run inside Ubuntu.
 

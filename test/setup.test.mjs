@@ -11,7 +11,8 @@ import { withOwnerTiers } from '../src/dispatch.mjs';
 import { finishLine, charterText, checkRoot, derivePaths, expandRoot, parseSetupArgs, resumeSummary, setup, wrapperScript } from '../src/setup.mjs';
 import { doctor } from '../src/doctor.mjs';
 import { planRemoveProfile, renderProfileBlock } from '../src/shell-profile.mjs';
-import { parseHarness } from '../src/harness.mjs';
+import { parseHarness, receiptCaptain } from '../src/harness.mjs';
+import { installPlatform } from '../src/install/macos.mjs';
 import { parseArgs } from '../src/kit.mjs';
 
 const kitRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -307,6 +308,22 @@ test('--yes without --captain records the captain the chosen agent CLIs default 
   }
   for (const argv of [['--harness', 'codex', '--captain', 'claude'], ['--harness', 'claude,codex', '--captain', 'codex'], ['--captain', 'claude']])
     await assert.rejects(setup(f.fixtureManifest, f.ctx(['--yes', '--dry-run', '--reconfigure', '--root', f.root, ...argv])), /--captain must be (codex|claude) or opencode/);
+});
+
+test('a direct install that switches from OpenCode back to the default captain drops the OpenCode receipt phase', posixOnly, async t => {
+  const f = fixture(t);
+  const installRoot = join(f.root, '.tools'), receiptPath = join(installRoot, 'receipt.json');
+  const install = captain => installPlatform(f.fixtureManifest, { platform: 'linux', arch: 'x64', home: f.home, env: f.env, nodeVersion: '24.21.0', libc: 'glibc', procVersion: 'Linux version 6.8.0-generic', osRelease: 'PRETTY_NAME="Fixture Linux"',
+    installRoot, firstmateHome: join(f.root, 'firstmate'), harness: 'codex', captain, withTower: false, globalHooks: false, ...f.installOptions });
+  await install(null);
+  const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+  receipt.phases['npm-opencode'] = { state: 'complete', path: 'releases/fixture-1/npm-opencode', version: '2.3.2', ownedSha256: '0'.repeat(64) };
+  writeFileSync(receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  assert.equal(receiptCaptain(JSON.parse(readFileSync(receiptPath, 'utf8')), 'codex'), 'opencode', 'an OpenCode direct install reads back as OpenCode');
+  await install('codex');
+  const after = JSON.parse(readFileSync(receiptPath, 'utf8'));
+  assert.equal(after.phases['npm-opencode'], undefined);
+  assert.equal(receiptCaptain(after, 'codex'), 'codex', 'later doctor, update, repair and launcher reads use the new choice');
 });
 
 test('the OpenCode auto-approve launch follows its warning, is on by default, is saved, and stays off when answered no', posixOnly, async t => {

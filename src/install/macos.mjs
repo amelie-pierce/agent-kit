@@ -441,6 +441,7 @@ export async function installPlatform(manifest, options = {}) {
     if (options.update && receipt.release !== release) { receipt.pendingUpdate = release; await save(); }
     const components = [], targetKey = linux ? artifactTarget(linux, arch) : `${platform}-${arch}`, harness = options.harness || 'claude';
     const captain = options.captain ? captainOf(options.captain, harness) : receiptCaptain(receipt, harness);
+    if (captain !== 'opencode' && receipt.phases['npm-opencode']) { delete receipt.phases['npm-opencode']; await save(); }
     const chosen = selected(manifest, harness, !!options.withFigma, options.withTower !== false, captain);
     await mkdir(join(root, 'releases', release, 'staging'), { recursive: true, mode: 0o700 });
     for (const tool of chosen) {
