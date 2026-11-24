@@ -490,6 +490,23 @@ test('a native selection is recorded by digest, verified by a dry run, refreshed
   assert.equal(restored.record.sha256, sha(readFileSync(f.rules)));
 });
 
+test('OpenCode-only workers remove the kit\'s unchanged bridge rules and keep rules the person edited', posixOnly, async t => {
+  const f = firstmateHome(t);
+  const written = await applyStarter(planStarter(f.home, { harness: 'claude', mode: 'balanced', create: true }));
+  assert.equal(written.action, 'write');
+  const removal = planStarter(f.home, { harness: 'opencode', record: written.record });
+  assert.equal(removal.action, 'remove');
+  const removed = await applyStarter(removal);
+  assert.match(describeStarter(removed), /removed the kit's unchanged rules at .* for claude; OpenCode-only workers follow/);
+  assert.equal(removed.record, null);
+  assert.equal(existsSync(f.rules), false);
+  const again = await applyStarter(planStarter(f.home, { harness: 'claude', mode: 'balanced', create: true }));
+  writeFileSync(f.rules, '{"rules":[]}\n');
+  const kept = await applyStarter(planStarter(f.home, { harness: 'opencode', record: again.record }));
+  assert.equal(kept.action, 'none');
+  assert.equal(readFileSync(f.rules, 'utf8'), '{"rules":[]}\n');
+});
+
 // The shape Firstmate's fm-strategy.sh renders for Claude Max 20x and Codex Pro balanced since its plan
 // ladders: each tier lists a provider's routes from stronger to cheaper and declares select "ladder".
 const floor = min_percent => ({ floor: { scope: 'all_models', min_percent } });

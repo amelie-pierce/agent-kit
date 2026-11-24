@@ -23,8 +23,9 @@ const plainFile = path => { const s = stat(path); return !!s && s.isFile() && !s
 
 export const plansOf = receipt => receipt?.setup?.answers?.plans || {};
 export const modeOf = receipt => receipt?.setup?.answers?.dispatchMode;
-export const harnessOf = receipt => receipt?.setup?.answers?.harness || (receipt?.phases?.['npm-codex'] ? 'codex' : 'claude');
-export const providersOf = harness => harnessProfiles(harness).join(',');
+export const harnessOf = receipt => receipt?.setup?.answers?.harness || receipt?.workerHarness || (receipt?.phases?.['npm-codex'] ? 'codex' : 'claude');
+// Firstmate's pinned token strategy knows Claude/Codex subscriptions only.
+export const providersOf = harness => harnessProfiles(harness).filter(profile => profile !== 'opencode').join(',');
 
 // The plan-to-model table is one reviewed data file. Plan ids match Firstmate's fm-strategy.sh --plans names;
 // "not-sure" (shown as skip) is kit-only and keeps Firstmate's template unchanged.
@@ -57,7 +58,7 @@ export function loadPlanTable(path = tablePath) {
 export const planIds = (table, harness) => (table.harnesses[harness]?.plans || []).map(row => row.id);
 const planRow = (table, harness, id) => (table.harnesses[harness]?.plans || []).find(row => row.id === id && row.profile) || null;
 export const effectivePlans = (providers, plans = {}, table = loadPlanTable()) =>
-  Object.fromEntries(providers.split(',').map(h => [h, planRow(table, h, plans?.[h]) ? plans[h] : 'not-sure']));
+  Object.fromEntries((providers ? providers.split(',') : []).map(h => [h, planRow(table, h, plans?.[h]) ? plans[h] : 'not-sure']));
 
 // The plan's roles at one mode, with the row's substitutes applied (Enterprise/Edu without 6.1 Sol).
 function planRoles(table, harness, id, mode) {
@@ -70,10 +71,12 @@ function planRoles(table, harness, id, mode) {
 // Default mode: lean when any chosen plan defaults to lean (small plans, API keys), else balanced. Full
 // is warned about on Pro, Team Standard, Enterprise standard, Plus and Business Standard.
 export function defaultMode(providers, plans = {}, table = loadPlanTable()) {
+  if (!providers) return 'balanced';
   const rows = Object.entries(effectivePlans(providers, plans, table)).map(([h, id]) => (table.harnesses[h].plans || []).find(row => row.id === id));
   return rows.some(row => row?.modes.default === 'lean') ? 'lean' : 'balanced';
 }
 export function fullWarnings(providers, plans = {}, table = loadPlanTable()) {
+  if (!providers) return [];
   return Object.entries(effectivePlans(providers, plans, table)).map(([h, id]) => planRow(table, h, id)).filter(row => row?.modes.warnFull)
     .map(row => row.label);
 }
@@ -188,6 +191,8 @@ export function planStarter(firstmateHome, { harness, plans = {}, mode, table = 
   const native = (action, extra = {}) => ({ action, path, providers, plans: chosen, mode, record, argv: setArgv(mode, providers, chosen), ...extra });
   const home = stat(firstmateHome), config = stat(join(firstmateHome, 'config'));
   if (!home?.isDirectory() || home.isSymbolicLink() || (config && (!config.isDirectory() || config.isSymbolicLink()))) return keep('skip', 'Firstmate home or its config folder is not a plain directory');
+  // OpenCode-only workers: routing the kit selected for other providers goes; rules the person or Firstmate own stay.
+  if (!providers) return kitRoutingUnchanged(firstmateHome, record) ? { action: 'remove', path, providers, mode, record: null, prior: record } : { action: 'none', path, providers, mode, record };
   if (stat(strategy)) {
     if (!nativeRecord(record)) return keep('keep', 'a Firstmate token strategy (config/strategy) owns the routing');
     if (!nativeUnchanged(firstmateHome, record)) return keep('keep', 'the Firstmate strategy the kit selected was changed since; Firstmate owns it');
@@ -220,6 +225,13 @@ export function planStarter(firstmateHome, { harness, plans = {}, mode, table = 
 // appeared after planning; a refresh replaces only the unchanged kit file it planned against.
 export async function applyStarter(plan) {
   if (['strategy', 'migrate', 'reselect'].includes(plan.action)) return selectStrategy(plan);
+  if (plan.action === 'remove') {
+    const home = join(plan.path, '..', '..');
+    if (!kitRoutingUnchanged(home, plan.prior)) return { ...plan, action: 'keep', detail: 'rules changed while updating; kept them' };
+    if (nativeRecord(plan.prior)) await rm(join(home, strategyFile), { force: true });
+    await rm(plan.path, { force: true });
+    return plan;
+  }
   if (!['write', 'restore', 'refresh'].includes(plan.action)) return plan;
   const dir = join(plan.path, '..');
   await mkdir(dir, { recursive: true });
@@ -282,6 +294,10 @@ async function selectStrategy(plan) {
   return { ...plan, record, ...(r.status === 0 ? {} : { detail: `fm-strategy.sh selected the strategy but then reported: ${last(r)}` }) };
 }
 
+// The routing the kit recorded, a strategy it selected or its bridge rules, still exactly as the kit left it.
+const kitRoutingUnchanged = (firstmateHome, record) => nativeRecord(record)
+  ? !!stat(join(firstmateHome, strategyFile)) && nativeUnchanged(firstmateHome, record) : !!starterRemovable(firstmateHome, record);
+
 // Uninstall removes the starter rules only while they are exactly what the kit wrote and no strategy took over.
 // A strategy the kit selected through fm-strategy.sh is Firstmate's configuration and stays.
 export function starterRemovable(firstmateHome, record) {
@@ -307,6 +323,7 @@ export function describeStarter(plan) {
     case 'verify': return nativeRecord(plan.record) ? `Starter dispatch rules: Firstmate's ${plan.mode} strategy the kit selected is unchanged` : `Starter dispatch rules: unchanged kit rules at ${where}`;
     case 'keep': return `Starter dispatch rules: kept ${where}; ${plan.detail}`;
     case 'skip': return `Starter dispatch rules: not written; ${plan.detail}`;
+    case 'remove': return `Starter dispatch rules: removed ${nativeRecord(plan.prior) ? 'Firstmate\'s strategy the kit selected' : `the kit's unchanged rules at ${where}`} for ${plan.prior.providers}; OpenCode-only workers follow Firstmate's OpenCode primary harness`;
     default: return null;
   }
 }
@@ -314,6 +331,9 @@ export function describeStarter(plan) {
 // Summary-screen text before anything is written; the home may not exist yet on a first install.
 export function previewStarter(firstmateHome, { harness, plans = {}, mode, table = loadPlanTable(), record = null, keySet = false } = {}) {
   const path = join(firstmateHome, starterFile), providers = providersOf(harness);
+  if (!providers) return kitRoutingUnchanged(firstmateHome, record) ? `remove ${nativeRecord(record) ? 'Firstmate\'s strategy the kit selected' : `the kit's unchanged rules at ${path}`} for ${record.providers}; OpenCode-only workers follow Firstmate's OpenCode primary harness`
+    : stat(join(firstmateHome, strategyFile)) || stat(path) ? `keep ${path}; your routing rules stay and still apply to delegated tasks`
+      : 'not written; OpenCode-only workers follow Firstmate\'s selected OpenCode primary harness';
   mode = modes.includes(mode) ? mode : defaultMode(providers, plans, table);
   if (stat(join(firstmateHome, strategyFile))) return nativeRecord(record) && nativeUnchanged(firstmateHome, record)
     ? `keep Firstmate's strategy the kit selected; refreshed with bin/fm-strategy.sh for ${providers}${planText(effectivePlans(providers, plans, table))}`

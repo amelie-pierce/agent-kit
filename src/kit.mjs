@@ -127,8 +127,8 @@ function evaluate(manifest, context, options) {
   const platform = inspectPlatform(context, manifest, relevant, options);
   const issues = [];
   const advisories = [];
-  if (captainOf(options.captain, options.harness) === 'opencode' && !opencodePinned(manifest))
-    issues.push({ status: 'fail', id: 'opencode-version', reason: 'OpenCode captain requires a reviewed OpenCode 2 pin before configuration' });
+  if ((captainOf(options.captain, options.harness) === 'opencode' || usesProfile(options.harness, 'opencode')) && !opencodePinned(manifest))
+    issues.push({ status: 'fail', id: 'opencode-version', reason: 'OpenCode requires a reviewed OpenCode 2 pin before configuration' });
   if (compareVersions(context.nodeVersion, manifest.nodeMinimum) < 0) issues.push({ status: 'fail', id: 'node-runtime', reason: `Node ${manifest.nodeMinimum} or newer required; install it yourself: ${manifest.tools.find(x => x.id === 'node')?.installDocs || 'https://nodejs.org/en/download'}` });
   if (!platform.supported) issues.push({ status: 'fail', id: 'platform', reason: platform.message });
   for (const prereq of platform.prerequisites) if (prereq.status !== 'pass') (advisoryPrerequisites.includes(prereq.id) || prereq.required === false ? advisories : issues).push({ status: prereq.status, id: prereq.id, reason: prereq.detail });
@@ -233,7 +233,7 @@ export function evaluatePlan(manifest, context, options) {
   let globalHookChanges = [];
   if (options.command === 'plan' && evaluation.platform.supported && !windows && options.globalHooks !== false) {
     try {
-      globalHookChanges = publicHookChanges(previewHooks(manifest, { home: context.env.HOME, installRoot: options.installRoot || join(context.env.HOME, '.agent-kit'), captain: options.captain, env: context.env }));
+      globalHookChanges = publicHookChanges(previewHooks(manifest, { home: context.env.HOME, installRoot: options.installRoot || join(context.env.HOME, '.agent-kit'), captain: options.captain, harness: options.harness, env: context.env }));
     } catch (error) {
       evaluation.issues.push({ status: 'conflict', id: 'hooks', reason: error.message });
     }

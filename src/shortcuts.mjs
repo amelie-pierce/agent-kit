@@ -6,7 +6,7 @@ import { dirname, isAbsolute, join } from 'node:path';
 import { findOnPath } from './platforms/macos.mjs';
 import { applyPlugin, describePlugin, planPlugin } from './herdr-plugin.mjs';
 import { claudePluginsHealth, placeClaudePlugins, recordClaudePreviousRevision } from './claude-plugins.mjs';
-import { receiptCaptain } from './harness.mjs';
+import { receiptCaptain, usesProfile } from './harness.mjs';
 
 // Keyboard shortcuts for a teammate's Firstmate: kit-owned launchers in <root>/.tools/bin (open-firstmate runs
 // the kit's templates/shortcuts/open_firstmate.py, fm-mate runs `agent-kit mate`) with paths from the receipt,
@@ -36,14 +36,14 @@ const onPath = (name, env) => findOnPath(name, env.PATH || '')[0] || null;
 // (the kit's Codex; Claude as found on PATH), the configured tower launcher, and python3.
 export function shortcutInputs(receipt, root, env, recorded = null, kitPath = null) {
   const phase = id => receipt.phases?.[id]?.state === 'complete' && typeof receipt.phases[id].path === 'string' ? join(root, receipt.phases[id].path) : null;
-  const harness = receipt.setup?.answers?.harness || 'codex';
+  const harness = receipt.setup?.answers?.harness || receipt.workerHarness || 'codex';
   const captain = receiptCaptain(receipt, harness);
   const python = recorded?.python && stat(recorded.python) ? recorded.python : onPath('python3', env);
   const codexTree = phase('npm-codex');
   const opencodeTree = phase('npm-opencode');
   const agents = {
-    ...(harness !== 'codex' ? { claude: recorded?.agents?.claude && stat(recorded.agents.claude) ? recorded.agents.claude : onPath('claude', env) || 'claude' } : {}),
-    ...(harness !== 'claude' && codexTree ? { codex: join(codexTree, 'node_modules', '.bin', 'codex') } : {}),
+    ...(usesProfile(harness, 'claude') ? { claude: recorded?.agents?.claude && stat(recorded.agents.claude) ? recorded.agents.claude : onPath('claude', env) || 'claude' } : {}),
+    ...(usesProfile(harness, 'codex') && codexTree ? { codex: join(codexTree, 'node_modules', '.bin', 'codex') } : {}),
     ...(captain === 'opencode' && opencodeTree ? { opencode: join(opencodeTree, 'node_modules', '.bin', 'opencode') } : {}),
   };
   // The installed kit copy at its pinned commit (during an upgrade, the new copy), never a temporary checkout.
@@ -51,14 +51,14 @@ export function shortcutInputs(receipt, root, env, recorded = null, kitPath = nu
   const node = recorded?.node && stat(recorded.node) ? recorded.node : process.execPath;
   const runtime = phase('zoe-fleet-runtime'), npm = phase('npm'), answers = receipt.setup?.answers || {};
   // The person's own Claude CLI, never the kit's telemetry wrapper in <root>/.tools/bin.
-  const realClaude = harness === 'codex' ? null : recorded?.realClaude && stat(recorded.realClaude) ? recorded.realClaude
+  const realClaude = !usesProfile(harness, 'claude') ? null : recorded?.realClaude && stat(recorded.realClaude) ? recorded.realClaude
     : findOnPath('claude', env.PATH || '').find(path => dirname(path) !== join(root, 'bin')) || null;
   const firstmateHome = receipt.setup?.paths?.firstmateHome || receipt.phases?.firstmate?.path || null;
   return { herdr: phase('herdr'), python, node, kit, firstmateHome, agents, captain, realClaude, mate: join(root, mateFile), graph: !!recorded?.plugin?.entrySha256, pluginManager: !!recorded?.plugin?.managerSha256,
     lock: join(root, '.open-firstmate.lock'), program, firstmate: join(root, 'bin', 'firstmate'),
     paths: { root: receipt.setup?.paths?.root || dirname(root), treehouseRoot: receipt.setup?.paths?.treehouseRoot || dirname(root), installRoot: root },
     tower: receipt.phases?.['zoe-fleet-tower'] && runtime ? { launcher: join(runtime, 'bin', 'zoe-fleet-tower'), runtime } : null,
-    fullAccess: harness !== 'claude' && answers.codexFullAccess !== false && !!codexTree, opencodeAuto: captain === 'opencode' && answers.opencodeAuto === true };
+    fullAccess: usesProfile(harness, 'codex') && answers.codexFullAccess !== false && !!codexTree, opencodeAuto: captain === 'opencode' && answers.opencodeAuto === true };
 }
 
 export const launcherScript = inputs => `#!/bin/sh

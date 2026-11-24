@@ -399,6 +399,28 @@ test('OpenCode captain stays separate from worker selection and rejects a non-2 
   assert.equal(existsSync(installRoot), false);
 });
 
+test('OpenCode worker plans reuse the captain pin and helper while legacy worker plans stay unchanged', t => {
+  const { home, bin } = tempFixture(t);
+  const context = { platform: 'linux', arch: 'x64', env: { HOME: home, PATH: bin }, nodeVersion: '24.15.0', libc: 'glibc', procVersion: '', osRelease: '' };
+  for (const [harness, captain, optional] of [
+    ['claude', 'claude', ['codex', 'opencode', 'figma-cli']],
+    ['codex', 'codex', ['opencode', 'figma-cli']],
+    ['claude,codex', 'claude', ['opencode', 'figma-cli']],
+  ]) {
+    const result = run(['plan', '--json', '--harness', harness], manifest, context).result;
+    assert.equal(result.captain, captain);
+    assert.deepEqual(result.plan.optionalComponents.map(x => x.id), optional);
+    assert.equal(result.plan.tools.some(x => x.id === 'opencode'), false);
+    assert.equal(result.plan.globalHookChanges.some(x => x.path.endsWith('agent-kit-ambient.js')), false);
+  }
+  for (const harness of ['opencode', 'claude,opencode', 'codex,opencode', 'claude,codex,opencode']) {
+    const result = run(['plan', '--json', '--harness', harness], manifest, context).result;
+    assert.ok(result.plan.tools.some(x => x.id === 'opencode' && x.lockGroup === 'npm-opencode'));
+    assert.ok(result.plan.globalHookChanges.some(x => x.path.endsWith('agent-kit-ambient.js')));
+    assert.equal(result.captain, harness === 'opencode' ? 'opencode' : harness.startsWith('claude') ? 'claude' : 'codex');
+  }
+});
+
 test('a Claude or Codex captain is only the default for the chosen agent CLIs; crossing them is refused', t => {
   const { home, bin } = tempFixture(t);
   const context = { platform: 'darwin', arch: 'arm64', env: { HOME: home, PATH: bin }, nodeVersion: '24.15.0', applicationDirs: [] };

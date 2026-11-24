@@ -97,6 +97,24 @@ test('doctor treats a direct install recorded with OpenCode phases as the OpenCo
   assert.equal(rows['opencode-version'], 'pass', 'the OpenCode executable is still checked without a setup answer');
 });
 
+test('doctor reports OpenCode worker readiness without requiring primary plugins or reading auth', { skip: process.platform === 'win32' }, t => {
+  const f = fixture(t);
+  const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+  receipt.workerHarness = 'claude,opencode';
+  receipt.phases['npm-opencode'] = { state: 'complete', path: 'releases/old-release/npm-opencode', version: '2.3.2', ownedSha256: '0'.repeat(64) };
+  writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  const bin = join(f.root, 'releases', 'old-release', 'npm-opencode', 'node_modules', '.bin');
+  mkdirSync(bin, { recursive: true });
+  const executable = join(bin, 'opencode');
+  writeFileSync(executable, '#!/bin/sh\necho "opencode v2.3.2"\n', { mode: 0o755 });
+  const rows = () => Object.fromEntries(doctor(f.manifest, f.options).checks.map(x => [x.id, x.status]));
+  assert.equal(rows()['opencode-worker'], 'pass');
+  assert.equal(rows()['opencode-primary-plugins'], undefined);
+  assert.equal(rows()['opencode-auth'], 'unknown');
+  writeFileSync(executable, '#!/bin/sh\necho "opencode v1.9.0"\n', { mode: 0o755 });
+  assert.equal(rows()['opencode-worker'], 'fail');
+});
+
 test('doctor labels OpenCode configured unknown unless it is the captain with global hooks recorded', { skip: process.platform === 'win32' }, t => {
   const f = fixture(t);
   f.manifest.tools.push(structuredClone(bundled.tools.find(x => x.id === 'opencode')));
@@ -106,6 +124,35 @@ test('doctor labels OpenCode configured unknown unless it is the captain with gl
   receipt.setup = { answers: { harness: 'codex', captain: 'opencode', globalHooks: false } };
   writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
   assert.equal(configured(), 'unknown', 'an OpenCode captain who declined global hooks has nothing to verify');
+});
+
+test('doctor keeps OpenCode configured unknown for Claude-only and Codex-only homes with global hooks recorded', { skip: process.platform === 'win32' }, t => {
+  const f = fixture(t);
+  f.manifest.tools.push(structuredClone(bundled.tools.find(x => x.id === 'opencode')));
+  for (const harness of ['claude', 'codex', 'both']) {
+    const receipt = JSON.parse(readFileSync(f.receiptPath, 'utf8'));
+    receipt.setup = { answers: { harness } };
+    receipt.phases.hooks = { state: 'complete', files: [], skills: [], scripts: [], plugins: [] };
+    writeFileSync(f.receiptPath, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+    const result = doctor(f.manifest, f.options);
+    assert.ok(result.checks.some(x => x.id === 'hooks'), 'the hooks check ran');
+    assert.equal(result.components.find(x => x.id === 'opencode').configured, 'unknown', `${harness} never configures OpenCode`);
+  }
+});
+
+test('lifecycle process checks scan only the current account, and every process where no account id exists', { skip: process.platform === 'win32' }, t => {
+  const f = fixture(t), bin = join(f.base, 'ps-bin'), log = join(f.base, 'ps-args');
+  mkdirSync(bin);
+  // A ps stand-in: one Herdr server runs under another account, so only an all-account listing shows it.
+  writeFileSync(join(bin, 'ps'), `#!/bin/sh\necho "$*" >> '${log}'\ncase " $* " in *" -A "*) echo "/home/other/.tools/bin/herdr server";; esac\necho "/usr/bin/sleep 30"\n`, { mode: 0o755 });
+  const path = process.env.PATH, getuid = process.getuid;
+  t.after(() => { process.env.PATH = path; process.getuid = getuid; });
+  process.env.PATH = `${bin}:${path}`;
+  assert.equal(processRunning('herdr'), false, 'another account\'s Herdr does not block this home');
+  assert.equal(readFileSync(log, 'utf8'), `-U ${getuid()} -o args=\n`);
+  process.getuid = undefined;
+  assert.equal(processRunning('herdr'), true, 'without an account id every process counts');
+  assert.equal(readFileSync(log, 'utf8').split('\n')[1], '-A -o args=');
 });
 
 test('doctor reports every bundled figma-cli skill linked per agent, including the AtomicAUI release and upgrade skills', { skip: process.platform === 'win32' }, t => {

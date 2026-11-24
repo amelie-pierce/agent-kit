@@ -92,7 +92,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, herdrPa
   if (receiptFile) {
     try {
       const recorded = JSON.parse(readFileSync(receiptPath, 'utf8'));
-      recordedHarness = recorded.setup?.answers?.harness || (recorded.phases?.['npm-codex'] ? 'codex' : 'claude');
+      recordedHarness = recorded.setup?.answers?.harness || recorded.workerHarness || (recorded.phases?.['npm-codex'] ? 'codex' : 'claude');
       recordedCaptain = receiptCaptain(recorded, recordedHarness);
     }
     catch { /* The receipt validation below reports malformed JSON. */ }
@@ -188,7 +188,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, herdrPa
       : kitLauncher ? 'the kit launcher in front of the pinned binary has PATH precedence' : 'another binary has PATH precedence'));
   }
   const captain = receiptCaptain(receipt, recordedHarness);
-  if (captain === 'opencode') {
+  if (captain === 'opencode' || usesProfile(recordedHarness, 'opencode')) {
     const phase = receipt.phases['npm-opencode'], base = phase && phasePath(root, 'npm-opencode', phase);
     const binary = base && join(base, 'node_modules', '.bin', 'opencode');
     if (!binary || !existsSync(binary)) checks.push(status('opencode-version', 'fail', 'pinned OpenCode executable missing'));
@@ -200,24 +200,28 @@ export function doctor(manifest, { installRoot, home, env = process.env, herdrPa
         checks.push(status('opencode-version', result.status === 0 && isOpenCode2(version) ? 'pass' : 'fail', result.status === 0 ? `${version}; version 2 required` : 'OpenCode version probe failed'));
       } finally { rmSync(probeHome, { recursive: true, force: true }); }
     }
-    const fmHome = receipt.phases.firstmate?.path, pluginDir = fmHome && join(fmHome, '.opencode', 'plugins');
-    let files = [], api2 = false;
-    try {
-      if (pluginDir && lstatSync(pluginDir).isDirectory() && !lstatSync(pluginDir).isSymbolicLink()) {
-        files = readdirSync(pluginDir).filter(name => /^fm-primary-.*\.js$/.test(name));
-        api2 = files.length >= 5 && files.every(name => {
-          const path = join(pluginDir, name), st = lstatSync(path);
-          return st.isFile() && !st.isSymbolicLink() && /\bsetup\s*\(/.test(readFileSync(path, 'utf8'));
-        });
-      }
-    } catch { api2 = false; }
-    checks.push(status('opencode-primary-plugins', api2 ? 'pass' : 'fail', api2 ? `${files.length} Firstmate OpenCode 2 project plugins present` : 'Firstmate OpenCode 2 primary plugins absent or not ported'));
+    if (captain === 'opencode') {
+      const fmHome = receipt.phases.firstmate?.path, pluginDir = fmHome && join(fmHome, '.opencode', 'plugins');
+      let files = [], api2 = false;
+      try {
+        if (pluginDir && lstatSync(pluginDir).isDirectory() && !lstatSync(pluginDir).isSymbolicLink()) {
+          files = readdirSync(pluginDir).filter(name => /^fm-primary-.*\.js$/.test(name));
+          api2 = files.length >= 5 && files.every(name => {
+            const path = join(pluginDir, name), st = lstatSync(path);
+            return st.isFile() && !st.isSymbolicLink() && /\bsetup\s*\(/.test(readFileSync(path, 'utf8'));
+          });
+        }
+      } catch { api2 = false; }
+      checks.push(status('opencode-primary-plugins', api2 ? 'pass' : 'fail', api2 ? `${files.length} Firstmate OpenCode 2 project plugins present` : 'Firstmate OpenCode 2 primary plugins absent or not ported'));
+    }
+    if (usesProfile(recordedHarness, 'opencode')) checks.push(status('opencode-worker', checks.find(x => x.id === 'opencode-version')?.status === 'pass' ? 'pass' : 'fail',
+      'Firstmate OpenCode 2 worker adapter selected; personal model and live dispatch are not inspected'));
     checks.push(status('opencode-auth', 'unknown', 'personal OpenCode sign-in is not inspected'));
-    checks.push(status('opencode-tui', 'unknown', 'supervision and turn-end follow-up require a persistent TUI smoke'));
+    if (captain === 'opencode') checks.push(status('opencode-tui', 'unknown', 'supervision and turn-end follow-up require a persistent TUI smoke'));
   }
   if (receipt.phases.hooks) {
     try {
-      const preview = previewHooks({ ...manifest, release: receipt.release }, { home: home || env.HOME, installRoot: root, captain, env });
+      const preview = previewHooks({ ...manifest, release: receipt.release }, { home: home || env.HOME, installRoot: root, captain, harness: recordedHarness, env });
       const changed = preview.files.some(f => f.changes.length) || preview.skills.length || preview.scripts.length || preview.plugins.length;
       checks.push(status('hooks', changed ? 'fail' : 'pass', changed ? 'kit hook markers or skill targets differ' : 'kit hook markers and skill targets intact'));
     } catch { checks.push(status('hooks', 'fail', 'hook ownership cannot be verified')); }
@@ -262,7 +266,7 @@ function figmaSkillsLinked(root, receipt, harness, home) {
   if (!names.length) return [status('figma-skills', 'unknown', 'bundled figma-cli skills cannot be read')];
   const targets = { claude: join(home, '.claude', 'skills'), codex: join(home, '.agents', 'skills') };
   const recorded = new Set(phase.skills);
-  return (harness === 'both' ? ['claude', 'codex'] : [harness === 'codex' ? 'codex' : 'claude']).map(agent => {
+  return ['claude', 'codex'].filter(agent => usesProfile(harness, agent)).map(agent => {
     const missing = names.filter(name => !recorded.has(join(targets[agent], name)));
     // figma-cli never overwrites a skill folder the person changed or another tool owns (see figmaSkills), so repair cannot link those.
     const owned = name => { try { return JSON.parse(readFileSync(join(targets[agent], name, '.figma-cli-skill.json'), 'utf8')).owner === 'amelie-pierce/figma-cli'; } catch { return false; } };
@@ -283,8 +287,8 @@ function doctorResult(checks, release, manifest, receipt, root) {
     const installed = path && existsSync(path) ? 'pass' : 'unknown';
     const verifiedDigest = find(phaseId);
     const configured = tool.id === 'firstmate' ? ['bin', 'data', 'state', 'config', 'projects'].every(dir => find(`firstmate-layout-${dir}`) === 'pass') ? 'pass' : 'fail'
-      : tool.id === 'opencode' ? !checks.some(x => x.id === 'opencode-primary-plugins') || find('hooks') === 'unknown' ? 'unknown'
-        : find('opencode-primary-plugins') === 'pass' && find('hooks') === 'pass' ? 'pass' : 'fail'
+      : tool.id === 'opencode' ? !checks.some(x => x.id === 'opencode-version') || find('hooks') === 'unknown' ? 'unknown'
+        : (checks.some(x => x.id === 'opencode-primary-plugins') && find('opencode-primary-plugins') !== 'pass') || find('hooks') !== 'pass' ? 'fail' : 'pass'
         : ['herdr', 'gh-axi', 'chrome-devtools-axi', 'lavish-axi', 'tasks-axi'].includes(tool.id) ? find('hooks') : 'unknown';
     return { id: tool.id, installed, verifiedDigest, configured, authenticated: 'unknown', liveTested: 'unknown' };
   });
