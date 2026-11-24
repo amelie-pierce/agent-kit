@@ -469,7 +469,7 @@ In the manifest, `verified` means the artifact's identity and integrity were che
 - **OpenCode 2.** An exact OpenCode 2.3.2 npm lock supplies the third Firstmate CLI choice. The kit checks the major version before global registration, adds its binary to the receipt and PATH, and launches a persistent TUI with `firstmate opencode` or the free `Ctrl+B Shift+O` Herdr key.
 - **Worker routing and personal account.** The worker choice remains Claude, Codex or both. Each person signs in to OpenCode and chooses a model themselves; the kit does not write OpenCode provider, model or credentials.
 - **Lifecycle.** A global OpenCode 2 plugin supplies ambient helper hints and Herdr agent state with receipt ownership, private backups and conflict checks. Firstmate's project plugins own the session digest, supervision wake and turn-end follow-up. Their callbacks are passive and require the persistent TUI. Repair, upgrade and uninstall handle the kit-owned plugin and binary.
-- **Firstmate.** The reviewed OpenCode 2 project-plugin port is required in the Firstmate pin before this release can ship. Linux and WSL2 Ubuntu remain unverified live platforms.
+- **Firstmate.** The pin advances from `b69fcebc` to `657f0af6`, the head of Firstmate `main` after [PR 52](https://github.com/pikenguyen227/firstmate/pull/52) ported its OpenCode primary plugins and workers to OpenCode 2, and [PR 53](https://github.com/pikenguyen227/firstmate/pull/53) repaired inherited Claude watcher replacement. The new source archive digest is in `manifests/pilot-skeleton.json`. Upgrade requires Firstmate's guarded `/updatefirstmate` handoff. Linux and WSL2 Ubuntu remain unverified live platforms until their captain smoke runs are recorded.
 
 ### Release changes (`pilot-18` -> `pilot-19`)
 
