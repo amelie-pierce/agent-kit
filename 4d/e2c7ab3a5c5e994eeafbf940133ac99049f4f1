@@ -1,0 +1,76 @@
+src/claude-plugins.mjs
+  s_c712534180f713::t_9d338e12467618 7,19
+src/kit.mjs
+  s_c712534180f713::t_82641d503888ac 130-131,236
+README.md
+  s_c712534180f713::t_48428269404130 402,473
+  s_c712534180f713::t_6e5d3324cb199d 71-72
+test/shortcuts.test.mjs
+  s_c712534180f713::t_e72ed590270dd5 9,50-59
+  s_c712534180f713::t_163b3c03c52237 60
+src/install/hooks.mjs
+  s_c712534180f713::t_3185a1de005f7d 8,221,228,417,419
+test/setup.test.mjs
+  s_c712534180f713::t_47fd62940c8c31 81-94
+src/harness.mjs
+  s_c712534180f713::t_d5e22d117a809f 1,4-8,12,15,19
+src/setup.mjs
+  s_c712534180f713::t_a8bfa67bce03e5 55,214,223,320
+  s_c712534180f713::t_1fd6d5d9a17745 14
+  s_c712534180f713::t_72c3644a2d9c4c 267
+  s_c712534180f713::t_cc8e19c5e518ef 218
+  s_c712534180f713::t_0dcbc7f8a87d29 435
+src/install/macos.mjs
+  s_c712534180f713::t_0d75d03eeadcab 275
+  s_c712534180f713::t_09206ed6ac539b 457,647,656
+  s_c712534180f713::t_f9a9f11cf418d0 436
+  s_c712534180f713::t_fa29dcf2d5a173 675-676
+src/update.mjs
+  s_c712534180f713::t_393871ed8ce84a 34
+src/lifecycle.mjs
+  s_c712534180f713::t_536fa3580e3dca 327
+  s_c712534180f713::t_300405ffade821 259,568
+src/install/windows.mjs
+  s_c712534180f713::t_c0a568f1a7796e 4,36
+docs/user-guide.md
+  s_c712534180f713::t_c2bc81ff289224 21,202-203,233-234,1660
+  s_c712534180f713::t_a882ea9b4434a7 1630
+  s_c712534180f713::t_38ab12b4bf6c67 1661
+src/doctor.mjs
+  s_c712534180f713::t_cfed8d33089cc2 290-291
+  s_c712534180f713::t_2a5e263c7dc7b7 269
+  s_c712534180f713::t_8254b72255cbe5 191,203,216,220,224
+  s_c712534180f713::t_e439d0ef438f1d 95
+  s_c712534180f713::t_02ff50c64fa2e3 204-215
+  s_c712534180f713::t_2844d80693f440 217-218
+src/dispatch.mjs
+  s_c712534180f713::t_cee17e4e84a19e 26
+  s_c712534180f713::t_15101762b1a713 27-28,74,79
+  s_c712534180f713::t_5e0625fc5250df 61,189,321
+test/kit.test.mjs
+  s_c712534180f713::t_3791d0255af54d 406,408
+  s_c712534180f713::t_5c724a1498bd6e 407
+  s_c712534180f713::t_f6bc78008f03ca 402-405,409-423
+_vaults/agent-kit/wiki/architecture/opencode-captain.md
+  s_c712534180f713::t_6ff72689c85b42 9,11-15,19
+src/shortcuts.mjs
+  s_c712534180f713::t_49b6cb99d37590 9,39,45-46,54,61
+test/doctor-update.test.mjs
+  s_c712534180f713::t_8b3bb372b0ff40 100-117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4de2c7ab3a5c5e994eeafbf940133ac99049f4f1",
+  "prompts": {},
+  "sessions": {
+    "s_c712534180f713": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20bea-84b2-7b60-9645-fa9f65ccdd1f",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
