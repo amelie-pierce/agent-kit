@@ -421,11 +421,11 @@ herdr
 
 **5. Start Firstmate.** Pick one way, inside Herdr:
 
-- **The key:** press `Ctrl+B`, let go, then `Shift+F` for Firstmate in Codex, or `F` for Firstmate in Claude Code (A8.2).
+- **The key:** press `Ctrl+B`, let go, then `Shift+F` for Firstmate in Codex, `F` for Firstmate in Claude Code, or `Shift+O` for Firstmate in OpenCode (A8.2).
 - **The command:** in a Herdr pane, type `firstmate codex` (or `firstmate claude` or `firstmate opencode`).
 - **By hand:** in a Herdr pane, `cd ~/Agentic/firstmate`, then `codex`, `claude` or `opencode --standalone` (add `--auto` only if you answered yes to 2e).
 
-The key and the command open a **Control Tower** workspace with a **Captain (Codex)** or **Captain (Claude)** tab and start Firstmate there, in your Firstmate home. If that tab is already running something, they only switch to it. Only one Firstmate can run in a home; do not open both Captain tabs at once.
+The key and the command open a **Control Tower** workspace with a **Captain (Codex)**, **Captain (Claude)** or **Captain (OpenCode)** tab and start Firstmate there, in your Firstmate home. If that tab is already running something, they only switch to it. Only one Firstmate can run in a home; do not open both Captain tabs at once.
 
 The first time Codex starts it asks you to review the kit's hooks (`/hooks`); review and approve them yourself (A2.8). With the tower and Claude Code, the tower's **Team** tab also opens on its own the first time Firstmate starts in Claude Code (A9).
 
@@ -1176,6 +1176,7 @@ With question 5 answered yes, the kit adds these keys to your Herdr settings. Pr
 | --- | --- | --- |
 | `Ctrl+B F` | Open Firstmate in Claude Code (the **Captain (Claude)** tab in the **Control Tower** workspace) | you chose Claude Code |
 | `Ctrl+B Shift+F` | Open Firstmate in Codex (the **Captain (Codex)** tab) | you chose Codex |
+| `Ctrl+B Shift+O` | Open Firstmate in OpenCode (the **Captain (OpenCode)** tab) | you chose OpenCode as the Firstmate CLI |
 | `Ctrl+B Shift+M` | Create a new second mate: opens the **Mates** tab and runs `fm-mate` (A7.6) | always |
 | `Ctrl+B Shift+C` | Open the Zoetrope session graph in its own tab | the session graph plugin was added (with the tower) |
 | `Ctrl+B Shift+Z` | Show the session graph over the pane you are in (this key comes from the plugin itself) | the session graph plugin was added |
@@ -2613,6 +2614,7 @@ With question 5 answered yes, the kit adds these keys to your Herdr settings ins
 | --- | --- | --- |
 | `Ctrl+B F` | Open Firstmate in Claude Code (the **Captain (Claude)** tab in the **Control Tower** workspace) | you chose Claude Code |
 | `Ctrl+B Shift+F` | Open Firstmate in Codex (the **Captain (Codex)** tab) | you chose Codex |
+| `Ctrl+B Shift+O` | Open Firstmate in OpenCode (the **Captain (OpenCode)** tab) | you chose OpenCode as the Firstmate CLI |
 | `Ctrl+B Shift+M` | Create a new second mate: opens the **Mates** tab and runs `fm-mate` (B7.6) | always |
 | `Ctrl+B Shift+C` | Open the Zoetrope session graph in its own tab | the session graph plugin was added (with the tower) |
 | `Ctrl+B Shift+Z` | Show the session graph over the pane you are in (this key comes from the plugin itself) | the session graph plugin was added |

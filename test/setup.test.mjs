@@ -313,8 +313,8 @@ test('--yes without --captain records the captain the chosen agent CLIs default 
 test('a direct install that switches from OpenCode back to the default captain drops the OpenCode receipt phase', posixOnly, async t => {
   const f = fixture(t);
   const installRoot = join(f.root, '.tools'), receiptPath = join(installRoot, 'receipt.json');
-  const install = captain => installPlatform(f.fixtureManifest, { platform: 'linux', arch: 'x64', home: f.home, env: f.env, nodeVersion: '24.21.0', libc: 'glibc', procVersion: 'Linux version 6.8.0-generic', osRelease: 'PRETTY_NAME="Fixture Linux"',
-    installRoot, firstmateHome: join(f.root, 'firstmate'), harness: 'codex', captain, withTower: false, globalHooks: false, ...f.installOptions });
+  const install = (captain, globalHooks = false) => installPlatform(f.fixtureManifest, { platform: 'linux', arch: 'x64', home: f.home, env: f.env, nodeVersion: '24.21.0', libc: 'glibc', procVersion: 'Linux version 6.8.0-generic', osRelease: 'PRETTY_NAME="Fixture Linux"',
+    installRoot, firstmateHome: join(f.root, 'firstmate'), harness: 'codex', captain, withTower: false, globalHooks, ...f.installOptions });
   await install(null);
   const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
   receipt.phases['npm-opencode'] = { state: 'complete', path: 'releases/fixture-1/npm-opencode', version: '2.3.2', ownedSha256: '0'.repeat(64) };
@@ -324,6 +324,17 @@ test('a direct install that switches from OpenCode back to the default captain d
   const after = JSON.parse(readFileSync(receiptPath, 'utf8'));
   assert.equal(after.phases['npm-opencode'], undefined);
   assert.equal(receiptCaptain(after, 'codex'), 'codex', 'later doctor, update, repair and launcher reads use the new choice');
+  const plugin = join(f.home, '.config', 'opencode', 'plugins', 'agent-kit-ambient.js');
+  mkdirSync(join(f.home, '.config', 'opencode', 'plugins'), { recursive: true });
+  writeFileSync(plugin, '// edited by the person\n');
+  after.phases['npm-opencode'] = receipt.phases['npm-opencode'];
+  after.phases.hooks = { state: 'complete', files: [], skills: [], scripts: [], plugins: [{ path: plugin, sha256: '0'.repeat(64) }] };
+  writeFileSync(receiptPath, `${JSON.stringify(after)}\n`, { mode: 0o600 });
+  const conflicted = await install('codex', true);
+  assert.equal(conflicted.components.find(x => x.id === 'hooks').status, 'conflict', 'the edited plugin blocks its removal');
+  const kept = JSON.parse(readFileSync(receiptPath, 'utf8'));
+  assert.equal(kept.phases.hooks.plugins.length, 1, 'the unremoved plugin stays recorded for repair');
+  assert.equal(receiptCaptain(kept, 'codex'), 'codex', 'a blocked plugin removal does not bring the OpenCode captain back');
 });
 
 test('the OpenCode auto-approve launch follows its warning, is on by default, is saved, and stays off when answered no', posixOnly, async t => {
