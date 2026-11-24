@@ -10,6 +10,7 @@ import { installPlatform, atomicJson, towerPaths, systemDirs, within } from './i
 import { applyUnregister, previewHooks, previewUnregister } from './install/hooks.mjs';
 import { applyUpdate as applyCurrentUpdate, extrasPaths as currentExtrasPaths, placeUpdateExtras as placeCurrentExtras, processRunning } from './update.mjs';
 import { wrapperScript } from './setup.mjs';
+import { receiptCaptain } from './harness.mjs';
 import { envManaged, keyStatus } from './keys.mjs';
 import { applyStarter, harnessOf, modeOf, planStarter, plansOf, starterRemovable } from './dispatch.mjs';
 import { herdrConfigPath, placeKitExtras, planRemoveShortcuts, removeShortcuts } from './shortcuts.mjs';
@@ -255,7 +256,7 @@ export function planRepair(manifest, { installRoot, home, env = process.env, isR
   const firstmate = homeOf(receipt);
   const fm = doctor(manifest, { installRoot: root, home, env }).checks.find(x => x.id === 'firstmate');
   let hooks = null, hookError = null;
-  if (receipt.setup?.answers?.globalHooks !== false) try { hooks = previewHooks(manifest, { home, installRoot: root, captain: receipt.setup?.answers?.captain, env }); }
+  if (receipt.setup?.answers?.globalHooks !== false) try { hooks = previewHooks(manifest, { home, installRoot: root, captain: receiptCaptain(receipt, receipt.setup?.answers?.harness), env }); }
   catch (error) { hookError = error.message; }
   const tower = towerConfig(receipt, env, home, firstmate);
   const towerAction = !tower ? 'not installed' : !stat(tower.path) ? 'restore missing' : digest(tower.path) === tower.ownedSha256 ? 'verify' : 'backup and replace changed';
@@ -323,7 +324,7 @@ export async function applyRepair(manifest, options = {}) {
     await atomicJson(join(plan.root, 'receipt.json'), receipt);
     const answer = receipt.setup?.answers || {};
     const result = await installPlatform(manifest, { ...options, home: options.home, installRoot: plan.root, firstmateHome: homeOf(current),
-      harness: answer.harness || 'claude', captain: answer.captain || null, withFigma: answer.figma || false, withTower: answer.tower !== false, globalHooks: answer.globalHooks !== false,
+      harness: answer.harness || 'claude', captain: receiptCaptain(receipt, answer.harness || 'claude'), withFigma: answer.figma || false, withTower: answer.tower !== false, globalHooks: answer.globalHooks !== false,
       towerState: receipt.setup?.paths?.towerState });
     const { failed, nextSteps } = unresolved(result.components, manifest, options.platform || process.platform, options.arch || process.arch, true);
     if (failed.length) throw new Error('repair has unresolved kit components');
@@ -564,7 +565,7 @@ export async function applyUpgrade(plan, options = {}) {
       Object.assign(receipt.phases, rollbackPhases(root, receipt.rollback));
       await atomicJson(join(root, 'receipt.json'), receipt);
     }
-    const preview = previewHooks(plan.manifest, { home: options.home, installRoot: root, captain: receipt.setup?.answers?.captain, env: options.env || process.env });
+    const preview = previewHooks(plan.manifest, { home: options.home, installRoot: root, captain: receiptCaptain(receipt, receipt.setup?.answers?.harness), env: options.env || process.env });
     for (const file of preview.files) capture(file.path);
     for (const skill of preview.skills) capture(skill.path);
     for (const plugin of preview.plugins) capture(plugin.path);

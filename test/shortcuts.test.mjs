@@ -17,7 +17,7 @@ const ok = () => ({ ok: true, detail: '' });
 
 // A kit root as setup leaves it: Herdr, Codex and the tower runtime recorded in the receipt, the kit copy at
 // this checkout, a temp HOME and PATH that holds python3 and a claude stub.
-function fixture(t, { harness = 'both', captain = null, tower = true, config = null, answers = {} } = {}) {
+function fixture(t, { harness = 'both', captain = null, opencodePhase = captain === 'opencode', tower = true, config = null, answers = {} } = {}) {
   const base = realpathSync(mkdtempSync(join(tmpdir(), 'kit-shortcuts-')));
   t.after(() => rmSync(base, { recursive: true, force: true }));
   const home = join(base, 'home'), root = join(base, 'Agentic', '.tools'), firstmate = join(base, 'Agentic', 'firstmate'), bin = join(base, 'bin');
@@ -30,7 +30,7 @@ function fixture(t, { harness = 'both', captain = null, tower = true, config = n
   if (config !== null) { mkdirSync(dirname(configPath), { recursive: true }); writeFileSync(configPath, config); }
   const receipt = { schemaVersion: 1, release: 'r', phases: {
     herdr: { state: 'complete', path: 'releases/r/bin/herdr' }, 'npm-codex': { state: 'complete', path: 'releases/r/npm-codex' },
-    ...(captain === 'opencode' ? { 'npm-opencode': { state: 'complete', path: 'releases/r/npm-opencode' } } : {}),
+    ...(opencodePhase ? { 'npm-opencode': { state: 'complete', path: 'releases/r/npm-opencode' } } : {}),
     ...(tower ? { 'zoe-fleet-runtime': { state: 'complete', path: 'releases/r/zoe-fleet-runtime' }, 'zoe-fleet-tower': { state: 'complete', path: join(home, '.config', 'zoe-fleet', 'config') } } : {}),
     firstmate: { state: 'complete', path: firstmate } },
   setup: { answers: { harness, ...(captain ? { captain } : {}), globalHooks: true, tower, ...answers }, paths: { firstmateHome: firstmate, installRoot: root }, kit: { commit: 'fixture', path: kit } } };
@@ -113,6 +113,13 @@ test('only the chosen agent CLIs get coordinator keys; Herdr defaults the kit wo
     ["Ctrl+B n will create a second mate in the Mates tab instead of Herdr's next-tab"]);
   writeFileSync(f.configPath, 'next_tab = "prefix+right"\n');
   assert.deepEqual(previewKeys(f.configPath, [{ key: 'prefix+n', purpose: 'x' }]), [], 'a default you moved is no longer replaced');
+});
+
+test('a direct install with no setup answer keeps OpenCode as the default coordinator from its recorded phase', posixOnly, async t => {
+  const f = fixture(t, { harness: 'codex', opencodePhase: true, tower: false });
+  const result = await f.run();
+  assert.deepEqual(result.keys.bound, ['prefix+shift+f', 'prefix+shift+o', 'prefix+shift+m']);
+  assert.match(readFileSync(f.launcher, 'utf8'), /OPEN_FIRSTMATE_DEFAULT='opencode'/);
 });
 
 for (const [opencodeAuto, flags, shown] of [[true, '--standalone --auto', 'on'], [false, '--standalone', 'off']]) {

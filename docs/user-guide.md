@@ -780,7 +780,7 @@ It shows a plan and asks before changing anything.
 - The Treehouse wrapper, if you did not change it. A changed wrapper is left for you to review.
 - The kit's hook entries in `~/.claude/settings.json` and `~/.codex/hooks.json`, its receipt-owned OpenCode plugin when selected, and its skill links in `~/.claude/skills/` and `~/.agents/skills/`.
 - The tower config the kit wrote, if you did not change it.
-- The kit's commands in `<root>/.tools/bin` (including its `codex`, `claude` and `opencode` commands), its Herdr keys and layout blocks, and its Herdr plugin entries, each only if you did not change it. The rest of your Herdr settings stays.
+- The kit's commands in `<root>/.tools/bin` (including its `codex` and `claude` commands), its Herdr keys and layout blocks, and its Herdr plugin entries, each only if you did not change it. The rest of your Herdr settings stays.
 - The tower's start-up entry in your Firstmate home, your help page if you never changed it, the Figma CLI's skills, and the Claude plugins and marketplaces the kit added (your own stay).
 - Starter routing rules written by an older kit release, if nobody changed them since.
 - The Codex "hooks on" setting, but only if the kit was the one that turned it on. If that setting was changed since, it is left alone and reported.
@@ -2215,7 +2215,7 @@ It shows a plan and asks before changing anything.
 - The Treehouse wrapper, if you did not change it. A changed wrapper is left for you to review.
 - The kit's hook entries in `~/.claude/settings.json` and `~/.codex/hooks.json`, its receipt-owned OpenCode plugin when selected, and its skill links in `~/.claude/skills/` and `~/.agents/skills/`.
 - The tower config the kit wrote, if you did not change it.
-- The kit's commands in `<root>/.tools/bin` (including its `codex`, `claude` and `opencode` commands), its Herdr keys and layout blocks, and its Herdr plugin entries, each only if you did not change it. The rest of your Herdr settings stays.
+- The kit's commands in `<root>/.tools/bin` (including its `codex` and `claude` commands), its Herdr keys and layout blocks, and its Herdr plugin entries, each only if you did not change it. The rest of your Herdr settings stays.
 - The tower's start-up entry in your Firstmate home, your help page if you never changed it, the Figma CLI's skills, and the Claude plugins and marketplaces the kit added (your own stay).
 - Starter routing rules written by an older kit release, if nobody changed them since.
 - The Codex "hooks on" setting, but only if the kit was the one that turned it on. If that setting was changed since, it is left alone and reported.

@@ -6,7 +6,7 @@ import { dirname, isAbsolute, join } from 'node:path';
 import { findOnPath } from './platforms/macos.mjs';
 import { applyPlugin, describePlugin, planPlugin } from './herdr-plugin.mjs';
 import { claudePluginsHealth, placeClaudePlugins, recordClaudePreviousRevision } from './claude-plugins.mjs';
-import { captainOf } from './harness.mjs';
+import { receiptCaptain } from './harness.mjs';
 
 // Keyboard shortcuts for a teammate's Firstmate: kit-owned launchers in <root>/.tools/bin (open-firstmate runs
 // the kit's templates/shortcuts/open_firstmate.py, fm-mate runs `agent-kit mate`) with paths from the receipt,
@@ -37,7 +37,7 @@ const onPath = (name, env) => findOnPath(name, env.PATH || '')[0] || null;
 export function shortcutInputs(receipt, root, env, recorded = null, kitPath = null) {
   const phase = id => receipt.phases?.[id]?.state === 'complete' && typeof receipt.phases[id].path === 'string' ? join(root, receipt.phases[id].path) : null;
   const harness = receipt.setup?.answers?.harness || 'codex';
-  const captain = captainOf(receipt.setup?.answers?.captain, harness);
+  const captain = receiptCaptain(receipt, harness);
   const python = recorded?.python && stat(recorded.python) ? recorded.python : onPath('python3', env);
   const codexTree = phase('npm-codex');
   const opencodeTree = phase('npm-opencode');

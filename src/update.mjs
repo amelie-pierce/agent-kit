@@ -9,7 +9,7 @@ import { herdrConfigPath, ownedFiles, placeKitExtras, shortcutInputs } from './s
 import { pluginsPath, zoeFile } from './herdr-plugin.mjs';
 import { ProfileChanged, profileTarget, reconcileProfile, saveProfileRecord } from './shell-profile.mjs';
 import { applyStarter, describeStarter, harnessOf, modeOf, planStarter, plansOf, strategyTakesPlans } from './dispatch.mjs';
-import { captainOf } from './harness.mjs';
+import { receiptCaptain } from './harness.mjs';
 import { validateManifest } from './kit.mjs';
 import { artifactFor, artifactTarget, linuxIdentity } from './platforms/linux.mjs';
 
@@ -32,7 +32,7 @@ export function planUpdate(manifest, { installRoot, home, env = process.env, pla
   if (receipt.schemaVersion !== 1 || !receipt.phases || receipt.pendingUpdate && receipt.pendingUpdate !== manifest.release) throw new Error('incompatible receipt or another update is pending');
   const answers = receipt.setup?.answers || {};
   const effectiveHarness = answers.harness || (receipt.phases['npm-codex'] ? 'codex' : harness);
-  const effectiveCaptain = captainOf(answers.captain, effectiveHarness);
+  const effectiveCaptain = receiptCaptain(receipt, effectiveHarness);
   const oldManifest = structuredClone(manifest);
   for (const tool of oldManifest.tools) if (tool.kind !== 'prerequisite' && receipt.phases[tool.id]?.version) tool.version.value = receipt.phases[tool.id].version;
   const health = doctor(oldManifest, { installRoot: root, home, env, nodeVersion, platform, arch });

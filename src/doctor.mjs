@@ -7,7 +7,7 @@ import { previewHooks } from './install/hooks.mjs';
 import { npmGroup, towerPaths } from './install/macos.mjs';
 import { inspectPlatform } from './platforms/index.mjs';
 import { artifactFor } from './platforms/linux.mjs';
-import { captainOf, isOpenCode2, usesProfile } from './harness.mjs';
+import { isOpenCode2, receiptCaptain, usesProfile } from './harness.mjs';
 import { jevReadiness } from './dispatch.mjs';
 import { shortcutsHealth } from './shortcuts.mjs';
 import { herdrPathHealth } from './herdr-path.mjs';
@@ -93,7 +93,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, herdrPa
     try {
       const recorded = JSON.parse(readFileSync(receiptPath, 'utf8'));
       recordedHarness = recorded.setup?.answers?.harness || (recorded.phases?.['npm-codex'] ? 'codex' : 'claude');
-      recordedCaptain = captainOf(recorded.setup?.answers?.captain, recordedHarness);
+      recordedCaptain = receiptCaptain(recorded, recordedHarness);
     }
     catch { /* The receipt validation below reports malformed JSON. */ }
   }
@@ -187,7 +187,7 @@ export function doctor(manifest, { installRoot, home, env = process.env, herdrPa
     checks.push(status(`${tool.id}-path`, !found ? 'unknown' : same || kitLauncher ? 'pass' : 'fail', !found ? 'not on PATH' : same ? 'kit npm binary has PATH precedence'
       : kitLauncher ? 'the kit launcher in front of the pinned binary has PATH precedence' : 'another binary has PATH precedence'));
   }
-  const captain = captainOf(receipt.setup?.answers?.captain, recordedHarness);
+  const captain = receiptCaptain(receipt, recordedHarness);
   if (captain === 'opencode') {
     const phase = receipt.phases['npm-opencode'], base = phase && phasePath(root, 'npm-opencode', phase);
     const binary = base && join(base, 'node_modules', '.bin', 'opencode');
