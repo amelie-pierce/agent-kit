@@ -252,6 +252,17 @@ async function checkReceipt(root, receipt, id, version, artifactSha, options = {
   if (digest !== entry.ownedSha256) throw new Error(`kit-owned ${id} changed; refusing overwrite`);
   return true;
 }
+async function dropOwnedTree(root, release, receipt, id, save) {
+  const entry = receipt.phases[id], path = join(root, entry.path || '');
+  if (!entry.path || !resolve(path).startsWith(`${resolve(root)}${sep}`) || entry.path.split(sep).includes('..')) throw new Error(`unsafe receipt path for ${id}`);
+  const st = await exists(path);
+  if (st && (!st.isDirectory() || await hashTree(path) !== entry.ownedSha256)) throw new Error(`kit-owned ${id} changed; refusing to remove it (agent-kit repair backs it up)`);
+  const trash = ownedPath(root, 'releases', release, 'staging', `${id}-removed-${randomUUID()}`);
+  if (st) await rename(path, trash);
+  delete receipt.phases[id];
+  await save();
+  if (st) await rm(trash, { recursive: true, force: true });
+}
 export function selected(manifest, harness, withFigma, withTower = true, captain = null) {
   return manifest.tools.filter(t => t.kind !== 'prerequisite' && t.classification !== 'never-ship' && (withTower || !towerIds.has(t.id))
     && (t.profile === 'core' || usesProfile(harness, t.profile) || (t.profile === 'opencode' && captainOf(captain, harness) === 'opencode') || (withFigma && t.profile === 'figma')));
@@ -441,9 +452,9 @@ export async function installPlatform(manifest, options = {}) {
     if (options.update && receipt.release !== release) { receipt.pendingUpdate = release; await save(); }
     const components = [], targetKey = linux ? artifactTarget(linux, arch) : `${platform}-${arch}`, harness = options.harness || 'claude';
     const captain = options.captain ? captainOf(options.captain, harness) : receiptCaptain(receipt, harness);
-    if (captain !== 'opencode' && receipt.phases['npm-opencode']) { delete receipt.phases['npm-opencode']; await save(); }
     const chosen = selected(manifest, harness, !!options.withFigma, options.withTower !== false, captain);
     await mkdir(join(root, 'releases', release, 'staging'), { recursive: true, mode: 0o700 });
+    if (captain !== 'opencode' && receipt.phases['npm-opencode']) await dropOwnedTree(root, release, receipt, 'npm-opencode', save);
     for (const tool of chosen) {
       if (npmGroup(tool.id)) continue;
       const a = artifactFor(tool, targetKey);

@@ -337,6 +337,36 @@ test('a direct install that switches from OpenCode back to the default captain d
   assert.equal(receiptCaptain(kept, 'codex'), 'codex', 'a blocked plugin removal does not bring the OpenCode captain back');
 });
 
+test('switching the captain from OpenCode to Codex and back in one release reinstalls the pinned OpenCode tree', posixOnly, async t => {
+  const f = fixture(t);
+  const installRoot = join(f.root, '.tools'), receiptPath = join(installRoot, 'receipt.json');
+  const tree = join(installRoot, 'releases', 'fixture-1', 'npm-opencode'), staging = join(installRoot, 'releases', 'fixture-1', 'staging');
+  const fixtureManifest = { ...f.fixtureManifest, tools: [...f.fixtureManifest.tools, structuredClone(manifest.tools.find(x => x.id === 'opencode'))] };
+  let npmRuns = 0;
+  const runNpm = async stage => {
+    npmRuns++;
+    const pkg = join(stage, 'node_modules', '@opencode', 'cli-linux-x64-baseline');
+    mkdirSync(join(pkg, 'bin'), { recursive: true });
+    writeFileSync(join(pkg, 'package.json'), JSON.stringify({ version: '2.3.2' }));
+    writeFileSync(join(pkg, 'bin', 'opencode'), 'fixture opencode', { mode: 0o755 });
+    mkdirSync(join(stage, 'node_modules', '@opencode', 'cli', 'bin'), { recursive: true });
+  };
+  const install = captain => installPlatform(fixtureManifest, { platform: 'linux', arch: 'x64', home: f.home, env: f.env, nodeVersion: '24.21.0', libc: 'glibc', procVersion: 'Linux version 6.8.0-generic', osRelease: 'PRETTY_NAME="Fixture Linux"',
+    installRoot, firstmateHome: join(f.root, 'firstmate'), harness: 'codex', captain, withTower: false, globalHooks: false, runNpm, runOpenCodeVersion: async () => '2.3.2', ...f.installOptions });
+  const opencode = result => result.components.find(x => x.id === 'npm-opencode')?.status;
+  assert.equal(opencode(await install('opencode')), 'installed');
+  assert.ok(existsSync(join(tree, 'node_modules', '@opencode', 'cli', 'bin', 'opencode.exe')));
+  assert.equal(opencode(await install('codex')), undefined);
+  assert.equal(existsSync(tree), false, 'the kit-owned OpenCode tree leaves with its receipt phase');
+  assert.deepEqual(readdirSync(staging).filter(name => name.startsWith('npm-opencode')), []);
+  assert.equal(opencode(await install('opencode')), 'installed', 'switching back reinstalls instead of refusing a leftover tree');
+  assert.equal(npmRuns, 2);
+  writeFileSync(join(tree, 'node_modules', '@opencode', 'cli', 'bin', 'opencode.exe'), 'edited by the person');
+  await assert.rejects(install('codex'), /kit-owned npm-opencode changed; refusing to remove it/);
+  assert.equal(readFileSync(join(tree, 'node_modules', '@opencode', 'cli', 'bin', 'opencode.exe'), 'utf8'), 'edited by the person');
+  assert.ok(JSON.parse(readFileSync(receiptPath, 'utf8')).phases['npm-opencode'], 'a changed tree keeps its receipt phase for repair');
+});
+
 test('the OpenCode auto-approve launch follows its warning, is on by default, is saved, and stays off when answered no', posixOnly, async t => {
   const f = fixture(t);
   f.fixtureManifest.tools.push(structuredClone(manifest.tools.find(x => x.id === 'opencode')));
