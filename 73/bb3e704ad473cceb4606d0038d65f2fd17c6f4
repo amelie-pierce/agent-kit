@@ -1,0 +1,19 @@
+docs/user-guide.md
+  s_e7299640b24af0::t_051be0725af8b7 671,2111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "73bb3e704ad473cceb4606d0038d65f2fd17c6f4",
+  "prompts": {},
+  "sessions": {
+    "s_e7299640b24af0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e809483a-9a15-40bb-a41b-7e6db35714da",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Pike Nguyen <pikenguyen227@gmail.com>"
+    }
+  }
+}
